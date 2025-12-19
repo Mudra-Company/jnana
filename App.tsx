@@ -194,6 +194,37 @@ const AppContent: React.FC = () => {
     }
   }, [user, profile, authLoading]);
 
+  // Load all users for Super Admin dashboard
+  const loadAllUsersForSuperAdmin = async () => {
+    const { supabase } = await import('./src/integrations/supabase/client');
+    
+    // Query all company_members with their profiles
+    const { data: members, error } = await supabase
+      .from('company_members')
+      .select(`
+        *,
+        profiles!company_members_user_id_fkey (*)
+      `);
+    
+    if (error) {
+      console.error('Error loading users for super admin:', error);
+      return;
+    }
+    
+    if (members) {
+      const users = members
+        .filter(m => m.profiles) // Only include members with profiles
+        .map(m => profileToLegacyUser(
+          m.profiles,
+          m, // membership
+          null, // riasecResult
+          null, // karmaSession
+          null  // climateResponse
+        ));
+      setCompanyUsers(users);
+    }
+  };
+
   const loadCurrentUserData = async () => {
     if (!user || !profile) return;
 
@@ -210,6 +241,7 @@ const AppContent: React.FC = () => {
 
       // Determine initial view
       if (isSuperAdmin) {
+        await loadAllUsersForSuperAdmin(); // Load all users for dashboard
         setView({ type: 'SUPER_ADMIN_DASHBOARD' });
       } else if (isCompanyAdmin && userData.membership?.company_id) {
         await loadCompanyData(userData.membership.company_id);
