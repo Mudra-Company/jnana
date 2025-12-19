@@ -166,6 +166,7 @@ export type JobDatabase = Record<string, JobSuggestion[]>;
 
 export type ViewState = 
   | { type: 'LOGIN' }
+  | { type: 'SEED_DATA' }
   | { type: 'SUPER_ADMIN_DASHBOARD' }
   | { type: 'SUPER_ADMIN_JOBS' }
   | { type: 'ADMIN_DASHBOARD' }
