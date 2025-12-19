@@ -21,6 +21,7 @@ import { UserTestView } from './views/user/UserTestView';
 import { ClimateTestView } from './views/user/ClimateTestView';
 import { KarmaChatView } from './views/user/KarmaChatView';
 import { UserResultView } from './views/user/UserResultView';
+import SeedDataView from './src/views/admin/SeedDataView';
 
 // Adapter to convert DB profile to legacy User type
 const profileToLegacyUser = (
@@ -157,7 +158,14 @@ const AppContent: React.FC = () => {
   const { saveRiasecResult, saveKarmaSession, saveClimateResponse, updateMemberStatus } = useTestResults();
 
   const [jobDb, setJobDb] = useState<JobDatabase>({});
-  const [view, setView] = useState<ViewState>({ type: 'LOGIN' });
+  const [view, setView] = useState<ViewState>(() => {
+    // Check for seed URL parameter
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('seed') === 'true') {
+      return { type: 'SEED_DATA' };
+    }
+    return { type: 'LOGIN' };
+  });
   const [viewHistory, setViewHistory] = useState<ViewState[]>([]);
   const [isDark, setIsDark] = useState(false);
   const [impersonatedCompanyId, setImpersonatedCompanyId] = useState<string | null>(null);
@@ -397,6 +405,8 @@ const AppContent: React.FC = () => {
 
         <main className="animate-fade-in">
           {view.type === 'LOGIN' && <AuthView />}
+          
+          {view.type === 'SEED_DATA' && <SeedDataView />}
 
           {view.type === 'SUPER_ADMIN_DASHBOARD' && (
             <SuperAdminDashboard
