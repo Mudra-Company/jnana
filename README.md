@@ -1,73 +1,72 @@
-# Welcome to your Lovable project
+# Mudra Platform (Jnana HR)
 
-## Project info
+A comprehensive Human Capital Management platform focused on the **RIASEC** methodology for employee assessment, skill mapping, and organizational management.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+## 🚀 Features
 
-## How can I edit this code?
+### 1. Multi-Tenant Architecture
+*   **Super Admin Console**: Manage multiple companies (tenants) from a single dashboard.
+*   **Impersonation Mode**: Super Admins can "enter" a company environment to assist with configuration.
+*   **Company Management**: Create, edit, and delete company profiles with detailed metadata (Industry, Size, Logo, etc.).
 
-There are several ways of editing your application.
+### 2. Organizational Chart Management
+*   **Interactive Tree View**: Visual editor for company hierarchy (Departments, Teams).
+*   **Recursive Structure**: Supports infinite nesting of organizational units.
+*   **User Assignment**: Drag-and-drop style assignment of employees to specific nodes.
 
-**Use Lovable**
+### 3. RIASEC Assessment System
+*   **4-Part Questionnaire**: Implements the standardized 4-section RIASEC test (Behavior, Interests, Dream Jobs, Self-Evaluation).
+*   **Scoring Engine**: Complex scoring logic that maps user choices to 6 dimensions (R-I-A-S-E-C).
+*   **Profile Generation**: Automatically generates a 3-letter profile code (e.g., "A-I-R").
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+### 4. Job Benchmarking & Analytics
+*   **Benchmark Database**: Configurable database of job profiles with "Ideal Scores".
+*   **Gap Analysis**: Radar chart comparison between User Results and Job Benchmarks.
+*   **Competency Grid**: Visualizes dominant traits and their intensity (1-5 scale) based on raw scores.
 
-Changes made via Lovable will be committed automatically to this repo.
+## 🛠 Tech Stack
 
-**Use your preferred IDE**
+*   **Frontend**: React 18, TypeScript
+*   **Styling**: Tailwind CSS (custom `jnana` theme)
+*   **Visualization**: Recharts (Radar, Bar charts)
+*   **Icons**: Lucide React
+*   **State**: Local React State (Mock backend)
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+## 📂 Project Structure
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+*   `App.tsx`: Main application controller, view routing, and primary views.
+*   `services/riasecService.ts`: Core business logic (Scoring, Report Generation, Benchmarking).
+*   `data/riasecContent.ts`: Static content for the RIASEC methodology (Descriptions, Quotes, Job mappings).
+*   `types.ts`: TypeScript interfaces for the domain model.
+*   `constants.ts`: Configuration constants and initial mock data.
 
-Follow these steps:
+## 📖 Usage Guide
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+### Super Admin
+1.  Log in as Super Admin.
+2.  Use the **Aziende** tab to create new company tenants.
+3.  Use the **DB Lavori** tab to configure benchmark scores for specific job titles.
+4.  Click "Entra nell'ambiente" to manage a specific company.
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+### Tenant Admin
+1.  Log in as a Tenant Admin (or impersonate via Super Admin).
+2.  **Dashboard**: View invited users, completion status, and aggregate KPIs.
+3.  **Organigramma**: Build the company tree and assign users to teams.
+4.  **Invito**: Send test invitations to employees.
 
-# Step 3: Install the necessary dependencies.
-npm i
+### User Flow
+1.  Users receive an invite (simulated via "Simula Test").
+2.  Complete the 4-part questionnaire.
+3.  View immediate results including:
+    *   RIASEC Profile Code.
+    *   Detailed textual report.
+    *   Comparison against their current Job Title benchmark.
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
-```
+## 🧠 RIASEC Dimensions
 
-**Edit a file directly in GitHub**
-
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
-
-**Use GitHub Codespaces**
-
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
-
-## What technologies are used for this project?
-
-This project is built with:
-
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+*   **R (Realistico)**: Praticità, manualità, concretezza.
+*   **I (Investigativo)**: Analisi, logica, curiosità intellettuale.
+*   **A (Artistico)**: Creatività, innovazione, anticonformismo.
+*   **S (Sociale)**: Empatia, cooperazione, supporto.
+*   **E (Intraprendente)**: Leadership, dinamismo, competizione.
+*   **C (Convenzionale)**: Organizzazione, precisione, metodo.

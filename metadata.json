@@ -1,0 +1,5 @@
+{
+  "name": "Jnana HR Platform",
+  "description": "A human-centric HR platform for mapping employee skills using the RIASEC test methodology. Features admin dashboard and user assessment flow.",
+  "requestFramePermissions": []
+}
