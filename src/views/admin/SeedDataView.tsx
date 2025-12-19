@@ -1,9 +1,12 @@
 import React, { useState } from 'react';
 import { seedAdminUser } from '../../utils/seedAdmin';
+import { supabase } from '../../integrations/supabase/client';
 
 const SeedDataView: React.FC = () => {
   const [status, setStatus] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isDemoLoading, setIsDemoLoading] = useState(false);
+  const [demoStatus, setDemoStatus] = useState<string>('');
 
   const handleSeed = async () => {
     setIsLoading(true);
@@ -23,13 +26,45 @@ const SeedDataView: React.FC = () => {
     }
   };
 
+  const handleSeedDemoUsers = async () => {
+    setIsDemoLoading(true);
+    setDemoStatus('Creating 18 demo users with all data...');
+    
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/seed-demo-users`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+      
+      const data = await response.json();
+      
+      if (response.ok) {
+        const successCount = data.results?.filter((r: any) => r.success).length || 0;
+        const failCount = data.results?.filter((r: any) => !r.success).length || 0;
+        setDemoStatus(`✅ ${data.message || `Created ${successCount} users, ${failCount} failed`}`);
+      } else {
+        setDemoStatus(`❌ Error: ${data.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      setDemoStatus(`❌ Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setIsDemoLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background p-8">
-      <div className="max-w-2xl mx-auto">
+      <div className="max-w-2xl mx-auto space-y-6">
+        {/* Admin User Section */}
         <div className="bg-card border border-border rounded-lg p-6">
-          <h1 className="text-2xl font-bold text-foreground mb-4">Seed Database</h1>
+          <h1 className="text-2xl font-bold text-foreground mb-4">1. Create Admin User</h1>
           <p className="text-muted-foreground mb-6">
-            Click the button below to create the admin user and seed the database.
+            Create the super admin user to access the admin dashboard.
           </p>
           
           <div className="space-y-4">
@@ -52,8 +87,49 @@ const SeedDataView: React.FC = () => {
             </button>
 
             {status && (
-              <div className={`p-4 rounded-lg ${status.includes('✅') ? 'bg-green-100 text-green-800' : status.includes('❌') ? 'bg-red-100 text-red-800' : 'bg-blue-100 text-blue-800'}`}>
+              <div className={`p-4 rounded-lg ${status.includes('✅') ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' : status.includes('❌') ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300' : 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'}`}>
                 {status}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Demo Users Section */}
+        <div className="bg-card border border-border rounded-lg p-6">
+          <h1 className="text-2xl font-bold text-foreground mb-4">2. Seed Demo Users</h1>
+          <p className="text-muted-foreground mb-6">
+            Create 18 demo users for Dürr Dental Italia with complete data (profiles, RIASEC, Karma, Climate).
+          </p>
+          
+          <div className="space-y-4">
+            <div className="bg-muted p-4 rounded-lg">
+              <h3 className="font-semibold text-foreground mb-2">Demo Users Include:</h3>
+              <ul className="text-sm text-muted-foreground space-y-1">
+                <li>• 18 employees across all departments</li>
+                <li>• Complete RIASEC assessment results</li>
+                <li>• Karma session data (soft skills, values, risks)</li>
+                <li>• Climate survey responses</li>
+                <li>• Company membership with department assignments</li>
+              </ul>
+            </div>
+
+            <div className="bg-amber-100 dark:bg-amber-900/30 p-4 rounded-lg">
+              <p className="text-sm text-amber-800 dark:text-amber-300">
+                ⚠️ Run this AFTER creating the admin user. Demo users will have password: <code className="bg-amber-200 dark:bg-amber-800 px-1 rounded">DemoUser2024!</code>
+              </p>
+            </div>
+
+            <button 
+              onClick={handleSeedDemoUsers} 
+              disabled={isDemoLoading}
+              className="px-4 py-2 bg-secondary text-secondary-foreground rounded-lg hover:bg-secondary/90 disabled:opacity-50"
+            >
+              {isDemoLoading ? 'Creating demo users...' : 'Seed Demo Users (18)'}
+            </button>
+
+            {demoStatus && (
+              <div className={`p-4 rounded-lg ${demoStatus.includes('✅') ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' : demoStatus.includes('❌') ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300' : 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'}`}>
+                {demoStatus}
               </div>
             )}
           </div>
