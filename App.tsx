@@ -153,7 +153,7 @@ const companyToLegacy = (company: any, orgNodes?: any[]): CompanyProfile => {
 // --- MAIN APP CONTENT ---
 const AppContent: React.FC = () => {
   const { user, profile, membership, isLoading: authLoading, isSuperAdmin, isCompanyAdmin, signOut } = useAuth();
-  const { companies, fetchCompanyWithStructure } = useCompanies();
+  const { companies, setCompanies, fetchCompanyWithStructure } = useCompanies();
   const { profiles, fetchUserWithDetails } = useProfiles(membership?.company_id);
   const { saveRiasecResult, saveKarmaSession, saveClimateResponse, updateMemberStatus } = useTestResults();
 
@@ -193,6 +193,25 @@ const AppContent: React.FC = () => {
       }
     }
   }, [user, profile, authLoading]);
+
+  // Load all companies for Super Admin dashboard (after authentication)
+  const loadAllCompaniesForSuperAdmin = async () => {
+    const { supabase } = await import('./src/integrations/supabase/client');
+    
+    const { data, error } = await supabase
+      .from('companies')
+      .select('*')
+      .order('name');
+    
+    if (error) {
+      console.error('Error loading companies for super admin:', error);
+      return;
+    }
+    
+    if (data) {
+      setCompanies(data);
+    }
+  };
 
   // Load all users for Super Admin dashboard
   const loadAllUsersForSuperAdmin = async () => {
@@ -241,6 +260,7 @@ const AppContent: React.FC = () => {
 
       // Determine initial view
       if (isSuperAdmin) {
+        await loadAllCompaniesForSuperAdmin(); // Load companies AFTER auth
         await loadAllUsersForSuperAdmin(); // Load all users for dashboard
         setView({ type: 'SUPER_ADMIN_DASHBOARD' });
       } else if (isCompanyAdmin && userData.membership?.company_id) {
