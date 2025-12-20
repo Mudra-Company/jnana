@@ -274,13 +274,64 @@ const AppContent: React.FC = () => {
     }
   };
 
+  // Load all company users with full details (RIASEC, Karma, Climate) directly from DB
+  const loadCompanyUsersWithDetails = async (companyId: string): Promise<User[]> => {
+    const { supabase } = await import('./src/integrations/supabase/client');
+    
+    // 1. Load company_members with profiles
+    const { data: members, error: membersError } = await supabase
+      .from('company_members')
+      .select(`
+        *,
+        profiles:user_id (*)
+      `)
+      .eq('company_id', companyId);
+    
+    if (membersError || !members || members.length === 0) {
+      console.error('Error loading company members:', membersError);
+      return [];
+    }
+    
+    const userIds = members.map(m => m.user_id);
+    
+    // 2. Load RIASEC results for all users
+    const { data: riasecResults } = await supabase
+      .from('riasec_results')
+      .select('*')
+      .in('user_id', userIds);
+    
+    // 3. Load Karma sessions for all users
+    const { data: karmaSessions } = await supabase
+      .from('karma_sessions')
+      .select('*')
+      .in('user_id', userIds);
+    
+    // 4. Load Climate responses for all users
+    const { data: climateResponses } = await supabase
+      .from('climate_responses')
+      .select('*')
+      .in('user_id', userIds);
+    
+    // 5. Transform to legacy User format
+    return members
+      .filter(m => m.profiles)
+      .map(member => {
+        const profile = member.profiles as any;
+        const riasec = riasecResults?.find(r => r.user_id === member.user_id);
+        const karma = karmaSessions?.find(k => k.user_id === member.user_id);
+        const climate = climateResponses?.find(c => c.user_id === member.user_id);
+        
+        return profileToLegacyUser(profile, member, riasec, karma, climate);
+      });
+  };
+
   const loadCompanyData = async (companyId: string) => {
     const companyWithStructure = await fetchCompanyWithStructure(companyId);
     if (companyWithStructure) {
       setActiveCompanyData(companyToLegacy(companyWithStructure, companyWithStructure.structure));
       
-      // Load company users
-      const users = profiles.map(p => profileToLegacyUser(p));
+      // Load company users with ALL details (RIASEC, Karma, Climate) directly from DB
+      const users = await loadCompanyUsersWithDetails(companyId);
       setCompanyUsers(users);
     }
   };
