@@ -99,6 +99,7 @@ export const useCompanies = () => {
 
   return {
     companies,
+    setCompanies,
     isLoading,
     error,
     fetchCompanies,
