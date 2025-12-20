@@ -3,7 +3,6 @@ import { RiasecScore, RiasecDimension, User, JobDatabase, JobSuggestion, ChatMes
 import { RIASEC_SECTIONS } from '../constants';
 import { POLE_CONTENT, COMBINATION_CONTENT, JOB_SUGGESTIONS } from '../data/riasecContent';
 import { DIMENSION_LABELS } from '../constants';
-import { GoogleGenAI, Type } from "@google/genai";
 
 /**
  * Returns an initial zeroed-out score object.
@@ -350,72 +349,7 @@ export const generateKarmaSystemInstruction = (scores: RiasecScore): string => {
   `;
 };
 
-/**
- * NEW: Analyzes the completed transcript to generate structured data.
- * Enhanced to extract Risk Factors and be less "nice".
- */
-export const analyzeKarmaTranscript = async (transcript: ChatMessage[]): Promise<Partial<KarmaData>> => {
-    try {
-        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-        const conversationText = transcript.map(m => `${m.role.toUpperCase()}: ${m.text}`).join('\n');
-        
-        const response = await ai.models.generateContent({
-            model: "gemini-3-flash-preview", // Updated model name for Basic Text Tasks
-            contents: `Sei un Senior HR Assessor e Psicologo del Lavoro.
-            Analizza la seguente trascrizione di colloquio per creare un profilo onesto e "chirurgico" del candidato.
-            Non essere buonista: identifica sia i punti di forza che i potenziali rischi (Luce e Ombra).
-            
-            ISTRUZIONI DI ANALISI:
-            Analizza non solo il contenuto esplicito, ma anche lo stile comunicativo, la sintassi, le esitazioni e le contraddizioni.
-            
-            GENERA UN REPORT JSON CON I SEGUENTI CAMPI:
-            1. "summary": Una sintesi professionale (max 300 caratteri) in terza persona.
-            2. "soft_skills": Estrai esattamente 5 Soft Skills distintive emerse (es. "Gestione dell'ambiguità", "Comunicazione persuasiva").
-            3. "primary_values": Identifica 3-4 valori cardine che guidano le scelte (es. "Meritocrazia", "Status", "Sicurezza").
-            4. "risk_factors": IMPORTANTE. Identifica 2-3 potenziali comportamenti tossici, limitanti o rischi di disallineamento (es. "Tendenza al micromanagement", "Bassa tolleranza allo stress", "Conflittualità latente", "Rigidità mentale"). Se il profilo è eccellente, cerca comunque aree di attenzione (es. "Rischio burnout per eccesso di zelo").
-            5. "seniority_assessment": Valuta il livello (Junior, Mid, Senior, Lead, C-Level).
-            
-            TRASCRIZIONE:
-            ${conversationText}`,
-            config: {
-                responseMimeType: "application/json",
-                responseSchema: {
-                    type: Type.OBJECT,
-                    properties: {
-                        summary: { type: Type.STRING },
-                        soft_skills: { type: Type.ARRAY, items: { type: Type.STRING } },
-                        primary_values: { type: Type.ARRAY, items: { type: Type.STRING } },
-                        risk_factors: { type: Type.ARRAY, items: { type: Type.STRING } },
-                        seniority_assessment: { type: Type.STRING, enum: ["Junior", "Mid", "Senior", "Lead", "C-Level"] }
-                    },
-                    required: ["summary", "soft_skills", "primary_values", "risk_factors", "seniority_assessment"]
-                }
-            }
-        });
-
-        const jsonText = response.text;
-        if (!jsonText) throw new Error("No response from AI");
-        
-        const parsed = JSON.parse(jsonText);
-        return {
-            summary: parsed.summary,
-            softSkills: parsed.soft_skills,
-            primaryValues: parsed.primary_values,
-            riskFactors: parsed.risk_factors,
-            seniorityAssessment: parsed.seniority_assessment
-        };
-    } catch (e) {
-        console.error("Error analyzing transcript:", e);
-        // Fallback
-        return {
-            summary: "Analisi automatica non disponibile. Il candidato ha completato il colloquio.",
-            softSkills: ["Comunicazione", "Impegno"],
-            primaryValues: ["Professionalità"],
-            riskFactors: ["Dati insufficienti"],
-            seniorityAssessment: "Mid"
-        };
-    }
-};
+// analyzeKarmaTranscript has been moved to edge function: supabase/functions/karma-analyze
 
 /**
  * CALCULATES DEEP CULTURE ANALYSIS (Declared vs. Acted vs. Risks)

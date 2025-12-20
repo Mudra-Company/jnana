@@ -4,7 +4,8 @@ import { useCompanies } from './src/hooks/useCompanies';
 import { useProfiles } from './src/hooks/useProfiles';
 import { useTestResults } from './src/hooks/useTestResults';
 import { ViewState, RiasecScore, JobDatabase, OrgNode, ChatMessage, ClimateData, CompanyProfile, User } from './types';
-import { calculateProfileCode, analyzeKarmaTranscript } from './services/riasecService';
+import { calculateProfileCode } from './services/riasecService';
+import { supabase } from './src/integrations/supabase/client';
 import { loadJobDb, saveJobDb } from './services/storageService';
 
 // Imported Views & Components
@@ -393,8 +394,21 @@ const AppContent: React.FC = () => {
   const handleKarmaComplete = async (transcript: ChatMessage[]) => {
     if (!currentUserData || !user) return;
 
-    // Analyze transcript
-    const karmaDataPartial = await analyzeKarmaTranscript(transcript);
+    // Call edge function to analyze transcript
+    let karmaDataPartial: any = {};
+    try {
+      const { data, error } = await supabase.functions.invoke('karma-analyze', {
+        body: { transcript: transcript.map(m => ({ role: m.role, text: m.text })) }
+      });
+      
+      if (error) {
+        console.error('Karma analysis error:', error);
+      } else {
+        karmaDataPartial = data;
+      }
+    } catch (e) {
+      console.error('Error calling karma-analyze:', e);
+    }
 
     // Save to database
     await saveKarmaSession(
