@@ -1,6 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Sparkles, Send, Info, Loader2 } from 'lucide-react';
-import { GoogleGenAI, Chat } from "@google/genai";
 import { Card } from '../../components/Card';
 import { Button } from '../../components/Button';
 import { User, ChatMessage } from '../../types';
@@ -8,7 +7,7 @@ import { generateKarmaSystemInstruction } from '../../services/riasecService';
 
 interface KarmaChatViewProps {
   user: User;
-  onComplete: (transcript: ChatMessage[]) => Promise<void>; // Updated to Promise to handle loading state
+  onComplete: (transcript: ChatMessage[]) => Promise<void>;
 }
 
 // Helper to parse **bold** text inside chat messages
@@ -24,51 +23,133 @@ const renderMessageText = (text: string) => {
     );
 };
 
+// Streaming chat function using edge function
+const streamKarmaChat = async (
+  messages: { role: 'user' | 'assistant'; content: string }[],
+  systemPrompt: string,
+  onDelta: (delta: string) => void,
+  onDone: () => void,
+  onError: (error: string) => void
+) => {
+  const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/karma-chat`;
+  
+  try {
+    const resp = await fetch(CHAT_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+      },
+      body: JSON.stringify({ messages, systemPrompt }),
+    });
+
+    if (!resp.ok) {
+      const errorData = await resp.json().catch(() => ({}));
+      onError(errorData.error || 'Errore nella comunicazione con Karma AI');
+      return;
+    }
+
+    if (!resp.body) {
+      onError('Nessuna risposta dal server');
+      return;
+    }
+
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let textBuffer = '';
+    let streamDone = false;
+
+    while (!streamDone) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      textBuffer += decoder.decode(value, { stream: true });
+
+      // Process line-by-line as data arrives
+      let newlineIndex: number;
+      while ((newlineIndex = textBuffer.indexOf('\n')) !== -1) {
+        let line = textBuffer.slice(0, newlineIndex);
+        textBuffer = textBuffer.slice(newlineIndex + 1);
+
+        if (line.endsWith('\r')) line = line.slice(0, -1);
+        if (line.startsWith(':') || line.trim() === '') continue;
+        if (!line.startsWith('data: ')) continue;
+
+        const jsonStr = line.slice(6).trim();
+        if (jsonStr === '[DONE]') {
+          streamDone = true;
+          break;
+        }
+
+        try {
+          const parsed = JSON.parse(jsonStr);
+          const content = parsed.choices?.[0]?.delta?.content as string | undefined;
+          if (content) onDelta(content);
+        } catch {
+          // Incomplete JSON, put back and wait
+          textBuffer = line + '\n' + textBuffer;
+          break;
+        }
+      }
+    }
+
+    // Final flush
+    if (textBuffer.trim()) {
+      for (let raw of textBuffer.split('\n')) {
+        if (!raw) continue;
+        if (raw.endsWith('\r')) raw = raw.slice(0, -1);
+        if (raw.startsWith(':') || raw.trim() === '') continue;
+        if (!raw.startsWith('data: ')) continue;
+        const jsonStr = raw.slice(6).trim();
+        if (jsonStr === '[DONE]') continue;
+        try {
+          const parsed = JSON.parse(jsonStr);
+          const content = parsed.choices?.[0]?.delta?.content as string | undefined;
+          if (content) onDelta(content);
+        } catch { /* ignore */ }
+      }
+    }
+
+    onDone();
+  } catch (error) {
+    console.error('Streaming error:', error);
+    onError('Errore di connessione con Karma AI');
+  }
+};
+
 export const KarmaChatView: React.FC<KarmaChatViewProps> = ({ user, onComplete }) => {
   const [messages, setMessages] = useState<ChatMessage[]>(user.karmaData?.transcript || []);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
-  const [isClosing, setIsClosing] = useState(false); // State to prevent double clicks on close
+  const [isClosing, setIsClosing] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
-  // Ref for the Chat instance to persist across renders
-  const chatSessionRef = useRef<Chat | null>(null);
+  // Store system prompt
+  const systemPromptRef = useRef<string>('');
 
-  // Initialize Chat Session on mount if not already present
+  // Initialize on mount
   useEffect(() => {
-    if (!chatSessionRef.current) {
-        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-        const systemInstruction = user.results ? generateKarmaSystemInstruction(user.results) : "Sei un assistente HR.";
-        
-        chatSessionRef.current = ai.chats.create({
-            model: 'gemini-2.5-flash',
-            config: {
-                systemInstruction: systemInstruction,
-            },
-            history: messages.map(m => ({
-                role: m.role,
-                parts: [{ text: m.text }]
-            }))
-        });
+    // Generate system instruction from RIASEC results
+    systemPromptRef.current = user.results 
+      ? generateKarmaSystemInstruction(user.results) 
+      : "Sei un assistente HR esperto in colloqui di lavoro. Conduci un colloquio professionale per valutare soft skills e valori del candidato.";
 
-        // UX FIX: If history is empty, inject a Welcome Message immediately to guide the user
-        if (messages.length === 0) {
-            const welcomeText = `Ciao ${user.firstName}, sono Karma. Ho analizzato il tuo profilo RIASEC (Codice: ${user.profileCode || 'N/A'}). 
+    // If no messages, inject welcome message
+    if (messages.length === 0) {
+      const welcomeText = `Ciao ${user.firstName || 'candidato'}, sono Karma. Ho analizzato il tuo profilo RIASEC (Codice: ${user.profileCode || 'N/A'}). 
             
 Il mio obiettivo è conoscerti meglio oltre i numeri. Vorrei farti qualche domanda sul tuo modo di lavorare e sulle tue esperienze passate.
 
 Per iniziare: qual è stata la sfida professionale più complessa che hai affrontato recentemente e come l'hai gestita?`;
 
-            const welcomeMsg: ChatMessage = {
-                id: 'welcome-msg',
-                role: 'model',
-                text: welcomeText,
-                timestamp: Date.now()
-            };
-            setMessages([welcomeMsg]);
-        }
+      const welcomeMsg: ChatMessage = {
+        id: 'welcome-msg',
+        role: 'model',
+        text: welcomeText,
+        timestamp: Date.now()
+      };
+      setMessages([welcomeMsg]);
     }
-  }, [user.results, messages, user.firstName, user.profileCode]);
+  }, [user.results, user.firstName, user.profileCode]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -79,7 +160,7 @@ Per iniziare: qual è stata la sfida professionale più complessa che hai affron
   }, [messages, isTyping]);
 
   const handleSend = async () => {
-    if (!input.trim() || !chatSessionRef.current) return;
+    if (!input.trim()) return;
 
     const userMsg: ChatMessage = {
       id: Date.now().toString(),
@@ -88,41 +169,58 @@ Per iniziare: qual è stata la sfida professionale più complessa che hai affron
       timestamp: Date.now()
     };
 
-    setMessages(prev => [...prev, userMsg]);
+    const newMessages = [...messages, userMsg];
+    setMessages(newMessages);
     setInput('');
     setIsTyping(true);
 
-    try {
-      const result = await chatSessionRef.current.sendMessage({ message: userMsg.text });
-      const responseText = result.text;
-      
-      const modelMsg: ChatMessage = {
-        id: (Date.now() + 1).toString(),
-        role: 'model',
-        text: responseText,
-        timestamp: Date.now()
-      };
-      
-      setMessages(prev => [...prev, modelMsg]);
-    } catch (error) {
-      console.error("Error sending message:", error);
-      const errorMsg: ChatMessage = {
-          id: Date.now().toString(),
+    // Convert to API format
+    const apiMessages = newMessages.map(m => ({
+      role: m.role === 'user' ? 'user' as const : 'assistant' as const,
+      content: m.text
+    }));
+
+    let assistantText = '';
+    const assistantMsgId = (Date.now() + 1).toString();
+
+    await streamKarmaChat(
+      apiMessages,
+      systemPromptRef.current,
+      (delta) => {
+        assistantText += delta;
+        setMessages(prev => {
+          const last = prev[prev.length - 1];
+          if (last?.id === assistantMsgId) {
+            return prev.map(m => m.id === assistantMsgId ? { ...m, text: assistantText } : m);
+          }
+          return [...prev, {
+            id: assistantMsgId,
+            role: 'model' as const,
+            text: assistantText,
+            timestamp: Date.now()
+          }];
+        });
+      },
+      () => {
+        setIsTyping(false);
+      },
+      (error) => {
+        console.error('Karma AI error:', error);
+        setMessages(prev => [...prev, {
+          id: (Date.now() + 1).toString(),
           role: 'model',
-          text: "Mi dispiace, ho avuto un problema tecnico. Riprova tra poco.",
+          text: error || "Mi dispiace, ho avuto un problema tecnico. Riprova tra poco.",
           timestamp: Date.now()
+        }]);
+        setIsTyping(false);
       }
-      setMessages(prev => [...prev, errorMsg]);
-    } finally {
-      setIsTyping(false);
-    }
+    );
   };
 
   const handleConclude = async () => {
-      if (isClosing) return;
-      setIsClosing(true);
-      await onComplete(messages);
-      // setIsClosing(false); // No need to reset, view will unmount/change
+    if (isClosing) return;
+    setIsClosing(true);
+    await onComplete(messages);
   };
 
   return (

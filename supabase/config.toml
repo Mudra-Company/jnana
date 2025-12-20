@@ -2,3 +2,9 @@ project_id = "emkkdekklxboeqzqvrrf"
 
 [functions.seed-demo-users]
 verify_jwt = false
+
+[functions.karma-chat]
+verify_jwt = false
+
+[functions.karma-analyze]
+verify_jwt = false

@@ -1,7 +1,6 @@
 import { RiasecScore, RiasecDimension, User, JobDatabase, JobSuggestion, ChatMessage, KarmaData, CompanyProfile, OrgNode, CultureAnalysis } from '../types';
 import { RIASEC_QUESTIONNAIRE, RIASEC_DESCRIPTIONS, RIASEC_PAIRS } from '../data/riasecContent';
 import { DIMENSION_LABELS } from '../constants';
-import { GoogleGenAI, Type } from "@google/genai";
 
 export const getEmptyScore = (): RiasecScore => ({
   R: 0, I: 0, A: 0, S: 0, E: 0, C: 0
@@ -266,45 +265,7 @@ export const generateKarmaSystemInstruction = (scores: RiasecScore): string => {
   `;
 };
 
-export const analyzeKarmaTranscript = async (transcript: ChatMessage[]): Promise<Partial<KarmaData>> => {
-    try {
-        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-        const conversationText = transcript.map(m => `${m.role.toUpperCase()}: ${m.text}`).join('\n');
-        
-        const response = await ai.models.generateContent({
-            model: "gemini-3-flash-preview",
-            contents: `Sei un Senior HR Assessor. Analizza la trascrizione per creare un profilo chirurgico.
-            GENERA JSON: summary, soft_skills, primary_values, risk_factors, seniority_assessment.
-            TRASCRIZIONE: ${conversationText}`,
-            config: {
-                responseMimeType: "application/json",
-                responseSchema: {
-                    type: Type.OBJECT,
-                    properties: {
-                        summary: { type: Type.STRING },
-                        soft_skills: { type: Type.ARRAY, items: { type: Type.STRING } },
-                        primary_values: { type: Type.ARRAY, items: { type: Type.STRING } },
-                        risk_factors: { type: Type.ARRAY, items: { type: Type.STRING } },
-                        seniority_assessment: { type: Type.STRING, enum: ["Junior", "Mid", "Senior", "Lead", "C-Level"] }
-                    },
-                    required: ["summary", "soft_skills", "primary_values", "risk_factors", "seniority_assessment"]
-                }
-            }
-        });
-
-        const parsed = JSON.parse(response.text);
-        return {
-            summary: parsed.summary,
-            softSkills: parsed.soft_skills,
-            primaryValues: parsed.primary_values,
-            riskFactors: parsed.risk_factors,
-            seniorityAssessment: parsed.seniority_assessment
-        };
-    } catch (e) {
-        console.error("Error analyzing transcript:", e);
-        return { summary: "Analisi completata." };
-    }
-};
+// analyzeKarmaTranscript has been moved to edge function: supabase/functions/karma-analyze
 
 export const calculateCultureAnalysis = (company: CompanyProfile, users: User[]): CultureAnalysis => {
     const driverNodeIds = new Set<string>();
