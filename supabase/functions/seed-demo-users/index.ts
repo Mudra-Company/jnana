@@ -7,7 +7,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Demo users data for Dürr Dental Italia
+// Demo users data for Dürr Dental Italia with 9 climate dimensions
 const DEMO_USERS = [
   {
     email: "nicola.bertolotto@duerr.demo",
@@ -24,7 +24,14 @@ const DEMO_USERS = [
       riskFactors: ["Tendenza al micromanagement in situazioni critiche"],
       seniority: "C-Level"
     },
-    climate: { rawScores: { leadership: 4.2, culture: 4.5, growth: 4.0 }, sectionAverages: { leadership: 4.2, culture: 4.5, growth: 4.0 }, overallAverage: 4.23 }
+    climate: { 
+      sectionAverages: { 
+        "Senso di Appartenenza": 4.5, "Organizzazione e Cambiamento": 4.2, "Il Mio Lavoro": 4.3,
+        "La Mia Remunerazione": 3.8, "Rapporto con il Capo": 4.4, "La Mia Unità (Team)": 4.6,
+        "Responsabilità": 4.3, "Aspetto Umano": 4.5, "Identità": 4.7
+      }, 
+      overallAverage: 4.37 
+    }
   },
   {
     email: "mauro.dorigo@duerr.demo",
@@ -41,7 +48,14 @@ const DEMO_USERS = [
       riskFactors: ["Difficoltà nel delegare decisioni importanti"],
       seniority: "Lead"
     },
-    climate: { rawScores: { leadership: 3.8, culture: 4.2, growth: 3.9 }, sectionAverages: { leadership: 3.8, culture: 4.2, growth: 3.9 }, overallAverage: 3.97 }
+    climate: { 
+      sectionAverages: { 
+        "Senso di Appartenenza": 4.0, "Organizzazione e Cambiamento": 3.8, "Il Mio Lavoro": 4.1,
+        "La Mia Remunerazione": 3.5, "Rapporto con il Capo": 4.2, "La Mia Unità (Team)": 4.3,
+        "Responsabilità": 3.9, "Aspetto Umano": 4.0, "Identità": 4.1
+      }, 
+      overallAverage: 3.99 
+    }
   },
   {
     email: "claudio.venturini@duerr.demo",
@@ -58,7 +72,14 @@ const DEMO_USERS = [
       riskFactors: ["Resistenza ai cambiamenti organizzativi rapidi"],
       seniority: "Lead"
     },
-    climate: { rawScores: { leadership: 3.5, culture: 3.8, growth: 3.6 }, sectionAverages: { leadership: 3.5, culture: 3.8, growth: 3.6 }, overallAverage: 3.63 }
+    climate: { 
+      sectionAverages: { 
+        "Senso di Appartenenza": 3.6, "Organizzazione e Cambiamento": 3.2, "Il Mio Lavoro": 3.8,
+        "La Mia Remunerazione": 3.1, "Rapporto con il Capo": 3.5, "La Mia Unità (Team)": 4.0,
+        "Responsabilità": 3.7, "Aspetto Umano": 3.6, "Identità": 3.8
+      }, 
+      overallAverage: 3.59 
+    }
   },
   {
     email: "fabrizio.dose@duerr.demo",
@@ -75,7 +96,14 @@ const DEMO_USERS = [
       riskFactors: ["Tendenza all'isolamento decisionale"],
       seniority: "Senior"
     },
-    climate: { rawScores: { leadership: 3.2, culture: 3.5, growth: 3.3 }, sectionAverages: { leadership: 3.2, culture: 3.5, growth: 3.3 }, overallAverage: 3.33 }
+    climate: { 
+      sectionAverages: { 
+        "Senso di Appartenenza": 3.3, "Organizzazione e Cambiamento": 3.0, "Il Mio Lavoro": 3.5,
+        "La Mia Remunerazione": 2.8, "Rapporto con il Capo": 3.2, "La Mia Unità (Team)": 3.6,
+        "Responsabilità": 3.4, "Aspetto Umano": 3.3, "Identità": 3.5
+      }, 
+      overallAverage: 3.29 
+    }
   },
   {
     email: "tessa.sangalli@duerr.demo",
@@ -92,7 +120,14 @@ const DEMO_USERS = [
       riskFactors: ["Rigidità nelle procedure"],
       seniority: "Lead"
     },
-    climate: { rawScores: { leadership: 4.0, culture: 4.1, growth: 3.8 }, sectionAverages: { leadership: 4.0, culture: 4.1, growth: 3.8 }, overallAverage: 3.97 }
+    climate: { 
+      sectionAverages: { 
+        "Senso di Appartenenza": 4.1, "Organizzazione e Cambiamento": 3.9, "Il Mio Lavoro": 4.0,
+        "La Mia Remunerazione": 3.6, "Rapporto con il Capo": 4.0, "La Mia Unità (Team)": 4.2,
+        "Responsabilità": 4.1, "Aspetto Umano": 3.9, "Identità": 4.0
+      }, 
+      overallAverage: 3.98 
+    }
   },
   {
     email: "michele.cassano@duerr.demo",
@@ -109,7 +144,14 @@ const DEMO_USERS = [
       riskFactors: ["Tendenza a sovraesporsi su troppi fronti"],
       seniority: "Senior"
     },
-    climate: { rawScores: { leadership: 3.6, culture: 4.0, growth: 4.2 }, sectionAverages: { leadership: 3.6, culture: 4.0, growth: 4.2 }, overallAverage: 3.93 }
+    climate: { 
+      sectionAverages: { 
+        "Senso di Appartenenza": 3.8, "Organizzazione e Cambiamento": 3.6, "Il Mio Lavoro": 4.2,
+        "La Mia Remunerazione": 3.4, "Rapporto con il Capo": 3.6, "La Mia Unità (Team)": 4.0,
+        "Responsabilità": 4.2, "Aspetto Umano": 3.9, "Identità": 4.0
+      }, 
+      overallAverage: 3.86 
+    }
   },
   {
     email: "marco.fabio@duerr.demo",
@@ -126,7 +168,14 @@ const DEMO_USERS = [
       riskFactors: ["Difficoltà nella chiusura commerciale"],
       seniority: "Mid"
     },
-    climate: { rawScores: { leadership: 3.4, culture: 3.9, growth: 4.0 }, sectionAverages: { leadership: 3.4, culture: 3.9, growth: 4.0 }, overallAverage: 3.77 }
+    climate: { 
+      sectionAverages: { 
+        "Senso di Appartenenza": 3.6, "Organizzazione e Cambiamento": 3.4, "Il Mio Lavoro": 4.0,
+        "La Mia Remunerazione": 3.2, "Rapporto con il Capo": 3.4, "La Mia Unità (Team)": 3.9,
+        "Responsabilità": 4.0, "Aspetto Umano": 3.8, "Identità": 3.9
+      }, 
+      overallAverage: 3.69 
+    }
   },
   {
     email: "giulia.bartoli@duerr.demo",
@@ -143,7 +192,14 @@ const DEMO_USERS = [
       riskFactors: ["Tendenza a sottovalutare aspetti analitici"],
       seniority: "Mid"
     },
-    climate: { rawScores: { leadership: 3.3, culture: 4.3, growth: 4.1 }, sectionAverages: { leadership: 3.3, culture: 4.3, growth: 4.1 }, overallAverage: 3.90 }
+    climate: { 
+      sectionAverages: { 
+        "Senso di Appartenenza": 4.2, "Organizzazione e Cambiamento": 3.3, "Il Mio Lavoro": 4.3,
+        "La Mia Remunerazione": 3.0, "Rapporto con il Capo": 3.3, "La Mia Unità (Team)": 4.4,
+        "Responsabilità": 4.1, "Aspetto Umano": 4.3, "Identità": 4.2
+      }, 
+      overallAverage: 3.90 
+    }
   },
   {
     email: "massimiliano.cerati@duerr.demo",
@@ -160,7 +216,14 @@ const DEMO_USERS = [
       riskFactors: ["Tendenza al perfezionismo"],
       seniority: "Mid"
     },
-    climate: { rawScores: { leadership: 3.5, culture: 4.0, growth: 3.8 }, sectionAverages: { leadership: 3.5, culture: 4.0, growth: 3.8 }, overallAverage: 3.77 }
+    climate: { 
+      sectionAverages: { 
+        "Senso di Appartenenza": 3.9, "Organizzazione e Cambiamento": 3.5, "Il Mio Lavoro": 4.0,
+        "La Mia Remunerazione": 3.2, "Rapporto con il Capo": 3.5, "La Mia Unità (Team)": 4.1,
+        "Responsabilità": 3.8, "Aspetto Umano": 4.0, "Identità": 3.9
+      }, 
+      overallAverage: 3.77 
+    }
   },
   {
     email: "barbara.pasqualini@duerr.demo",
@@ -177,7 +240,14 @@ const DEMO_USERS = [
       riskFactors: ["Difficoltà nella gestione di picchi di lavoro"],
       seniority: "Mid"
     },
-    climate: { rawScores: { leadership: 3.1, culture: 3.8, growth: 3.4 }, sectionAverages: { leadership: 3.1, culture: 3.8, growth: 3.4 }, overallAverage: 3.43 }
+    climate: { 
+      sectionAverages: { 
+        "Senso di Appartenenza": 3.5, "Organizzazione e Cambiamento": 3.1, "Il Mio Lavoro": 3.8,
+        "La Mia Remunerazione": 2.9, "Rapporto con il Capo": 3.1, "La Mia Unità (Team)": 3.9,
+        "Responsabilità": 3.4, "Aspetto Umano": 3.8, "Identità": 3.6
+      }, 
+      overallAverage: 3.46 
+    }
   },
   {
     email: "paolo.romano@duerr.demo",
@@ -194,7 +264,14 @@ const DEMO_USERS = [
       riskFactors: ["Resistenza all'adozione di nuove tecnologie"],
       seniority: "Senior"
     },
-    climate: { rawScores: { leadership: 3.0, culture: 3.6, growth: 3.2 }, sectionAverages: { leadership: 3.0, culture: 3.6, growth: 3.2 }, overallAverage: 3.27 }
+    climate: { 
+      sectionAverages: { 
+        "Senso di Appartenenza": 3.2, "Organizzazione e Cambiamento": 2.8, "Il Mio Lavoro": 3.6,
+        "La Mia Remunerazione": 2.6, "Rapporto con il Capo": 3.0, "La Mia Unità (Team)": 3.8,
+        "Responsabilità": 3.2, "Aspetto Umano": 3.6, "Identità": 3.4
+      }, 
+      overallAverage: 3.24 
+    }
   },
   {
     email: "ivan.pagnini@duerr.demo",
@@ -211,7 +288,14 @@ const DEMO_USERS = [
       riskFactors: ["Tendenza all'isolamento progettuale"],
       seniority: "Senior"
     },
-    climate: { rawScores: { leadership: 3.2, culture: 3.7, growth: 4.0 }, sectionAverages: { leadership: 3.2, culture: 3.7, growth: 4.0 }, overallAverage: 3.63 }
+    climate: { 
+      sectionAverages: { 
+        "Senso di Appartenenza": 3.5, "Organizzazione e Cambiamento": 3.2, "Il Mio Lavoro": 4.0,
+        "La Mia Remunerazione": 3.0, "Rapporto con il Capo": 3.2, "La Mia Unità (Team)": 3.7,
+        "Responsabilità": 4.0, "Aspetto Umano": 3.7, "Identità": 3.8
+      }, 
+      overallAverage: 3.57 
+    }
   },
   {
     email: "matteo.griffini@duerr.demo",
@@ -228,7 +312,14 @@ const DEMO_USERS = [
       riskFactors: ["Lentezza nelle decisioni operative"],
       seniority: "Mid"
     },
-    climate: { rawScores: { leadership: 3.1, culture: 3.5, growth: 3.6 }, sectionAverages: { leadership: 3.1, culture: 3.5, growth: 3.6 }, overallAverage: 3.40 }
+    climate: { 
+      sectionAverages: { 
+        "Senso di Appartenenza": 3.3, "Organizzazione e Cambiamento": 3.1, "Il Mio Lavoro": 3.6,
+        "La Mia Remunerazione": 2.9, "Rapporto con il Capo": 3.1, "La Mia Unità (Team)": 3.5,
+        "Responsabilità": 3.6, "Aspetto Umano": 3.5, "Identità": 3.4
+      }, 
+      overallAverage: 3.33 
+    }
   },
   {
     email: "gabriele.piani@duerr.demo",
@@ -245,7 +336,14 @@ const DEMO_USERS = [
       riskFactors: ["Difficoltà nella gestione delle priorità"],
       seniority: "Mid"
     },
-    climate: { rawScores: { leadership: 3.0, culture: 3.8, growth: 3.5 }, sectionAverages: { leadership: 3.0, culture: 3.8, growth: 3.5 }, overallAverage: 3.43 }
+    climate: { 
+      sectionAverages: { 
+        "Senso di Appartenenza": 3.4, "Organizzazione e Cambiamento": 3.0, "Il Mio Lavoro": 3.8,
+        "La Mia Remunerazione": 2.8, "Rapporto con il Capo": 3.0, "La Mia Unità (Team)": 3.8,
+        "Responsabilità": 3.5, "Aspetto Umano": 3.8, "Identità": 3.5
+      }, 
+      overallAverage: 3.40 
+    }
   },
   {
     email: "alberto.luppichini@duerr.demo",
@@ -262,7 +360,14 @@ const DEMO_USERS = [
       riskFactors: ["Tendenza a soluzioni non standard"],
       seniority: "Mid"
     },
-    climate: { rawScores: { leadership: 2.9, culture: 3.7, growth: 3.8 }, sectionAverages: { leadership: 2.9, culture: 3.7, growth: 3.8 }, overallAverage: 3.47 }
+    climate: { 
+      sectionAverages: { 
+        "Senso di Appartenenza": 3.5, "Organizzazione e Cambiamento": 2.9, "Il Mio Lavoro": 3.8,
+        "La Mia Remunerazione": 2.7, "Rapporto con il Capo": 2.9, "La Mia Unità (Team)": 3.7,
+        "Responsabilità": 3.8, "Aspetto Umano": 3.7, "Identità": 3.6
+      }, 
+      overallAverage: 3.40 
+    }
   },
   {
     email: "alberto.scudier@duerr.demo",
@@ -279,7 +384,14 @@ const DEMO_USERS = [
       riskFactors: ["Difficoltà nel lavoro di squadra prolungato"],
       seniority: "Mid"
     },
-    climate: { rawScores: { leadership: 2.8, culture: 3.5, growth: 3.3 }, sectionAverages: { leadership: 2.8, culture: 3.5, growth: 3.3 }, overallAverage: 3.20 }
+    climate: { 
+      sectionAverages: { 
+        "Senso di Appartenenza": 3.1, "Organizzazione e Cambiamento": 2.8, "Il Mio Lavoro": 3.5,
+        "La Mia Remunerazione": 2.5, "Rapporto con il Capo": 2.8, "La Mia Unità (Team)": 3.5,
+        "Responsabilità": 3.3, "Aspetto Umano": 3.5, "Identità": 3.2
+      }, 
+      overallAverage: 3.13 
+    }
   },
   {
     email: "andrea.tompetrini@duerr.demo",
@@ -296,7 +408,14 @@ const DEMO_USERS = [
       riskFactors: ["Limitata propensione all'iniziativa"],
       seniority: "Junior"
     },
-    climate: { rawScores: { leadership: 2.7, culture: 3.4, growth: 3.1 }, sectionAverages: { leadership: 2.7, culture: 3.4, growth: 3.1 }, overallAverage: 3.07 }
+    climate: { 
+      sectionAverages: { 
+        "Senso di Appartenenza": 3.0, "Organizzazione e Cambiamento": 2.7, "Il Mio Lavoro": 3.4,
+        "La Mia Remunerazione": 2.4, "Rapporto con il Capo": 2.7, "La Mia Unità (Team)": 3.4,
+        "Responsabilità": 3.1, "Aspetto Umano": 3.4, "Identità": 3.1
+      }, 
+      overallAverage: 3.02 
+    }
   },
   {
     email: "alessandra.ciceri@duerr.demo",
@@ -313,7 +432,14 @@ const DEMO_USERS = [
       riskFactors: ["Tendenza alla dipendenza dalle direttive"],
       seniority: "Junior"
     },
-    climate: { rawScores: { leadership: 2.9, culture: 3.6, growth: 3.2 }, sectionAverages: { leadership: 2.9, culture: 3.6, growth: 3.2 }, overallAverage: 3.23 }
+    climate: { 
+      sectionAverages: { 
+        "Senso di Appartenenza": 3.4, "Organizzazione e Cambiamento": 3.2, "Il Mio Lavoro": 3.6,
+        "La Mia Remunerazione": 2.9, "Rapporto con il Capo": 2.9, "La Mia Unità (Team)": 3.6,
+        "Responsabilità": 3.2, "Aspetto Umano": 3.6, "Identità": 3.4
+      }, 
+      overallAverage: 3.31 
+    }
   }
 ];
 
@@ -513,13 +639,13 @@ async function updateUserData(
     console.error(`Karma insert error for ${user.email}:`, karmaError);
   }
 
-  // Insert Climate response
+  // Insert Climate response with 9 dimensions
   const { error: climateError } = await supabase
     .from('climate_responses')
     .insert({
       user_id: userId,
       company_id: companyId,
-      raw_scores: user.climate.rawScores,
+      raw_scores: {},
       section_averages: user.climate.sectionAverages,
       overall_average: user.climate.overallAverage
     });
