@@ -23,17 +23,17 @@ const renderFormattedText = (text: string) => {
     );
 };
 
-// Risk Mapping for Climate Dimensions
+// Risk Mapping for Climate Dimensions (match exact keys from CLIMATE_SURVEY)
 const CLIMATE_RISKS: Record<string, string> = {
     "Senso di Appartenenza": "Rischio elevato di turnover volontario e bassa employer branding advocacy. I dipendenti non si sentono ambasciatori del brand.",
     "Organizzazione e Cambiamento": "Rischio di paralisi operativa e resistenza passiva alle innovazioni. Possibili colli di bottiglia decisionali e processi non chiari.",
     "Il Mio Lavoro": "Rischio di calo della produttività individuale e noia professionale. Possibile disallineamento tra competenze e mansioni.",
+    "La Mia Remunerazione": "Rischio di perdita immediata dei top performer verso competitor con offerte economiche migliori.",
     "Rapporto con il Capo": "Rischio di conflittualità diffusa e mancanza di fiducia nella leadership. Spesso causa primaria di dimissioni.",
-    "Identità": "Rischio di frammentazione culturale. I dipendenti non si riconoscono nella missione aziendale, lavorando per inerzia.",
+    "La Mia Unità (Team)": "Rischio di lavoro a silos, scarsa cooperazione interna e isolamento dei singoli.",
     "Responsabilità": "Rischio di deresponsabilizzazione (scaricabarile) e mancanza di autonomia operativa.",
     "Aspetto Umano": "Rischio di ambiente tossico, scarsa sicurezza psicologica e difficoltà nella collaborazione orizzontale.",
-    "La Mia Unità (Team)": "Rischio di lavoro a silos, scarsa cooperazione interna e isolamento dei singoli.",
-    "Remunerazione": "Rischio di perdita immediata dei top performer verso competitor con offerte economiche migliori."
+    "Identità": "Rischio di frammentazione culturale. I dipendenti non si riconoscono nella missione aziendale, lavorando per inerzia."
 };
 
 export const AdminIdentityHub: React.FC<AdminIdentityHubProps> = ({ company, users }) => {
