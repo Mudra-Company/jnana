@@ -170,6 +170,7 @@ const AppContent: React.FC = () => {
   const [viewHistory, setViewHistory] = useState<ViewState[]>([]);
   const [isDark, setIsDark] = useState(false);
   const [impersonatedCompanyId, setImpersonatedCompanyId] = useState<string | null>(null);
+  const [superAdminDataLoading, setSuperAdminDataLoading] = useState(false);
   
   const [activeCompanyData, setActiveCompanyData] = useState<CompanyProfile | null>(null);
   const [currentUserData, setCurrentUserData] = useState<User | null>(null);
@@ -261,9 +262,11 @@ const AppContent: React.FC = () => {
 
       // Determine initial view
       if (isSuperAdmin) {
-        await loadAllCompaniesForSuperAdmin(); // Load companies AFTER auth
-        await loadAllUsersForSuperAdmin(); // Load all users for dashboard
+        setSuperAdminDataLoading(true);
         setView({ type: 'SUPER_ADMIN_DASHBOARD' });
+        await loadAllCompaniesForSuperAdmin();
+        await loadAllUsersForSuperAdmin();
+        setSuperAdminDataLoading(false);
       } else if (isCompanyAdmin && userData.membership?.company_id) {
         await loadCompanyData(userData.membership.company_id);
         setView({ type: 'ADMIN_DASHBOARD' });
@@ -525,7 +528,14 @@ const AppContent: React.FC = () => {
           
           {view.type === 'SEED_DATA' && <SeedDataView />}
 
-          {view.type === 'SUPER_ADMIN_DASHBOARD' && (
+          {view.type === 'SUPER_ADMIN_DASHBOARD' && superAdminDataLoading && (
+            <div className="p-8 text-center">
+              <div className="animate-spin h-8 w-8 border-4 border-amber-500 border-t-transparent rounded-full mx-auto mb-4" />
+              <p className="text-jnana-text dark:text-gray-300">Caricamento aziende...</p>
+            </div>
+          )}
+
+          {view.type === 'SUPER_ADMIN_DASHBOARD' && !superAdminDataLoading && (
             <SuperAdminDashboard
               companies={legacyCompanies}
               users={companyUsers}
