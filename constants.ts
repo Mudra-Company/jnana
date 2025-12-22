@@ -30,6 +30,14 @@ export const INDUSTRIES = [
   "Istruzione"
 ];
 
+export const SIZE_RANGES = [
+  "1-10",
+  "10-50",
+  "50-100",
+  "100-500",
+  "500+"
+];
+
 export const DIMENSION_LABELS: Record<string, string> = {
   R: "Realistico",
   I: "Investigativo",
