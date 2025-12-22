@@ -153,7 +153,16 @@ const companyToLegacy = (company: any, orgNodes?: any[]): CompanyProfile => {
 
 // --- MAIN APP CONTENT ---
 const AppContent: React.FC = () => {
-  const { user, profile, membership, isLoading: authLoading, isSuperAdmin, isCompanyAdmin, signOut } = useAuth();
+  const { 
+    user, 
+    profile, 
+    membership, 
+    isLoading: authLoading, 
+    isInitialized: authInitialized,
+    isSuperAdmin, 
+    isCompanyAdmin, 
+    signOut 
+  } = useAuth();
   const { companies, setCompanies, fetchCompanyWithStructure, createCompany } = useCompanies();
   const { profiles, fetchUserWithDetails } = useProfiles(membership?.company_id);
   const { saveRiasecResult, saveKarmaSession, saveClimateResponse, updateMemberStatus } = useTestResults();
@@ -165,7 +174,7 @@ const AppContent: React.FC = () => {
     if (urlParams.get('seed') === 'true') {
       return { type: 'SEED_DATA' };
     }
-    return { type: 'LOGIN' };
+    return { type: 'LOADING' }; // Start with LOADING, not LOGIN
   });
   const [viewHistory, setViewHistory] = useState<ViewState[]>([]);
   const [isDark, setIsDark] = useState(false);
@@ -185,20 +194,28 @@ const AppContent: React.FC = () => {
     setJobDb(loadJobDb());
   }, []);
 
-  // Handle auth state changes - stabilized with refs to prevent loops
+  // Handle auth state changes - wait for auth to be FULLY initialized
   useEffect(() => {
-    if (authLoading) return;
+    console.log('[App] Auth state check - Loading:', authLoading, 'Initialized:', authInitialized, 'User:', !!user, 'IsSuperAdmin:', isSuperAdmin);
+    
+    // Wait for auth to be fully initialized
+    if (!authInitialized || authLoading) {
+      console.log('[App] Auth not ready yet');
+      return;
+    }
     
     if (user && profile) {
       // Only load if we haven't loaded for this user yet
       if (lastUserIdRef.current !== user.id || !dataLoadedRef.current) {
+        console.log('[App] Loading user data for:', user.id);
         lastUserIdRef.current = user.id;
         dataLoadedRef.current = true;
         loadCurrentUserData();
       }
     } else {
-      // Not logged in - reset state
-      if (lastUserIdRef.current !== null) {
+      // Not logged in - show login
+      console.log('[App] No user, showing login');
+      if (lastUserIdRef.current !== null || view.type === 'LOADING') {
         lastUserIdRef.current = null;
         dataLoadedRef.current = false;
         setView({ type: 'LOGIN' });
@@ -206,10 +223,11 @@ const AppContent: React.FC = () => {
         setActiveCompanyData(null);
       }
     }
-  }, [user?.id, profile?.id, authLoading]);
+  }, [user?.id, profile?.id, authLoading, authInitialized, isSuperAdmin]);
 
   // Load all companies for Super Admin dashboard (after authentication)
   const loadAllCompaniesForSuperAdmin = async () => {
+    console.log('[App] Loading companies for Super Admin...');
     const { supabase } = await import('./src/integrations/supabase/client');
     
     const { data, error } = await supabase
@@ -218,10 +236,11 @@ const AppContent: React.FC = () => {
       .order('name');
     
     if (error) {
-      console.error('Error loading companies for super admin:', error);
+      console.error('[App] Error loading companies for super admin:', error);
       return;
     }
     
+    console.log('[App] Companies loaded:', data?.length || 0);
     if (data) {
       setCompanies(data);
     }
@@ -259,7 +278,12 @@ const AppContent: React.FC = () => {
   };
 
   const loadCurrentUserData = async () => {
-    if (!user || !profile) return;
+    console.log('[App] loadCurrentUserData called - isSuperAdmin:', isSuperAdmin, 'isCompanyAdmin:', isCompanyAdmin);
+    
+    if (!user || !profile) {
+      console.log('[App] No user or profile, aborting');
+      return;
+    }
 
     const userData = await fetchUserWithDetails(user.id);
     if (userData) {
@@ -272,14 +296,17 @@ const AppContent: React.FC = () => {
       );
       setCurrentUserData(legacyUser);
 
-      // Re-check roles directly from auth context (now fully loaded)
+      console.log('[App] Determining view - isSuperAdmin:', isSuperAdmin);
+      
       // isSuperAdmin and isCompanyAdmin are now reliable because useAuth waits for roles
       if (isSuperAdmin) {
+        console.log('[App] User is Super Admin, loading admin data...');
         setSuperAdminDataLoading(true);
         setView({ type: 'SUPER_ADMIN_DASHBOARD' });
         await loadAllCompaniesForSuperAdmin();
         await loadAllUsersForSuperAdmin();
         setSuperAdminDataLoading(false);
+        console.log('[App] Super Admin data loaded');
       } else if (isCompanyAdmin && userData.membership?.company_id) {
         await loadCompanyData(userData.membership.company_id);
         setView({ type: 'ADMIN_DASHBOARD' });
@@ -534,8 +561,8 @@ const AppContent: React.FC = () => {
     return false;
   };
 
-  // Loading state
-  if (authLoading) {
+  // Loading state - wait for auth to be fully initialized
+  if (authLoading || !authInitialized || view.type === 'LOADING') {
     return (
       <div className="min-h-screen flex items-center justify-center bg-jnana-bg dark:bg-gray-900">
         <div className="text-center">
@@ -552,7 +579,7 @@ const AppContent: React.FC = () => {
   return (
     <div className={isDark ? 'dark' : ''}>
       <div className="min-h-screen bg-white dark:bg-gray-900 text-jnana-text dark:text-gray-100 transition-colors duration-300 font-sans">
-        {currentUserData && view.type !== 'LOGIN' && (
+        {currentUserData && view.type !== 'LOGIN' && view.type !== 'LOADING' && (
           <Header
             onLogout={handleLogout}
             view={view}
