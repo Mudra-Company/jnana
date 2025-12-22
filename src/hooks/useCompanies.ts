@@ -93,9 +93,8 @@ export const useCompanies = () => {
     }
   };
 
-  useEffect(() => {
-    fetchCompanies();
-  }, []);
+  // NOTE: No automatic fetch on mount - caller controls when to fetch
+  // This prevents race conditions and duplicate fetches
 
   return {
     companies,
