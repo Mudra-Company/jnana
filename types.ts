@@ -165,6 +165,7 @@ export interface JobSuggestion {
 export type JobDatabase = Record<string, JobSuggestion[]>;
 
 export type ViewState = 
+  | { type: 'LOADING' }
   | { type: 'LOGIN' }
   | { type: 'SEED_DATA' }
   | { type: 'SUPER_ADMIN_DASHBOARD' }
