@@ -154,7 +154,7 @@ const companyToLegacy = (company: any, orgNodes?: any[]): CompanyProfile => {
 // --- MAIN APP CONTENT ---
 const AppContent: React.FC = () => {
   const { user, profile, membership, isLoading: authLoading, isSuperAdmin, isCompanyAdmin, signOut } = useAuth();
-  const { companies, setCompanies, fetchCompanyWithStructure } = useCompanies();
+  const { companies, setCompanies, fetchCompanyWithStructure, createCompany } = useCompanies();
   const { profiles, fetchUserWithDetails } = useProfiles(membership?.company_id);
   const { saveRiasecResult, saveKarmaSession, saveClimateResponse, updateMemberStatus } = useTestResults();
 
@@ -480,6 +480,47 @@ const AppContent: React.FC = () => {
     setView({ type: 'ADMIN_DASHBOARD' });
   };
 
+  // Create new company (Super Admin)
+  const handleCreateCompany = async (companyData: {
+    name: string;
+    email?: string;
+    industry?: string;
+    size_range?: string;
+    vat_number?: string;
+    website?: string;
+  }): Promise<boolean> => {
+    const fullCompanyData = {
+      name: companyData.name,
+      email: companyData.email || null,
+      industry: companyData.industry || null,
+      size_range: companyData.size_range || null,
+      vat_number: companyData.vat_number || null,
+      website: companyData.website || null,
+      address: null,
+      culture_values: [],
+      description: null,
+      foundation_year: null,
+      logo_url: null,
+    };
+    
+    const newCompany = await createCompany(fullCompanyData as any);
+    if (newCompany) {
+      // Create root org node for the company
+      await supabase.from('org_nodes').insert({
+        company_id: newCompany.id,
+        name: companyData.name,
+        type: 'root',
+        sort_order: 0,
+        is_cultural_driver: false
+      });
+      
+      // Refresh companies list
+      await loadAllCompaniesForSuperAdmin();
+      return true;
+    }
+    return false;
+  };
+
   // Loading state
   if (authLoading) {
     return (
@@ -540,6 +581,7 @@ const AppContent: React.FC = () => {
               companies={legacyCompanies}
               users={companyUsers}
               onImpersonate={handleImpersonate}
+              onCreateCompany={handleCreateCompany}
             />
           )}
 
