@@ -3,6 +3,7 @@ import { AuthProvider, useAuth } from './src/hooks/useAuth';
 import { useCompanies } from './src/hooks/useCompanies';
 import { useProfiles } from './src/hooks/useProfiles';
 import { useTestResults } from './src/hooks/useTestResults';
+import { useOrgNodes } from './src/hooks/useOrgNodes';
 import { ViewState, RiasecScore, JobDatabase, OrgNode, ChatMessage, ClimateData, CompanyProfile, User } from './types';
 import { calculateProfileCode } from './services/riasecService';
 import { supabase } from './src/integrations/supabase/client';
@@ -166,6 +167,7 @@ const AppContent: React.FC = () => {
   const { companies, setCompanies, fetchCompanyWithStructure, createCompany, updateCompany } = useCompanies();
   const { profiles, fetchUserWithDetails } = useProfiles(membership?.company_id);
   const { saveRiasecResult, saveKarmaSession, saveClimateResponse, updateMemberStatus } = useTestResults();
+  const { syncTreeToDatabase, fetchOrgNodes } = useOrgNodes();
 
   const [jobDb, setJobDb] = useState<JobDatabase>({});
   const [view, setView] = useState<ViewState>(() => {
@@ -184,6 +186,7 @@ const AppContent: React.FC = () => {
   const [activeCompanyData, setActiveCompanyData] = useState<CompanyProfile | null>(null);
   const [currentUserData, setCurrentUserData] = useState<User | null>(null);
   const [companyUsers, setCompanyUsers] = useState<User[]>([]);
+  const [existingOrgNodeIds, setExistingOrgNodeIds] = useState<string[]>([]);
   
   // Refs to prevent duplicate loads
   const dataLoadedRef = useRef(false);
@@ -380,6 +383,12 @@ const AppContent: React.FC = () => {
     if (companyWithStructure) {
       setActiveCompanyData(companyToLegacy(companyWithStructure, companyWithStructure.structure));
       
+      // Store existing org node IDs for sync comparison
+      const { data: orgNodes } = await fetchOrgNodes(companyId);
+      if (orgNodes) {
+        setExistingOrgNodeIds(orgNodes.map(n => n.id));
+      }
+      
       // Load company users with ALL details (RIASEC, Karma, Climate) directly from DB
       const users = await loadCompanyUsersWithDetails(companyId);
       setCompanyUsers(users);
@@ -513,9 +522,44 @@ const AppContent: React.FC = () => {
     navigate({ type: 'USER_RESULT', userId: user.id });
   };
 
-  const handleOrgChartUpdate = (newRoot: OrgNode) => {
+  const handleOrgChartUpdate = async (newRoot: OrgNode) => {
     if (!activeCompanyData) return;
+    
+    // Update local state immediately for responsiveness
     setActiveCompanyData({ ...activeCompanyData, structure: newRoot });
+    
+    // Persist to database
+    const { success, newIdMap } = await syncTreeToDatabase(
+      activeCompanyData.id,
+      newRoot,
+      existingOrgNodeIds
+    );
+    
+    if (success) {
+      console.log('[App] Org chart saved successfully');
+      
+      // Update existing node IDs with any new ones
+      const { data: updatedNodes } = await fetchOrgNodes(activeCompanyData.id);
+      if (updatedNodes) {
+        setExistingOrgNodeIds(updatedNodes.map(n => n.id));
+      }
+      
+      // If new nodes were created, update the tree with real IDs
+      if (Object.keys(newIdMap).length > 0) {
+        const updateNodeIds = (node: OrgNode): OrgNode => ({
+          ...node,
+          id: newIdMap[node.id] || node.id,
+          children: node.children.map(updateNodeIds),
+        });
+        setActiveCompanyData(prev => prev ? { 
+          ...prev, 
+          structure: updateNodeIds(newRoot) 
+        } : null);
+      }
+    } else {
+      console.error('[App] Failed to save org chart');
+      // Could show a toast notification here
+    }
   };
 
   // Impersonation for Super Admin
