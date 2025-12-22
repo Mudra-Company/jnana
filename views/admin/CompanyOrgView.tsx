@@ -109,9 +109,9 @@ const NodeEditorModal: React.FC<{
                                 <button type="button" onClick={addHardSkill} className="px-3 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600"><Plus size={16}/></button>
                             </div>
                             <div className="flex flex-wrap gap-1">
-                                {formData.targetProfile?.hardSkills.map(skill => (
+                                {(formData.targetProfile?.hardSkills || []).map(skill => (
                                     <span key={skill} className="px-2 py-1 bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 rounded text-xs border border-blue-100 dark:border-blue-800 flex items-center gap-1">
-                                        {skill} <button type="button" onClick={() => setFormData({...formData, targetProfile: {...formData.targetProfile!, hardSkills: formData.targetProfile!.hardSkills.filter(s => s !== skill)}})}><X size={12}/></button>
+                                        {skill} <button type="button" onClick={() => setFormData({...formData, targetProfile: {...formData.targetProfile!, hardSkills: (formData.targetProfile?.hardSkills || []).filter(s => s !== skill)}})}><X size={12}/></button>
                                     </span>
                                 ))}
                             </div>
@@ -132,9 +132,9 @@ const NodeEditorModal: React.FC<{
                                 <button type="button" onClick={addSoftSkill} className="px-3 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600"><Plus size={16}/></button>
                             </div>
                             <div className="flex flex-wrap gap-1">
-                                {formData.targetProfile?.softSkills.map(skill => (
+                                {(formData.targetProfile?.softSkills || []).map(skill => (
                                     <span key={skill} className="px-2 py-1 bg-purple-50 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 rounded text-xs border border-purple-100 dark:border-purple-800 flex items-center gap-1">
-                                        {skill} <button type="button" onClick={() => setFormData({...formData, targetProfile: {...formData.targetProfile!, softSkills: formData.targetProfile!.softSkills.filter(s => s !== skill)}})}><X size={12}/></button>
+                                        {skill} <button type="button" onClick={() => setFormData({...formData, targetProfile: {...formData.targetProfile!, softSkills: (formData.targetProfile?.softSkills || []).filter(s => s !== skill)}})}><X size={12}/></button>
                                     </span>
                                 ))}
                             </div>
