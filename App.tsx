@@ -163,7 +163,7 @@ const AppContent: React.FC = () => {
     isCompanyAdmin, 
     signOut 
   } = useAuth();
-  const { companies, setCompanies, fetchCompanyWithStructure, createCompany } = useCompanies();
+  const { companies, setCompanies, fetchCompanyWithStructure, createCompany, updateCompany } = useCompanies();
   const { profiles, fetchUserWithDetails } = useProfiles(membership?.company_id);
   const { saveRiasecResult, saveKarmaSession, saveClimateResponse, updateMemberStatus } = useTestResults();
 
@@ -567,6 +567,36 @@ const AppContent: React.FC = () => {
     return false;
   };
 
+  // Handler for saving company profile updates to database
+  const handleCompanyUpdate = async (updatedCompany: CompanyProfile) => {
+    if (!activeCompanyData) return;
+    
+    // Convert CompanyProfile (camelCase) to database format (snake_case)
+    const dbUpdates = {
+      name: updatedCompany.name,
+      email: updatedCompany.email || null,
+      industry: updatedCompany.industry || null,
+      size_range: updatedCompany.sizeRange || null,
+      vat_number: updatedCompany.vatNumber || null,
+      logo_url: updatedCompany.logoUrl || null,
+      foundation_year: updatedCompany.foundationYear || null,
+      website: updatedCompany.website || null,
+      address: updatedCompany.address || null,
+      description: updatedCompany.description || null,
+      culture_values: updatedCompany.cultureValues || [],
+    };
+    
+    const result = await updateCompany(activeCompanyData.id, dbUpdates);
+    
+    if (result) {
+      // Update local state only on success
+      setActiveCompanyData(updatedCompany);
+      console.log('[App] Company profile saved successfully');
+    } else {
+      console.error('[App] Failed to save company profile');
+    }
+  };
+
   // Loading state - wait for auth to be fully initialized
   if (authLoading || !authInitialized || view.type === 'LOADING') {
     return (
@@ -667,7 +697,7 @@ const AppContent: React.FC = () => {
           {view.type === 'ADMIN_COMPANY_PROFILE' && activeCompanyData && (
             <AdminCompanyProfileView
               company={activeCompanyData}
-              onUpdate={(updatedCompany) => setActiveCompanyData(updatedCompany)}
+              onUpdate={handleCompanyUpdate}
             />
           )}
 
