@@ -272,7 +272,8 @@ const AppContent: React.FC = () => {
       );
       setCurrentUserData(legacyUser);
 
-      // Determine initial view
+      // Re-check roles directly from auth context (now fully loaded)
+      // isSuperAdmin and isCompanyAdmin are now reliable because useAuth waits for roles
       if (isSuperAdmin) {
         setSuperAdminDataLoading(true);
         setView({ type: 'SUPER_ADMIN_DASHBOARD' });
@@ -577,7 +578,7 @@ const AppContent: React.FC = () => {
         )}
 
         <main className="animate-fade-in">
-          {view.type === 'LOGIN' && <AuthView />}
+          {view.type === 'LOGIN' && !user && <AuthView />}
           
           {view.type === 'SEED_DATA' && <SeedDataView />}
 
