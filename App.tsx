@@ -8,6 +8,8 @@ import { ViewState, RiasecScore, JobDatabase, OrgNode, ChatMessage, ClimateData,
 import { calculateProfileCode } from './services/riasecService';
 import { supabase } from './src/integrations/supabase/client';
 import { loadJobDb, saveJobDb } from './services/storageService';
+import { toast } from './src/hooks/use-toast';
+import { Toaster } from './src/components/ui/toaster';
 
 // Imported Views & Components
 import { Header } from './components/layout/Header';
@@ -537,6 +539,10 @@ const AppContent: React.FC = () => {
     
     if (success) {
       console.log('[App] Org chart saved successfully');
+      toast({
+        title: "Modifiche salvate",
+        description: "L'organigramma è stato aggiornato correttamente.",
+      });
       
       // Update existing node IDs with any new ones
       const { data: updatedNodes } = await fetchOrgNodes(activeCompanyData.id);
@@ -558,7 +564,11 @@ const AppContent: React.FC = () => {
       }
     } else {
       console.error('[App] Failed to save org chart');
-      // Could show a toast notification here
+      toast({
+        title: "Errore",
+        description: "Impossibile salvare le modifiche all'organigramma.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -785,6 +795,7 @@ const App: React.FC = () => {
   return (
     <AuthProvider>
       <AppContent />
+      <Toaster />
     </AuthProvider>
   );
 };
