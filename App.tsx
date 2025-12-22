@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { AuthProvider, useAuth } from './src/hooks/useAuth';
 import { useCompanies } from './src/hooks/useCompanies';
 import { useProfiles } from './src/hooks/useProfiles';
@@ -175,26 +175,38 @@ const AppContent: React.FC = () => {
   const [activeCompanyData, setActiveCompanyData] = useState<CompanyProfile | null>(null);
   const [currentUserData, setCurrentUserData] = useState<User | null>(null);
   const [companyUsers, setCompanyUsers] = useState<User[]>([]);
+  
+  // Refs to prevent duplicate loads
+  const dataLoadedRef = useRef(false);
+  const lastUserIdRef = useRef<string | null>(null);
 
   // Load job database from localStorage (still used for job suggestions)
   useEffect(() => {
     setJobDb(loadJobDb());
   }, []);
 
-  // Handle auth state changes
+  // Handle auth state changes - stabilized with refs to prevent loops
   useEffect(() => {
-    if (!authLoading) {
-      if (user && profile) {
-        // User is logged in
+    if (authLoading) return;
+    
+    if (user && profile) {
+      // Only load if we haven't loaded for this user yet
+      if (lastUserIdRef.current !== user.id || !dataLoadedRef.current) {
+        lastUserIdRef.current = user.id;
+        dataLoadedRef.current = true;
         loadCurrentUserData();
-      } else {
-        // Not logged in
+      }
+    } else {
+      // Not logged in - reset state
+      if (lastUserIdRef.current !== null) {
+        lastUserIdRef.current = null;
+        dataLoadedRef.current = false;
         setView({ type: 'LOGIN' });
         setCurrentUserData(null);
         setActiveCompanyData(null);
       }
     }
-  }, [user, profile, authLoading]);
+  }, [user?.id, profile?.id, authLoading]);
 
   // Load all companies for Super Admin dashboard (after authentication)
   const loadAllCompaniesForSuperAdmin = async () => {

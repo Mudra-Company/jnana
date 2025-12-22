@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, forwardRef } from 'react';
 import { 
   X, 
   Crown, 
@@ -164,7 +164,7 @@ const findNodeManager = (nodeUsers: User[], node: OrgNode): User | undefined => 
     ) || nodeUsers.find(u => node.isCulturalDriver) || nodeUsers[0];
 };
 
-const OrgNodeView: React.FC<{ 
+interface OrgNodeViewProps {
     node: OrgNode; 
     depth?: number; 
     users: User[]; 
@@ -176,8 +176,11 @@ const OrgNodeView: React.FC<{
     isFirst?: boolean;
     isLast?: boolean;
     hasSiblings?: boolean;
-    parentManager?: User; // PASSED FROM PARENT: The manager of the node ABOVE this one.
-}> = ({ node, depth = 0, users, onAddNode, onEditNode, onInviteUser, onViewUser, companyValues, isFirst, isLast, hasSiblings, parentManager }) => {
+    parentManager?: User;
+}
+
+const OrgNodeView = forwardRef<HTMLDivElement, OrgNodeViewProps>(
+  ({ node, depth = 0, users, onAddNode, onEditNode, onInviteUser, onViewUser, companyValues, isFirst, isLast, hasSiblings, parentManager }, ref) => {
   const [collapsed, setCollapsed] = useState(false);
   
   // 1. Find users BELONGING to this node
@@ -371,7 +374,9 @@ const OrgNodeView: React.FC<{
       )}
     </div>
   );
-};
+});
+
+OrgNodeView.displayName = 'OrgNodeView';
 
 // --- MAIN COMPONENT ---
 
