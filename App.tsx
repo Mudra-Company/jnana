@@ -196,34 +196,40 @@ const AppContent: React.FC = () => {
 
   // Handle auth state changes - wait for auth to be FULLY initialized
   useEffect(() => {
-    console.log('[App] Auth state check - Loading:', authLoading, 'Initialized:', authInitialized, 'User:', !!user, 'IsSuperAdmin:', isSuperAdmin);
+    console.log('[App] Auth state check - Loading:', authLoading, 'Initialized:', authInitialized, 'User:', !!user, 'Profile:', !!profile, 'IsSuperAdmin:', isSuperAdmin);
     
-    // Wait for auth to be fully initialized
-    if (!authInitialized || authLoading) {
-      console.log('[App] Auth not ready yet');
+    // Wait for auth to be fully initialized - this is the ONLY gate
+    if (!authInitialized) {
+      console.log('[App] Auth not initialized yet, staying on LOADING');
       return;
     }
     
-    if (user && profile) {
-      // Only load if we haven't loaded for this user yet
-      if (lastUserIdRef.current !== user.id || !dataLoadedRef.current) {
-        console.log('[App] Loading user data for:', user.id);
-        lastUserIdRef.current = user.id;
-        dataLoadedRef.current = true;
-        loadCurrentUserData();
-      }
-    } else {
-      // Not logged in - show login
-      console.log('[App] No user, showing login');
-      if (lastUserIdRef.current !== null || view.type === 'LOADING') {
-        lastUserIdRef.current = null;
-        dataLoadedRef.current = false;
-        setView({ type: 'LOGIN' });
-        setCurrentUserData(null);
-        setActiveCompanyData(null);
-      }
+    // Auth is initialized - now decide what to show
+    if (!user) {
+      // No user = show login
+      console.log('[App] No user after auth init, showing login');
+      setView({ type: 'LOGIN' });
+      setCurrentUserData(null);
+      setActiveCompanyData(null);
+      lastUserIdRef.current = null;
+      dataLoadedRef.current = false;
+      return;
     }
-  }, [user?.id, profile?.id, authLoading, authInitialized, isSuperAdmin]);
+    
+    // User exists - wait for profile too (it's loaded as part of auth init)
+    if (!profile) {
+      console.log('[App] User exists but no profile yet, waiting...');
+      return;
+    }
+    
+    // User and profile exist - load data if needed
+    if (lastUserIdRef.current !== user.id || !dataLoadedRef.current) {
+      console.log('[App] Loading user data for:', user.id);
+      lastUserIdRef.current = user.id;
+      dataLoadedRef.current = true;
+      loadCurrentUserData();
+    }
+  }, [user?.id, profile?.id, authInitialized, isSuperAdmin]);
 
   // Load all companies for Super Admin dashboard (after authentication)
   const loadAllCompaniesForSuperAdmin = async () => {

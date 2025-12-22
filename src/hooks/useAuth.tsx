@@ -1,4 +1,4 @@
-import { useState, useEffect, createContext, useContext, ReactNode, useCallback, useRef } from 'react';
+import { useState, useEffect, createContext, useContext, ReactNode, useCallback } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '../integrations/supabase/client';
 import type { Tables } from '../integrations/supabase/types';
@@ -33,62 +33,53 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [membership, setMembership] = useState<CompanyMember | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isInitialized, setIsInitialized] = useState(false);
-  
-  // Refs to prevent race conditions
-  const initStartedRef = useRef(false);
-  const currentUserIdRef = useRef<string | null>(null);
 
   const isSuperAdmin = roles.some(r => r.role === 'super_admin');
   const isCompanyAdmin = roles.some(r => r.role === 'admin') || membership?.role === 'admin';
 
-  // Memoized function to fetch user data - NEVER sets isLoading directly
-  const fetchUserData = useCallback(async (userId: string): Promise<boolean> => {
-    console.log('[Auth] Fetching user data for:', userId);
-    
-    try {
-      // Fetch all data in parallel for speed
-      const [profileResult, rolesResult, memberResult] = await Promise.all([
-        supabase.from('profiles').select('*').eq('id', userId).maybeSingle(),
-        supabase.from('user_roles').select('*').eq('user_id', userId),
-        supabase.from('company_members').select('*').eq('user_id', userId).maybeSingle()
-      ]);
-
-      console.log('[Auth] Data loaded - Profile:', !!profileResult.data, 'Roles:', rolesResult.data?.length || 0);
-      
-      setProfile(profileResult.data);
-      setRoles(rolesResult.data || []);
-      setMembership(memberResult.data);
-      
-      return true;
-    } catch (error) {
-      console.error('[Auth] Error fetching user data:', error);
-      return false;
-    }
-  }, []);
-
-  // Clear all user data
-  const clearUserData = useCallback(() => {
-    console.log('[Auth] Clearing user data');
-    setProfile(null);
-    setRoles([]);
-    setMembership(null);
-    currentUserIdRef.current = null;
-  }, []);
-
-  // Initialize auth - runs ONCE on mount
+  // Initialize auth - runs on mount
+  // No refs needed - we use a simple mounted flag and ensure state is always set
   useEffect(() => {
-    // Prevent double initialization (React StrictMode)
-    if (initStartedRef.current) {
-      console.log('[Auth] Init already started, skipping');
-      return;
-    }
-    initStartedRef.current = true;
-    
-    console.log('[Auth] Starting initialization');
-    
     let mounted = true;
+    console.log('[Auth] useEffect starting');
 
-    const initializeAuth = async () => {
+    // Define fetchUserData inside useEffect to avoid dependency issues
+    const fetchUserData = async (userId: string): Promise<void> => {
+      console.log('[Auth] Fetching user data for:', userId);
+      
+      try {
+        // Fetch all data in parallel for speed
+        const [profileResult, rolesResult, memberResult] = await Promise.all([
+          supabase.from('profiles').select('*').eq('id', userId).maybeSingle(),
+          supabase.from('user_roles').select('*').eq('user_id', userId),
+          supabase.from('company_members').select('*').eq('user_id', userId).maybeSingle()
+        ]);
+
+        if (!mounted) {
+          console.log('[Auth] Component unmounted, skipping state update');
+          return;
+        }
+
+        console.log('[Auth] Data fetched - Profile:', !!profileResult.data, 'Roles:', rolesResult.data?.length || 0, 'Member:', !!memberResult.data);
+        
+        setProfile(profileResult.data);
+        setRoles(rolesResult.data || []);
+        setMembership(memberResult.data);
+      } catch (error) {
+        console.error('[Auth] Error fetching user data:', error);
+      }
+    };
+
+    const clearUserData = () => {
+      console.log('[Auth] Clearing user data');
+      setProfile(null);
+      setRoles([]);
+      setMembership(null);
+    };
+
+    const initialize = async () => {
+      console.log('[Auth] Starting initialization');
+      
       try {
         // Get current session
         const { data: { session: currentSession }, error } = await supabase.auth.getSession();
@@ -97,73 +88,70 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           console.error('[Auth] Error getting session:', error);
         }
         
-        if (!mounted) return;
+        if (!mounted) {
+          console.log('[Auth] Component unmounted during init');
+          return;
+        }
         
-        console.log('[Auth] Session found:', !!currentSession?.user);
+        console.log('[Auth] Session result:', !!currentSession?.user);
         
         setSession(currentSession);
         setUser(currentSession?.user ?? null);
         
         if (currentSession?.user) {
-          currentUserIdRef.current = currentSession.user.id;
           await fetchUserData(currentSession.user.id);
-        }
-        
-        if (mounted) {
-          setIsLoading(false);
-          setIsInitialized(true);
-          console.log('[Auth] Initialization complete');
         }
       } catch (error) {
         console.error('[Auth] Init error:', error);
+      } finally {
+        // ALWAYS set these - critical for avoiding infinite loading
         if (mounted) {
+          console.log('[Auth] Initialization complete, setting isLoading=false, isInitialized=true');
           setIsLoading(false);
           setIsInitialized(true);
         }
       }
     };
 
-    // Set up auth state listener for SUBSEQUENT changes only
+    // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, newSession) => {
+      (event, newSession) => {
         console.log('[Auth] Auth state changed:', event);
         
         if (!mounted) return;
         
-        // Skip if this is the initial session (we handle that in initializeAuth)
+        // Skip INITIAL_SESSION - we handle it in initialize()
         if (event === 'INITIAL_SESSION') {
-          console.log('[Auth] Skipping INITIAL_SESSION event (handled by initializeAuth)');
+          console.log('[Auth] Skipping INITIAL_SESSION (handled by initialize)');
           return;
         }
         
+        // Update session and user synchronously
         setSession(newSession);
         setUser(newSession?.user ?? null);
         
+        // Handle data fetching asynchronously but don't use async in the callback
         if (newSession?.user) {
-          // Only fetch if user changed
-          if (currentUserIdRef.current !== newSession.user.id) {
-            currentUserIdRef.current = newSession.user.id;
-            await fetchUserData(newSession.user.id);
-          }
+          // Fire and forget - don't await
+          fetchUserData(newSession.user.id);
         } else {
           clearUserData();
         }
       }
     );
 
-    // Start initialization
-    initializeAuth();
+    // THEN initialize
+    initialize();
 
     return () => {
-      console.log('[Auth] Cleanup');
+      console.log('[Auth] Cleanup - setting mounted=false');
       mounted = false;
       subscription.unsubscribe();
     };
-  }, [fetchUserData, clearUserData]);
+  }, []); // Empty deps - only run on mount
 
   const signIn = useCallback(async (email: string, password: string) => {
     console.log('[Auth] Signing in:', email);
-    setIsLoading(true);
     
     const { error } = await supabase.auth.signInWithPassword({
       email,
@@ -172,9 +160,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     
     if (error) {
       console.error('[Auth] Sign in error:', error);
-      setIsLoading(false);
     }
-    // isLoading will be set to false by onAuthStateChange after data is loaded
     
     return { error: error as Error | null };
   }, []);
@@ -198,17 +184,33 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const signOut = useCallback(async () => {
     console.log('[Auth] Signing out');
+    setProfile(null);
+    setRoles([]);
+    setMembership(null);
     await supabase.auth.signOut();
-    clearUserData();
     setUser(null);
     setSession(null);
-  }, [clearUserData]);
+  }, []);
 
   const refreshProfile = useCallback(async () => {
-    if (user) {
-      await fetchUserData(user.id);
+    if (!user) return;
+    
+    console.log('[Auth] Refreshing profile for:', user.id);
+    
+    try {
+      const [profileResult, rolesResult, memberResult] = await Promise.all([
+        supabase.from('profiles').select('*').eq('id', user.id).maybeSingle(),
+        supabase.from('user_roles').select('*').eq('user_id', user.id),
+        supabase.from('company_members').select('*').eq('user_id', user.id).maybeSingle()
+      ]);
+      
+      setProfile(profileResult.data);
+      setRoles(rolesResult.data || []);
+      setMembership(memberResult.data);
+    } catch (error) {
+      console.error('[Auth] Error refreshing profile:', error);
     }
-  }, [user, fetchUserData]);
+  }, [user]);
 
   return (
     <AuthContext.Provider value={{
