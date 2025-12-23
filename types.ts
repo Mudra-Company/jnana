@@ -99,6 +99,7 @@ export interface User {
   jobTitle?: string;
   departmentId?: string; // Links to OrgNode.id
   requiredProfile?: RequiredProfile; // Role-specific skill requirements
+  isHiring?: boolean; // Indicates if this is an open hiring position
 }
 
 export interface Company {
