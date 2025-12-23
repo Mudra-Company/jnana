@@ -117,6 +117,7 @@ export type Database = {
           department_id: string | null
           id: string
           invited_at: string | null
+          is_hiring: boolean | null
           joined_at: string | null
           required_profile: Json | null
           role: Database["public"]["Enums"]["app_role"]
@@ -129,6 +130,7 @@ export type Database = {
           department_id?: string | null
           id?: string
           invited_at?: string | null
+          is_hiring?: boolean | null
           joined_at?: string | null
           required_profile?: Json | null
           role?: Database["public"]["Enums"]["app_role"]
@@ -141,6 +143,7 @@ export type Database = {
           department_id?: string | null
           id?: string
           invited_at?: string | null
+          is_hiring?: boolean | null
           joined_at?: string | null
           required_profile?: Json | null
           role?: Database["public"]["Enums"]["app_role"]

@@ -12,7 +12,8 @@ import {
   Handshake,
   Building,
   BarChart3,
-  AlertTriangle
+  AlertTriangle,
+  Search
 } from 'lucide-react';
 import { Card } from '../../components/Card';
 import { Button } from '../../components/Button';
@@ -309,7 +310,7 @@ const OrgNodeView = forwardRef<HTMLDivElement, OrgNodeViewProps>(
         <div className="flex justify-between items-start mb-2 pb-2 border-b border-gray-100 dark:border-gray-700">
             <div className="flex-1 pr-2">
                 <h4 className="font-bold text-gray-800 dark:text-gray-100 text-lg leading-tight truncate" title={node.name}>{node.name}</h4>
-                <div className="flex items-center gap-2 mt-1">
+                <div className="flex items-center gap-2 mt-1 flex-wrap">
                     <span className="text-[10px] uppercase text-gray-500 font-bold tracking-wider bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded">{node.type}</span>
                     {nodeClimateScore !== null && (
                         <div className={`flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded border ${getScoreColor(nodeClimateScore)}`}>
@@ -317,6 +318,14 @@ const OrgNodeView = forwardRef<HTMLDivElement, OrgNodeViewProps>(
                             Clima: {nodeClimateScore.toFixed(1)}/5
                         </div>
                     )}
+                    {(() => {
+                        const hiringCount = nodeUsers.filter(u => u.isHiring).length;
+                        return hiringCount > 0 && (
+                            <span className="text-[10px] bg-green-100 text-green-700 dark:bg-green-800 dark:text-green-200 px-1.5 py-0.5 rounded font-bold flex items-center gap-1">
+                                <Search size={10}/> {hiringCount} {hiringCount === 1 ? 'posizione aperta' : 'posizioni aperte'}
+                            </span>
+                        );
+                    })()}
                 </div>
             </div>
             <div className="flex gap-0.5 shrink-0">
@@ -351,23 +360,33 @@ const OrgNodeView = forwardRef<HTMLDivElement, OrgNodeViewProps>(
                         <div 
                             key={u.id} 
                             onClick={() => onViewUser(u.id)}
-                            className="flex flex-col p-2 bg-gray-50 hover:bg-white hover:shadow-md dark:bg-gray-700/50 dark:hover:bg-gray-700/80 rounded-lg transition-all border border-transparent hover:border-gray-200 dark:hover:border-gray-600 group/user cursor-pointer relative"
+                            className={`flex flex-col p-2 bg-gray-50 hover:bg-white hover:shadow-md dark:bg-gray-700/50 dark:hover:bg-gray-700/80 rounded-lg transition-all border group/user cursor-pointer relative ${
+                                u.isHiring 
+                                    ? 'border-dashed border-green-400 dark:border-green-600 bg-green-50/50 dark:bg-green-900/20' 
+                                    : 'border-transparent hover:border-gray-200 dark:hover:border-gray-600'
+                            }`}
                         >
                             <div className="flex items-center justify-between mb-1">
                                 <div className="flex items-center gap-2 overflow-hidden">
                                     <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold text-white shrink-0 shadow-sm ${
+                                        u.isHiring ? 'bg-green-500' :
                                         node.isCulturalDriver && isInternalLeader ? 'bg-amber-500 ring-2 ring-amber-200' : 'bg-jnana-sage'
                                     }`}>
-                                        {u.firstName[0]}{u.lastName[0]}
+                                        {u.isHiring ? <Search size={12}/> : `${u.firstName[0] || '?'}${u.lastName[0] || ''}`}
                                     </div>
                                     <div className="truncate">
-                                        <div className="text-xs font-bold text-gray-800 dark:text-gray-100 truncate group-hover/user:text-indigo-600 transition-colors">
-                                            {u.firstName} {u.lastName}
+                                        <div className="text-xs font-bold text-gray-800 dark:text-gray-100 truncate group-hover/user:text-indigo-600 transition-colors flex items-center gap-1">
+                                            {u.firstName && u.lastName ? `${u.firstName} ${u.lastName}` : <span className="text-gray-400 italic">Da assegnare</span>}
+                                            {u.isHiring && (
+                                                <span className="text-[9px] bg-green-100 text-green-700 dark:bg-green-800 dark:text-green-200 px-1.5 py-0.5 rounded-full font-bold ml-1">
+                                                    HIRING
+                                                </span>
+                                            )}
                                         </div>
                                         <div className="text-[9px] text-gray-500 truncate">{u.jobTitle}</div>
                                     </div>
                                 </div>
-                                {u.profileCode && (
+                                {u.profileCode && !u.isHiring && (
                                     <span className="text-[9px] font-mono font-bold bg-white dark:bg-gray-800 px-1.5 py-0.5 rounded border border-gray-200 dark:border-gray-600 text-gray-500 shrink-0">
                                         {u.profileCode}
                                     </span>
@@ -470,18 +489,23 @@ export const CompanyOrgView: React.FC<{
     const [inviteSeniority, setInviteSeniority] = useState<SeniorityLevel>('Mid');
     const [newHardSkill, setNewHardSkill] = useState('');
     const [newSoftSkill, setNewSoftSkill] = useState('');
+    const [isHiring, setIsHiring] = useState(false);
 
     const handleInviteUser = () => {
-        if (!inviteName || !inviteEmail || !inviteNodeId) return;
+        // Job Title is the ONLY required field
+        if (!inviteRole || !inviteNodeId) {
+            return;
+        }
         const newUser: User = {
             id: `u_${Date.now()}`,
-            firstName: inviteName.split(' ')[0],
-            lastName: inviteName.split(' ')[1] || '',
-            email: inviteEmail,
+            firstName: inviteName ? inviteName.split(' ')[0] : '',
+            lastName: inviteName ? inviteName.split(' ').slice(1).join(' ') : '',
+            email: inviteEmail || '',
             companyId: company.id,
-            status: 'invited',
+            status: isHiring ? 'pending' : (inviteEmail ? 'invited' : 'pending'),
             jobTitle: inviteRole,
             departmentId: inviteNodeId,
+            isHiring: isHiring,
             requiredProfile: {
                 hardSkills: inviteHardSkills,
                 softSkills: inviteSoftSkills,
@@ -500,6 +524,7 @@ export const CompanyOrgView: React.FC<{
         setInviteSeniority('Mid');
         setNewHardSkill('');
         setNewSoftSkill('');
+        setIsHiring(false);
     };
     
     const addInviteHardSkill = () => {
@@ -577,30 +602,60 @@ export const CompanyOrgView: React.FC<{
                 <div className="fixed inset-0 bg-black/50 z-[120] flex items-center justify-center p-4 backdrop-blur-sm">
                     <Card className="w-full max-w-lg max-h-[90vh] overflow-y-auto animate-scale-in">
                         <div className="flex justify-between items-center mb-4">
-                            <h3 className="text-lg font-bold dark:text-gray-100">Aggiungi Persona al Nodo</h3>
+                            <h3 className="text-lg font-bold dark:text-gray-100">Aggiungi Ruolo/Persona al Nodo</h3>
                             <button onClick={() => setInviteNodeId(null)}><X className="text-gray-400 hover:text-red-500" /></button>
                         </div>
                         <div className="space-y-4">
-                            {/* Basic Info */}
+                            {/* Basic Info - Job Title is REQUIRED, others optional */}
                             <div className="space-y-3">
-                                <input
-                                    className="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                                    placeholder="Nome e Cognome"
-                                    value={inviteName}
-                                    onChange={e => setInviteName(e.target.value)}
-                                />
-                                <input
-                                    className="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                                    placeholder="Email Aziendale"
-                                    value={inviteEmail}
-                                    onChange={e => setInviteEmail(e.target.value)}
-                                />
-                                <input
-                                    className="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                                    placeholder="Ruolo/Job Title"
-                                    value={inviteRole}
-                                    onChange={e => setInviteRole(e.target.value)}
-                                />
+                                <div>
+                                    <label className="block text-xs font-bold uppercase text-gray-500 mb-1">
+                                        Ruolo/Job Title <span className="text-red-500">*</span>
+                                    </label>
+                                    <input
+                                        required
+                                        className="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                                        placeholder="Es. Marketing Manager, Senior Developer..."
+                                        value={inviteRole}
+                                        onChange={e => setInviteRole(e.target.value)}
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold uppercase text-gray-500 mb-1">
+                                        Nome e Cognome <span className="text-gray-400 text-[10px]">(opzionale)</span>
+                                    </label>
+                                    <input
+                                        className="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                                        placeholder="Se conosci già chi occuperà questo ruolo"
+                                        value={inviteName}
+                                        onChange={e => setInviteName(e.target.value)}
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold uppercase text-gray-500 mb-1">
+                                        Email Aziendale <span className="text-gray-400 text-[10px]">(opzionale)</span>
+                                    </label>
+                                    <input
+                                        className="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                                        placeholder="Per inviare l'invito ai test"
+                                        value={inviteEmail}
+                                        onChange={e => setInviteEmail(e.target.value)}
+                                    />
+                                </div>
+                                
+                                {/* Hiring Checkbox */}
+                                <div className="flex items-center gap-2 p-3 bg-green-50 dark:bg-green-900/20 rounded-xl border border-green-100 dark:border-green-800">
+                                    <input 
+                                        type="checkbox" 
+                                        id="isHiring"
+                                        checked={isHiring}
+                                        onChange={e => setIsHiring(e.target.checked)}
+                                        className="w-5 h-5 text-green-600 rounded focus:ring-green-500"
+                                    />
+                                    <label htmlFor="isHiring" className="text-sm font-bold text-green-800 dark:text-green-200 cursor-pointer select-none flex items-center gap-2">
+                                        <Search size={16}/> Posizione in Hiring (aperta)
+                                    </label>
+                                </div>
                             </div>
 
                             {/* Required Profile Section */}
