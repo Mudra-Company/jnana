@@ -17,7 +17,11 @@ import {
   Check,
   AlertCircle,
   Sparkles,
-  ExternalLink
+  ExternalLink,
+  UserCheck,
+  Medal,
+  ArrowRight,
+  Shuffle
 } from 'lucide-react';
 import { Card } from '../../components/Card';
 import { Button } from '../../components/Button';
@@ -28,11 +32,57 @@ import { calculateUserCompatibility } from '../../services/riasecService';
 const SENIORITY_OPTIONS: SeniorityLevel[] = ['Junior', 'Mid', 'Senior', 'Lead', 'C-Level'];
 const SENIORITY_LEVELS: Record<SeniorityLevel, number> = { 'Junior': 1, 'Mid': 2, 'Senior': 3, 'Lead': 4, 'C-Level': 5 };
 
+// --- CANDIDATE MATCH CALCULATION ---
+const calculateCandidateMatch = (candidate: User, required: RequiredProfile | undefined): { 
+  score: number; 
+  softMatches: string[]; 
+  softGaps: string[]; 
+  seniorityMatch: 'match' | 'above' | 'below';
+} => {
+  if (!required) return { score: 100, softMatches: [], softGaps: [], seniorityMatch: 'match' };
+  
+  const userSoftSkills = candidate.karmaData?.softSkills || [];
+  const userSeniority = candidate.karmaData?.seniorityAssessment;
+  
+  // Soft skills comparison
+  const softMatches: string[] = [];
+  const softGaps: string[] = [];
+  
+  (required.softSkills || []).forEach(reqSkill => {
+    const found = userSoftSkills.some(us => 
+      us.toLowerCase().includes(reqSkill.toLowerCase()) || 
+      reqSkill.toLowerCase().includes(us.toLowerCase())
+    );
+    if (found) softMatches.push(reqSkill);
+    else softGaps.push(reqSkill);
+  });
+  
+  // Seniority comparison
+  let seniorityMatch: 'match' | 'above' | 'below' = 'match';
+  if (required.seniority && userSeniority) {
+    const reqLevel = SENIORITY_LEVELS[required.seniority] || 0;
+    const userLevel = SENIORITY_LEVELS[userSeniority] || 0;
+    if (userLevel > reqLevel) seniorityMatch = 'above';
+    else if (userLevel < reqLevel) seniorityMatch = 'below';
+  }
+  
+  // Calculate overall score
+  const totalRequired = (required.softSkills?.length || 0) + (required.hardSkills?.length || 0) + (required.seniority ? 1 : 0);
+  const matches = softMatches.length + (seniorityMatch !== 'below' ? 1 : 0);
+  const score = totalRequired > 0 ? Math.round((matches / totalRequired) * 100) : 100;
+  
+  return { score: Math.min(score, 100), softMatches, softGaps, seniorityMatch };
+};
+
 // --- ROLE COMPARISON MODAL ---
 interface RoleComparisonModalProps {
   user: User;
+  allUsers: User[];
+  orgStructure: OrgNode;
   onClose: () => void;
   onViewFullProfile: () => void;
+  onAssignUser: (slotUserId: string, selectedUserId: string) => void;
+  onInviteNewPerson: (nodeId: string) => void;
 }
 
 const calculateMatchScore = (user: User): { score: number; hardMatches: string[]; hardGaps: string[]; softMatches: string[]; softGaps: string[]; bonusSkills: string[]; seniorityMatch: 'match' | 'above' | 'below' } => {
@@ -84,9 +134,64 @@ const calculateMatchScore = (user: User): { score: number; hardMatches: string[]
   return { score: Math.min(score, 100), hardMatches, hardGaps, softMatches, softGaps, bonusSkills, seniorityMatch };
 };
 
-const RoleComparisonModal: React.FC<RoleComparisonModalProps> = ({ user, onClose, onViewFullProfile }) => {
+// Helper to find node name by id
+const findNodeName = (structure: OrgNode, nodeId: string): string => {
+  if (structure.id === nodeId) return structure.name;
+  for (const child of structure.children) {
+    const found = findNodeName(child, nodeId);
+    if (found) return found;
+  }
+  return '';
+};
+
+const RoleComparisonModal: React.FC<RoleComparisonModalProps> = ({ 
+  user, 
+  allUsers, 
+  orgStructure, 
+  onClose, 
+  onViewFullProfile, 
+  onAssignUser,
+  onInviteNewPerson 
+}) => {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showAssignSection, setShowAssignSection] = useState(false);
+  
   const match = useMemo(() => calculateMatchScore(user), [user]);
   const required = user.requiredProfile;
+  
+  // Check if this is an empty slot or hiring position
+  const isEmptySlot = !user.firstName && !user.lastName;
+  const isHiringSlot = user.isHiring === true;
+  const needsAssignment = isEmptySlot || isHiringSlot;
+  
+  // Available employees for assignment (exclude current slot and other hiring slots)
+  const availableEmployees = useMemo(() => {
+    return allUsers.filter(u => 
+      u.id !== user.id && 
+      !u.isHiring && 
+      u.firstName && 
+      u.lastName &&
+      (searchQuery === '' || 
+        `${u.firstName} ${u.lastName}`.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        u.jobTitle?.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+    );
+  }, [allUsers, user.id, searchQuery]);
+  
+  // Internal candidates ranked by match score (for hiring slots)
+  const internalCandidates = useMemo(() => {
+    if (!isHiringSlot) return [];
+    
+    return allUsers
+      .filter(u => u.id !== user.id && !u.isHiring && u.firstName && u.lastName)
+      .map(candidate => ({
+        user: candidate,
+        matchData: calculateCandidateMatch(candidate, user.requiredProfile),
+        currentDepartment: candidate.departmentId ? findNodeName(orgStructure, candidate.departmentId) : 'Non assegnato'
+      }))
+      .sort((a, b) => b.matchData.score - a.matchData.score)
+      .slice(0, 5);
+  }, [allUsers, user, isHiringSlot, orgStructure]);
   
   const getScoreColor = (score: number) => {
     if (score >= 75) return 'text-green-600';
@@ -99,23 +204,37 @@ const RoleComparisonModal: React.FC<RoleComparisonModalProps> = ({ user, onClose
     if (score >= 50) return 'bg-yellow-500';
     return 'bg-red-500';
   };
+  
+  const getMedalIcon = (index: number) => {
+    if (index === 0) return <span className="text-yellow-500">🥇</span>;
+    if (index === 1) return <span className="text-gray-400">🥈</span>;
+    if (index === 2) return <span className="text-amber-600">🥉</span>;
+    return <span className="text-gray-400">{index + 1}.</span>;
+  };
 
   return (
     <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[130] flex items-center justify-center p-4">
-      <Card className="w-full max-w-xl max-h-[90vh] overflow-y-auto animate-scale-in">
+      <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto animate-scale-in">
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-lg font-bold dark:text-gray-100 flex items-center gap-2">
-            <Target size={20}/> Confronto Ruolo/Persona
+            <Target size={20}/> {needsAssignment ? 'Posizione da Assegnare' : 'Confronto Ruolo/Persona'}
           </h3>
           <button onClick={onClose}><X className="text-gray-400 hover:text-red-500" /></button>
         </div>
         
         {/* User Header */}
         <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-xl mb-4">
-          <div className="text-sm font-bold text-gray-500 dark:text-gray-400 mb-2">🎯 {user.jobTitle}</div>
+          <div className="text-sm font-bold text-gray-500 dark:text-gray-400 mb-2 flex items-center gap-2">
+            🎯 {user.jobTitle}
+            {isHiringSlot && (
+              <span className="text-xs bg-green-100 text-green-700 dark:bg-green-800 dark:text-green-200 px-2 py-0.5 rounded-full font-bold flex items-center gap-1">
+                <Search size={10}/> HIRING
+              </span>
+            )}
+          </div>
           <div className="flex items-center gap-3">
-            <div className={`w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold text-white ${user.isHiring ? 'bg-green-500' : 'bg-jnana-sage'}`}>
-              {user.isHiring ? <Search size={20}/> : `${user.firstName?.[0] || '?'}${user.lastName?.[0] || ''}`}
+            <div className={`w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold text-white ${user.isHiring ? 'bg-green-500' : isEmptySlot ? 'bg-gray-400' : 'bg-jnana-sage'}`}>
+              {user.isHiring || isEmptySlot ? <Search size={20}/> : `${user.firstName?.[0] || '?'}${user.lastName?.[0] || ''}`}
             </div>
             <div>
               <div className="font-bold text-gray-800 dark:text-gray-100">
@@ -126,159 +245,344 @@ const RoleComparisonModal: React.FC<RoleComparisonModalProps> = ({ user, onClose
           </div>
         </div>
         
-        {/* Seniority Comparison */}
-        <div className="mb-4">
-          <label className="block text-xs font-bold uppercase text-gray-500 mb-2 flex items-center gap-1">
-            <BarChart3 size={12}/> Seniority
-          </label>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-100 dark:border-blue-800">
-              <div className="text-[10px] uppercase text-blue-600 dark:text-blue-400 font-bold mb-1">Richiesta</div>
-              <div className="font-bold text-blue-800 dark:text-blue-200">{required?.seniority || 'Non specificata'}</div>
+        {/* ASSIGN PERSON SECTION (for empty/hiring slots) */}
+        {needsAssignment && (
+          <div className="mb-4 p-4 border-2 border-dashed border-blue-200 dark:border-blue-800 rounded-xl bg-blue-50/50 dark:bg-blue-900/10">
+            <div className="flex items-center justify-between mb-3">
+              <label className="text-sm font-bold text-blue-700 dark:text-blue-300 flex items-center gap-2">
+                <UserCheck size={16}/> Assegna una Persona
+              </label>
+              <button 
+                onClick={() => setShowAssignSection(!showAssignSection)}
+                className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
+              >
+                {showAssignSection ? 'Nascondi' : 'Mostra'}
+              </button>
             </div>
-            <div className={`p-3 rounded-lg border ${
-              match.seniorityMatch === 'match' ? 'bg-green-50 dark:bg-green-900/20 border-green-100 dark:border-green-800' :
-              match.seniorityMatch === 'above' ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-100 dark:border-blue-800' :
-              'bg-orange-50 dark:bg-orange-900/20 border-orange-100 dark:border-orange-800'
-            }`}>
-              <div className={`text-[10px] uppercase font-bold mb-1 ${
-                match.seniorityMatch === 'match' ? 'text-green-600 dark:text-green-400' :
-                match.seniorityMatch === 'above' ? 'text-blue-600 dark:text-blue-400' :
-                'text-orange-600 dark:text-orange-400'
-              }`}>Attuale</div>
-              <div className={`font-bold flex items-center gap-1 ${
-                match.seniorityMatch === 'match' ? 'text-green-800 dark:text-green-200' :
-                match.seniorityMatch === 'above' ? 'text-blue-800 dark:text-blue-200' :
-                'text-orange-800 dark:text-orange-200'
-              }`}>
-                {user.karmaData?.seniorityAssessment || 'Non valutata'}
-                {match.seniorityMatch === 'match' && <Check size={14}/>}
-                {match.seniorityMatch === 'above' && <Sparkles size={14}/>}
-                {match.seniorityMatch === 'below' && <AlertCircle size={14}/>}
-              </div>
-            </div>
+            
+            {showAssignSection && (
+              <>
+                {/* Search Bar */}
+                <div className="relative mb-3">
+                  <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"/>
+                  <input
+                    type="text"
+                    placeholder="Cerca dipendente per nome o ruolo..."
+                    className="w-full pl-10 pr-4 py-2 border rounded-lg text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                    value={searchQuery}
+                    onChange={e => setSearchQuery(e.target.value)}
+                  />
+                </div>
+                
+                {/* Available Employees List */}
+                <div className="max-h-48 overflow-y-auto space-y-2 mb-3">
+                  {availableEmployees.length > 0 ? (
+                    availableEmployees.slice(0, 10).map(emp => {
+                      const empMatch = calculateCandidateMatch(emp, user.requiredProfile);
+                      return (
+                        <div 
+                          key={emp.id}
+                          className="flex items-center justify-between p-2 bg-white dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600 hover:border-blue-400 transition-colors"
+                        >
+                          <div className="flex items-center gap-2">
+                            <div className="w-8 h-8 rounded-full bg-jnana-sage flex items-center justify-center text-xs font-bold text-white">
+                              {emp.firstName?.[0]}{emp.lastName?.[0]}
+                            </div>
+                            <div>
+                              <div className="text-sm font-bold text-gray-800 dark:text-gray-100">{emp.firstName} {emp.lastName}</div>
+                              <div className="text-[10px] text-gray-500">{emp.jobTitle}</div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className={`text-xs font-bold ${getScoreColor(empMatch.score)}`}>{empMatch.score}%</span>
+                            <Button 
+                              size="sm" 
+                              onClick={() => onAssignUser(user.id, emp.id)}
+                              className="text-xs px-2 py-1"
+                            >
+                              Assegna
+                            </Button>
+                          </div>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <div className="text-center py-4 text-gray-400 text-sm italic">
+                      {searchQuery ? 'Nessun dipendente trovato' : 'Nessun dipendente disponibile'}
+                    </div>
+                  )}
+                </div>
+                
+                {/* Invite New Person Button */}
+                <Button 
+                  variant="ghost" 
+                  fullWidth 
+                  onClick={() => {
+                    onClose();
+                    user.departmentId && onInviteNewPerson(user.departmentId);
+                  }}
+                  className="flex items-center justify-center gap-2 border-dashed border-2 border-gray-300 dark:border-gray-600"
+                >
+                  <UserPlus size={16}/> Invita Nuova Persona
+                </Button>
+              </>
+            )}
           </div>
-        </div>
+        )}
         
-        {/* Hard Skills */}
-        <div className="mb-4">
-          <label className="block text-xs font-bold uppercase text-gray-500 mb-2">💼 Hard Skills</label>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
-              <div className="text-[10px] uppercase text-gray-500 font-bold mb-2">Richieste</div>
-              <div className="flex flex-wrap gap-1">
-                {(required?.hardSkills || []).length > 0 ? (
-                  required?.hardSkills?.map(skill => (
-                    <span key={skill} className="px-2 py-1 bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 rounded text-xs">
-                      {skill}
-                    </span>
-                  ))
-                ) : (
-                  <span className="text-xs text-gray-400 italic">Nessuna richiesta</span>
-                )}
-              </div>
-            </div>
-            <div className="p-3 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-100 dark:border-orange-800">
-              <div className="text-[10px] uppercase text-orange-600 dark:text-orange-400 font-bold mb-2 flex items-center gap-1">
-                <AlertCircle size={10}/> Gap da colmare
-              </div>
-              <div className="flex flex-wrap gap-1">
-                {match.hardGaps.length > 0 ? (
-                  match.hardGaps.map(skill => (
-                    <span key={skill} className="px-2 py-1 bg-orange-100 text-orange-700 dark:bg-orange-800/50 dark:text-orange-300 rounded text-xs">
-                      {skill}
-                    </span>
-                  ))
-                ) : (
-                  <span className="text-xs text-green-600">✓ Tutte coperte</span>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-        
-        {/* Soft Skills */}
-        <div className="mb-4">
-          <label className="block text-xs font-bold uppercase text-gray-500 mb-2">🎭 Soft Skills</label>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
-              <div className="text-[10px] uppercase text-gray-500 font-bold mb-2">Richieste</div>
-              <div className="space-y-1">
-                {(required?.softSkills || []).length > 0 ? (
-                  required?.softSkills?.map(skill => {
-                    const isMatch = match.softMatches.includes(skill);
-                    return (
-                      <div key={skill} className={`flex items-center gap-1 text-xs px-2 py-1 rounded ${
-                        isMatch ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' : 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300'
-                      }`}>
-                        {isMatch && <Check size={10}/>}
-                        {skill}
-                      </div>
-                    );
-                  })
-                ) : (
-                  <span className="text-xs text-gray-400 italic">Nessuna richiesta</span>
-                )}
-              </div>
-            </div>
+        {/* INTERNAL CANDIDATES SECTION (only for HIRING slots) */}
+        {isHiringSlot && internalCandidates.length > 0 && (
+          <div className="mb-4 p-4 bg-gradient-to-br from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20 rounded-xl border border-purple-100 dark:border-purple-800">
+            <label className="block text-sm font-bold text-purple-700 dark:text-purple-300 mb-3 flex items-center gap-2">
+              <Shuffle size={16}/> Candidati Interni (Job Rotation)
+            </label>
+            <p className="text-xs text-purple-600 dark:text-purple-400 mb-3">
+              Migliori match interni per questo ruolo:
+            </p>
+            
             <div className="space-y-2">
-              {match.softGaps.length > 0 && (
+              {internalCandidates.map((candidate, index) => (
+                <div 
+                  key={candidate.user.id}
+                  className="flex items-center justify-between p-3 bg-white dark:bg-gray-800 rounded-lg border border-purple-100 dark:border-purple-700 hover:shadow-md transition-all"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="text-lg">{getMedalIcon(index)}</div>
+                    <div className="w-10 h-10 rounded-full bg-jnana-sage flex items-center justify-center text-sm font-bold text-white">
+                      {candidate.user.firstName?.[0]}{candidate.user.lastName?.[0]}
+                    </div>
+                    <div>
+                      <div className="text-sm font-bold text-gray-800 dark:text-gray-100">{candidate.user.firstName} {candidate.user.lastName}</div>
+                      <div className="text-[10px] text-gray-500 flex items-center gap-2">
+                        <span>{candidate.user.karmaData?.seniorityAssessment || 'N/A'} - {candidate.user.jobTitle}</span>
+                      </div>
+                      <div className="text-[9px] text-purple-500 dark:text-purple-400 flex items-center gap-1">
+                        <Building size={9}/> Attualmente in: {candidate.currentDepartment}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex flex-col items-end gap-1">
+                    <div className={`text-lg font-bold ${getScoreColor(candidate.matchData.score)}`}>
+                      {candidate.matchData.score}%
+                    </div>
+                    <div className="flex items-center gap-1 text-[9px] text-gray-500">
+                      <span className="text-green-600">✓ {candidate.matchData.softMatches.length}</span>
+                      {candidate.matchData.softGaps.length > 0 && (
+                        <span className="text-orange-500">⚠ {candidate.matchData.softGaps.length}</span>
+                      )}
+                    </div>
+                    <div className="flex gap-1 mt-1">
+                      <button 
+                        onClick={() => onAssignUser(user.id, candidate.user.id)}
+                        className="text-[10px] px-2 py-1 bg-purple-100 dark:bg-purple-800 text-purple-700 dark:text-purple-200 rounded hover:bg-purple-200 dark:hover:bg-purple-700 transition-colors flex items-center gap-1"
+                      >
+                        <ArrowRight size={10}/> Assegna
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        
+        {/* Show comparison only if person is assigned */}
+        {!isEmptySlot && !isHiringSlot && (
+          <>
+            {/* Seniority Comparison */}
+            <div className="mb-4">
+              <label className="block text-xs font-bold uppercase text-gray-500 mb-2 flex items-center gap-1">
+                <BarChart3 size={12}/> Seniority
+              </label>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-100 dark:border-blue-800">
+                  <div className="text-[10px] uppercase text-blue-600 dark:text-blue-400 font-bold mb-1">Richiesta</div>
+                  <div className="font-bold text-blue-800 dark:text-blue-200">{required?.seniority || 'Non specificata'}</div>
+                </div>
+                <div className={`p-3 rounded-lg border ${
+                  match.seniorityMatch === 'match' ? 'bg-green-50 dark:bg-green-900/20 border-green-100 dark:border-green-800' :
+                  match.seniorityMatch === 'above' ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-100 dark:border-blue-800' :
+                  'bg-orange-50 dark:bg-orange-900/20 border-orange-100 dark:border-orange-800'
+                }`}>
+                  <div className={`text-[10px] uppercase font-bold mb-1 ${
+                    match.seniorityMatch === 'match' ? 'text-green-600 dark:text-green-400' :
+                    match.seniorityMatch === 'above' ? 'text-blue-600 dark:text-blue-400' :
+                    'text-orange-600 dark:text-orange-400'
+                  }`}>Attuale</div>
+                  <div className={`font-bold flex items-center gap-1 ${
+                    match.seniorityMatch === 'match' ? 'text-green-800 dark:text-green-200' :
+                    match.seniorityMatch === 'above' ? 'text-blue-800 dark:text-blue-200' :
+                    'text-orange-800 dark:text-orange-200'
+                  }`}>
+                    {user.karmaData?.seniorityAssessment || 'Non valutata'}
+                    {match.seniorityMatch === 'match' && <Check size={14}/>}
+                    {match.seniorityMatch === 'above' && <Sparkles size={14}/>}
+                    {match.seniorityMatch === 'below' && <AlertCircle size={14}/>}
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            {/* Hard Skills */}
+            <div className="mb-4">
+              <label className="block text-xs font-bold uppercase text-gray-500 mb-2">💼 Hard Skills</label>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                  <div className="text-[10px] uppercase text-gray-500 font-bold mb-2">Richieste</div>
+                  <div className="flex flex-wrap gap-1">
+                    {(required?.hardSkills || []).length > 0 ? (
+                      required?.hardSkills?.map(skill => (
+                        <span key={skill} className="px-2 py-1 bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 rounded text-xs">
+                          {skill}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="text-xs text-gray-400 italic">Nessuna richiesta</span>
+                    )}
+                  </div>
+                </div>
                 <div className="p-3 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-100 dark:border-orange-800">
                   <div className="text-[10px] uppercase text-orange-600 dark:text-orange-400 font-bold mb-2 flex items-center gap-1">
-                    <AlertCircle size={10}/> Gap
+                    <AlertCircle size={10}/> Gap da colmare
                   </div>
                   <div className="flex flex-wrap gap-1">
-                    {match.softGaps.map(skill => (
-                      <span key={skill} className="px-2 py-1 bg-orange-100 text-orange-700 dark:bg-orange-800/50 dark:text-orange-300 rounded text-xs">
-                        {skill}
-                      </span>
-                    ))}
+                    {match.hardGaps.length > 0 ? (
+                      match.hardGaps.map(skill => (
+                        <span key={skill} className="px-2 py-1 bg-orange-100 text-orange-700 dark:bg-orange-800/50 dark:text-orange-300 rounded text-xs">
+                          {skill}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="text-xs text-green-600">✓ Tutte coperte</span>
+                    )}
                   </div>
                 </div>
-              )}
-              {match.bonusSkills.length > 0 && (
-                <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-100 dark:border-blue-800">
-                  <div className="text-[10px] uppercase text-blue-600 dark:text-blue-400 font-bold mb-2 flex items-center gap-1">
-                    <Sparkles size={10}/> Bonus
-                  </div>
-                  <div className="flex flex-wrap gap-1">
-                    {match.bonusSkills.slice(0, 5).map(skill => (
-                      <span key={skill} className="px-2 py-1 bg-blue-100 text-blue-700 dark:bg-blue-800/50 dark:text-blue-300 rounded text-xs">
-                        {skill}
-                      </span>
-                    ))}
+              </div>
+            </div>
+            
+            {/* Soft Skills */}
+            <div className="mb-4">
+              <label className="block text-xs font-bold uppercase text-gray-500 mb-2">🎭 Soft Skills</label>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                  <div className="text-[10px] uppercase text-gray-500 font-bold mb-2">Richieste</div>
+                  <div className="space-y-1">
+                    {(required?.softSkills || []).length > 0 ? (
+                      required?.softSkills?.map(skill => {
+                        const isMatch = match.softMatches.includes(skill);
+                        return (
+                          <div key={skill} className={`flex items-center gap-1 text-xs px-2 py-1 rounded ${
+                            isMatch ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' : 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300'
+                          }`}>
+                            {isMatch && <Check size={10}/>}
+                            {skill}
+                          </div>
+                        );
+                      })
+                    ) : (
+                      <span className="text-xs text-gray-400 italic">Nessuna richiesta</span>
+                    )}
                   </div>
                 </div>
-              )}
-              {match.softGaps.length === 0 && match.bonusSkills.length === 0 && (
-                <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-100 dark:border-green-800 text-center">
-                  <span className="text-xs text-green-600">✓ Match perfetto</span>
+                <div className="space-y-2">
+                  {match.softGaps.length > 0 && (
+                    <div className="p-3 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-100 dark:border-orange-800">
+                      <div className="text-[10px] uppercase text-orange-600 dark:text-orange-400 font-bold mb-2 flex items-center gap-1">
+                        <AlertCircle size={10}/> Gap
+                      </div>
+                      <div className="flex flex-wrap gap-1">
+                        {match.softGaps.map(skill => (
+                          <span key={skill} className="px-2 py-1 bg-orange-100 text-orange-700 dark:bg-orange-800/50 dark:text-orange-300 rounded text-xs">
+                            {skill}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {match.bonusSkills.length > 0 && (
+                    <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-100 dark:border-blue-800">
+                      <div className="text-[10px] uppercase text-blue-600 dark:text-blue-400 font-bold mb-2 flex items-center gap-1">
+                        <Sparkles size={10}/> Bonus
+                      </div>
+                      <div className="flex flex-wrap gap-1">
+                        {match.bonusSkills.slice(0, 5).map(skill => (
+                          <span key={skill} className="px-2 py-1 bg-blue-100 text-blue-700 dark:bg-blue-800/50 dark:text-blue-300 rounded text-xs">
+                            {skill}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {match.softGaps.length === 0 && match.bonusSkills.length === 0 && (
+                    <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-100 dark:border-green-800 text-center">
+                      <span className="text-xs text-green-600">✓ Match perfetto</span>
+                    </div>
+                  )}
                 </div>
-              )}
+              </div>
+            </div>
+            
+            {/* Match Score */}
+            <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-xl mb-4">
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-xs font-bold uppercase text-gray-500">📈 Match Score</label>
+                <span className={`text-2xl font-bold ${getScoreColor(match.score)}`}>{match.score}%</span>
+              </div>
+              <div className="w-full h-3 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                <div 
+                  className={`h-full rounded-full transition-all ${getProgressColor(match.score)}`}
+                  style={{ width: `${match.score}%` }}
+                />
+              </div>
+            </div>
+          </>
+        )}
+        
+        {/* Show requirements summary for empty/hiring slots */}
+        {(isEmptySlot || isHiringSlot) && (
+          <div className="mb-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-xl">
+            <label className="block text-xs font-bold uppercase text-gray-500 mb-3">📋 Requisiti per questa Posizione</label>
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <div className="text-[10px] uppercase text-gray-400 font-bold mb-1">Seniority</div>
+                <div className="text-sm font-bold text-gray-700 dark:text-gray-300">{required?.seniority || 'Non definita'}</div>
+              </div>
+              <div>
+                <div className="text-[10px] uppercase text-gray-400 font-bold mb-1">Hard Skills</div>
+                <div className="flex flex-wrap gap-1">
+                  {(required?.hardSkills || []).length > 0 ? (
+                    required?.hardSkills?.slice(0, 3).map(s => (
+                      <span key={s} className="text-[10px] px-1.5 py-0.5 bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 rounded">{s}</span>
+                    ))
+                  ) : (
+                    <span className="text-xs text-gray-400">-</span>
+                  )}
+                </div>
+              </div>
+              <div>
+                <div className="text-[10px] uppercase text-gray-400 font-bold mb-1">Soft Skills</div>
+                <div className="flex flex-wrap gap-1">
+                  {(required?.softSkills || []).length > 0 ? (
+                    required?.softSkills?.slice(0, 3).map(s => (
+                      <span key={s} className="text-[10px] px-1.5 py-0.5 bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 rounded">{s}</span>
+                    ))
+                  ) : (
+                    <span className="text-xs text-gray-400">-</span>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-        
-        {/* Match Score */}
-        <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-xl mb-4">
-          <div className="flex items-center justify-between mb-2">
-            <label className="text-xs font-bold uppercase text-gray-500">📈 Match Score</label>
-            <span className={`text-2xl font-bold ${getScoreColor(match.score)}`}>{match.score}%</span>
-          </div>
-          <div className="w-full h-3 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-            <div 
-              className={`h-full rounded-full transition-all ${getProgressColor(match.score)}`}
-              style={{ width: `${match.score}%` }}
-            />
-          </div>
-        </div>
+        )}
         
         {/* Action Buttons */}
         <div className="flex gap-2 pt-4 border-t border-gray-100 dark:border-gray-700">
-          <Button fullWidth onClick={onViewFullProfile} className="flex items-center justify-center gap-2">
-            <ExternalLink size={16}/> Vai al Profilo Completo
-          </Button>
-          <Button variant="ghost" onClick={onClose}>Chiudi</Button>
+          {!isEmptySlot && !isHiringSlot && (
+            <Button fullWidth onClick={onViewFullProfile} className="flex items-center justify-center gap-2">
+              <ExternalLink size={16}/> Vai al Profilo Completo
+            </Button>
+          )}
+          <Button variant="ghost" onClick={onClose}>{needsAssignment ? 'Chiudi' : 'Chiudi'}</Button>
         </div>
       </Card>
     </div>
@@ -1034,11 +1338,37 @@ export const CompanyOrgView: React.FC<{
             {selectedUserForComparison && (
                 <RoleComparisonModal
                     user={selectedUserForComparison}
+                    allUsers={users}
+                    orgStructure={company.structure}
                     onClose={() => setSelectedUserForComparison(null)}
                     onViewFullProfile={() => {
                         onViewUser(selectedUserForComparison.id);
                         setSelectedUserForComparison(null);
                     }}
+                    onAssignUser={(slotUserId, selectedUserId) => {
+                        const slot = users.find(u => u.id === slotUserId);
+                        const selectedUser = users.find(u => u.id === selectedUserId);
+                        
+                        if (!slot || !selectedUser) return;
+                        
+                        // Update the selected user with slot's department and requirements
+                        const updatedUsers = users.map(u => {
+                            if (u.id === selectedUserId) {
+                                return {
+                                    ...u,
+                                    departmentId: slot.departmentId,
+                                    jobTitle: slot.jobTitle || u.jobTitle,
+                                    requiredProfile: slot.requiredProfile,
+                                    isHiring: false
+                                };
+                            }
+                            return u;
+                        }).filter(u => u.id !== slotUserId); // Remove the placeholder slot
+                        
+                        onUpdateUsers(updatedUsers);
+                        setSelectedUserForComparison(null);
+                    }}
+                    onInviteNewPerson={(nodeId) => setInviteNodeId(nodeId)}
                 />
             )}
             {editingNode && (
