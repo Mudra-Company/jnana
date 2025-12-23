@@ -98,6 +98,7 @@ export interface User {
   submissionDate?: string;
   jobTitle?: string;
   departmentId?: string; // Links to OrgNode.id
+  requiredProfile?: RequiredProfile; // Role-specific skill requirements
 }
 
 export interface Company {
@@ -111,6 +112,15 @@ export interface Company {
 
 export type SeniorityLevel = 'Junior' | 'Mid' | 'Senior' | 'Lead' | 'C-Level';
 
+// Individual role requirements (stored on company_members)
+export interface RequiredProfile {
+  hardSkills?: string[];
+  softSkills?: string[];
+  seniority?: SeniorityLevel;
+  description?: string;
+}
+
+// Legacy - kept for backwards compatibility, may be deprecated
 export interface TargetProfile {
   hardSkills: string[];
   softSkills: string[];

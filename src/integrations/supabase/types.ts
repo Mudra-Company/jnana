@@ -118,6 +118,7 @@ export type Database = {
           id: string
           invited_at: string | null
           joined_at: string | null
+          required_profile: Json | null
           role: Database["public"]["Enums"]["app_role"]
           status: Database["public"]["Enums"]["member_status"]
           user_id: string
@@ -129,6 +130,7 @@ export type Database = {
           id?: string
           invited_at?: string | null
           joined_at?: string | null
+          required_profile?: Json | null
           role?: Database["public"]["Enums"]["app_role"]
           status?: Database["public"]["Enums"]["member_status"]
           user_id: string
@@ -140,6 +142,7 @@ export type Database = {
           id?: string
           invited_at?: string | null
           joined_at?: string | null
+          required_profile?: Json | null
           role?: Database["public"]["Enums"]["app_role"]
           status?: Database["public"]["Enums"]["member_status"]
           user_id?: string
