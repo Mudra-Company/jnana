@@ -13,7 +13,11 @@ import {
   Building,
   BarChart3,
   AlertTriangle,
-  Search
+  Search,
+  Check,
+  AlertCircle,
+  Sparkles,
+  ExternalLink
 } from 'lucide-react';
 import { Card } from '../../components/Card';
 import { Button } from '../../components/Button';
@@ -22,6 +26,264 @@ import { SOFT_SKILLS_OPTIONS } from '../../constants';
 import { calculateUserCompatibility } from '../../services/riasecService';
 
 const SENIORITY_OPTIONS: SeniorityLevel[] = ['Junior', 'Mid', 'Senior', 'Lead', 'C-Level'];
+const SENIORITY_LEVELS: Record<SeniorityLevel, number> = { 'Junior': 1, 'Mid': 2, 'Senior': 3, 'Lead': 4, 'C-Level': 5 };
+
+// --- ROLE COMPARISON MODAL ---
+interface RoleComparisonModalProps {
+  user: User;
+  onClose: () => void;
+  onViewFullProfile: () => void;
+}
+
+const calculateMatchScore = (user: User): { score: number; hardMatches: string[]; hardGaps: string[]; softMatches: string[]; softGaps: string[]; bonusSkills: string[]; seniorityMatch: 'match' | 'above' | 'below' } => {
+  const required = user.requiredProfile;
+  const userSoftSkills = user.karmaData?.softSkills || [];
+  const userSeniority = user.karmaData?.seniorityAssessment;
+  
+  // Hard skills - comparing with requiredProfile.hardSkills (we don't have user hard skills from tests, so we'll show gaps only)
+  const hardMatches: string[] = [];
+  const hardGaps: string[] = required?.hardSkills || [];
+  
+  // Soft skills comparison
+  const softMatches: string[] = [];
+  const softGaps: string[] = [];
+  const bonusSkills: string[] = [];
+  
+  (required?.softSkills || []).forEach(reqSkill => {
+    const found = userSoftSkills.some(us => 
+      us.toLowerCase().includes(reqSkill.toLowerCase()) || 
+      reqSkill.toLowerCase().includes(us.toLowerCase())
+    );
+    if (found) softMatches.push(reqSkill);
+    else softGaps.push(reqSkill);
+  });
+  
+  // Bonus skills (user has but not required)
+  userSoftSkills.forEach(us => {
+    const isRequired = (required?.softSkills || []).some(rs =>
+      rs.toLowerCase().includes(us.toLowerCase()) || 
+      us.toLowerCase().includes(rs.toLowerCase())
+    );
+    if (!isRequired) bonusSkills.push(us);
+  });
+  
+  // Seniority comparison
+  let seniorityMatch: 'match' | 'above' | 'below' = 'match';
+  if (required?.seniority && userSeniority) {
+    const reqLevel = SENIORITY_LEVELS[required.seniority] || 0;
+    const userLevel = SENIORITY_LEVELS[userSeniority] || 0;
+    if (userLevel > reqLevel) seniorityMatch = 'above';
+    else if (userLevel < reqLevel) seniorityMatch = 'below';
+  }
+  
+  // Calculate overall score
+  const totalRequired = (required?.softSkills?.length || 0) + (required?.hardSkills?.length || 0) + (required?.seniority ? 1 : 0);
+  const matches = softMatches.length + (seniorityMatch !== 'below' ? 1 : 0);
+  const score = totalRequired > 0 ? Math.round((matches / totalRequired) * 100) : 100;
+  
+  return { score: Math.min(score, 100), hardMatches, hardGaps, softMatches, softGaps, bonusSkills, seniorityMatch };
+};
+
+const RoleComparisonModal: React.FC<RoleComparisonModalProps> = ({ user, onClose, onViewFullProfile }) => {
+  const match = useMemo(() => calculateMatchScore(user), [user]);
+  const required = user.requiredProfile;
+  
+  const getScoreColor = (score: number) => {
+    if (score >= 75) return 'text-green-600';
+    if (score >= 50) return 'text-yellow-600';
+    return 'text-red-600';
+  };
+  
+  const getProgressColor = (score: number) => {
+    if (score >= 75) return 'bg-green-500';
+    if (score >= 50) return 'bg-yellow-500';
+    return 'bg-red-500';
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[130] flex items-center justify-center p-4">
+      <Card className="w-full max-w-xl max-h-[90vh] overflow-y-auto animate-scale-in">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-bold dark:text-gray-100 flex items-center gap-2">
+            <Target size={20}/> Confronto Ruolo/Persona
+          </h3>
+          <button onClick={onClose}><X className="text-gray-400 hover:text-red-500" /></button>
+        </div>
+        
+        {/* User Header */}
+        <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-xl mb-4">
+          <div className="text-sm font-bold text-gray-500 dark:text-gray-400 mb-2">🎯 {user.jobTitle}</div>
+          <div className="flex items-center gap-3">
+            <div className={`w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold text-white ${user.isHiring ? 'bg-green-500' : 'bg-jnana-sage'}`}>
+              {user.isHiring ? <Search size={20}/> : `${user.firstName?.[0] || '?'}${user.lastName?.[0] || ''}`}
+            </div>
+            <div>
+              <div className="font-bold text-gray-800 dark:text-gray-100">
+                {user.firstName && user.lastName ? `${user.firstName} ${user.lastName}` : <span className="text-gray-400 italic">Posizione da assegnare</span>}
+              </div>
+              {user.profileCode && <span className="text-xs font-mono text-gray-500">{user.profileCode}</span>}
+            </div>
+          </div>
+        </div>
+        
+        {/* Seniority Comparison */}
+        <div className="mb-4">
+          <label className="block text-xs font-bold uppercase text-gray-500 mb-2 flex items-center gap-1">
+            <BarChart3 size={12}/> Seniority
+          </label>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-100 dark:border-blue-800">
+              <div className="text-[10px] uppercase text-blue-600 dark:text-blue-400 font-bold mb-1">Richiesta</div>
+              <div className="font-bold text-blue-800 dark:text-blue-200">{required?.seniority || 'Non specificata'}</div>
+            </div>
+            <div className={`p-3 rounded-lg border ${
+              match.seniorityMatch === 'match' ? 'bg-green-50 dark:bg-green-900/20 border-green-100 dark:border-green-800' :
+              match.seniorityMatch === 'above' ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-100 dark:border-blue-800' :
+              'bg-orange-50 dark:bg-orange-900/20 border-orange-100 dark:border-orange-800'
+            }`}>
+              <div className={`text-[10px] uppercase font-bold mb-1 ${
+                match.seniorityMatch === 'match' ? 'text-green-600 dark:text-green-400' :
+                match.seniorityMatch === 'above' ? 'text-blue-600 dark:text-blue-400' :
+                'text-orange-600 dark:text-orange-400'
+              }`}>Attuale</div>
+              <div className={`font-bold flex items-center gap-1 ${
+                match.seniorityMatch === 'match' ? 'text-green-800 dark:text-green-200' :
+                match.seniorityMatch === 'above' ? 'text-blue-800 dark:text-blue-200' :
+                'text-orange-800 dark:text-orange-200'
+              }`}>
+                {user.karmaData?.seniorityAssessment || 'Non valutata'}
+                {match.seniorityMatch === 'match' && <Check size={14}/>}
+                {match.seniorityMatch === 'above' && <Sparkles size={14}/>}
+                {match.seniorityMatch === 'below' && <AlertCircle size={14}/>}
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        {/* Hard Skills */}
+        <div className="mb-4">
+          <label className="block text-xs font-bold uppercase text-gray-500 mb-2">💼 Hard Skills</label>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+              <div className="text-[10px] uppercase text-gray-500 font-bold mb-2">Richieste</div>
+              <div className="flex flex-wrap gap-1">
+                {(required?.hardSkills || []).length > 0 ? (
+                  required?.hardSkills?.map(skill => (
+                    <span key={skill} className="px-2 py-1 bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 rounded text-xs">
+                      {skill}
+                    </span>
+                  ))
+                ) : (
+                  <span className="text-xs text-gray-400 italic">Nessuna richiesta</span>
+                )}
+              </div>
+            </div>
+            <div className="p-3 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-100 dark:border-orange-800">
+              <div className="text-[10px] uppercase text-orange-600 dark:text-orange-400 font-bold mb-2 flex items-center gap-1">
+                <AlertCircle size={10}/> Gap da colmare
+              </div>
+              <div className="flex flex-wrap gap-1">
+                {match.hardGaps.length > 0 ? (
+                  match.hardGaps.map(skill => (
+                    <span key={skill} className="px-2 py-1 bg-orange-100 text-orange-700 dark:bg-orange-800/50 dark:text-orange-300 rounded text-xs">
+                      {skill}
+                    </span>
+                  ))
+                ) : (
+                  <span className="text-xs text-green-600">✓ Tutte coperte</span>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        {/* Soft Skills */}
+        <div className="mb-4">
+          <label className="block text-xs font-bold uppercase text-gray-500 mb-2">🎭 Soft Skills</label>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+              <div className="text-[10px] uppercase text-gray-500 font-bold mb-2">Richieste</div>
+              <div className="space-y-1">
+                {(required?.softSkills || []).length > 0 ? (
+                  required?.softSkills?.map(skill => {
+                    const isMatch = match.softMatches.includes(skill);
+                    return (
+                      <div key={skill} className={`flex items-center gap-1 text-xs px-2 py-1 rounded ${
+                        isMatch ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' : 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300'
+                      }`}>
+                        {isMatch && <Check size={10}/>}
+                        {skill}
+                      </div>
+                    );
+                  })
+                ) : (
+                  <span className="text-xs text-gray-400 italic">Nessuna richiesta</span>
+                )}
+              </div>
+            </div>
+            <div className="space-y-2">
+              {match.softGaps.length > 0 && (
+                <div className="p-3 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-100 dark:border-orange-800">
+                  <div className="text-[10px] uppercase text-orange-600 dark:text-orange-400 font-bold mb-2 flex items-center gap-1">
+                    <AlertCircle size={10}/> Gap
+                  </div>
+                  <div className="flex flex-wrap gap-1">
+                    {match.softGaps.map(skill => (
+                      <span key={skill} className="px-2 py-1 bg-orange-100 text-orange-700 dark:bg-orange-800/50 dark:text-orange-300 rounded text-xs">
+                        {skill}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {match.bonusSkills.length > 0 && (
+                <div className="p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-100 dark:border-blue-800">
+                  <div className="text-[10px] uppercase text-blue-600 dark:text-blue-400 font-bold mb-2 flex items-center gap-1">
+                    <Sparkles size={10}/> Bonus
+                  </div>
+                  <div className="flex flex-wrap gap-1">
+                    {match.bonusSkills.slice(0, 5).map(skill => (
+                      <span key={skill} className="px-2 py-1 bg-blue-100 text-blue-700 dark:bg-blue-800/50 dark:text-blue-300 rounded text-xs">
+                        {skill}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {match.softGaps.length === 0 && match.bonusSkills.length === 0 && (
+                <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-100 dark:border-green-800 text-center">
+                  <span className="text-xs text-green-600">✓ Match perfetto</span>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+        
+        {/* Match Score */}
+        <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-xl mb-4">
+          <div className="flex items-center justify-between mb-2">
+            <label className="text-xs font-bold uppercase text-gray-500">📈 Match Score</label>
+            <span className={`text-2xl font-bold ${getScoreColor(match.score)}`}>{match.score}%</span>
+          </div>
+          <div className="w-full h-3 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+            <div 
+              className={`h-full rounded-full transition-all ${getProgressColor(match.score)}`}
+              style={{ width: `${match.score}%` }}
+            />
+          </div>
+        </div>
+        
+        {/* Action Buttons */}
+        <div className="flex gap-2 pt-4 border-t border-gray-100 dark:border-gray-700">
+          <Button fullWidth onClick={onViewFullProfile} className="flex items-center justify-center gap-2">
+            <ExternalLink size={16}/> Vai al Profilo Completo
+          </Button>
+          <Button variant="ghost" onClick={onClose}>Chiudi</Button>
+        </div>
+      </Card>
+    </div>
+  );
+};
 
 // --- SUB-COMPONENTS ---
 
@@ -244,6 +506,7 @@ interface OrgNodeViewProps {
     onEditNode: (node: OrgNode) => void;
     onInviteUser: (nodeId: string) => void;
     onViewUser: (userId: string) => void;
+    onSelectUserForComparison: (user: User) => void;
     companyValues?: string[];
     isFirst?: boolean;
     isLast?: boolean;
@@ -252,7 +515,7 @@ interface OrgNodeViewProps {
 }
 
 const OrgNodeView = forwardRef<HTMLDivElement, OrgNodeViewProps>(
-  ({ node, depth = 0, users, onAddNode, onEditNode, onInviteUser, onViewUser, companyValues, isFirst, isLast, hasSiblings, parentManager }, ref) => {
+  ({ node, depth = 0, users, onAddNode, onEditNode, onInviteUser, onViewUser, onSelectUserForComparison, companyValues, isFirst, isLast, hasSiblings, parentManager }, ref) => {
   const [collapsed, setCollapsed] = useState(false);
   
   // 1. Find users BELONGING to this node
@@ -359,7 +622,7 @@ const OrgNodeView = forwardRef<HTMLDivElement, OrgNodeViewProps>(
                     return (
                         <div 
                             key={u.id} 
-                            onClick={() => onViewUser(u.id)}
+                            onClick={() => onSelectUserForComparison(u)}
                             className={`flex flex-col p-2 bg-gray-50 hover:bg-white hover:shadow-md dark:bg-gray-700/50 dark:hover:bg-gray-700/80 rounded-lg transition-all border group/user cursor-pointer relative ${
                                 u.isHiring 
                                     ? 'border-dashed border-green-400 dark:border-green-600 bg-green-50/50 dark:bg-green-900/20' 
@@ -451,6 +714,7 @@ const OrgNodeView = forwardRef<HTMLDivElement, OrgNodeViewProps>(
                     onEditNode={onEditNode} 
                     onInviteUser={onInviteUser}
                     onViewUser={onViewUser}
+                    onSelectUserForComparison={onSelectUserForComparison}
                     companyValues={companyValues}
                     // Tree Logic props
                     isFirst={index === 0}
@@ -482,6 +746,7 @@ export const CompanyOrgView: React.FC<{
     const [inviteName, setInviteName] = useState('');
     const [inviteEmail, setInviteEmail] = useState('');
     const [inviteRole, setInviteRole] = useState('');
+    const [selectedUserForComparison, setSelectedUserForComparison] = useState<User | null>(null);
     
     // Required Profile state for new member
     const [inviteHardSkills, setInviteHardSkills] = useState<string[]>([]);
@@ -761,10 +1026,21 @@ export const CompanyOrgView: React.FC<{
                     onEditNode={setEditingNode} 
                     onInviteUser={(nodeId) => setInviteNodeId(nodeId)}
                     onViewUser={onViewUser}
+                    onSelectUserForComparison={setSelectedUserForComparison}
                     companyValues={company.cultureValues}
                     parentManager={undefined} // Root node has no parent manager
                 />
             </div>
+            {selectedUserForComparison && (
+                <RoleComparisonModal
+                    user={selectedUserForComparison}
+                    onClose={() => setSelectedUserForComparison(null)}
+                    onViewFullProfile={() => {
+                        onViewUser(selectedUserForComparison.id);
+                        setSelectedUserForComparison(null);
+                    }}
+                />
+            )}
             {editingNode && (
                 <NodeEditorModal 
                     node={editingNode}
