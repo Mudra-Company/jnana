@@ -10,56 +10,98 @@ import {
   UserPlus,
   ThermometerSun,
   Handshake,
-  Building
+  Building,
+  BarChart3,
+  AlertTriangle
 } from 'lucide-react';
 import { Card } from '../../components/Card';
 import { Button } from '../../components/Button';
-import { OrgNode, CompanyProfile, User } from '../../types';
+import { OrgNode, CompanyProfile, User, RequiredProfile, SeniorityLevel } from '../../types';
 import { SOFT_SKILLS_OPTIONS } from '../../constants';
 import { calculateUserCompatibility } from '../../services/riasecService';
 
+const SENIORITY_OPTIONS: SeniorityLevel[] = ['Junior', 'Mid', 'Senior', 'Lead', 'C-Level'];
+
 // --- SUB-COMPONENTS ---
 
+// --- Helper to compute team skill aggregations ---
+interface TeamSkillStats {
+    hardSkillCounts: Record<string, number>;
+    softSkillCounts: Record<string, number>;
+    seniorityCounts: Record<string, number>;
+    membersWithProfile: number;
+    membersWithoutProfile: number;
+    gaps: { skill: string; type: 'hard' | 'soft'; membersMissing: number }[];
+}
+
+const computeTeamSkillStats = (nodeUsers: User[]): TeamSkillStats => {
+    const hardSkillCounts: Record<string, number> = {};
+    const softSkillCounts: Record<string, number> = {};
+    const seniorityCounts: Record<string, number> = {};
+    let membersWithProfile = 0;
+    let membersWithoutProfile = 0;
+    const gaps: { skill: string; type: 'hard' | 'soft'; membersMissing: number }[] = [];
+
+    nodeUsers.forEach(user => {
+        const profile = user.requiredProfile;
+        if (profile && (profile.hardSkills?.length || profile.softSkills?.length)) {
+            membersWithProfile++;
+            profile.hardSkills?.forEach(skill => {
+                hardSkillCounts[skill] = (hardSkillCounts[skill] || 0) + 1;
+            });
+            profile.softSkills?.forEach(skill => {
+                softSkillCounts[skill] = (softSkillCounts[skill] || 0) + 1;
+            });
+            if (profile.seniority) {
+                seniorityCounts[profile.seniority] = (seniorityCounts[profile.seniority] || 0) + 1;
+            }
+        } else {
+            membersWithoutProfile++;
+        }
+    });
+
+    // Gap Analysis: check if members have the skills their profile requires
+    nodeUsers.forEach(user => {
+        const profile = user.requiredProfile;
+        if (!profile) return;
+        
+        // Check hard skills - compare with user's karma soft skills (simplified check)
+        const userSoftSkills = user.karmaData?.softSkills || [];
+        profile.softSkills?.forEach(requiredSkill => {
+            if (!userSoftSkills.some(s => s.toLowerCase().includes(requiredSkill.toLowerCase()))) {
+                const existing = gaps.find(g => g.skill === requiredSkill && g.type === 'soft');
+                if (existing) existing.membersMissing++;
+                else gaps.push({ skill: requiredSkill, type: 'soft', membersMissing: 1 });
+            }
+        });
+    });
+
+    return { hardSkillCounts, softSkillCounts, seniorityCounts, membersWithProfile, membersWithoutProfile, gaps };
+};
+
 const NodeEditorModal: React.FC<{ 
-    node: OrgNode; 
+    node: OrgNode;
+    nodeUsers: User[];
     onSave: (node: OrgNode) => void; 
     onDelete: (id: string) => void;
     onClose: () => void; 
-}> = ({ node, onSave, onDelete, onClose }) => {
+}> = ({ node, nodeUsers, onSave, onDelete, onClose }) => {
     const [formData, setFormData] = useState(node);
-    const [newHardSkill, setNewHardSkill] = useState('');
-    const [newSoftSkill, setNewSoftSkill] = useState('');
+    
+    const teamStats = useMemo(() => computeTeamSkillStats(nodeUsers), [nodeUsers]);
 
     const handleSave = (e: React.FormEvent) => {
         e.preventDefault();
         onSave(formData);
     };
 
-    const addHardSkill = () => {
-        if(newHardSkill && !formData.targetProfile?.hardSkills.includes(newHardSkill)) {
-            setFormData({
-                ...formData,
-                targetProfile: {
-                    ...formData.targetProfile!,
-                    hardSkills: [...(formData.targetProfile?.hardSkills || []), newHardSkill]
-                }
-            });
-            setNewHardSkill('');
-        }
-    };
-
-    const addSoftSkill = () => {
-        if(newSoftSkill && !formData.targetProfile?.softSkills.includes(newSoftSkill)) {
-            setFormData({
-                ...formData,
-                targetProfile: {
-                    ...formData.targetProfile!,
-                    softSkills: [...(formData.targetProfile?.softSkills || []), newSoftSkill]
-                }
-            });
-            setNewSoftSkill('');
-        }
-    };
+    const sortedHardSkills = Object.entries(teamStats.hardSkillCounts)
+        .sort((a, b) => (b[1] as number) - (a[1] as number))
+        .slice(0, 5);
+    
+    const sortedSoftSkills = Object.entries(teamStats.softSkillCounts)
+        .sort((a, b) => (b[1] as number) - (a[1] as number))
+        .slice(0, 5);
 
     return (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
@@ -92,53 +134,82 @@ const NodeEditorModal: React.FC<{
                         </label>
                     </div>
 
+                    {/* TEAM STATISTICS SECTION */}
                     <div className="border-t border-gray-100 dark:border-gray-700 pt-4 mt-4">
-                        <h4 className="font-bold text-sm text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2"><Target size={16}/> Target Profile (Job Design)</h4>
+                        <h4 className="font-bold text-sm text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
+                            <BarChart3 size={16}/> Analisi Skills del Team ({nodeUsers.length} membri)
+                        </h4>
                         
-                        {/* HARD SKILLS */}
-                        <div className="mb-4">
-                            <label className="block text-xs font-bold uppercase text-gray-500 mb-1">Hard Skills Richieste</label>
-                            <div className="flex gap-2 mb-2">
-                                <input 
-                                    className="flex-1 p-2 border rounded-lg text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                                    placeholder="Es. Python, SEO..."
-                                    value={newHardSkill}
-                                    onChange={e => setNewHardSkill(e.target.value)}
-                                    onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addHardSkill())}
-                                />
-                                <button type="button" onClick={addHardSkill} className="px-3 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600"><Plus size={16}/></button>
+                        {nodeUsers.length === 0 ? (
+                            <div className="text-center py-6 text-gray-400 text-sm italic">
+                                Nessun membro assegnato a questo nodo
                             </div>
-                            <div className="flex flex-wrap gap-1">
-                                {(formData.targetProfile?.hardSkills || []).map(skill => (
-                                    <span key={skill} className="px-2 py-1 bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 rounded text-xs border border-blue-100 dark:border-blue-800 flex items-center gap-1">
-                                        {skill} <button type="button" onClick={() => setFormData({...formData, targetProfile: {...formData.targetProfile!, hardSkills: (formData.targetProfile?.hardSkills || []).filter(s => s !== skill)}})}><X size={12}/></button>
-                                    </span>
-                                ))}
-                            </div>
-                        </div>
+                        ) : (
+                            <div className="space-y-4">
+                                {/* Hard Skills */}
+                                <div>
+                                    <label className="block text-xs font-bold uppercase text-gray-500 mb-2">Hard Skills Più Richieste</label>
+                                    {sortedHardSkills.length > 0 ? (
+                                        <div className="flex flex-wrap gap-2">
+                                            {sortedHardSkills.map(([skill, count]) => (
+                                                <span key={skill} className="px-2 py-1 bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 rounded text-xs border border-blue-100 dark:border-blue-800">
+                                                    {skill} <span className="font-bold">({count})</span>
+                                                </span>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <span className="text-xs text-gray-400 italic">Nessuna hard skill definita</span>
+                                    )}
+                                </div>
 
-                        {/* SOFT SKILLS */}
-                        <div>
-                            <label className="block text-xs font-bold uppercase text-gray-500 mb-1">Soft Skills (Karma AI)</label>
-                            <div className="flex gap-2 mb-2">
-                                <select 
-                                    className="flex-1 p-2 border rounded-lg text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                                    value={newSoftSkill}
-                                    onChange={e => setNewSoftSkill(e.target.value)}
-                                >
-                                    <option value="">Seleziona skill...</option>
-                                    {SOFT_SKILLS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
-                                </select>
-                                <button type="button" onClick={addSoftSkill} className="px-3 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600"><Plus size={16}/></button>
+                                {/* Soft Skills */}
+                                <div>
+                                    <label className="block text-xs font-bold uppercase text-gray-500 mb-2">Soft Skills Più Richieste</label>
+                                    {sortedSoftSkills.length > 0 ? (
+                                        <div className="flex flex-wrap gap-2">
+                                            {sortedSoftSkills.map(([skill, count]) => (
+                                                <span key={skill} className="px-2 py-1 bg-purple-50 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 rounded text-xs border border-purple-100 dark:border-purple-800">
+                                                    {skill} <span className="font-bold">({count})</span>
+                                                </span>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <span className="text-xs text-gray-400 italic">Nessuna soft skill definita</span>
+                                    )}
+                                </div>
+
+                                {/* Gap Analysis */}
+                                {(teamStats.gaps.length > 0 || teamStats.membersWithoutProfile > 0) && (
+                                    <div className="p-3 bg-orange-50 dark:bg-orange-900/20 rounded-xl border border-orange-100 dark:border-orange-800">
+                                        <label className="block text-xs font-bold uppercase text-orange-600 dark:text-orange-400 mb-2 flex items-center gap-1">
+                                            <AlertTriangle size={12}/> Gap Analysis
+                                        </label>
+                                        <div className="space-y-1 text-xs text-orange-700 dark:text-orange-300">
+                                            {teamStats.membersWithoutProfile > 0 && (
+                                                <div>⚠️ {teamStats.membersWithoutProfile} membri senza profilo skill definito</div>
+                                            )}
+                                            {teamStats.gaps.slice(0, 3).map((gap, i) => (
+                                                <div key={i}>⚠️ {gap.membersMissing} membri non hanno "{gap.skill}"</div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Seniority Distribution */}
+                                {Object.keys(teamStats.seniorityCounts).length > 0 && (
+                                    <div>
+                                        <label className="block text-xs font-bold uppercase text-gray-500 mb-2">Distribuzione Seniority</label>
+                                        <div className="flex flex-wrap gap-2">
+                                            {Object.entries(teamStats.seniorityCounts).map(([level, count]) => (
+                                                <span key={level} className="px-2 py-1 bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300 rounded text-xs border border-gray-200 dark:border-gray-600">
+                                                    {level}: <span className="font-bold">{count}</span>
+                                                </span>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
-                            <div className="flex flex-wrap gap-1">
-                                {(formData.targetProfile?.softSkills || []).map(skill => (
-                                    <span key={skill} className="px-2 py-1 bg-purple-50 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 rounded text-xs border border-purple-100 dark:border-purple-800 flex items-center gap-1">
-                                        {skill} <button type="button" onClick={() => setFormData({...formData, targetProfile: {...formData.targetProfile!, softSkills: (formData.targetProfile?.softSkills || []).filter(s => s !== skill)}})}><X size={12}/></button>
-                                    </span>
-                                ))}
-                            </div>
-                        </div>
+                        )}
                     </div>
 
                     <div className="flex gap-2 pt-4 border-t border-gray-100 dark:border-gray-700 mt-4">
@@ -392,6 +463,13 @@ export const CompanyOrgView: React.FC<{
     const [inviteName, setInviteName] = useState('');
     const [inviteEmail, setInviteEmail] = useState('');
     const [inviteRole, setInviteRole] = useState('');
+    
+    // Required Profile state for new member
+    const [inviteHardSkills, setInviteHardSkills] = useState<string[]>([]);
+    const [inviteSoftSkills, setInviteSoftSkills] = useState<string[]>([]);
+    const [inviteSeniority, setInviteSeniority] = useState<SeniorityLevel>('Mid');
+    const [newHardSkill, setNewHardSkill] = useState('');
+    const [newSoftSkill, setNewSoftSkill] = useState('');
 
     const handleInviteUser = () => {
         if (!inviteName || !inviteEmail || !inviteNodeId) return;
@@ -403,14 +481,39 @@ export const CompanyOrgView: React.FC<{
             companyId: company.id,
             status: 'invited',
             jobTitle: inviteRole,
-            departmentId: inviteNodeId 
+            departmentId: inviteNodeId,
+            requiredProfile: {
+                hardSkills: inviteHardSkills,
+                softSkills: inviteSoftSkills,
+                seniority: inviteSeniority
+            }
         };
         const updatedUsers = [...users, newUser];
         onUpdateUsers(updatedUsers);
+        // Reset form
         setInviteNodeId(null);
         setInviteName('');
         setInviteEmail('');
         setInviteRole('');
+        setInviteHardSkills([]);
+        setInviteSoftSkills([]);
+        setInviteSeniority('Mid');
+        setNewHardSkill('');
+        setNewSoftSkill('');
+    };
+    
+    const addInviteHardSkill = () => {
+        if (newHardSkill && !inviteHardSkills.includes(newHardSkill)) {
+            setInviteHardSkills([...inviteHardSkills, newHardSkill]);
+            setNewHardSkill('');
+        }
+    };
+    
+    const addInviteSoftSkill = () => {
+        if (newSoftSkill && !inviteSoftSkills.includes(newSoftSkill)) {
+            setInviteSoftSkills([...inviteSoftSkills, newSoftSkill]);
+            setNewSoftSkill('');
+        }
     };
 
     // Recursively find and add child
@@ -472,28 +575,109 @@ export const CompanyOrgView: React.FC<{
         <div className="p-8 max-w-full overflow-x-auto min-h-screen bg-gray-50/50 dark:bg-gray-900/50">
             {inviteNodeId && (
                 <div className="fixed inset-0 bg-black/50 z-[120] flex items-center justify-center p-4 backdrop-blur-sm">
-                    <Card className="w-full max-w-md animate-scale-in">
-                        <h3 className="text-lg font-bold mb-4">Aggiungi Persona al Nodo</h3>
-                        <div className="space-y-3">
-                            <input
-                                className="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                                placeholder="Nome e Cognome"
-                                value={inviteName}
-                                onChange={e => setInviteName(e.target.value)}
-                            />
-                            <input
-                                className="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                                placeholder="Email Aziendale"
-                                value={inviteEmail}
-                                onChange={e => setInviteEmail(e.target.value)}
-                            />
-                            <input
-                                className="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                                placeholder="Ruolo/Job Title"
-                                value={inviteRole}
-                                onChange={e => setInviteRole(e.target.value)}
-                            />
-                            <div className="flex gap-2 pt-2">
+                    <Card className="w-full max-w-lg max-h-[90vh] overflow-y-auto animate-scale-in">
+                        <div className="flex justify-between items-center mb-4">
+                            <h3 className="text-lg font-bold dark:text-gray-100">Aggiungi Persona al Nodo</h3>
+                            <button onClick={() => setInviteNodeId(null)}><X className="text-gray-400 hover:text-red-500" /></button>
+                        </div>
+                        <div className="space-y-4">
+                            {/* Basic Info */}
+                            <div className="space-y-3">
+                                <input
+                                    className="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                                    placeholder="Nome e Cognome"
+                                    value={inviteName}
+                                    onChange={e => setInviteName(e.target.value)}
+                                />
+                                <input
+                                    className="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                                    placeholder="Email Aziendale"
+                                    value={inviteEmail}
+                                    onChange={e => setInviteEmail(e.target.value)}
+                                />
+                                <input
+                                    className="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                                    placeholder="Ruolo/Job Title"
+                                    value={inviteRole}
+                                    onChange={e => setInviteRole(e.target.value)}
+                                />
+                            </div>
+
+                            {/* Required Profile Section */}
+                            <div className="border-t border-gray-100 dark:border-gray-700 pt-4">
+                                <h4 className="font-bold text-sm text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
+                                    <Target size={16}/> Profilo Richiesto per questo Ruolo
+                                </h4>
+                                
+                                {/* Seniority */}
+                                <div className="mb-4">
+                                    <label className="block text-xs font-bold uppercase text-gray-500 mb-1">Seniority</label>
+                                    <select
+                                        className="w-full p-2 border rounded-lg text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                                        value={inviteSeniority}
+                                        onChange={e => setInviteSeniority(e.target.value as SeniorityLevel)}
+                                    >
+                                        {SENIORITY_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+                                    </select>
+                                </div>
+
+                                {/* Hard Skills */}
+                                <div className="mb-4">
+                                    <label className="block text-xs font-bold uppercase text-gray-500 mb-1">Hard Skills Richieste</label>
+                                    <div className="flex gap-2 mb-2">
+                                        <input
+                                            className="flex-1 p-2 border rounded-lg text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                                            placeholder="Es. Python, Excel, SQL..."
+                                            value={newHardSkill}
+                                            onChange={e => setNewHardSkill(e.target.value)}
+                                            onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addInviteHardSkill())}
+                                        />
+                                        <button type="button" onClick={addInviteHardSkill} className="px-3 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600">
+                                            <Plus size={16}/>
+                                        </button>
+                                    </div>
+                                    <div className="flex flex-wrap gap-1">
+                                        {inviteHardSkills.map(skill => (
+                                            <span key={skill} className="px-2 py-1 bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 rounded text-xs border border-blue-100 dark:border-blue-800 flex items-center gap-1">
+                                                {skill}
+                                                <button type="button" onClick={() => setInviteHardSkills(inviteHardSkills.filter(s => s !== skill))}>
+                                                    <X size={12}/>
+                                                </button>
+                                            </span>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Soft Skills */}
+                                <div>
+                                    <label className="block text-xs font-bold uppercase text-gray-500 mb-1">Soft Skills Richieste</label>
+                                    <div className="flex gap-2 mb-2">
+                                        <select
+                                            className="flex-1 p-2 border rounded-lg text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                                            value={newSoftSkill}
+                                            onChange={e => setNewSoftSkill(e.target.value)}
+                                        >
+                                            <option value="">Seleziona skill...</option>
+                                            {SOFT_SKILLS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+                                        </select>
+                                        <button type="button" onClick={addInviteSoftSkill} className="px-3 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600">
+                                            <Plus size={16}/>
+                                        </button>
+                                    </div>
+                                    <div className="flex flex-wrap gap-1">
+                                        {inviteSoftSkills.map(skill => (
+                                            <span key={skill} className="px-2 py-1 bg-purple-50 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 rounded text-xs border border-purple-100 dark:border-purple-800 flex items-center gap-1">
+                                                {skill}
+                                                <button type="button" onClick={() => setInviteSoftSkills(inviteSoftSkills.filter(s => s !== skill))}>
+                                                    <X size={12}/>
+                                                </button>
+                                            </span>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="flex gap-2 pt-4 border-t border-gray-100 dark:border-gray-700">
                                 <Button fullWidth onClick={handleInviteUser}>Conferma</Button>
                                 <Button variant="ghost" onClick={() => setInviteNodeId(null)}>Annulla</Button>
                             </div>
@@ -528,7 +712,8 @@ export const CompanyOrgView: React.FC<{
             </div>
             {editingNode && (
                 <NodeEditorModal 
-                    node={editingNode} 
+                    node={editingNode}
+                    nodeUsers={users.filter(u => u.departmentId === editingNode.id)}
                     onSave={handleSaveNode} 
                     onDelete={handleDeleteNode}
                     onClose={() => setEditingNode(null)} 
