@@ -118,11 +118,15 @@ export type Database = {
           id: string
           invited_at: string | null
           is_hiring: boolean | null
+          job_title: string | null
           joined_at: string | null
+          placeholder_email: string | null
+          placeholder_first_name: string | null
+          placeholder_last_name: string | null
           required_profile: Json | null
           role: Database["public"]["Enums"]["app_role"]
           status: Database["public"]["Enums"]["member_status"]
-          user_id: string
+          user_id: string | null
         }
         Insert: {
           company_id: string
@@ -131,11 +135,15 @@ export type Database = {
           id?: string
           invited_at?: string | null
           is_hiring?: boolean | null
+          job_title?: string | null
           joined_at?: string | null
+          placeholder_email?: string | null
+          placeholder_first_name?: string | null
+          placeholder_last_name?: string | null
           required_profile?: Json | null
           role?: Database["public"]["Enums"]["app_role"]
           status?: Database["public"]["Enums"]["member_status"]
-          user_id: string
+          user_id?: string | null
         }
         Update: {
           company_id?: string
@@ -144,11 +152,15 @@ export type Database = {
           id?: string
           invited_at?: string | null
           is_hiring?: boolean | null
+          job_title?: string | null
           joined_at?: string | null
+          placeholder_email?: string | null
+          placeholder_first_name?: string | null
+          placeholder_last_name?: string | null
           required_profile?: Json | null
           role?: Database["public"]["Enums"]["app_role"]
           status?: Database["public"]["Enums"]["member_status"]
-          user_id?: string
+          user_id?: string | null
         }
         Relationships: [
           {

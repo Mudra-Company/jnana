@@ -28,6 +28,8 @@ import { Button } from '../../components/Button';
 import { OrgNode, CompanyProfile, User, RequiredProfile, SeniorityLevel } from '../../types';
 import { SOFT_SKILLS_OPTIONS } from '../../constants';
 import { calculateUserCompatibility } from '../../services/riasecService';
+import { InviteToSlotModal } from '../../src/components/InviteToSlotModal';
+import { useCompanyMembers } from '../../src/hooks/useCompanyMembers';
 
 const SENIORITY_OPTIONS: SeniorityLevel[] = ['Junior', 'Mid', 'Senior', 'Lead', 'C-Level'];
 const SENIORITY_LEVELS: Record<SeniorityLevel, number> = { 'Junior': 1, 'Mid': 2, 'Senior': 3, 'Lead': 4, 'C-Level': 5 };
@@ -82,7 +84,7 @@ interface RoleComparisonModalProps {
   onClose: () => void;
   onViewFullProfile: () => void;
   onAssignUser: (slotUserId: string, selectedUserId: string) => void;
-  onInviteNewPerson: (nodeId: string) => void;
+  onInviteToSlot: (slotUser: User) => void;
 }
 
 const calculateMatchScore = (user: User): { score: number; hardMatches: string[]; hardGaps: string[]; softMatches: string[]; softGaps: string[]; bonusSkills: string[]; seniorityMatch: 'match' | 'above' | 'below' } => {
@@ -151,7 +153,7 @@ const RoleComparisonModal: React.FC<RoleComparisonModalProps> = ({
   onClose, 
   onViewFullProfile, 
   onAssignUser,
-  onInviteNewPerson 
+  onInviteToSlot 
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [showAssignSection, setShowAssignSection] = useState(false);
@@ -318,8 +320,8 @@ const RoleComparisonModal: React.FC<RoleComparisonModalProps> = ({
                   variant="ghost" 
                   fullWidth 
                   onClick={() => {
+                    onInviteToSlot(user);
                     onClose();
-                    user.departmentId && onInviteNewPerson(user.departmentId);
                   }}
                   className="flex items-center justify-center gap-2 border-dashed border-2 border-gray-300 dark:border-gray-600"
                 >
@@ -1052,6 +1054,9 @@ export const CompanyOrgView: React.FC<{
     const [inviteRole, setInviteRole] = useState('');
     const [selectedUserForComparison, setSelectedUserForComparison] = useState<User | null>(null);
     
+    // State for InviteToSlotModal (simplified invite for existing slots)
+    const [inviteToSlotUser, setInviteToSlotUser] = useState<User | null>(null);
+    
     // Required Profile state for new member
     const [inviteHardSkills, setInviteHardSkills] = useState<string[]>([]);
     const [inviteSoftSkills, setInviteSoftSkills] = useState<string[]>([]);
@@ -1059,30 +1064,91 @@ export const CompanyOrgView: React.FC<{
     const [newHardSkill, setNewHardSkill] = useState('');
     const [newSoftSkill, setNewSoftSkill] = useState('');
     const [isHiring, setIsHiring] = useState(false);
+    
+    // Use the company members hook for DB persistence
+    const { createCompanyMember, assignUserToSlot, deleteCompanyMember, isLoading: isSaving } = useCompanyMembers();
 
-    const handleInviteUser = () => {
+    // Handle inviting a person to an existing slot (simplified modal)
+    const handleInviteToSlot = async (data: { firstName: string; lastName: string; email: string }) => {
+        if (!inviteToSlotUser) return;
+        
+        // Save to database
+        const result = await createCompanyMember({
+            companyId: company.id,
+            departmentId: inviteToSlotUser.departmentId || '',
+            jobTitle: inviteToSlotUser.jobTitle || '',
+            firstName: data.firstName,
+            lastName: data.lastName,
+            email: data.email,
+            isHiring: false,
+            requiredProfile: inviteToSlotUser.requiredProfile
+        });
+        
+        if (result.success) {
+            // Update local state - replace the slot with the invited person
+            const updatedUsers = users.map(u => {
+                if (u.id === inviteToSlotUser.id) {
+                    return {
+                        ...u,
+                        id: result.memberId || u.id,
+                        firstName: data.firstName,
+                        lastName: data.lastName,
+                        email: data.email,
+                        isHiring: false,
+                        status: 'invited' as const
+                    };
+                }
+                return u;
+            });
+            onUpdateUsers(updatedUsers);
+            setInviteToSlotUser(null);
+        }
+    };
+
+    const handleInviteUser = async () => {
         // Job Title is the ONLY required field
         if (!inviteRole || !inviteNodeId) {
             return;
         }
-        const newUser: User = {
-            id: `u_${Date.now()}`,
-            firstName: inviteName ? inviteName.split(' ')[0] : '',
-            lastName: inviteName ? inviteName.split(' ').slice(1).join(' ') : '',
-            email: inviteEmail || '',
+        
+        // Save to database
+        const result = await createCompanyMember({
             companyId: company.id,
-            status: isHiring ? 'pending' : (inviteEmail ? 'invited' : 'pending'),
-            jobTitle: inviteRole,
             departmentId: inviteNodeId,
+            jobTitle: inviteRole,
+            firstName: inviteName ? inviteName.split(' ')[0] : undefined,
+            lastName: inviteName ? inviteName.split(' ').slice(1).join(' ') : undefined,
+            email: inviteEmail || undefined,
             isHiring: isHiring,
             requiredProfile: {
                 hardSkills: inviteHardSkills,
                 softSkills: inviteSoftSkills,
                 seniority: inviteSeniority
             }
-        };
-        const updatedUsers = [...users, newUser];
-        onUpdateUsers(updatedUsers);
+        });
+        
+        if (result.success) {
+            // Create local user object for UI
+            const newUser: User = {
+                id: result.memberId || `u_${Date.now()}`,
+                firstName: inviteName ? inviteName.split(' ')[0] : '',
+                lastName: inviteName ? inviteName.split(' ').slice(1).join(' ') : '',
+                email: inviteEmail || '',
+                companyId: company.id,
+                status: isHiring ? 'pending' : (inviteEmail ? 'invited' : 'pending'),
+                jobTitle: inviteRole,
+                departmentId: inviteNodeId,
+                isHiring: isHiring,
+                requiredProfile: {
+                    hardSkills: inviteHardSkills,
+                    softSkills: inviteSoftSkills,
+                    seniority: inviteSeniority
+                }
+            };
+            const updatedUsers = [...users, newUser];
+            onUpdateUsers(updatedUsers);
+        }
+        
         // Reset form
         setInviteNodeId(null);
         setInviteName('');
@@ -1345,11 +1411,20 @@ export const CompanyOrgView: React.FC<{
                         onViewUser(selectedUserForComparison.id);
                         setSelectedUserForComparison(null);
                     }}
-                    onAssignUser={(slotUserId, selectedUserId) => {
+                    onAssignUser={async (slotUserId, selectedUserId) => {
                         const slot = users.find(u => u.id === slotUserId);
                         const selectedUser = users.find(u => u.id === selectedUserId);
                         
                         if (!slot || !selectedUser) return;
+                        
+                        // Save assignment to database
+                        await assignUserToSlot(
+                            selectedUserId,
+                            company.id,
+                            slot.departmentId || '',
+                            slot.requiredProfile,
+                            slot.jobTitle
+                        );
                         
                         // Update the selected user with slot's department and requirements
                         const updatedUsers = users.map(u => {
@@ -1368,7 +1443,19 @@ export const CompanyOrgView: React.FC<{
                         onUpdateUsers(updatedUsers);
                         setSelectedUserForComparison(null);
                     }}
-                    onInviteNewPerson={(nodeId) => setInviteNodeId(nodeId)}
+                    onInviteToSlot={(slotUser) => {
+                        setInviteToSlotUser(slotUser);
+                        setSelectedUserForComparison(null);
+                    }}
+                />
+            )}
+            {inviteToSlotUser && (
+                <InviteToSlotModal
+                    jobTitle={inviteToSlotUser.jobTitle || 'Posizione'}
+                    requiredProfile={inviteToSlotUser.requiredProfile}
+                    onInvite={handleInviteToSlot}
+                    onClose={() => setInviteToSlotUser(null)}
+                    isLoading={isSaving}
                 />
             )}
             {editingNode && (
