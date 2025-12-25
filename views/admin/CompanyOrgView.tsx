@@ -815,14 +815,11 @@ interface OrgNodeViewProps {
     onViewUser: (userId: string) => void;
     onSelectUserForComparison: (user: User) => void;
     companyValues?: string[];
-    isFirst?: boolean;
-    isLast?: boolean;
-    hasSiblings?: boolean;
     parentManager?: User;
 }
 
 const OrgNodeView = forwardRef<HTMLDivElement, OrgNodeViewProps>(
-  ({ node, depth = 0, users, onAddNode, onEditNode, onInviteUser, onViewUser, onSelectUserForComparison, companyValues, isFirst, isLast, hasSiblings, parentManager }, ref) => {
+  ({ node, depth = 0, users, onAddNode, onEditNode, onInviteUser, onViewUser, onSelectUserForComparison, companyValues, parentManager }, ref) => {
   const [collapsed, setCollapsed] = useState(false);
   
   // 1. Find users BELONGING to this node
@@ -849,22 +846,9 @@ const OrgNodeView = forwardRef<HTMLDivElement, OrgNodeViewProps>(
   return (
     <div className="flex flex-col items-center px-4">
       
-      {/* 1. UPPER CONNECTORS (CONNECT TO PARENT) */}
+      {/* 1. UPPER CONNECTOR - Simple vertical line to connect to parent's horizontal bus */}
       {depth > 0 && (
-          <div className="h-8 w-full relative">
-              {/* Vertical line connecting up to the bus */}
-              <div className="absolute left-1/2 -translate-x-1/2 bottom-0 h-full w-0.5 bg-gray-300 dark:bg-gray-600"></div>
-              
-              {/* Horizontal Bus Line Segments */}
-              {hasSiblings && (
-                  <>
-                      {/* Left Half: Visible unless First child */}
-                      {!isFirst && <div className="absolute top-0 left-0 w-1/2 h-0.5 bg-gray-300 dark:bg-gray-600"></div>}
-                      {/* Right Half: Visible unless Last child */}
-                      {!isLast && <div className="absolute top-0 right-0 w-1/2 h-0.5 bg-gray-300 dark:bg-gray-600"></div>}
-                  </>
-              )}
-          </div>
+          <div className="h-8 w-0.5 bg-gray-300 dark:bg-gray-600"></div>
       )}
 
       {/* 2. THE NODE CARD */}
@@ -1003,35 +987,43 @@ const OrgNodeView = forwardRef<HTMLDivElement, OrgNodeViewProps>(
         </div>
       </Card>
 
-      {/* 3. LOWER CONNECTOR (TO CHILDREN) */}
+      {/* 3. LOWER CONNECTOR + HORIZONTAL BUS + CHILDREN */}
       {node.children.length > 0 && !collapsed && (
-           <div className="h-8 w-0.5 bg-gray-300 dark:bg-gray-600"></div>
-      )}
-
-      {/* 4. CHILDREN CONTAINER */}
-      {node.children.length > 0 && !collapsed && (
-         <div className="flex justify-center">
-             {node.children.map((child, index) => (
-                 <OrgNodeView 
-                    key={child.id} 
-                    node={child} 
-                    depth={depth + 1} 
-                    users={users} 
-                    onAddNode={onAddNode} 
-                    onEditNode={onEditNode} 
-                    onInviteUser={onInviteUser}
-                    onViewUser={onViewUser}
-                    onSelectUserForComparison={onSelectUserForComparison}
-                    companyValues={companyValues}
-                    // Tree Logic props
-                    isFirst={index === 0}
-                    isLast={index === node.children.length - 1}
-                    hasSiblings={node.children.length > 1}
-                    // IMPORTANT: Pass the CURRENT node's manager as the "Parent Manager" for the children
-                    parentManager={currentNodeManager}
-                />
-             ))}
-         </div>
+          <div className="flex flex-col items-center w-full">
+              {/* Vertical line from parent to horizontal bus */}
+              <div className="h-8 w-0.5 bg-gray-300 dark:bg-gray-600"></div>
+              
+              {/* Children container with horizontal bus */}
+              <div className="relative flex justify-center">
+                  {/* Continuous horizontal bus line - spans from first to last child center */}
+                  {node.children.length > 1 && (
+                      <div 
+                          className="absolute top-0 h-0.5 bg-gray-300 dark:bg-gray-600"
+                          style={{
+                              left: `calc(${100 / (node.children.length * 2)}%)`,
+                              right: `calc(${100 / (node.children.length * 2)}%)`
+                          }}
+                      ></div>
+                  )}
+                  
+                  {/* Children nodes */}
+                  {node.children.map((child) => (
+                      <OrgNodeView 
+                          key={child.id} 
+                          node={child} 
+                          depth={depth + 1} 
+                          users={users} 
+                          onAddNode={onAddNode} 
+                          onEditNode={onEditNode} 
+                          onInviteUser={onInviteUser}
+                          onViewUser={onViewUser}
+                          onSelectUserForComparison={onSelectUserForComparison}
+                          companyValues={companyValues}
+                          parentManager={currentNodeManager}
+                      />
+                  ))}
+              </div>
+          </div>
       )}
     </div>
   );
