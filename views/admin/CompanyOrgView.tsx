@@ -30,6 +30,7 @@ import { SOFT_SKILLS_OPTIONS } from '../../constants';
 import { calculateUserCompatibility } from '../../services/riasecService';
 import { InviteToSlotModal } from '../../src/components/InviteToSlotModal';
 import { useCompanyMembers } from '../../src/hooks/useCompanyMembers';
+import { toast } from '../../src/hooks/use-toast';
 
 const SENIORITY_OPTIONS: SeniorityLevel[] = ['Junior', 'Mid', 'Senior', 'Lead', 'C-Level'];
 const SENIORITY_LEVELS: Record<SeniorityLevel, number> = { 'Junior': 1, 'Mid': 2, 'Senior': 3, 'Lead': 4, 'C-Level': 5 };
@@ -1102,6 +1103,17 @@ export const CompanyOrgView: React.FC<{
             });
             onUpdateUsers(updatedUsers);
             setInviteToSlotUser(null);
+            
+            toast({
+                title: "Invito inviato",
+                description: `${data.firstName} ${data.lastName} è stato invitato per la posizione ${inviteToSlotUser.jobTitle}`,
+            });
+        } else {
+            toast({
+                title: "Errore",
+                description: result.error || "Impossibile inviare l'invito",
+                variant: "destructive",
+            });
         }
     };
 
@@ -1147,6 +1159,21 @@ export const CompanyOrgView: React.FC<{
             };
             const updatedUsers = [...users, newUser];
             onUpdateUsers(updatedUsers);
+            
+            toast({
+                title: isHiring ? "Posizione creata" : "Invito inviato",
+                description: isHiring 
+                    ? `Posizione "${inviteRole}" creata con successo` 
+                    : inviteName 
+                        ? `${inviteName} è stato invitato per la posizione ${inviteRole}`
+                        : `Posizione "${inviteRole}" aggiunta all'organigramma`,
+            });
+        } else {
+            toast({
+                title: "Errore",
+                description: result.error || "Impossibile completare l'operazione",
+                variant: "destructive",
+            });
         }
         
         // Reset form
@@ -1418,7 +1445,7 @@ export const CompanyOrgView: React.FC<{
                         if (!slot || !selectedUser) return;
                         
                         // Save assignment to database
-                        await assignUserToSlot(
+                        const result = await assignUserToSlot(
                             selectedUserId,
                             company.id,
                             slot.departmentId || '',
@@ -1426,22 +1453,35 @@ export const CompanyOrgView: React.FC<{
                             slot.jobTitle
                         );
                         
-                        // Update the selected user with slot's department and requirements
-                        const updatedUsers = users.map(u => {
-                            if (u.id === selectedUserId) {
-                                return {
-                                    ...u,
-                                    departmentId: slot.departmentId,
-                                    jobTitle: slot.jobTitle || u.jobTitle,
-                                    requiredProfile: slot.requiredProfile,
-                                    isHiring: false
-                                };
-                            }
-                            return u;
-                        }).filter(u => u.id !== slotUserId); // Remove the placeholder slot
-                        
-                        onUpdateUsers(updatedUsers);
-                        setSelectedUserForComparison(null);
+                        if (result.success) {
+                            // Update the selected user with slot's department and requirements
+                            const updatedUsers = users.map(u => {
+                                if (u.id === selectedUserId) {
+                                    return {
+                                        ...u,
+                                        departmentId: slot.departmentId,
+                                        jobTitle: slot.jobTitle || u.jobTitle,
+                                        requiredProfile: slot.requiredProfile,
+                                        isHiring: false
+                                    };
+                                }
+                                return u;
+                            }).filter(u => u.id !== slotUserId); // Remove the placeholder slot
+                            
+                            onUpdateUsers(updatedUsers);
+                            setSelectedUserForComparison(null);
+                            
+                            toast({
+                                title: "Assegnazione completata",
+                                description: `${selectedUser.firstName} ${selectedUser.lastName} è stato assegnato alla posizione ${slot.jobTitle}`,
+                            });
+                        } else {
+                            toast({
+                                title: "Errore",
+                                description: result.error || "Impossibile assegnare l'utente",
+                                variant: "destructive",
+                            });
+                        }
                     }}
                     onInviteToSlot={(slotUser) => {
                         setInviteToSlotUser(slotUser);
