@@ -22,7 +22,8 @@ import {
   UserCheck,
   Medal,
   ArrowRight,
-  Shuffle
+  Shuffle,
+  Trash2
 } from 'lucide-react';
 import { Card } from '../../components/Card';
 import { Button } from '../../components/Button';
@@ -88,6 +89,7 @@ interface RoleComparisonModalProps {
   onViewFullProfile: () => void;
   onAssignUser: (slotUserId: string, selectedUserId: string) => void;
   onInviteToSlot: (slotUser: User) => void;
+  onRemoveFromSlot: (user: User) => void;
 }
 
 const calculateMatchScore = (user: User): { score: number; hardMatches: string[]; hardGaps: string[]; softMatches: string[]; softGaps: string[]; bonusSkills: string[]; seniorityMatch: 'match' | 'above' | 'below' } => {
@@ -156,10 +158,12 @@ const RoleComparisonModal: React.FC<RoleComparisonModalProps> = ({
   onClose, 
   onViewFullProfile, 
   onAssignUser,
-  onInviteToSlot 
+  onInviteToSlot,
+  onRemoveFromSlot
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [showAssignSection, setShowAssignSection] = useState(false);
+  const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
   
   const match = useMemo(() => calculateMatchScore(user), [user]);
   const required = user.requiredProfile;
@@ -580,14 +584,54 @@ const RoleComparisonModal: React.FC<RoleComparisonModalProps> = ({
           </div>
         )}
         
+        {/* Remove Confirmation Dialog */}
+        {showRemoveConfirm && (
+          <div className="mt-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl">
+            <p className="text-sm text-red-700 dark:text-red-300 mb-3">
+              Sei sicuro di voler rimuovere <strong>{user.firstName} {user.lastName}</strong> da questo slot?
+            </p>
+            <p className="text-xs text-red-500 dark:text-red-400 mb-3">
+              L'utente non verrà eliminato dal sistema, ma sarà rimosso da questa posizione nell'organigramma.
+            </p>
+            <div className="flex gap-2">
+              <Button 
+                variant="ghost" 
+                size="sm"
+                onClick={() => setShowRemoveConfirm(false)}
+              >
+                Annulla
+              </Button>
+              <Button 
+                size="sm"
+                className="bg-red-600 hover:bg-red-700 text-white"
+                onClick={() => {
+                  onRemoveFromSlot(user);
+                  onClose();
+                }}
+              >
+                Conferma Rimozione
+              </Button>
+            </div>
+          </div>
+        )}
+        
         {/* Action Buttons */}
         <div className="flex gap-2 pt-4 border-t border-gray-100 dark:border-gray-700">
           {!isEmptySlot && !isHiringSlot && (
-            <Button fullWidth onClick={onViewFullProfile} className="flex items-center justify-center gap-2">
-              <ExternalLink size={16}/> Vai al Profilo Completo
-            </Button>
+            <>
+              <Button fullWidth onClick={onViewFullProfile} className="flex items-center justify-center gap-2">
+                <ExternalLink size={16}/> Vai al Profilo Completo
+              </Button>
+              <Button 
+                variant="ghost" 
+                onClick={() => setShowRemoveConfirm(true)}
+                className="text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-1"
+              >
+                <Trash2 size={16}/> Rimuovi
+              </Button>
+            </>
           )}
-          <Button variant="ghost" onClick={onClose}>{needsAssignment ? 'Chiudi' : 'Chiudi'}</Button>
+          <Button variant="ghost" onClick={onClose}>Chiudi</Button>
         </div>
       </Card>
     </div>
@@ -1311,6 +1355,35 @@ export const CompanyOrgView: React.FC<{
                     onInviteToSlot={(slotUser) => {
                         setInviteToSlotUser(slotUser);
                         setSelectedUserForComparison(null);
+                    }}
+                    onRemoveFromSlot={async (userToRemove) => {
+                        if (!userToRemove.memberId) {
+                            toast({
+                                title: "Errore",
+                                description: "Impossibile trovare l'associazione membro-azienda",
+                                variant: "destructive"
+                            });
+                            return;
+                        }
+                        
+                        const result = await deleteCompanyMember(userToRemove.memberId);
+                        
+                        if (result.success) {
+                            // Remove user from local state
+                            const updatedUsers = users.filter(u => u.id !== userToRemove.id);
+                            onUpdateUsers(updatedUsers);
+                            
+                            toast({
+                                title: "Utente rimosso",
+                                description: `${userToRemove.firstName} ${userToRemove.lastName} è stato rimosso dallo slot`
+                            });
+                        } else {
+                            toast({
+                                title: "Errore",
+                                description: result.error || "Impossibile rimuovere l'utente",
+                                variant: "destructive"
+                            });
+                        }
                     }}
                 />
             )}
