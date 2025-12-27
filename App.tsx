@@ -46,6 +46,7 @@ const profileToLegacyUser = (
     jobTitle: profile.job_title || '',
     departmentId: membership?.department_id || '',
     status: membership?.status || 'pending',
+    memberId: membership?.id || undefined,
     results: riasecResult ? {
       R: riasecResult.score_r,
       I: riasecResult.score_i,
