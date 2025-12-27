@@ -1226,8 +1226,8 @@ export const CompanyOrgView: React.FC<{
                      <div className="flex items-center gap-1 text-green-600"><Handshake size={12}/> Fit Manager (Liv. Superiore)</div>
                  </div>
             </div>
-            <div className="flex justify-center pb-20 overflow-x-auto">
-                <div className="inline-block">
+            <div className="pb-20 overflow-x-auto">
+                <div className="w-fit mx-auto">
                     <Tree
                         lineWidth="2px"
                         lineColor="rgb(209, 213, 219)"
