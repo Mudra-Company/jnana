@@ -820,16 +820,18 @@ const renderOrgTreeChildren = (
             <React.Fragment key={child.id}>
                 <TreeNode
                     label={
-                        <OrgNodeCard
-                            node={child}
-                            users={users}
-                            onAddNode={onAddNode}
-                            onEditNode={onEditNode}
-                            onInviteUser={onInviteUser}
-                            onSelectUserForComparison={onSelectUserForComparison}
-                            companyValues={companyValues}
-                            parentManager={currentManager}
-                        />
+                        <div className="inline-block">
+                            <OrgNodeCard
+                                node={child}
+                                users={users}
+                                onAddNode={onAddNode}
+                                onEditNode={onEditNode}
+                                onInviteUser={onInviteUser}
+                                onSelectUserForComparison={onSelectUserForComparison}
+                                companyValues={companyValues}
+                                parentManager={currentManager}
+                            />
+                        </div>
                     }
                 >
                     {renderOrgTreeChildren(
@@ -1224,28 +1226,32 @@ export const CompanyOrgView: React.FC<{
                      <div className="flex items-center gap-1 text-green-600"><Handshake size={12}/> Fit Manager (Liv. Superiore)</div>
                  </div>
             </div>
-            <div className="w-fit min-w-full flex justify-center pb-20">
-                <Tree
-                    lineWidth="2px"
-                    lineColor="rgb(209, 213, 219)"
-                    lineBorderRadius="8px"
-                    lineHeight="32px"
-                    nodePadding="16px"
-                    label={
-                        <OrgNodeCard
-                            node={company.structure}
-                            users={users}
-                            onAddNode={handleAddNode}
-                            onEditNode={setEditingNode}
-                            onInviteUser={(nodeId) => setInviteNodeId(nodeId)}
-                            onSelectUserForComparison={setSelectedUserForComparison}
-                            companyValues={company.cultureValues}
-                            parentManager={undefined}
-                        />
-                    }
-                >
-                    {renderOrgTreeChildren(company.structure, users, handleAddNode, setEditingNode, setInviteNodeId, setSelectedUserForComparison, company.cultureValues)}
-                </Tree>
+            <div className="flex justify-center pb-20 overflow-x-auto">
+                <div className="inline-block">
+                    <Tree
+                        lineWidth="2px"
+                        lineColor="rgb(209, 213, 219)"
+                        lineBorderRadius="8px"
+                        lineHeight="32px"
+                        nodePadding="16px"
+                        label={
+                            <div className="inline-block">
+                                <OrgNodeCard
+                                    node={company.structure}
+                                    users={users}
+                                    onAddNode={handleAddNode}
+                                    onEditNode={setEditingNode}
+                                    onInviteUser={(nodeId) => setInviteNodeId(nodeId)}
+                                    onSelectUserForComparison={setSelectedUserForComparison}
+                                    companyValues={company.cultureValues}
+                                    parentManager={undefined}
+                                />
+                            </div>
+                        }
+                    >
+                        {renderOrgTreeChildren(company.structure, users, handleAddNode, setEditingNode, setInviteNodeId, setSelectedUserForComparison, company.cultureValues)}
+                    </Tree>
+                </div>
             </div>
             {selectedUserForComparison && (
                 <RoleComparisonModal
