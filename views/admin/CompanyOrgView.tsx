@@ -736,6 +736,25 @@ const NodeEditorModal: React.FC<{
                             onChange={e => setFormData({...formData, name: e.target.value})} 
                         />
                     </div>
+
+                    <div>
+                        <label className="block text-xs font-bold uppercase text-gray-500 mb-1">Tipo Nodo</label>
+                        <select
+                            className="w-full p-3 border rounded-xl bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                            value={formData.type}
+                            onChange={e => setFormData({...formData, type: e.target.value as 'root' | 'department' | 'team'})}
+                            disabled={formData.type === 'root'}
+                        >
+                            <option value="department">📁 Dipartimento</option>
+                            <option value="team">👥 Team</option>
+                            {formData.type === 'root' && <option value="root">🏢 Root (Azienda)</option>}
+                        </select>
+                        <p className="text-xs text-gray-400 mt-1 italic">
+                            {formData.type === 'root' ? 'Nodo radice dell\'organizzazione' : 
+                             formData.type === 'department' ? 'Unità organizzativa principale' : 
+                             'Gruppo di lavoro operativo'}
+                        </p>
+                    </div>
                     
                     <div className="flex items-center gap-2 p-3 bg-amber-50 dark:bg-amber-900/20 rounded-xl border border-amber-100 dark:border-amber-800">
                         <input 

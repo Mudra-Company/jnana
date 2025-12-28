@@ -7,7 +7,8 @@ import {
   ThermometerSun,
   Handshake,
   Building,
-  Search
+  Search,
+  AlertTriangle
 } from 'lucide-react';
 import { Card } from '../../components/Card';
 import { OrgNode, User } from '../../types';
@@ -60,9 +61,41 @@ export const OrgNodeCard: React.FC<OrgNodeCardProps> = ({
     return totalAvg / usersWithClimate.length;
   }, [nodeUsers]);
 
+  // Calculate Skill Gap Mismatch Average
+  const skillMismatchScore = useMemo(() => {
+    let totalGaps = 0;
+    let totalRequired = 0;
+    
+    nodeUsers.forEach(user => {
+      const profile = user.requiredProfile;
+      if (!profile) return;
+      
+      const requiredSkills = [...(profile.softSkills || []), ...(profile.hardSkills || [])];
+      const userSkills = [...(user.karmaData?.softSkills || [])];
+      
+      requiredSkills.forEach(required => {
+        totalRequired++;
+        const hasSkill = userSkills.some(s => 
+          s.toLowerCase().includes(required.toLowerCase()) || 
+          required.toLowerCase().includes(s.toLowerCase())
+        );
+        if (!hasSkill) totalGaps++;
+      });
+    });
+    
+    if (totalRequired === 0) return null;
+    return Math.round((totalGaps / totalRequired) * 100);
+  }, [nodeUsers]);
+
   const getScoreColor = (score: number) => {
     if (score >= 4) return 'bg-green-100 text-green-700 border-green-200';
     if (score >= 3) return 'bg-yellow-100 text-yellow-700 border-yellow-200';
+    return 'bg-red-100 text-red-700 border-red-200';
+  };
+
+  const getGapColor = (gap: number) => {
+    if (gap <= 20) return 'bg-green-100 text-green-700 border-green-200';
+    if (gap <= 50) return 'bg-yellow-100 text-yellow-700 border-yellow-200';
     return 'bg-red-100 text-red-700 border-red-200';
   };
 
@@ -85,6 +118,12 @@ export const OrgNodeCard: React.FC<OrgNodeCardProps> = ({
               <div className={`flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded border ${getScoreColor(nodeClimateScore)}`}>
                 <ThermometerSun size={10} />
                 Clima: {nodeClimateScore.toFixed(1)}/5
+              </div>
+            )}
+            {skillMismatchScore !== null && (
+              <div className={`flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded border ${getGapColor(skillMismatchScore)}`}>
+                <AlertTriangle size={10} />
+                Gap: {skillMismatchScore}%
               </div>
             )}
             {(() => {
