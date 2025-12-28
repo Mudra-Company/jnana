@@ -6,6 +6,7 @@ import {
   Target, 
   Plus, 
   Edit2, 
+  Edit3,
   Users, 
   Fingerprint, 
   UserPlus,
@@ -23,7 +24,8 @@ import {
   Medal,
   ArrowRight,
   Shuffle,
-  Trash2
+  Trash2,
+  Save
 } from 'lucide-react';
 import { Card } from '../../components/Card';
 import { Button } from '../../components/Button';
@@ -90,6 +92,7 @@ interface RoleComparisonModalProps {
   onAssignUser: (slotUserId: string, selectedUserId: string) => void;
   onInviteToSlot: (slotUser: User) => void;
   onRemoveFromSlot: (user: User) => void;
+  onUpdateRequiredProfile: (user: User, profile: RequiredProfile) => Promise<void>;
 }
 
 const calculateMatchScore = (user: User): { score: number; hardMatches: string[]; hardGaps: string[]; softMatches: string[]; softGaps: string[]; bonusSkills: string[]; seniorityMatch: 'match' | 'above' | 'below' } => {
@@ -159,11 +162,23 @@ const RoleComparisonModal: React.FC<RoleComparisonModalProps> = ({
   onViewFullProfile, 
   onAssignUser,
   onInviteToSlot,
-  onRemoveFromSlot
+  onRemoveFromSlot,
+  onUpdateRequiredProfile
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [showAssignSection, setShowAssignSection] = useState(false);
   const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
+  
+  // Role editing state
+  const [isEditingRole, setIsEditingRole] = useState(false);
+  const [editedProfile, setEditedProfile] = useState<RequiredProfile>({
+    seniority: user.requiredProfile?.seniority,
+    hardSkills: [...(user.requiredProfile?.hardSkills || [])],
+    softSkills: [...(user.requiredProfile?.softSkills || [])]
+  });
+  const [newHardSkill, setNewHardSkill] = useState('');
+  const [newSoftSkill, setNewSoftSkill] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
   
   const match = useMemo(() => calculateMatchScore(user), [user]);
   const required = user.requiredProfile;
@@ -172,6 +187,50 @@ const RoleComparisonModal: React.FC<RoleComparisonModalProps> = ({
   const isEmptySlot = !user.firstName && !user.lastName;
   const isHiringSlot = user.isHiring === true;
   const needsAssignment = isEmptySlot || isHiringSlot;
+  
+  const handleSaveRole = async () => {
+    setIsSaving(true);
+    try {
+      await onUpdateRequiredProfile(user, editedProfile);
+      setIsEditingRole(false);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+  
+  const addHardSkill = () => {
+    if (newHardSkill.trim() && !editedProfile.hardSkills?.includes(newHardSkill.trim())) {
+      setEditedProfile(prev => ({
+        ...prev,
+        hardSkills: [...(prev.hardSkills || []), newHardSkill.trim()]
+      }));
+      setNewHardSkill('');
+    }
+  };
+  
+  const removeHardSkill = (skill: string) => {
+    setEditedProfile(prev => ({
+      ...prev,
+      hardSkills: (prev.hardSkills || []).filter(s => s !== skill)
+    }));
+  };
+  
+  const addSoftSkill = () => {
+    if (newSoftSkill.trim() && !editedProfile.softSkills?.includes(newSoftSkill.trim())) {
+      setEditedProfile(prev => ({
+        ...prev,
+        softSkills: [...(prev.softSkills || []), newSoftSkill.trim()]
+      }));
+      setNewSoftSkill('');
+    }
+  };
+  
+  const removeSoftSkill = (skill: string) => {
+    setEditedProfile(prev => ({
+      ...prev,
+      softSkills: (prev.softSkills || []).filter(s => s !== skill)
+    }));
+  };
   
   // Available employees for assignment (exclude current slot and other hiring slots)
   const availableEmployees = useMemo(() => {
@@ -615,9 +674,142 @@ const RoleComparisonModal: React.FC<RoleComparisonModalProps> = ({
           </div>
         )}
         
+        {/* Role Editing Section */}
+        {isEditingRole && (
+          <div className="mb-4 p-4 bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 rounded-xl border-2 border-indigo-200 dark:border-indigo-700">
+            <div className="flex items-center justify-between mb-4">
+              <label className="text-sm font-bold text-indigo-700 dark:text-indigo-300 flex items-center gap-2">
+                <Edit3 size={16}/> Modifica Requisiti Ruolo
+              </label>
+            </div>
+            
+            {/* Seniority Dropdown */}
+            <div className="mb-4">
+              <label className="block text-xs font-bold uppercase text-gray-500 mb-1">Seniority Richiesta</label>
+              <select
+                className="w-full p-3 border rounded-xl bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                value={editedProfile.seniority || ''}
+                onChange={e => setEditedProfile(prev => ({ ...prev, seniority: e.target.value as SeniorityLevel || undefined }))}
+              >
+                <option value="">Non specificata</option>
+                {SENIORITY_OPTIONS.map(s => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
+            </div>
+            
+            {/* Hard Skills */}
+            <div className="mb-4">
+              <label className="block text-xs font-bold uppercase text-gray-500 mb-2">💼 Hard Skills</label>
+              <div className="flex flex-wrap gap-1 mb-2">
+                {(editedProfile.hardSkills || []).map(skill => (
+                  <span 
+                    key={skill} 
+                    className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 rounded text-xs"
+                  >
+                    {skill}
+                    <button 
+                      onClick={() => removeHardSkill(skill)}
+                      className="hover:text-red-500 transition-colors"
+                    >
+                      <X size={12}/>
+                    </button>
+                  </span>
+                ))}
+                {(editedProfile.hardSkills || []).length === 0 && (
+                  <span className="text-xs text-gray-400 italic">Nessuna hard skill</span>
+                )}
+              </div>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder="Aggiungi hard skill..."
+                  className="flex-1 p-2 text-sm border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                  value={newHardSkill}
+                  onChange={e => setNewHardSkill(e.target.value)}
+                  onKeyPress={e => e.key === 'Enter' && addHardSkill()}
+                />
+                <Button size="sm" variant="ghost" onClick={addHardSkill}>
+                  <Plus size={16}/>
+                </Button>
+              </div>
+            </div>
+            
+            {/* Soft Skills */}
+            <div className="mb-4">
+              <label className="block text-xs font-bold uppercase text-gray-500 mb-2">🎭 Soft Skills</label>
+              <div className="flex flex-wrap gap-1 mb-2">
+                {(editedProfile.softSkills || []).map(skill => (
+                  <span 
+                    key={skill} 
+                    className="inline-flex items-center gap-1 px-2 py-1 bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 rounded text-xs"
+                  >
+                    {skill}
+                    <button 
+                      onClick={() => removeSoftSkill(skill)}
+                      className="hover:text-red-500 transition-colors"
+                    >
+                      <X size={12}/>
+                    </button>
+                  </span>
+                ))}
+                {(editedProfile.softSkills || []).length === 0 && (
+                  <span className="text-xs text-gray-400 italic">Nessuna soft skill</span>
+                )}
+              </div>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder="Aggiungi soft skill..."
+                  className="flex-1 p-2 text-sm border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                  value={newSoftSkill}
+                  onChange={e => setNewSoftSkill(e.target.value)}
+                  onKeyPress={e => e.key === 'Enter' && addSoftSkill()}
+                />
+                <Button size="sm" variant="ghost" onClick={addSoftSkill}>
+                  <Plus size={16}/>
+                </Button>
+              </div>
+            </div>
+            
+            {/* Save/Cancel Buttons */}
+            <div className="flex gap-2 pt-3 border-t border-indigo-200 dark:border-indigo-700">
+              <Button 
+                onClick={handleSaveRole} 
+                disabled={isSaving}
+                className="flex-1 flex items-center justify-center gap-2"
+              >
+                <Save size={16}/> {isSaving ? 'Salvataggio...' : 'Salva Modifiche'}
+              </Button>
+              <Button 
+                variant="ghost" 
+                onClick={() => {
+                  setIsEditingRole(false);
+                  setEditedProfile({
+                    seniority: user.requiredProfile?.seniority,
+                    hardSkills: [...(user.requiredProfile?.hardSkills || [])],
+                    softSkills: [...(user.requiredProfile?.softSkills || [])]
+                  });
+                }}
+              >
+                Annulla
+              </Button>
+            </div>
+          </div>
+        )}
+        
         {/* Action Buttons */}
         <div className="flex gap-2 pt-4 border-t border-gray-100 dark:border-gray-700">
-          {!isEmptySlot && !isHiringSlot && (
+          {!isEditingRole && (
+            <Button 
+              variant="ghost" 
+              onClick={() => setIsEditingRole(true)}
+              className="flex items-center gap-1"
+            >
+              <Edit3 size={16}/> Modifica Ruolo
+            </Button>
+          )}
+          {!isEmptySlot && !isHiringSlot && !isEditingRole && (
             <>
               <Button fullWidth onClick={onViewFullProfile} className="flex items-center justify-center gap-2">
                 <ExternalLink size={16}/> Vai al Profilo Completo
@@ -631,7 +823,7 @@ const RoleComparisonModal: React.FC<RoleComparisonModalProps> = ({
               </Button>
             </>
           )}
-          <Button variant="ghost" onClick={onClose}>Chiudi</Button>
+          {!isEditingRole && <Button variant="ghost" onClick={onClose}>Chiudi</Button>}
         </div>
       </Card>
     </div>
@@ -941,7 +1133,7 @@ export const CompanyOrgView: React.FC<{
     const [isHiring, setIsHiring] = useState(false);
     
     // Use the company members hook for DB persistence
-    const { createCompanyMember, assignUserToSlot, deleteCompanyMember, isLoading: isSaving } = useCompanyMembers();
+    const { createCompanyMember, updateCompanyMember, assignUserToSlot, deleteCompanyMember, isLoading: isSaving } = useCompanyMembers();
 
     // Handle inviting a person to an existing slot (simplified modal)
     const handleInviteToSlot = async (data: { firstName: string; lastName: string; email: string }) => {
@@ -1400,6 +1592,46 @@ export const CompanyOrgView: React.FC<{
                             toast({
                                 title: "Errore",
                                 description: result.error || "Impossibile rimuovere l'utente",
+                                variant: "destructive"
+                            });
+                        }
+                    }}
+                    onUpdateRequiredProfile={async (userToUpdate, newProfile) => {
+                        if (!userToUpdate.memberId) {
+                            toast({
+                                title: "Errore",
+                                description: "Impossibile trovare l'associazione membro-azienda",
+                                variant: "destructive"
+                            });
+                            return;
+                        }
+                        
+                        const result = await updateCompanyMember(userToUpdate.memberId, {
+                            required_profile: newProfile
+                        });
+                        
+                        if (result.success) {
+                            // Update user in local state
+                            const updatedUsers = users.map(u => 
+                                u.id === userToUpdate.id 
+                                    ? { ...u, requiredProfile: newProfile }
+                                    : u
+                            );
+                            onUpdateUsers(updatedUsers);
+                            setSelectedUserForComparison(prev => 
+                                prev?.id === userToUpdate.id 
+                                    ? { ...prev, requiredProfile: newProfile }
+                                    : prev
+                            );
+                            
+                            toast({
+                                title: "Ruolo aggiornato",
+                                description: "I requisiti del ruolo sono stati modificati con successo"
+                            });
+                        } else {
+                            toast({
+                                title: "Errore",
+                                description: result.error || "Impossibile aggiornare i requisiti del ruolo",
                                 variant: "destructive"
                             });
                         }
