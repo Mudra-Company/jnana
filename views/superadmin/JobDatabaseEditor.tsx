@@ -30,6 +30,18 @@ export const JobDatabaseEditor: React.FC<JobDatabaseEditorProps> = ({ jobDb, onU
         setNewJobSector('');
     };
 
+    const handleDeleteJob = (code: string, jobIndex: number) => {
+        const currentJobs = jobDb[code] || [];
+        const updatedJobs = currentJobs.filter((_, idx) => idx !== jobIndex);
+        
+        onUpdateJobDb({
+            ...jobDb,
+            [code]: updatedJobs
+        });
+        
+        toast({ title: "Lavoro eliminato", description: "Il profilo è stato rimosso dalla lista" });
+    };
+
     const handleExport = () => {
         const rows: { RIASEC_CODE: string; JOB_TITLE: string; SECTOR: string }[] = [];
         
@@ -174,7 +186,10 @@ export const JobDatabaseEditor: React.FC<JobDatabaseEditorProps> = ({ jobDb, onU
                                             <h4 className="font-bold text-gray-800 dark:text-gray-200">{job.title}</h4>
                                             <p className="text-xs text-gray-500 uppercase">{job.sector}</p>
                                          </div>
-                                         <button className="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">
+                                         <button 
+                                             onClick={() => handleDeleteJob(selectedCode, idx)}
+                                             className="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                                         >
                                              <Trash2 size={16} />
                                          </button>
                                      </div>
