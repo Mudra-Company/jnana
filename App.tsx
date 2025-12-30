@@ -14,6 +14,7 @@ import { Toaster } from './src/components/ui/toaster';
 // Imported Views & Components
 import { Header } from './components/layout/Header';
 import { AuthView } from './src/views/auth/AuthView';
+import { ResetPasswordView } from './src/views/auth/ResetPasswordView';
 import { SuperAdminDashboard } from './views/superadmin/SuperAdminDashboard';
 import { JobDatabaseEditor } from './views/superadmin/JobDatabaseEditor';
 import { AdminDashboardView } from './views/admin/AdminDashboard';
@@ -174,6 +175,10 @@ const AppContent: React.FC = () => {
 
   const [jobDb, setJobDb] = useState<JobDatabase>({});
   const [view, setView] = useState<ViewState>(() => {
+    // Check for reset password URL
+    if (window.location.pathname === '/auth/reset-password') {
+      return { type: 'RESET_PASSWORD' };
+    }
     // Check for seed URL parameter
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('seed') === 'true') {
@@ -697,6 +702,15 @@ const AppContent: React.FC = () => {
 
         <main className="animate-fade-in">
           {view.type === 'LOGIN' && !user && <AuthView />}
+          
+          {view.type === 'RESET_PASSWORD' && (
+            <ResetPasswordView 
+              onSuccess={() => {
+                window.history.pushState({}, '', '/');
+                setView({ type: 'LOADING' });
+              }} 
+            />
+          )}
           
           {view.type === 'SEED_DATA' && <SeedDataView />}
 

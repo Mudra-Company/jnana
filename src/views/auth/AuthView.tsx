@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import { Card } from '../../../components/Card';
 import { Button } from '../../../components/Button';
-import { LogIn, UserPlus, Mail, Lock, User, AlertCircle } from 'lucide-react';
+import { LogIn, UserPlus, Mail, Lock, User, AlertCircle, Eye, EyeOff } from 'lucide-react';
+import { ForgotPasswordView } from './ForgotPasswordView';
 
 interface AuthViewProps {
   onSuccess?: () => void;
@@ -17,6 +18,9 @@ export const AuthView: React.FC<AuthViewProps> = ({ onSuccess }) => {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [rememberMe, setRememberMe] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
 
   const { signIn, signUp } = useAuth();
 
@@ -57,6 +61,11 @@ export const AuthView: React.FC<AuthViewProps> = ({ onSuccess }) => {
       setIsLoading(false);
     }
   };
+
+  // Show forgot password view
+  if (showForgotPassword) {
+    return <ForgotPasswordView onBack={() => setShowForgotPassword(false)} />;
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-jnana-bg via-white to-jnana-powder/30 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 px-4">
@@ -172,14 +181,21 @@ export const AuthView: React.FC<AuthViewProps> = ({ onSuccess }) => {
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-jnana-text/40" />
                 <input
-                  type="password"
+                  type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
                   minLength={6}
-                  className="w-full pl-10 pr-4 py-2.5 border border-jnana-border dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-jnana-text dark:text-white focus:ring-2 focus:ring-jnana-charcoal/20 focus:border-jnana-charcoal transition-all"
+                  className="w-full pl-10 pr-10 py-2.5 border border-jnana-border dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-jnana-text dark:text-white focus:ring-2 focus:ring-jnana-charcoal/20 focus:border-jnana-charcoal transition-all"
                   placeholder="••••••••"
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-jnana-text/40 hover:text-jnana-text/60"
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
               </div>
               {!isLogin && (
                 <p className="mt-1 text-xs text-jnana-text/50 dark:text-gray-500">
@@ -187,6 +203,28 @@ export const AuthView: React.FC<AuthViewProps> = ({ onSuccess }) => {
                 </p>
               )}
             </div>
+
+            {/* Remember me & Forgot password (login only) */}
+            {isLogin && (
+              <div className="flex items-center justify-between">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={rememberMe}
+                    onChange={(e) => setRememberMe(e.target.checked)}
+                    className="w-4 h-4 rounded border-jnana-border text-jnana-charcoal focus:ring-jnana-charcoal/20"
+                  />
+                  <span className="text-sm text-jnana-text/70 dark:text-gray-400">Ricordami</span>
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setShowForgotPassword(true)}
+                  className="text-sm text-jnana-charcoal dark:text-gray-400 hover:underline"
+                >
+                  Password dimenticata?
+                </button>
+              </div>
+            )}
 
             {/* Submit button */}
             <Button
