@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
-import { Plus, Trash2, Database } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { Plus, Trash2, Database, Download, Upload } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import { Card } from '../../components/Card';
 import { Button } from '../../components/Button';
 import { JobDatabase } from '../../types';
+import { toast } from '../../src/hooks/use-toast';
 
 interface JobDatabaseEditorProps {
   jobDb: JobDatabase;
@@ -13,6 +15,7 @@ export const JobDatabaseEditor: React.FC<JobDatabaseEditorProps> = ({ jobDb, onU
     const [selectedCode, setSelectedCode] = useState<string | null>(Object.keys(jobDb)[0] || null);
     const [newJobTitle, setNewJobTitle] = useState('');
     const [newJobSector, setNewJobSector] = useState('');
+    const fileInputRef = useRef<HTMLInputElement>(null);
 
     const handleAddJob = () => {
         if (!selectedCode || !newJobTitle.trim()) return;
@@ -27,11 +30,95 @@ export const JobDatabaseEditor: React.FC<JobDatabaseEditorProps> = ({ jobDb, onU
         setNewJobSector('');
     };
 
+    const handleExport = () => {
+        const rows: { RIASEC_CODE: string; JOB_TITLE: string; SECTOR: string }[] = [];
+        
+        Object.entries(jobDb).forEach(([code, jobs]) => {
+            (jobs as { title: string; sector: string }[]).forEach(job => {
+                rows.push({
+                    RIASEC_CODE: code,
+                    JOB_TITLE: job.title,
+                    SECTOR: job.sector
+                });
+            });
+        });
+        
+        const ws = XLSX.utils.json_to_sheet(rows);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Jobs');
+        XLSX.writeFile(wb, 'job_database_export.xlsx');
+        
+        toast({ title: "Export completato", description: `Esportati ${rows.length} profili professionali` });
+    };
+
+    const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+            try {
+                const data = evt.target?.result;
+                const workbook = XLSX.read(data, { type: 'binary' });
+                const sheetName = workbook.SheetNames[0];
+                const sheet = workbook.Sheets[sheetName];
+                const rows = XLSX.utils.sheet_to_json<{ RIASEC_CODE: string; JOB_TITLE: string; SECTOR: string }>(sheet);
+                
+                const newJobDb: JobDatabase = {};
+                let importedCount = 0;
+                
+                rows.forEach(row => {
+                    const code = row.RIASEC_CODE?.toString().trim().toUpperCase();
+                    const title = row.JOB_TITLE?.toString().trim();
+                    const sector = row.SECTOR?.toString().trim() || 'Generico';
+                    
+                    if (code && title) {
+                        if (!newJobDb[code]) newJobDb[code] = [];
+                        newJobDb[code].push({ title, sector });
+                        importedCount++;
+                    }
+                });
+                
+                if (importedCount > 0) {
+                    onUpdateJobDb(newJobDb);
+                    toast({ title: "Import completato", description: `Importati ${importedCount} profili in ${Object.keys(newJobDb).length} codici RIASEC` });
+                } else {
+                    toast({ title: "Nessun dato valido", description: "Il file non contiene dati validi da importare", variant: "destructive" });
+                }
+            } catch (error) {
+                toast({ title: "Errore di import", description: "Formato file non valido", variant: "destructive" });
+            }
+            
+            e.target.value = '';
+        };
+        
+        reader.readAsBinaryString(file);
+    };
+
     return (
         <div className="p-8 max-w-7xl mx-auto animate-fade-in">
-             <div className="mb-8">
-                <h1 className="text-3xl font-brand font-bold text-gray-900 dark:text-white">Database Profili & Lavori</h1>
-                <p className="text-gray-600">Mappatura dei codici RIASEC ai job title.</p>
+            <input 
+                type="file" 
+                ref={fileInputRef}
+                onChange={handleImport}
+                accept=".xlsx,.xls"
+                className="hidden"
+            />
+            
+            <div className="mb-8 flex items-center justify-between">
+                <div>
+                    <h1 className="text-3xl font-brand font-bold text-gray-900 dark:text-white">Database Profili & Lavori</h1>
+                    <p className="text-gray-600 dark:text-gray-400">Mappatura dei codici RIASEC ai job title.</p>
+                </div>
+                
+                <div className="flex gap-2">
+                    <Button onClick={handleExport} variant="secondary" className="flex items-center gap-2">
+                        <Download size={16} /> Esporta Excel
+                    </Button>
+                    <Button onClick={() => fileInputRef.current?.click()} variant="secondary" className="flex items-center gap-2">
+                        <Upload size={16} /> Importa Excel
+                    </Button>
+                </div>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
