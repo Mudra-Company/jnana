@@ -116,6 +116,15 @@ const CustomRadarTick = (props: any) => {
 
 const ReportContentRenderer: React.FC<{ content: string }> = ({ content }) => {
     if (!content) return null;
+    
+    // Helper to parse **bold** text
+    const parseBold = (text: string) => {
+        const parts = text.split(/\*\*(.*?)\*\*/g);
+        return parts.map((part, i) => 
+            i % 2 === 1 ? <strong key={i} className="font-bold text-gray-800 dark:text-gray-100">{part}</strong> : part
+        );
+    };
+    
     const blocks = content.split(/(?=### )/g);
     return (
         <div className="space-y-6">
@@ -129,7 +138,7 @@ const ReportContentRenderer: React.FC<{ content: string }> = ({ content }) => {
                     <div key={blockIdx} className={`rounded-2xl ${header ? 'bg-gray-50 dark:bg-gray-800/50 p-6 border border-gray-100 dark:border-gray-700' : ''}`}>
                         {header && (
                             <h3 className="text-xl font-brand font-bold text-jnana-sage mb-4 pb-2 border-b border-gray-200 dark:border-gray-700">
-                                {header}
+                                {parseBold(header)}
                             </h3>
                         )}
                         {parts.map((part, partIdx) => {
@@ -161,11 +170,38 @@ const ReportContentRenderer: React.FC<{ content: string }> = ({ content }) => {
                                 );
                             }
                             if (!part.trim()) return null;
+                            
+                            // Check for job listings (lines starting with *)
+                            const lines = part.split('\n');
+                            const hasJobList = lines.some(l => l.trim().startsWith('* '));
+                            
+                            if (hasJobList) {
+                                return (
+                                    <div key={partIdx} className="space-y-3">
+                                        {lines.map((line, lIdx) => {
+                                            if (!line.trim()) return null;
+                                            if (line.trim().startsWith('* ')) {
+                                                const jobContent = line.replace(/^\s*\*\s*/, '');
+                                                return (
+                                                    <div key={lIdx} className="flex items-center gap-3 p-4 bg-white dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-600 shadow-sm hover:shadow-md transition-shadow">
+                                                        <div className="p-2 bg-jnana-sage/10 rounded-lg">
+                                                            <Briefcase size={18} className="text-jnana-sage" />
+                                                        </div>
+                                                        <span className="text-gray-700 dark:text-gray-200 font-medium">{parseBold(jobContent)}</span>
+                                                    </div>
+                                                );
+                                            }
+                                            return <p key={lIdx} className="text-gray-600 dark:text-gray-300">{parseBold(line)}</p>;
+                                        })}
+                                    </div>
+                                );
+                            }
+                            
                             return (
                                 <div key={partIdx} className="text-gray-600 dark:text-gray-300 leading-relaxed space-y-2">
-                                    {part.split('\n').map((line, lIdx) => {
+                                    {lines.map((line, lIdx) => {
                                         if (!line.trim()) return <br key={lIdx}/>;
-                                        return <p key={lIdx}>{line}</p>;
+                                        return <p key={lIdx}>{parseBold(line)}</p>;
                                     })}
                                 </div>
                             );
@@ -270,6 +306,7 @@ export const UserResultView: React.FC<UserResultViewProps> = ({ user, jobDb, com
 
              {activeTab === 'overview' && (
                  <div className="animate-fade-in space-y-8">
+                     {/* Hero Card */}
                      <Card className="!bg-jnana-sage text-white border-none relative overflow-hidden shadow-xl">
                         <div className="absolute top-0 right-0 p-8 opacity-10"><Hexagon size={250} /></div>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 relative z-10 p-6">
@@ -293,6 +330,133 @@ export const UserResultView: React.FC<UserResultViewProps> = ({ user, jobDb, com
                             </div>
                         </div>
                      </Card>
+
+                     {/* Quick Insights Grid */}
+                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                        {/* Top 3 RIASEC Dimensions */}
+                        <Card className="p-5">
+                            <h3 className="text-xs font-bold text-gray-400 uppercase mb-4 flex items-center gap-2">
+                                <Award size={14} className="text-jnana-sage" /> Top 3 Dimensioni
+                            </h3>
+                            <div className="space-y-3">
+                                {(() => {
+                                    const entries = Object.entries(finalScores) as [RiasecDimension, number][];
+                                    entries.sort((a, b) => b[1] - a[1]);
+                                    const top3 = entries.slice(0, 3);
+                                    const dimLabels: Record<string, string> = {
+                                        R: 'Realistico', I: 'Investigativo', A: 'Artistico',
+                                        S: 'Sociale', E: 'Intraprendente', C: 'Convenzionale'
+                                    };
+                                    return top3.map(([dim, score], idx) => (
+                                        <div key={dim} className="flex items-center justify-between">
+                                            <div className="flex items-center gap-2">
+                                                <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white ${idx === 0 ? 'bg-jnana-sage' : idx === 1 ? 'bg-jnana-sage/70' : 'bg-jnana-sage/50'}`}>{idx + 1}</span>
+                                                <span className="font-medium text-gray-700 dark:text-gray-200">{dimLabels[dim]}</span>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-16 h-2 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+                                                    <div className="h-full bg-jnana-sage rounded-full" style={{ width: `${(score / 30) * 100}%` }} />
+                                                </div>
+                                                <span className="text-sm font-bold text-gray-500">{score}</span>
+                                            </div>
+                                        </div>
+                                    ));
+                                })()}
+                            </div>
+                        </Card>
+
+                        {/* Soft Skills */}
+                        <Card className="p-5">
+                            <h3 className="text-xs font-bold text-gray-400 uppercase mb-4 flex items-center gap-2">
+                                <Sparkles size={14} className="text-purple-500" /> Soft Skills
+                            </h3>
+                            <div className="flex flex-wrap gap-2">
+                                {user.karmaData?.softSkills?.slice(0, 5).map((skill, i) => (
+                                    <span key={i} className="px-3 py-1 bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded-full text-sm font-medium border border-purple-200 dark:border-purple-700">
+                                        {skill}
+                                    </span>
+                                )) || <span className="text-gray-400 text-sm italic">Completa Karma AI</span>}
+                            </div>
+                        </Card>
+
+                        {/* Primary Values */}
+                        <Card className="p-5">
+                            <h3 className="text-xs font-bold text-gray-400 uppercase mb-4 flex items-center gap-2">
+                                <ShieldCheck size={14} className="text-green-500" /> Valori Primari
+                            </h3>
+                            <div className="flex flex-wrap gap-2">
+                                {user.karmaData?.primaryValues?.slice(0, 4).map((value, i) => (
+                                    <span key={i} className="px-3 py-1 bg-green-50 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-full text-sm font-medium border border-green-200 dark:border-green-700">
+                                        {value}
+                                    </span>
+                                )) || <span className="text-gray-400 text-sm italic">Completa Karma AI</span>}
+                            </div>
+                        </Card>
+
+                        {/* Top Jobs */}
+                        <Card className="p-5">
+                            <h3 className="text-xs font-bold text-gray-400 uppercase mb-4 flex items-center gap-2">
+                                <Briefcase size={14} className="text-blue-500" /> Lavori Suggeriti
+                            </h3>
+                            <div className="space-y-2">
+                                {(() => {
+                                    const jobSection = report.find(s => s.type === 'jobs');
+                                    if (!jobSection) return <span className="text-gray-400 text-sm italic">Non disponibile</span>;
+                                    const jobLines = jobSection.content.split('\n').filter(l => l.trim().startsWith('* ')).slice(0, 3);
+                                    return jobLines.map((line, i) => {
+                                        const content = line.replace(/^\s*\*\s*/, '').replace(/\*\*/g, '').split(':')[0];
+                                        return (
+                                            <div key={i} className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                                                <span className="w-1.5 h-1.5 bg-blue-500 rounded-full" />
+                                                {content}
+                                            </div>
+                                        );
+                                    });
+                                })()}
+                            </div>
+                        </Card>
+                     </div>
+
+                     {/* Climate Snapshot */}
+                     {user.climateData && (
+                        <Card className="p-6">
+                            <div className="flex items-center justify-between mb-6">
+                                <h3 className="text-sm font-bold text-gray-400 uppercase flex items-center gap-2">
+                                    <ThermometerSun size={16} className="text-amber-500" /> Snapshot Clima Aziendale
+                                </h3>
+                                <div className="flex items-center gap-2 bg-gray-100 dark:bg-gray-800 px-4 py-2 rounded-full">
+                                    <span className="text-xs text-gray-500 font-medium">Indice Globale:</span>
+                                    <span className={`text-lg font-bold ${user.climateData.overallAverage >= 3.5 ? 'text-green-600' : user.climateData.overallAverage >= 2.5 ? 'text-amber-600' : 'text-red-600'}`}>
+                                        {user.climateData.overallAverage.toFixed(1)}/5
+                                    </span>
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                                {climateChartData.slice(0, 5).map((item, idx) => (
+                                    <div key={idx} className="text-center">
+                                        <div className="relative w-16 h-16 mx-auto mb-2">
+                                            <svg className="w-full h-full transform -rotate-90">
+                                                <circle cx="32" cy="32" r="28" fill="none" stroke="#e5e7eb" strokeWidth="6" />
+                                                <circle 
+                                                    cx="32" cy="32" r="28" fill="none" 
+                                                    stroke={item.score >= 3.5 ? '#22c55e' : item.score >= 2.5 ? '#f59e0b' : '#ef4444'} 
+                                                    strokeWidth="6"
+                                                    strokeDasharray={`${(item.score / 5) * 176} 176`}
+                                                    strokeLinecap="round"
+                                                />
+                                            </svg>
+                                            <span className="absolute inset-0 flex items-center justify-center text-sm font-bold text-gray-700 dark:text-gray-200">
+                                                {item.score.toFixed(1)}
+                                            </span>
+                                        </div>
+                                        <span className="text-xs text-gray-500 font-medium leading-tight block">{item.name}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </Card>
+                     )}
+
+                     {/* Call to action if climate not done */}
                      {!user.climateData && (
                         <div className="bg-gradient-to-r from-amber-50 to-orange-50 border-l-8 border-amber-500 rounded-2xl p-8 shadow-md flex flex-col md:flex-row items-center justify-between gap-6">
                             <div className="flex items-start gap-5">
