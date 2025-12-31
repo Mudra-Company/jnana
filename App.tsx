@@ -4,7 +4,7 @@ import { useCompanies } from './src/hooks/useCompanies';
 import { useProfiles } from './src/hooks/useProfiles';
 import { useTestResults } from './src/hooks/useTestResults';
 import { useOrgNodes } from './src/hooks/useOrgNodes';
-import { ViewState, RiasecScore, JobDatabase, OrgNode, ChatMessage, ClimateData, CompanyProfile, User } from './types';
+import { ViewState, RiasecScore, JobDatabase, OrgNode, ChatMessage, ClimateData, CompanyProfile, User, KarmaData } from './types';
 import { calculateProfileCode } from './services/riasecService';
 import { supabase } from './src/integrations/supabase/client';
 import { loadJobDb, saveJobDb } from './services/storageService';
@@ -27,6 +27,7 @@ import { ClimateTestView } from './views/user/ClimateTestView';
 import { KarmaChatView } from './views/user/KarmaChatView';
 import { UserResultView } from './views/user/UserResultView';
 import SeedDataView from './src/views/admin/SeedDataView';
+import { DemoBanner } from './src/components/DemoBanner';
 
 // Adapter to convert DB profile to legacy User type
 const profileToLegacyUser = (
@@ -195,6 +196,10 @@ const AppContent: React.FC = () => {
   const [currentUserData, setCurrentUserData] = useState<User | null>(null);
   const [companyUsers, setCompanyUsers] = useState<User[]>([]);
   const [existingOrgNodeIds, setExistingOrgNodeIds] = useState<string[]>([]);
+  
+  // Demo Mode State
+  const [isDemoMode, setIsDemoMode] = useState(false);
+  const [demoUserData, setDemoUserData] = useState<User | null>(null);
   
   // Refs to prevent duplicate loads
   const dataLoadedRef = useRef(false);
@@ -657,6 +662,100 @@ const AppContent: React.FC = () => {
     }
   };
 
+  // ===== DEMO MODE HANDLERS =====
+  
+  const handleStartDemoMode = () => {
+    // Create a fictitious demo user (not saved to DB)
+    const demoUser: User = {
+      id: 'demo_user_temp_' + Date.now(),
+      firstName: 'Demo',
+      lastName: 'User',
+      email: 'demo@test.jnana.app',
+      companyId: activeCompanyData?.id || 'demo_company',
+      status: 'pending',
+    };
+    setDemoUserData(demoUser);
+    setIsDemoMode(true);
+    setView({ type: 'DEMO_USER_WELCOME' });
+    
+    toast({
+      title: "Modalità Demo attivata",
+      description: "Stai simulando il percorso di un nuovo utente. I dati NON vengono salvati.",
+    });
+  };
+
+  const handleExitDemoMode = () => {
+    setIsDemoMode(false);
+    setDemoUserData(null);
+    setView({ type: 'SUPER_ADMIN_DASHBOARD' });
+    
+    toast({
+      title: "Demo terminata",
+      description: "Sei tornato alla Console Super Admin.",
+    });
+  };
+
+  // Demo: RIASEC test completion (local state only)
+  const handleDemoTestComplete = async (score: RiasecScore) => {
+    if (!demoUserData) return;
+    
+    const profileCode = calculateProfileCode(score);
+    
+    setDemoUserData(prev => prev ? {
+      ...prev,
+      results: score,
+      profileCode,
+      status: 'test_completed',
+      submissionDate: new Date().toISOString().split('T')[0],
+    } : null);
+    
+    setView({ type: 'DEMO_USER_CHAT' });
+  };
+
+  // Demo: Karma chat completion (calls AI analysis but doesn't persist)
+  const handleDemoKarmaComplete = async (transcript: ChatMessage[]) => {
+    if (!demoUserData) return;
+
+    // Call AI analysis to see real results
+    let karmaDataPartial: Partial<KarmaData> = {};
+    try {
+      const { data, error } = await supabase.functions.invoke('karma-analyze', {
+        body: { transcript: transcript.map(m => ({ role: m.role, text: m.text })) }
+      });
+      
+      if (!error && data) {
+        karmaDataPartial = data;
+      }
+    } catch (e) {
+      console.error('[Demo] Error calling karma-analyze:', e);
+    }
+
+    setDemoUserData(prev => prev ? {
+      ...prev,
+      status: 'completed',
+      karmaData: {
+        transcript,
+        summary: karmaDataPartial.summary,
+        softSkills: karmaDataPartial.softSkills,
+        primaryValues: karmaDataPartial.primaryValues,
+        riskFactors: karmaDataPartial.riskFactors,
+        seniorityAssessment: karmaDataPartial.seniorityAssessment,
+      },
+    } : null);
+
+    setView({ type: 'DEMO_USER_RESULT' });
+  };
+
+  // Demo: Climate test completion (local state only)
+  const handleDemoClimateComplete = (climateData: ClimateData) => {
+    setDemoUserData(prev => prev ? {
+      ...prev,
+      climateData,
+    } : null);
+
+    setView({ type: 'DEMO_USER_RESULT' });
+  };
+
   // Loading state - wait for auth to be fully initialized
   if (authLoading || !authInitialized || view.type === 'LOADING') {
     return (
@@ -727,6 +826,7 @@ const AppContent: React.FC = () => {
               users={companyUsers}
               onImpersonate={handleImpersonate}
               onCreateCompany={handleCreateCompany}
+              onStartDemoMode={handleStartDemoMode}
             />
           )}
 
@@ -798,6 +898,53 @@ const AppContent: React.FC = () => {
               company={activeCompanyData || undefined}
               companyUsers={companyUsers}
             />
+          )}
+
+          {/* ===== DEMO MODE VIEWS ===== */}
+          {isDemoMode && demoUserData && (
+            <>
+              <DemoBanner onExit={handleExitDemoMode} />
+              <div className="pt-14"> {/* Offset for fixed banner */}
+                {view.type === 'DEMO_USER_WELCOME' && (
+                  <UserWelcomeView
+                    user={demoUserData}
+                    onStart={() => setView({ type: 'DEMO_USER_TEST' })}
+                  />
+                )}
+
+                {view.type === 'DEMO_USER_TEST' && (
+                  <UserTestView
+                    user={demoUserData}
+                    onComplete={handleDemoTestComplete}
+                  />
+                )}
+
+                {view.type === 'DEMO_USER_CHAT' && (
+                  <KarmaChatView
+                    user={demoUserData}
+                    onComplete={handleDemoKarmaComplete}
+                  />
+                )}
+
+                {view.type === 'DEMO_USER_CLIMATE' && (
+                  <ClimateTestView
+                    user={demoUserData}
+                    onComplete={handleDemoClimateComplete}
+                  />
+                )}
+
+                {view.type === 'DEMO_USER_RESULT' && (
+                  <UserResultView
+                    user={demoUserData}
+                    jobDb={jobDb}
+                    onLogout={handleExitDemoMode}
+                    onStartClimate={() => setView({ type: 'DEMO_USER_CLIMATE' })}
+                    company={activeCompanyData || undefined}
+                    companyUsers={[]}
+                  />
+                )}
+              </div>
+            </>
           )}
         </main>
       </div>

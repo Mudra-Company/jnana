@@ -192,4 +192,10 @@ export type ViewState =
   | { type: 'USER_TEST'; userId: string }
   | { type: 'USER_CHAT'; userId: string } 
   | { type: 'USER_CLIMATE_TEST'; userId: string } 
-  | { type: 'USER_RESULT'; userId: string };
+  | { type: 'USER_RESULT'; userId: string }
+  // Demo Mode views (simulate user journey without affecting real data)
+  | { type: 'DEMO_USER_WELCOME' }
+  | { type: 'DEMO_USER_TEST' }
+  | { type: 'DEMO_USER_CHAT' }
+  | { type: 'DEMO_USER_CLIMATE' }
+  | { type: 'DEMO_USER_RESULT' };

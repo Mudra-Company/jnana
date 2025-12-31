@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Building, Plus, X, Loader2 } from 'lucide-react';
+import { Building, Plus, X, Loader2, FlaskConical } from 'lucide-react';
 import { Card } from '../../components/Card';
 import { Button } from '../../components/Button';
 import { CompanyProfile, User } from '../../types';
@@ -19,13 +19,15 @@ interface SuperAdminDashboardProps {
   users: User[];
   onImpersonate: (companyId: string) => void;
   onCreateCompany?: (data: CreateCompanyData) => Promise<boolean>;
+  onStartDemoMode?: () => void;
 }
 
 export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ 
   companies, 
   users, 
   onImpersonate,
-  onCreateCompany 
+  onCreateCompany,
+  onStartDemoMode
 }) => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
@@ -72,9 +74,20 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
 
   return (
     <div className="p-8 max-w-7xl mx-auto">
-      <div className="mb-8">
-        <h1 className="text-3xl font-brand font-bold text-gray-800 dark:text-white">Console Super Admin</h1>
-        <p className="text-gray-500">Gestione multi-tenant e configurazione globale.</p>
+      <div className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-brand font-bold text-gray-800 dark:text-white">Console Super Admin</h1>
+          <p className="text-gray-500">Gestione multi-tenant e configurazione globale.</p>
+        </div>
+        {onStartDemoMode && (
+          <Button 
+            onClick={onStartDemoMode}
+            className="bg-purple-600 hover:bg-purple-700 text-white shadow-lg"
+          >
+            <FlaskConical size={18} className="mr-2" />
+            Simula Nuovo User
+          </Button>
+        )}
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
