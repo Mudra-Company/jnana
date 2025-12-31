@@ -1,4 +1,4 @@
-import { RiasecScore, RiasecDimension, User, JobDatabase, JobSuggestion, ChatMessage, KarmaData, CompanyProfile, OrgNode, CultureAnalysis } from '../types';
+import { RiasecScore, RiasecDimension, User, JobDatabase, JobSuggestion, ChatMessage, KarmaData, CompanyProfile, OrgNode, CultureAnalysis, ClimateData } from '../types';
 import { RIASEC_QUESTIONNAIRE, RIASEC_DESCRIPTIONS, RIASEC_PAIRS } from '../data/riasecContent';
 import { DIMENSION_LABELS } from '../constants';
 
@@ -201,9 +201,10 @@ export const generateDetailedReport = (scores: RiasecScore, jobDatabase: JobData
     jobs = [{ title: "Consulente Specializzato", sector: "Vari" }];
   }
 
-  let jobsContent = `In base al tuo codice RIASEC (**${code}**), ecco alcuni percorsi professionali consigliati:\n\n`;
+  let jobsContent = `### Percorsi Professionali Consigliati\n\n`;
+  jobsContent += `In base al tuo codice RIASEC (**${code}**), ecco alcuni ruoli adatti al tuo profilo:\n\n`;
   jobs.forEach(job => {
-    jobsContent += `* **${job.title}**: ${job.sector}\n`;
+    jobsContent += `* **${job.title}** — ${job.sector}\n`;
   });
 
   sections.push({
@@ -241,12 +242,33 @@ export const generateDetailedReport = (scores: RiasecScore, jobDatabase: JobData
   return sections;
 };
 
-export const generateKarmaSystemInstruction = (scores: RiasecScore): string => {
+export const generateKarmaSystemInstruction = (scores: RiasecScore, climateData?: ClimateData): string => {
   const profileCode = calculateProfileCode(scores);
   const entries = Object.entries(scores) as [RiasecDimension, number][];
   entries.sort((a, b) => b[1] - a[1]);
   const dominant = entries[0][0];
   const dominantPole = RIASEC_DESCRIPTIONS[dominant];
+
+  let climateContext = '';
+  if (climateData) {
+    const criticalAreas = Object.entries(climateData.sectionAverages)
+      .filter(([_, v]) => v < 3)
+      .map(([k]) => k);
+    
+    const strongAreas = Object.entries(climateData.sectionAverages)
+      .filter(([_, v]) => v >= 4)
+      .map(([k]) => k);
+
+    climateContext = `
+    
+    PERCEZIONE CLIMA AZIENDALE (dal sondaggio):
+    - Indice Clima Globale: ${climateData.overallAverage.toFixed(1)}/5
+    ${criticalAreas.length > 0 ? `- Aree critiche (bassa soddisfazione): ${criticalAreas.join(', ')}` : '- Nessuna area critica rilevata'}
+    ${strongAreas.length > 0 ? `- Punti di forza percepiti: ${strongAreas.join(', ')}` : ''}
+    
+    Usa queste informazioni per approfondire: se ci sono aree critiche, esplora cosa non funziona secondo il candidato.
+    Se il clima è positivo, indaga cosa lo rende tale e quali valori il candidato cerca nel lavoro.`;
+  }
 
   return `
     Sei "Karma", un'Intelligenza Artificiale esperta in Psicologia del Lavoro e HR Management.
@@ -254,12 +276,13 @@ export const generateKarmaSystemInstruction = (scores: RiasecScore): string => {
     
     PROFILO RIASEC EMERSO:
     - Codice Profilo: ${profileCode}
-    - Dominante Primaria: ${dominant} (${dominantPole.title})
+    - Dominante Primaria: ${dominant} (${dominantPole.title})${climateContext}
     
     OBIETTIVI DEL COLLOQUIO:
     1. Validazione Soft Skills: Cerca conferme comportamentali.
     2. Fit Culturale: Indaga i valori profondi.
     3. Seniority Check.
+    ${climateData ? '4. Approfondimento Clima: Esplora le percezioni emerse dal sondaggio clima.' : ''}
     
     Lingua: Italiano.
   `;

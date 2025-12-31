@@ -459,7 +459,8 @@ const AppContent: React.FC = () => {
     };
     setCurrentUserData(updatedUser);
 
-    navigate({ type: 'USER_CHAT', userId: user.id });
+    // NEW FLOW: RIASEC -> Climate -> Karma
+    navigate({ type: 'USER_CLIMATE_TEST', userId: user.id });
   };
 
   const handleKarmaComplete = async (transcript: ChatMessage[]) => {
@@ -532,7 +533,8 @@ const AppContent: React.FC = () => {
       setCurrentUserData(updatedUser);
     }
 
-    navigate({ type: 'USER_RESULT', userId: user.id });
+    // NEW FLOW: Climate -> Karma
+    navigate({ type: 'USER_CHAT', userId: user.id });
   };
 
   const handleOrgChartUpdate = async (newRoot: OrgNode) => {
@@ -709,7 +711,8 @@ const AppContent: React.FC = () => {
       submissionDate: new Date().toISOString().split('T')[0],
     } : null);
     
-    setView({ type: 'DEMO_USER_CHAT' });
+    // NEW FLOW: RIASEC -> Climate -> Karma
+    setView({ type: 'DEMO_USER_CLIMATE' });
   };
 
   // Demo: Karma chat completion (calls AI analysis but doesn't persist)
@@ -753,7 +756,8 @@ const AppContent: React.FC = () => {
       climateData,
     } : null);
 
-    setView({ type: 'DEMO_USER_RESULT' });
+    // NEW FLOW: Climate -> Karma
+    setView({ type: 'DEMO_USER_CHAT' });
   };
 
   // Loading state - wait for auth to be fully initialized

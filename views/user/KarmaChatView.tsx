@@ -2,8 +2,9 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Sparkles, Send, Info, Loader2 } from 'lucide-react';
 import { Card } from '../../components/Card';
 import { Button } from '../../components/Button';
-import { User, ChatMessage } from '../../types';
+import { User, ChatMessage, ClimateData } from '../../types';
 import { generateKarmaSystemInstruction } from '../../services/riasecService';
+import { StepProgressBar } from '../../components/StepProgressBar';
 
 interface KarmaChatViewProps {
   user: User;
@@ -128,9 +129,9 @@ export const KarmaChatView: React.FC<KarmaChatViewProps> = ({ user, onComplete }
 
   // Initialize on mount
   useEffect(() => {
-    // Generate system instruction from RIASEC results
+    // Generate system instruction from RIASEC results AND climate data
     systemPromptRef.current = user.results 
-      ? generateKarmaSystemInstruction(user.results) 
+      ? generateKarmaSystemInstruction(user.results, user.climateData) 
       : "Sei un assistente HR esperto in colloqui di lavoro. Conduci un colloquio professionale per valutare soft skills e valori del candidato.";
 
     // If no messages, inject welcome message
@@ -225,6 +226,9 @@ Per iniziare: qual è stata la sfida professionale più complessa che hai affron
 
   return (
     <div className="max-w-4xl mx-auto p-4 h-[calc(100vh-100px)] flex flex-col">
+      {/* Step Progress Bar */}
+      <StepProgressBar currentStep="karma" completedSteps={['riasec', 'climate']} />
+      
       <Card className="flex-1 flex flex-col overflow-hidden shadow-2xl border-0 bg-white dark:bg-gray-800 backdrop-blur">
         
         {/* HEADER */}

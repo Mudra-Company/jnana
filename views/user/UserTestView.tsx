@@ -5,6 +5,7 @@ import { Button } from '../../components/Button';
 import { User, RiasecScore, ChecklistSection, ForcedChoiceSection } from '../../types';
 import { RIASEC_SECTIONS } from '../../constants';
 import { calculateScore } from '../../services/riasecService';
+import { StepProgressBar } from '../../components/StepProgressBar';
 
 interface UserTestViewProps {
   user: User;
@@ -62,6 +63,9 @@ export const UserTestView: React.FC<UserTestViewProps> = ({ user, onComplete }) 
 
     return (
         <div className="max-w-3xl mx-auto p-6 pb-20">
+             {/* Step Progress Bar */}
+             <StepProgressBar currentStep="riasec" completedSteps={[]} />
+
              <div className="mb-8">
                 <div className="h-2 w-full bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
                     <div className="h-full bg-jnana-sage transition-all duration-500 ease-out" style={{ width: `${getProgress()}%` }}></div>

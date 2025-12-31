@@ -4,6 +4,7 @@ import { Card } from '../../components/Card';
 import { Button } from '../../components/Button';
 import { User, ClimateData } from '../../types';
 import { CLIMATE_SURVEY } from '../../data/climateContent';
+import { StepProgressBar } from '../../components/StepProgressBar';
 
 interface ClimateTestViewProps {
   user: User;
@@ -66,12 +67,15 @@ export const ClimateTestView: React.FC<ClimateTestViewProps> = ({ user, onComple
 
     return (
         <div className="max-w-3xl mx-auto p-6 pb-20">
+             {/* Step Progress Bar */}
+             <StepProgressBar currentStep="climate" completedSteps={['riasec']} />
+
              <div className="mb-8">
                 <h1 className="text-3xl font-brand font-bold text-center mb-2">Analisi Clima Aziendale</h1>
                 <p className="text-center text-gray-500 mb-6">Misura la qualità della tua esperienza lavorativa attuale.</p>
                 
                 <div className="h-2 w-full bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-                    <div className="h-full bg-blue-500 transition-all duration-500 ease-out" style={{ width: `${getProgress()}%` }}></div>
+                    <div className="h-full bg-jnana-sage transition-all duration-500 ease-out" style={{ width: `${getProgress()}%` }}></div>
                 </div>
                 <div className="flex justify-between text-xs text-gray-500 mt-2 font-medium uppercase tracking-wider">
                     <span>Sezione {currentSectionIndex + 1} di {CLIMATE_SURVEY.length}</span>
