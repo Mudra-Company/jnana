@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Fingerprint, FileSpreadsheet, CheckCircle, Database, AlertTriangle, Users, ThermometerSun, BarChart3, Lightbulb, TrendingUp, Handshake, ShieldAlert, Award } from 'lucide-react';
+import { Fingerprint, FileSpreadsheet, CheckCircle, Database, AlertTriangle, Users, ThermometerSun, BarChart3, Lightbulb, TrendingUp, Handshake, ShieldAlert, Award, AlertCircle, Info } from 'lucide-react';
 import { Card } from '../../components/Card';
 import { CompanyProfile, User } from '../../types';
 import { calculateCultureAnalysis, calculateClimateAnalytics, calculateTeamClimateStats, calculateLeadershipAnalytics } from '../../services/riasecService';
@@ -52,7 +52,26 @@ export const AdminIdentityHub: React.FC<AdminIdentityHubProps> = ({ company, use
     const generateCultureInsight = () => {
         const score = cultureAnalysis.matchScore;
         const gapCount = cultureAnalysis.gapValues.length;
+        const driverCount = cultureAnalysis.driverCount;
+        const hasDeclaredValues = (company.cultureValues?.length || 0) > 0;
         
+        // Check if there's enough data for meaningful analysis
+        if (driverCount === 0) {
+            return {
+                analysis: "**Dati insufficienti per l'analisi culturale.** Non sono ancora stati identificati Cultural Drivers nell'organigramma, oppure i leader identificati non hanno completato il profilo Karma AI.",
+                risk: "Per ottenere un'analisi significativa: 1) Assegna il flag 'Cultural Driver' ai nodi chiave nell'Org Chart. 2) Assicurati che i leader di questi nodi completino il test RIASEC e il colloquio Karma AI.",
+                hasData: false
+            };
+        }
+        
+        if (!hasDeclaredValues) {
+            return {
+                analysis: "**Nessun valore aziendale dichiarato.** Per confrontare la cultura agita con quella desiderata, definisci prima i valori aziendali nel Profilo Aziendale.",
+                risk: "Vai nella sezione 'Profilo Aziendale' e aggiungi i valori culturali che l'azienda vuole promuovere.",
+                hasData: false
+            };
+        }
+
         let analysis = "";
         let risk = "";
 
@@ -67,7 +86,7 @@ export const AdminIdentityHub: React.FC<AdminIdentityHubProps> = ({ company, use
             risk = `**Rischi Strategici:** Crisi di identità aziendale. I dipendenti percepiscono i valori aziendali come "slogan vuoti". Questo porta a disimpegno morale, basso senso di appartenenza e altissimo rischio di turnover dei profili migliori che cercano coerenza etica.`;
         }
 
-        return { analysis, risk };
+        return { analysis, risk, hasData: true };
     };
 
     const generateClimateInsight = () => {
@@ -436,29 +455,47 @@ export const AdminIdentityHub: React.FC<AdminIdentityHubProps> = ({ company, use
                          <h4 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-4">Analisi Culturale (Gap Analysis)</h4>
                          
                          <div className="space-y-4">
-                             <div>
-                                 <span className="text-sm font-bold text-gray-700 dark:text-gray-300 block mb-2">Valori "Persi" (Dichiarati ma non Agiti):</span>
-                                 {cultureAnalysis.gapValues.length > 0 ? (
-                                     <div className="flex flex-wrap gap-2">
-                                         {cultureAnalysis.gapValues.map(v => (
-                                             <span key={v} className="px-3 py-1 bg-orange-50 text-orange-700 border border-orange-200 rounded-lg text-sm line-through decoration-orange-400">
-                                                 {v}
-                                             </span>
-                                         ))}
-                                     </div>
-                                 ) : (
-                                     <p className="text-green-600 text-sm flex items-center gap-2 font-medium"><CheckCircle size={16}/> Tutti i valori dichiarati sono presenti!</p>
-                                 )}
-                             </div>
+                             {cultureInsight.hasData && (
+                                 <div>
+                                     <span className="text-sm font-bold text-gray-700 dark:text-gray-300 block mb-2">Valori "Persi" (Dichiarati ma non Agiti):</span>
+                                     {cultureAnalysis.gapValues.length > 0 ? (
+                                         <div className="flex flex-wrap gap-2">
+                                             {cultureAnalysis.gapValues.map(v => (
+                                                 <span key={v} className="px-3 py-1 bg-orange-50 text-orange-700 border border-orange-200 rounded-lg text-sm line-through decoration-orange-400">
+                                                     {v}
+                                                 </span>
+                                             ))}
+                                         </div>
+                                     ) : (
+                                         <p className="text-green-600 text-sm flex items-center gap-2 font-medium"><CheckCircle size={16}/> Tutti i valori dichiarati sono presenti!</p>
+                                     )}
+                                 </div>
+                             )}
                              
-                             <div className="bg-blue-50 dark:bg-blue-900/10 p-5 rounded-lg border border-blue-100 dark:border-blue-800">
-                                <p className="text-sm text-blue-900 dark:text-blue-100 leading-relaxed mb-3">
-                                    {renderFormattedText(cultureInsight.analysis)}
-                                </p>
-                                <p className="text-sm text-blue-800 dark:text-blue-200 leading-relaxed italic border-t border-blue-200 dark:border-blue-700 pt-3">
-                                    {renderFormattedText(cultureInsight.risk)}
-                                </p>
-                             </div>
+                             {cultureInsight.hasData ? (
+                                 <div className="bg-blue-50 dark:bg-blue-900/10 p-5 rounded-lg border border-blue-100 dark:border-blue-800">
+                                    <p className="text-sm text-blue-900 dark:text-blue-100 leading-relaxed mb-3">
+                                        {renderFormattedText(cultureInsight.analysis)}
+                                    </p>
+                                    <p className="text-sm text-blue-800 dark:text-blue-200 leading-relaxed italic border-t border-blue-200 dark:border-blue-700 pt-3">
+                                        {renderFormattedText(cultureInsight.risk)}
+                                    </p>
+                                 </div>
+                             ) : (
+                                 <div className="bg-amber-50 dark:bg-amber-900/10 p-5 rounded-lg border border-amber-200 dark:border-amber-800">
+                                    <div className="flex items-start gap-3">
+                                        <Info className="text-amber-500 shrink-0 mt-0.5" size={20}/>
+                                        <div>
+                                            <p className="text-sm text-amber-900 dark:text-amber-100 leading-relaxed mb-2">
+                                                {renderFormattedText(cultureInsight.analysis)}
+                                            </p>
+                                            <p className="text-xs text-amber-700 dark:text-amber-300 leading-relaxed italic">
+                                                {renderFormattedText(cultureInsight.risk)}
+                                            </p>
+                                        </div>
+                                    </div>
+                                 </div>
+                             )}
                          </div>
                      </div>
 
