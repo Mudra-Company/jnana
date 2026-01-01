@@ -415,10 +415,21 @@ const AppContent: React.FC = () => {
   };
 
   const goBack = () => {
-    if (viewHistory.length === 0) return;
-    const previousView = viewHistory[viewHistory.length - 1];
-    setViewHistory(prev => prev.slice(0, -1));
-    setView(previousView);
+    // Se c'è cronologia, torna alla vista precedente
+    if (viewHistory.length > 0) {
+      const previousView = viewHistory[viewHistory.length - 1];
+      setViewHistory(prev => prev.slice(0, -1));
+      setView(previousView);
+      return;
+    }
+    
+    // Se non c'è cronologia ma siamo in modalità supervisione, 
+    // torna al Super Admin Dashboard (equivale a "Esci impersonazione")
+    if (isSuperAdmin && activeCompanyData) {
+      setImpersonatedCompanyId(null);
+      setActiveCompanyData(null);
+      setView({ type: 'SUPER_ADMIN_DASHBOARD' });
+    }
   };
 
   // Handlers
@@ -799,7 +810,7 @@ const AppContent: React.FC = () => {
             isDark={isDark}
             toggleTheme={() => setIsDark(!isDark)}
             onBack={goBack}
-            canGoBack={viewHistory.length > 0}
+            canGoBack={viewHistory.length > 0 || (isSuperAdmin && !!activeCompanyData)}
           />
         )}
 
