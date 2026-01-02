@@ -187,6 +187,7 @@ export type ViewState =
   | { type: 'ADMIN_ORG_CHART' }
   | { type: 'ADMIN_IDENTITY_HUB' } 
   | { type: 'ADMIN_COMPANY_PROFILE' }
+  | { type: 'ADMIN_USERS_MANAGEMENT' }
   | { type: 'ADMIN_USER_DETAIL'; userId: string }
   | { type: 'USER_WELCOME'; userId: string }
   | { type: 'USER_TEST'; userId: string }
