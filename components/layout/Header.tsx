@@ -80,7 +80,7 @@ export const Header: React.FC<HeaderProps> = ({
         )}
         <div 
           className="flex items-center gap-3 cursor-pointer group" 
-          onClick={isSuperAdminMode && !activeCompany ? onSuperAdminHome : onAdminHome}
+          onClick={isSuperAdminMode ? onSuperAdminHome : onAdminHome}
         >
           <div className={`transition-transform duration-300 group-hover:scale-110 ${isSuperAdminMode ? 'text-amber-600' : 'text-jnana-sage'}`}>
             <Hexagon size={32} strokeWidth={2.5} />
