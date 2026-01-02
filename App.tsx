@@ -4,6 +4,7 @@ import { useCompanies } from './src/hooks/useCompanies';
 import { useProfiles } from './src/hooks/useProfiles';
 import { useTestResults } from './src/hooks/useTestResults';
 import { useOrgNodes } from './src/hooks/useOrgNodes';
+import { useRouteGuard, UserRole } from './src/hooks/useRouteGuard';
 import { ViewState, RiasecScore, JobDatabase, OrgNode, ChatMessage, ClimateData, CompanyProfile, User, KarmaData } from './types';
 import { calculateProfileCode } from './services/riasecService';
 import { supabase } from './src/integrations/supabase/client';
@@ -173,6 +174,7 @@ const AppContent: React.FC = () => {
   const { profiles, fetchUserWithDetails } = useProfiles(membership?.company_id);
   const { saveRiasecResult, saveKarmaSession, saveClimateResponse, updateMemberStatus } = useTestResults();
   const { syncTreeToDatabase, fetchOrgNodes } = useOrgNodes();
+  const { userRole, canAccessAdminViews, canAccessSuperAdminViews, canViewUser } = useRouteGuard();
 
   const [jobDb, setJobDb] = useState<JobDatabase>({});
   const [view, setView] = useState<ViewState>(() => {
@@ -247,7 +249,32 @@ const AppContent: React.FC = () => {
     }
   }, [user?.id, profile?.id, authInitialized, isSuperAdmin]);
 
-  // Load all companies for Super Admin dashboard (after authentication)
+  // Route guard: redirect unauthorized users away from admin views
+  useEffect(() => {
+    if (!user || !authInitialized) return;
+    
+    const superAdminViews = ['SUPER_ADMIN_DASHBOARD', 'SUPER_ADMIN_JOBS'];
+    const adminViews = ['ADMIN_DASHBOARD', 'ADMIN_ORG_CHART', 'ADMIN_IDENTITY_HUB', 'ADMIN_COMPANY_PROFILE'];
+    
+    // Regular users trying to access super admin views
+    if (superAdminViews.includes(view.type) && !canAccessSuperAdminViews) {
+      console.warn('[App] Unauthorized access attempt to super admin view');
+      if (canAccessAdminViews && membership?.company_id) {
+        setView({ type: 'ADMIN_DASHBOARD' });
+      } else {
+        setView({ type: 'USER_RESULT', userId: user.id });
+      }
+      return;
+    }
+    
+    // Regular users trying to access admin views
+    if (adminViews.includes(view.type) && !canAccessAdminViews) {
+      console.warn('[App] Unauthorized access attempt to admin view');
+      setView({ type: 'USER_RESULT', userId: user.id });
+      return;
+    }
+  }, [view.type, user, authInitialized, canAccessSuperAdminViews, canAccessAdminViews, membership?.company_id]);
+
   const loadAllCompaniesForSuperAdmin = async () => {
     console.log('[App] Loading companies for Super Admin...');
     const { supabase } = await import('./src/integrations/supabase/client');
@@ -811,6 +838,7 @@ const AppContent: React.FC = () => {
             toggleTheme={() => setIsDark(!isDark)}
             onBack={goBack}
             canGoBack={viewHistory.length > 0 || (isSuperAdmin && !!activeCompanyData)}
+            userRole={userRole}
           />
         )}
 
@@ -828,14 +856,15 @@ const AppContent: React.FC = () => {
           
           {view.type === 'SEED_DATA' && <SeedDataView />}
 
-          {view.type === 'SUPER_ADMIN_DASHBOARD' && superAdminDataLoading && (
+          {/* SUPER ADMIN VIEWS - Only for super admins */}
+          {view.type === 'SUPER_ADMIN_DASHBOARD' && superAdminDataLoading && canAccessSuperAdminViews && (
             <div className="p-8 text-center">
               <div className="animate-spin h-8 w-8 border-4 border-amber-500 border-t-transparent rounded-full mx-auto mb-4" />
               <p className="text-jnana-text dark:text-gray-300">Caricamento aziende...</p>
             </div>
           )}
 
-          {view.type === 'SUPER_ADMIN_DASHBOARD' && !superAdminDataLoading && (
+          {view.type === 'SUPER_ADMIN_DASHBOARD' && !superAdminDataLoading && canAccessSuperAdminViews && (
             <SuperAdminDashboard
               companies={legacyCompanies}
               users={companyUsers}
@@ -845,7 +874,7 @@ const AppContent: React.FC = () => {
             />
           )}
 
-          {view.type === 'SUPER_ADMIN_JOBS' && (
+          {view.type === 'SUPER_ADMIN_JOBS' && canAccessSuperAdminViews && (
             <JobDatabaseEditor
               jobDb={jobDb}
               onUpdateJobDb={(newDb) => {
@@ -855,7 +884,8 @@ const AppContent: React.FC = () => {
             />
           )}
 
-          {view.type === 'ADMIN_DASHBOARD' && activeCompanyData && (
+          {/* ADMIN VIEWS - Only for company admins and super admins */}
+          {view.type === 'ADMIN_DASHBOARD' && activeCompanyData && canAccessAdminViews && (
             <AdminDashboardView
               activeCompany={activeCompanyData}
               users={companyUsers}
@@ -864,7 +894,7 @@ const AppContent: React.FC = () => {
             />
           )}
 
-          {view.type === 'ADMIN_ORG_CHART' && activeCompanyData && (
+          {view.type === 'ADMIN_ORG_CHART' && activeCompanyData && canAccessAdminViews && (
             <CompanyOrgView
               company={activeCompanyData}
               users={companyUsers}
@@ -874,11 +904,11 @@ const AppContent: React.FC = () => {
             />
           )}
 
-          {view.type === 'ADMIN_IDENTITY_HUB' && activeCompanyData && (
+          {view.type === 'ADMIN_IDENTITY_HUB' && activeCompanyData && canAccessAdminViews && (
             <AdminIdentityHub company={activeCompanyData} users={companyUsers} />
           )}
 
-          {view.type === 'ADMIN_COMPANY_PROFILE' && activeCompanyData && (
+          {view.type === 'ADMIN_COMPANY_PROFILE' && activeCompanyData && canAccessAdminViews && (
             <AdminCompanyProfileView
               company={activeCompanyData}
               onUpdate={handleCompanyUpdate}

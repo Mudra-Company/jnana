@@ -16,6 +16,8 @@ import {
 import { Button } from '../Button';
 import { ViewState, CompanyProfile } from '../../types';
 
+type UserRole = 'super_admin' | 'company_admin' | 'user';
+
 interface HeaderProps {
   onLogout: () => void;
   view: ViewState;
@@ -32,13 +34,22 @@ interface HeaderProps {
   toggleTheme: () => void;
   onBack: () => void;
   canGoBack: boolean;
+  userRole: UserRole;
 }
 
 export const Header: React.FC<HeaderProps> = ({ 
   onLogout, view, onAdminHome, onOrgChart, onIdentityHub, onCompanyProfile,
   onSuperAdminHome, onJobDb, activeCompany, isSuperAdminMode, onExitImpersonation,
-  isDark, toggleTheme, onBack, canGoBack
-}) => (
+  isDark, toggleTheme, onBack, canGoBack, userRole
+}) => {
+  // Determine what navigation to show based on role
+  const showSuperAdminNav = userRole === 'super_admin' && view.type.startsWith('SUPER_ADMIN');
+  const showAdminNav = (userRole === 'super_admin' || userRole === 'company_admin') && 
+    activeCompany && 
+    (view.type.startsWith('ADMIN') || view.type === 'USER_RESULT');
+  const showUserNav = userRole === 'user';
+
+  return (
   <>
     {isSuperAdminMode && activeCompany && (
       <div className="bg-amber-600 text-white px-4 py-2 text-sm font-bold flex justify-between items-center shadow-md relative z-[60]">
@@ -90,7 +101,8 @@ export const Header: React.FC<HeaderProps> = ({
            {isDark ? <Sun size={20} /> : <Moon size={20} />}
         </button>
 
-        {view.type.startsWith('SUPER_ADMIN') && (
+        {/* Super Admin Navigation */}
+        {showSuperAdminNav && (
           <div className="hidden md:flex items-center gap-2">
             <Button 
               variant={view.type === 'SUPER_ADMIN_JOBS' ? 'primary' : 'ghost'} 
@@ -113,7 +125,8 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         )}
 
-        {activeCompany && (view.type.startsWith('ADMIN') || view.type === 'ADMIN_USER_DETAIL') && (
+        {/* Company Admin Navigation (also shown to Super Admin when impersonating) */}
+        {showAdminNav && (
           <>
             <div className="hidden md:flex items-center gap-2">
               <Button 
@@ -155,6 +168,14 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
           </>
         )}
+
+        {/* User Navigation - only shown to regular users */}
+        {showUserNav && (
+          <div className="hidden md:flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+            <Fingerprint size={16} />
+            <span className="font-medium">Il Mio Profilo</span>
+          </div>
+        )}
         
         <Button variant="ghost" size="sm" onClick={onLogout}>
           <LogOut size={16} className="mr-2" />
@@ -163,4 +184,5 @@ export const Header: React.FC<HeaderProps> = ({
       </div>
     </nav>
   </>
-);
+  );
+};
