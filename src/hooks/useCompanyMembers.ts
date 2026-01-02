@@ -343,11 +343,42 @@ export const useCompanyMembers = () => {
     }
   }, []);
 
+  /**
+   * Updates a company member's role (admin/user)
+   */
+  const updateMemberRole = useCallback(async (
+    memberId: string,
+    newRole: 'admin' | 'user'
+  ): Promise<{ success: boolean; error?: string }> => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const { error: updateError } = await supabase
+        .from('company_members')
+        .update({ role: newRole })
+        .eq('id', memberId);
+
+      if (updateError) {
+        throw updateError;
+      }
+
+      setIsLoading(false);
+      return { success: true };
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to update member role';
+      setError(errorMessage);
+      setIsLoading(false);
+      return { success: false, error: errorMessage };
+    }
+  }, []);
+
   return {
     isLoading,
     error,
     createCompanyMember,
     updateCompanyMember,
+    updateMemberRole,
     assignUserToSlot,
     deleteCompanyMember,
     fetchCompanyMembers

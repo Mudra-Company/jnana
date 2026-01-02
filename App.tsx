@@ -19,6 +19,7 @@ import { ResetPasswordView } from './src/views/auth/ResetPasswordView';
 import { SuperAdminDashboard } from './views/superadmin/SuperAdminDashboard';
 import { JobDatabaseEditor } from './views/superadmin/JobDatabaseEditor';
 import { AdminDashboardView } from './views/admin/AdminDashboard';
+import { AdminUsersManagement } from './views/admin/AdminUsersManagement';
 import { CompanyOrgView } from './views/admin/CompanyOrgView';
 import { AdminIdentityHub } from './views/admin/AdminIdentityHub';
 import { AdminCompanyProfileView } from './views/admin/AdminCompanyProfileView';
@@ -254,7 +255,7 @@ const AppContent: React.FC = () => {
     if (!user || !authInitialized) return;
     
     const superAdminViews = ['SUPER_ADMIN_DASHBOARD', 'SUPER_ADMIN_JOBS'];
-    const adminViews = ['ADMIN_DASHBOARD', 'ADMIN_ORG_CHART', 'ADMIN_IDENTITY_HUB', 'ADMIN_COMPANY_PROFILE'];
+    const adminViews = ['ADMIN_DASHBOARD', 'ADMIN_ORG_CHART', 'ADMIN_IDENTITY_HUB', 'ADMIN_COMPANY_PROFILE', 'ADMIN_USERS_MANAGEMENT'];
     
     // Regular users trying to access super admin views
     if (superAdminViews.includes(view.type) && !canAccessSuperAdminViews) {
@@ -824,6 +825,7 @@ const AppContent: React.FC = () => {
             onOrgChart={() => navigate({ type: 'ADMIN_ORG_CHART' })}
             onIdentityHub={() => navigate({ type: 'ADMIN_IDENTITY_HUB' })}
             onCompanyProfile={() => navigate({ type: 'ADMIN_COMPANY_PROFILE' })}
+            onUsersManagement={() => navigate({ type: 'ADMIN_USERS_MANAGEMENT' })}
             onSuperAdminHome={() => navigate({ type: 'SUPER_ADMIN_DASHBOARD' })}
             onJobDb={() => navigate({ type: 'SUPER_ADMIN_JOBS' })}
             activeCompany={activeCompanyData || undefined}
@@ -912,6 +914,21 @@ const AppContent: React.FC = () => {
             <AdminCompanyProfileView
               company={activeCompanyData}
               onUpdate={handleCompanyUpdate}
+            />
+          )}
+
+          {view.type === 'ADMIN_USERS_MANAGEMENT' && activeCompanyData && canAccessAdminViews && user && (
+            <AdminUsersManagement
+              company={activeCompanyData}
+              users={companyUsers}
+              currentUserId={user.id}
+              onRefreshUsers={async () => {
+                if (activeCompanyData) {
+                  const users = await loadCompanyUsersWithDetails(activeCompanyData.id);
+                  setCompanyUsers(users);
+                }
+              }}
+              setView={navigate}
             />
           )}
 
