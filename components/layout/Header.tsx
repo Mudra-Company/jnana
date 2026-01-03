@@ -11,8 +11,7 @@ import {
   LogOut, 
   Sun, 
   Moon,
-  ArrowLeft,
-  Users
+  ArrowLeft
 } from 'lucide-react';
 import { Button } from '../Button';
 import { ViewState, CompanyProfile } from '../../types';
@@ -26,7 +25,7 @@ interface HeaderProps {
   onOrgChart: () => void;
   onIdentityHub: () => void;
   onCompanyProfile: () => void;
-  onUsersManagement: () => void;
+  
   onSuperAdminHome: () => void;
   onJobDb: () => void;
   activeCompany?: CompanyProfile;
@@ -40,7 +39,7 @@ interface HeaderProps {
 }
 
 export const Header: React.FC<HeaderProps> = ({ 
-  onLogout, view, onAdminHome, onOrgChart, onIdentityHub, onCompanyProfile, onUsersManagement,
+  onLogout, view, onAdminHome, onOrgChart, onIdentityHub, onCompanyProfile,
   onSuperAdminHome, onJobDb, activeCompany, isSuperAdminMode, onExitImpersonation,
   isDark, toggleTheme, onBack, canGoBack, userRole
 }) => {
@@ -146,14 +145,6 @@ export const Header: React.FC<HeaderProps> = ({
               >
                 <LayoutDashboard size={16} className="mr-2" />
                 Dashboard
-              </Button>
-              <Button 
-                variant={view.type === 'ADMIN_USERS_MANAGEMENT' ? 'primary' : 'ghost'} 
-                size="sm"
-                onClick={onUsersManagement}
-              >
-                <Users size={16} className="mr-2" />
-                Team
               </Button>
               <Button 
                 variant={view.type === 'ADMIN_IDENTITY_HUB' ? 'primary' : 'ghost'} 
