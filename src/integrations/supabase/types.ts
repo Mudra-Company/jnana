@@ -186,6 +186,81 @@ export type Database = {
           },
         ]
       }
+      company_subscriptions: {
+        Row: {
+          company_id: string
+          created_at: string | null
+          current_period_end: string
+          current_period_start: string
+          id: string
+          plan_id: string
+          profile_views_used: number | null
+          status: string
+          stripe_subscription_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          company_id: string
+          created_at?: string | null
+          current_period_end?: string
+          current_period_start?: string
+          id?: string
+          plan_id: string
+          profile_views_used?: number | null
+          status?: string
+          stripe_subscription_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          company_id?: string
+          created_at?: string | null
+          current_period_end?: string
+          current_period_start?: string
+          id?: string
+          plan_id?: string
+          profile_views_used?: number | null
+          status?: string
+          stripe_subscription_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_subscriptions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: true
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "company_subscriptions_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "subscription_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      hard_skills_catalog: {
+        Row: {
+          category: string | null
+          created_at: string | null
+          id: string
+          name: string
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string | null
+          id?: string
+          name: string
+        }
+        Update: {
+          category?: string | null
+          created_at?: string | null
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
       job_suggestions: {
         Row: {
           created_at: string
@@ -338,42 +413,102 @@ export type Database = {
           },
         ]
       }
+      profile_views_log: {
+        Row: {
+          id: string
+          viewed_at: string | null
+          viewed_profile_id: string
+          viewer_company_id: string
+        }
+        Insert: {
+          id?: string
+          viewed_at?: string | null
+          viewed_profile_id: string
+          viewer_company_id: string
+        }
+        Update: {
+          id?: string
+          viewed_at?: string | null
+          viewed_profile_id?: string
+          viewer_company_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profile_views_log_viewed_profile_id_fkey"
+            columns: ["viewed_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profile_views_log_viewer_company_id_fkey"
+            columns: ["viewer_company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           age: number | null
           avatar_url: string | null
+          bio: string | null
           created_at: string
           email: string
           first_name: string | null
           gender: Database["public"]["Enums"]["gender_type"] | null
+          headline: string | null
           id: string
+          is_karma_profile: boolean | null
           job_title: string | null
           last_name: string | null
+          location: string | null
+          looking_for_work: boolean | null
+          preferred_work_type: string | null
+          profile_visibility: string | null
           updated_at: string
+          years_experience: number | null
         }
         Insert: {
           age?: number | null
           avatar_url?: string | null
+          bio?: string | null
           created_at?: string
           email: string
           first_name?: string | null
           gender?: Database["public"]["Enums"]["gender_type"] | null
+          headline?: string | null
           id: string
+          is_karma_profile?: boolean | null
           job_title?: string | null
           last_name?: string | null
+          location?: string | null
+          looking_for_work?: boolean | null
+          preferred_work_type?: string | null
+          profile_visibility?: string | null
           updated_at?: string
+          years_experience?: number | null
         }
         Update: {
           age?: number | null
           avatar_url?: string | null
+          bio?: string | null
           created_at?: string
           email?: string
           first_name?: string | null
           gender?: Database["public"]["Enums"]["gender_type"] | null
+          headline?: string | null
           id?: string
+          is_karma_profile?: boolean | null
           job_title?: string | null
           last_name?: string | null
+          location?: string | null
+          looking_for_work?: boolean | null
+          preferred_work_type?: string | null
+          profile_visibility?: string | null
           updated_at?: string
+          years_experience?: number | null
         }
         Relationships: []
       }
@@ -437,6 +572,140 @@ export type Database = {
           },
         ]
       }
+      subscription_plans: {
+        Row: {
+          annual_price_cents: number
+          can_access_matching: boolean | null
+          can_export_data: boolean | null
+          can_invite_candidates: boolean | null
+          created_at: string | null
+          description: string | null
+          display_name: string
+          features: Json | null
+          id: string
+          is_active: boolean | null
+          max_profile_views_monthly: number | null
+          monthly_price_cents: number
+          name: string
+        }
+        Insert: {
+          annual_price_cents?: number
+          can_access_matching?: boolean | null
+          can_export_data?: boolean | null
+          can_invite_candidates?: boolean | null
+          created_at?: string | null
+          description?: string | null
+          display_name: string
+          features?: Json | null
+          id?: string
+          is_active?: boolean | null
+          max_profile_views_monthly?: number | null
+          monthly_price_cents?: number
+          name: string
+        }
+        Update: {
+          annual_price_cents?: number
+          can_access_matching?: boolean | null
+          can_export_data?: boolean | null
+          can_invite_candidates?: boolean | null
+          created_at?: string | null
+          description?: string | null
+          display_name?: string
+          features?: Json | null
+          id?: string
+          is_active?: boolean | null
+          max_profile_views_monthly?: number | null
+          monthly_price_cents?: number
+          name?: string
+        }
+        Relationships: []
+      }
+      user_hard_skills: {
+        Row: {
+          created_at: string | null
+          custom_skill_name: string | null
+          id: string
+          proficiency_level: number
+          skill_id: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          custom_skill_name?: string | null
+          id?: string
+          proficiency_level?: number
+          skill_id?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          custom_skill_name?: string | null
+          id?: string
+          proficiency_level?: number
+          skill_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_hard_skills_skill_id_fkey"
+            columns: ["skill_id"]
+            isOneToOne: false
+            referencedRelation: "hard_skills_catalog"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_hard_skills_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_portfolio_items: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          external_url: string | null
+          file_url: string | null
+          id: string
+          item_type: string
+          sort_order: number | null
+          title: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          external_url?: string | null
+          file_url?: string | null
+          id?: string
+          item_type: string
+          sort_order?: number | null
+          title: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          external_url?: string | null
+          file_url?: string | null
+          id?: string
+          item_type?: string
+          sort_order?: number | null
+          title?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_portfolio_items_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -457,6 +726,38 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      user_social_links: {
+        Row: {
+          created_at: string | null
+          id: string
+          platform: string
+          url: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          platform: string
+          url: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          platform?: string
+          url?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_social_links_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {

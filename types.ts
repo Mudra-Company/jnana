@@ -199,4 +199,17 @@ export type ViewState =
   | { type: 'DEMO_USER_TEST' }
   | { type: 'DEMO_USER_CHAT' }
   | { type: 'DEMO_USER_CLIMATE' }
-  | { type: 'DEMO_USER_RESULT' };
+  | { type: 'DEMO_USER_RESULT' }
+  // Karma Platform views (public users)
+  | { type: 'KARMA_ONBOARDING' }
+  | { type: 'KARMA_ONBOARDING_STEP'; step: number }
+  | { type: 'KARMA_DASHBOARD' }
+  | { type: 'KARMA_PROFILE_EDIT' }
+  | { type: 'KARMA_PROFILE_VIEW'; userId: string }
+  | { type: 'KARMA_TEST_RIASEC' }
+  | { type: 'KARMA_TEST_CHAT' }
+  | { type: 'KARMA_RESULTS' }
+  // Company Talent features (for subscribed companies)
+  | { type: 'COMPANY_TALENT_SEARCH' }
+  | { type: 'COMPANY_SUBSCRIPTION' }
+  | { type: 'COMPANY_CANDIDATE_VIEW'; userId: string };
