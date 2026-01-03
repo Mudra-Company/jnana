@@ -1,172 +1,403 @@
-import React, { useState } from 'react';
-import { UserPlus, ArrowRight, Eye } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { UserPlus, ArrowRight, Eye, Shield, User as UserIcon, MoreVertical, UserCog, UserMinus, Trash2 } from 'lucide-react';
 import { Card } from '../../components/Card';
 import { Button } from '../../components/Button';
 import { CompanyProfile, User, ViewState } from '../../types';
 import { calculateCultureAnalysis } from '../../services/riasecService';
+import { useCompanyMembers } from '../../src/hooks/useCompanyMembers';
+import { toast } from '../../src/hooks/use-toast';
 
 interface AdminDashboardProps {
   activeCompany: CompanyProfile;
   users: User[];
   onUpdateUsers: (users: User[]) => void;
   setView: (view: ViewState) => void;
+  currentUserId?: string;
+  onRefreshUsers?: () => Promise<void>;
 }
 
-export const AdminDashboardView: React.FC<AdminDashboardProps> = ({ activeCompany, users, onUpdateUsers, setView }) => {
-    const companyUsers = users.filter(u => u.companyId === activeCompany.id);
-    const completedCount = companyUsers.filter(u => u.status === 'completed').length;
+// Confirm Modal Component
+interface ConfirmModalProps {
+  isOpen: boolean;
+  title: string;
+  message: string;
+  confirmLabel: string;
+  confirmVariant?: 'danger' | 'primary';
+  onConfirm: () => void;
+  onCancel: () => void;
+}
 
-    // --- INVITE MODAL ---
-    const [showInvite, setShowInvite] = useState(false);
-    const [inviteName, setInviteName] = useState('');
-    const [inviteEmail, setInviteEmail] = useState('');
-    const [inviteRole, setInviteRole] = useState('');
-
-    const handleInviteUser = () => {
-        if (!inviteName || !inviteEmail) return;
-        const newUser: User = {
-            id: `u_${Date.now()}`,
-            firstName: inviteName.split(' ')[0],
-            lastName: inviteName.split(' ')[1] || '',
-            email: inviteEmail,
-            companyId: activeCompany.id,
-            status: 'invited',
-            jobTitle: inviteRole
-        };
-        const updatedUsers = [...users, newUser];
-        onUpdateUsers(updatedUsers);
-        setShowInvite(false);
-        setInviteName('');
-        setInviteEmail('');
-        setInviteRole('');
-    };
-
-    return (
-        <div className="p-8 max-w-7xl mx-auto space-y-8 relative">
-
-            {showInvite && (
-                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-                    <Card className="w-full max-w-md animate-scale-in">
-                        <h3 className="text-lg font-bold mb-4">Invita Nuovo Utente</h3>
-                        <div className="space-y-3">
-                            <input
-                                className="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                                placeholder="Nome e Cognome"
-                                value={inviteName}
-                                onChange={e => setInviteName(e.target.value)}
-                            />
-                            <input
-                                className="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                                placeholder="Email Aziendale"
-                                value={inviteEmail}
-                                onChange={e => setInviteEmail(e.target.value)}
-                            />
-                            <input
-                                className="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                                placeholder="Ruolo (Opzionale)"
-                                value={inviteRole}
-                                onChange={e => setInviteRole(e.target.value)}
-                            />
-                            <div className="flex gap-2 pt-2">
-                                <Button fullWidth onClick={handleInviteUser}>Invia Invito</Button>
-                                <Button variant="ghost" onClick={() => setShowInvite(false)}>Annulla</Button>
-                            </div>
-                        </div>
-                    </Card>
-                </div>
-            )}
-
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
-                 <div>
-                    <h1 className="text-3xl font-brand font-bold text-gray-900 dark:text-gray-100 mb-2">Dashboard {activeCompany.name}</h1>
-                    <p className="text-gray-600">Panoramica dello stato del capitale umano.</p>
-                 </div>
-                 <Button onClick={() => setShowInvite(true)}><UserPlus size={18} className="mr-2"/> Invita Utenti</Button>
-            </div>
-
-            {/* Stats Cards */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                <Card className="flex flex-col justify-between">
-                    <span className="text-gray-500 text-xs font-bold uppercase tracking-wider">Totale Dipendenti</span>
-                    <span className="text-3xl font-bold text-gray-800 dark:text-white mt-2">{companyUsers.length}</span>
-                </Card>
-                <Card className="flex flex-col justify-between">
-                    <span className="text-gray-500 text-xs font-bold uppercase tracking-wider">Test Completati</span>
-                    <span className="text-3xl font-bold text-jnana-sage mt-2">{completedCount}</span>
-                </Card>
-                <Card className="flex flex-col justify-between">
-                    <span className="text-gray-500 text-xs font-bold uppercase tracking-wider">In Attesa</span>
-                    <span className="text-3xl font-bold text-amber-500 mt-2">{companyUsers.length - completedCount}</span>
-                </Card>
-                <Card className="flex flex-col justify-between bg-gradient-to-br from-purple-600 to-indigo-700 text-white border-0 shadow-lg cursor-pointer hover:scale-[1.02] transition-transform" onClick={() => setView({ type: 'ADMIN_IDENTITY_HUB' })}>
-                    <div className="flex justify-between items-start">
-                        <span className="text-purple-100 text-xs font-bold uppercase tracking-wider">Culture Match</span>
-                        <ArrowRight size={16} className="text-white"/>
-                    </div>
-                    <span className="text-3xl font-bold mt-2">{calculateCultureAnalysis(activeCompany, users).matchScore}%</span>
-                </Card>
-            </div>
-
-            {/* User Table */}
-            <Card>
-                <div className="flex justify-between items-center mb-6">
-                    <h3 className="font-bold text-lg text-gray-800 dark:text-gray-200">Elenco Dipendenti / Candidati</h3>
-                    <div className="flex gap-2">
-                         <input placeholder="Cerca..." className="bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-1.5 text-sm outline-none focus:ring-1 focus:ring-jnana-sage dark:text-white" />
-                    </div>
-                </div>
-                <div className="overflow-x-auto">
-                    <table className="w-full text-sm text-left">
-                        <thead className="bg-gray-50 dark:bg-gray-700/50 text-gray-500 uppercase text-xs font-bold">
-                            <tr>
-                                <th className="px-4 py-3 rounded-l-lg">Utente</th>
-                                <th className="px-4 py-3">Ruolo</th>
-                                <th className="px-4 py-3">Stato</th>
-                                <th className="px-4 py-3">Profilo</th>
-                                <th className="px-4 py-3 text-right rounded-r-lg">Azioni</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-                            {companyUsers.map(u => (
-                                <tr key={u.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors group">
-                                    <td className="px-4 py-3">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center text-xs font-bold text-gray-600 dark:text-gray-300">
-                                                {u.firstName[0]}{u.lastName[0]}
-                                            </div>
-                                            <div>
-                                                <div className="font-bold text-gray-800 dark:text-gray-200">{u.firstName} {u.lastName}</div>
-                                                <div className="text-xs text-gray-500">{u.email}</div>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{u.jobTitle || '-'}</td>
-                                    <td className="px-4 py-3">
-                                        <span className={`px-2 py-0.5 rounded text-xs font-bold uppercase ${
-                                            u.status === 'completed' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' :
-                                            u.status === 'invited' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' :
-                                            'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
-                                        }`}>
-                                            {u.status}
-                                        </span>
-                                    </td>
-                                    <td className="px-4 py-3 font-mono font-bold text-gray-600 dark:text-gray-300">{u.profileCode || '-'}</td>
-                                    <td className="px-4 py-3 text-right">
-                                        <button
-                                            onClick={() => setView({ type: 'USER_RESULT', userId: u.id })} // Admin views user result
-                                            disabled={u.status !== 'completed'} // Keep this check or remove to allow seeing climate data only
-                                            className="p-1.5 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-gray-400 hover:text-jnana-sage disabled:opacity-20"
-                                            title="Vedi Profilo"
-                                        >
-                                            <Eye size={16}/>
-                                        </button>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-            </Card>
+const ConfirmModal: React.FC<ConfirmModalProps> = ({ isOpen, title, message, confirmLabel, confirmVariant = 'primary', onConfirm, onCancel }) => {
+  if (!isOpen) return null;
+  
+  return (
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+      <Card className="w-full max-w-md animate-scale-in">
+        <h3 className="text-lg font-bold mb-2">{title}</h3>
+        <p className="text-gray-600 dark:text-gray-400 mb-6">{message}</p>
+        <div className="flex gap-2 justify-end">
+          <Button variant="ghost" onClick={onCancel}>Annulla</Button>
+          <Button 
+            variant={confirmVariant === 'danger' ? 'ghost' : 'primary'} 
+            onClick={onConfirm}
+            className={confirmVariant === 'danger' ? '!bg-red-600 !text-white hover:!bg-red-700' : ''}
+          >
+            {confirmLabel}
+          </Button>
         </div>
+      </Card>
+    </div>
+  );
+};
+
+export const AdminDashboardView: React.FC<AdminDashboardProps> = ({ 
+  activeCompany, 
+  users, 
+  onUpdateUsers, 
+  setView,
+  currentUserId,
+  onRefreshUsers
+}) => {
+  const companyUsers = users.filter(u => u.companyId === activeCompany.id);
+  const completedCount = companyUsers.filter(u => u.status === 'completed').length;
+  const adminCount = companyUsers.filter(u => u.role === 'admin').length;
+
+  const { updateMemberRole, deleteCompanyMember } = useCompanyMembers();
+
+  // --- INVITE MODAL ---
+  const [showInvite, setShowInvite] = useState(false);
+  const [inviteName, setInviteName] = useState('');
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteRole, setInviteRole] = useState('');
+  
+  // --- ACTION MENU ---
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  
+  // --- CONFIRM MODALS ---
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    type: 'promote' | 'demote' | 'remove';
+    user: User | null;
+  }>({ isOpen: false, type: 'promote', user: null });
+
+  // --- SEARCH ---
+  const [searchTerm, setSearchTerm] = useState('');
+
+  const filteredUsers = useMemo(() => {
+    if (!searchTerm) return companyUsers;
+    const term = searchTerm.toLowerCase();
+    return companyUsers.filter(u => 
+      u.firstName.toLowerCase().includes(term) ||
+      u.lastName.toLowerCase().includes(term) ||
+      u.email.toLowerCase().includes(term) ||
+      (u.jobTitle && u.jobTitle.toLowerCase().includes(term))
     );
+  }, [companyUsers, searchTerm]);
+
+  const handleInviteUser = () => {
+    if (!inviteName || !inviteEmail) return;
+    const newUser: User = {
+      id: `u_${Date.now()}`,
+      firstName: inviteName.split(' ')[0],
+      lastName: inviteName.split(' ')[1] || '',
+      email: inviteEmail,
+      companyId: activeCompany.id,
+      status: 'invited',
+      jobTitle: inviteRole
+    };
+    const updatedUsers = [...users, newUser];
+    onUpdateUsers(updatedUsers);
+    setShowInvite(false);
+    setInviteName('');
+    setInviteEmail('');
+    setInviteRole('');
+  };
+
+  const handlePromoteToAdmin = async (user: User) => {
+    if (!user.memberId) return;
+    
+    const result = await updateMemberRole(user.memberId, 'admin');
+    if (result.success) {
+      toast({ title: 'Successo', description: `${user.firstName} ${user.lastName} è ora Admin` });
+      if (onRefreshUsers) await onRefreshUsers();
+    } else {
+      toast({ title: 'Errore', description: 'Impossibile aggiornare il ruolo', variant: 'destructive' });
+    }
+    setConfirmModal({ isOpen: false, type: 'promote', user: null });
+    setOpenMenuId(null);
+  };
+
+  const handleDemoteToUser = async (user: User) => {
+    if (!user.memberId) return;
+    
+    // Check if this is the last admin
+    if (adminCount <= 1) {
+      toast({ title: 'Errore', description: 'Non puoi declassare l\'ultimo admin', variant: 'destructive' });
+      setConfirmModal({ isOpen: false, type: 'demote', user: null });
+      return;
+    }
+    
+    const result = await updateMemberRole(user.memberId, 'user');
+    if (result.success) {
+      toast({ title: 'Successo', description: `${user.firstName} ${user.lastName} è ora Utente` });
+      if (onRefreshUsers) await onRefreshUsers();
+    } else {
+      toast({ title: 'Errore', description: 'Impossibile aggiornare il ruolo', variant: 'destructive' });
+    }
+    setConfirmModal({ isOpen: false, type: 'demote', user: null });
+    setOpenMenuId(null);
+  };
+
+  const handleRemoveMember = async (user: User) => {
+    if (!user.memberId) return;
+    
+    // Check if this is the last admin
+    if (user.role === 'admin' && adminCount <= 1) {
+      toast({ title: 'Errore', description: 'Non puoi rimuovere l\'ultimo admin', variant: 'destructive' });
+      setConfirmModal({ isOpen: false, type: 'remove', user: null });
+      return;
+    }
+    
+    const result = await deleteCompanyMember(user.memberId);
+    if (result.success) {
+      toast({ title: 'Successo', description: `${user.firstName} ${user.lastName} rimosso dall'azienda` });
+      if (onRefreshUsers) await onRefreshUsers();
+    } else {
+      toast({ title: 'Errore', description: 'Impossibile rimuovere l\'utente', variant: 'destructive' });
+    }
+    setConfirmModal({ isOpen: false, type: 'remove', user: null });
+    setOpenMenuId(null);
+  };
+
+  const isCurrentUser = (userId: string) => currentUserId === userId;
+
+  return (
+    <div className="p-8 max-w-7xl mx-auto space-y-8 relative">
+
+      {/* Confirm Modal */}
+      <ConfirmModal 
+        isOpen={confirmModal.isOpen}
+        title={
+          confirmModal.type === 'promote' ? 'Promuovi ad Admin' :
+          confirmModal.type === 'demote' ? 'Declassa a Utente' :
+          'Rimuovi dall\'Azienda'
+        }
+        message={
+          confirmModal.type === 'promote' 
+            ? `Vuoi promuovere ${confirmModal.user?.firstName} ${confirmModal.user?.lastName} ad Admin? Avrà accesso alla gestione aziendale.` 
+            : confirmModal.type === 'demote'
+            ? `Vuoi declassare ${confirmModal.user?.firstName} ${confirmModal.user?.lastName} a Utente normale?`
+            : `Vuoi rimuovere ${confirmModal.user?.firstName} ${confirmModal.user?.lastName} dall'azienda? Questa azione non può essere annullata.`
+        }
+        confirmLabel={
+          confirmModal.type === 'promote' ? 'Promuovi' :
+          confirmModal.type === 'demote' ? 'Declassa' :
+          'Rimuovi'
+        }
+        confirmVariant={confirmModal.type === 'remove' ? 'danger' : 'primary'}
+        onConfirm={() => {
+          if (!confirmModal.user) return;
+          if (confirmModal.type === 'promote') handlePromoteToAdmin(confirmModal.user);
+          else if (confirmModal.type === 'demote') handleDemoteToUser(confirmModal.user);
+          else handleRemoveMember(confirmModal.user);
+        }}
+        onCancel={() => setConfirmModal({ isOpen: false, type: 'promote', user: null })}
+      />
+
+      {showInvite && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+          <Card className="w-full max-w-md animate-scale-in">
+            <h3 className="text-lg font-bold mb-4">Invita Nuovo Utente</h3>
+            <div className="space-y-3">
+              <input
+                className="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                placeholder="Nome e Cognome"
+                value={inviteName}
+                onChange={e => setInviteName(e.target.value)}
+              />
+              <input
+                className="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                placeholder="Email Aziendale"
+                value={inviteEmail}
+                onChange={e => setInviteEmail(e.target.value)}
+              />
+              <input
+                className="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                placeholder="Ruolo (Opzionale)"
+                value={inviteRole}
+                onChange={e => setInviteRole(e.target.value)}
+              />
+              <div className="flex gap-2 pt-2">
+                <Button fullWidth onClick={handleInviteUser}>Invia Invito</Button>
+                <Button variant="ghost" onClick={() => setShowInvite(false)}>Annulla</Button>
+              </div>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
+        <div>
+          <h1 className="text-3xl font-brand font-bold text-gray-900 dark:text-gray-100 mb-2">Dashboard {activeCompany.name}</h1>
+          <p className="text-gray-600">Panoramica dello stato del capitale umano.</p>
+        </div>
+        <Button onClick={() => setShowInvite(true)}><UserPlus size={18} className="mr-2"/> Invita Utenti</Button>
+      </div>
+
+      {/* Stats Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card className="flex flex-col justify-between">
+          <span className="text-gray-500 text-xs font-bold uppercase tracking-wider">Totale Dipendenti</span>
+          <span className="text-3xl font-bold text-gray-800 dark:text-white mt-2">{companyUsers.length}</span>
+        </Card>
+        <Card className="flex flex-col justify-between">
+          <span className="text-gray-500 text-xs font-bold uppercase tracking-wider">Test Completati</span>
+          <span className="text-3xl font-bold text-jnana-sage mt-2">{completedCount}</span>
+        </Card>
+        <Card className="flex flex-col justify-between">
+          <span className="text-gray-500 text-xs font-bold uppercase tracking-wider">Admin</span>
+          <span className="text-3xl font-bold text-amber-500 mt-2">{adminCount}</span>
+        </Card>
+        <Card className="flex flex-col justify-between bg-gradient-to-br from-purple-600 to-indigo-700 text-white border-0 shadow-lg cursor-pointer hover:scale-[1.02] transition-transform" onClick={() => setView({ type: 'ADMIN_IDENTITY_HUB' })}>
+          <div className="flex justify-between items-start">
+            <span className="text-purple-100 text-xs font-bold uppercase tracking-wider">Culture Match</span>
+            <ArrowRight size={16} className="text-white"/>
+          </div>
+          <span className="text-3xl font-bold mt-2">{calculateCultureAnalysis(activeCompany, users).matchScore}%</span>
+        </Card>
+      </div>
+
+      {/* User Table */}
+      <Card>
+        <div className="flex justify-between items-center mb-6">
+          <h3 className="font-bold text-lg text-gray-800 dark:text-gray-200">Elenco Dipendenti / Candidati</h3>
+          <div className="flex gap-2">
+            <input 
+              placeholder="Cerca..." 
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+              className="bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-1.5 text-sm outline-none focus:ring-1 focus:ring-jnana-sage dark:text-white" 
+            />
+          </div>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm text-left">
+            <thead className="bg-gray-50 dark:bg-gray-700/50 text-gray-500 uppercase text-xs font-bold">
+              <tr>
+                <th className="px-4 py-3 rounded-l-lg w-12 text-center">Tipo</th>
+                <th className="px-4 py-3">Utente</th>
+                <th className="px-4 py-3">Posizione</th>
+                <th className="px-4 py-3">Stato</th>
+                <th className="px-4 py-3">Profilo</th>
+                <th className="px-4 py-3 text-right rounded-r-lg w-20">Azioni</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
+              {filteredUsers.map(u => (
+                <tr key={u.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors group">
+                  {/* Role Icon Column */}
+                  <td className="px-4 py-3 text-center">
+                    {u.role === 'admin' || u.role === 'super_admin' ? (
+                      <Shield size={18} className="text-amber-500 mx-auto" title="Admin" />
+                    ) : (
+                      <UserIcon size={18} className="text-gray-400 mx-auto" title="Utente" />
+                    )}
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center text-xs font-bold text-gray-600 dark:text-gray-300">
+                        {u.firstName[0]}{u.lastName[0]}
+                      </div>
+                      <div>
+                        <div className="font-bold text-gray-800 dark:text-gray-200">
+                          {u.firstName} {u.lastName}
+                          {isCurrentUser(u.id) && <span className="ml-2 text-xs text-gray-400">(tu)</span>}
+                        </div>
+                        <div className="text-xs text-gray-500">{u.email}</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{u.jobTitle || '-'}</td>
+                  <td className="px-4 py-3">
+                    <span className={`px-2 py-0.5 rounded text-xs font-bold uppercase ${
+                      u.status === 'completed' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' :
+                      u.status === 'invited' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' :
+                      'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
+                    }`}>
+                      {u.status}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 font-mono font-bold text-gray-600 dark:text-gray-300">{u.profileCode || '-'}</td>
+                  <td className="px-4 py-3 text-right">
+                    <div className="relative inline-block">
+                      <button
+                        onClick={() => setOpenMenuId(openMenuId === u.id ? null : u.id)}
+                        className="p-1.5 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-gray-400 hover:text-gray-600"
+                        title="Azioni"
+                      >
+                        <MoreVertical size={16}/>
+                      </button>
+                      
+                      {/* Dropdown Menu */}
+                      {openMenuId === u.id && (
+                        <div className="absolute right-0 mt-1 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-1 z-10">
+                          <button
+                            onClick={() => {
+                              setView({ type: 'USER_RESULT', userId: u.id });
+                              setOpenMenuId(null);
+                            }}
+                            disabled={u.status !== 'completed'}
+                            className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            <Eye size={14} /> Vedi Profilo
+                          </button>
+                          
+                          {!isCurrentUser(u.id) && u.role !== 'super_admin' && (
+                            <>
+                              {u.role === 'admin' ? (
+                                <button
+                                  onClick={() => setConfirmModal({ isOpen: true, type: 'demote', user: u })}
+                                  className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
+                                >
+                                  <UserMinus size={14} /> Declassa a Utente
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={() => setConfirmModal({ isOpen: true, type: 'promote', user: u })}
+                                  className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
+                                >
+                                  <UserCog size={14} /> Promuovi ad Admin
+                                </button>
+                              )}
+                              
+                              <div className="border-t border-gray-200 dark:border-gray-700 my-1" />
+                              
+                              <button
+                                onClick={() => setConfirmModal({ isOpen: true, type: 'remove', user: u })}
+                                className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2"
+                              >
+                                <Trash2 size={14} /> Rimuovi dall'Azienda
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Card>
+      
+      {/* Click outside to close menu */}
+      {openMenuId && (
+        <div 
+          className="fixed inset-0 z-0" 
+          onClick={() => setOpenMenuId(null)}
+        />
+      )}
+    </div>
+  );
 };

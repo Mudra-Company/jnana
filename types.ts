@@ -101,6 +101,7 @@ export interface User {
   requiredProfile?: RequiredProfile; // Role-specific skill requirements
   isHiring?: boolean; // Indicates if this is an open hiring position
   memberId?: string; // ID del record in company_members (per operazioni CRUD)
+  role?: 'admin' | 'user' | 'super_admin'; // Role in the company
 }
 
 export interface Company {
@@ -187,7 +188,6 @@ export type ViewState =
   | { type: 'ADMIN_ORG_CHART' }
   | { type: 'ADMIN_IDENTITY_HUB' } 
   | { type: 'ADMIN_COMPANY_PROFILE' }
-  | { type: 'ADMIN_USERS_MANAGEMENT' }
   | { type: 'ADMIN_USER_DETAIL'; userId: string }
   | { type: 'USER_WELCOME'; userId: string }
   | { type: 'USER_TEST'; userId: string }
