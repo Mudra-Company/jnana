@@ -7,7 +7,8 @@ import { Button } from '../../components/Button';
 import { Card } from '../../components/Card';
 import { useKarmaProfile } from '../../src/hooks/useKarmaProfile';
 import { useHardSkillsCatalog } from '../../src/hooks/useHardSkillsCatalog';
-import type { WorkType, SocialPlatform } from '../../src/types/karma';
+import { PortfolioManager } from '../../src/components/karma/PortfolioManager';
+import type { WorkType, SocialPlatform, ParsedCVData } from '../../src/types/karma';
 
 interface KarmaProfileEditProps {
   onBack: () => void;
@@ -18,6 +19,7 @@ export const KarmaProfileEdit: React.FC<KarmaProfileEditProps> = ({ onBack, onSa
   const {
     profile,
     hardSkills,
+    portfolio,
     socialLinks,
     isLoading,
     updateProfile,
@@ -25,6 +27,9 @@ export const KarmaProfileEdit: React.FC<KarmaProfileEditProps> = ({ onBack, onSa
     addHardSkill,
     removeHardSkill,
     updateSkillProficiency,
+    addPortfolioItem,
+    removePortfolioItem,
+    uploadPortfolioFile,
     upsertSocialLink,
     removeSocialLink,
   } = useKarmaProfile();
@@ -102,6 +107,46 @@ export const KarmaProfileEdit: React.FC<KarmaProfileEditProps> = ({ onBack, onSa
       await upsertSocialLink(newSocialPlatform, newSocialUrl.trim());
       setNewSocialPlatform('');
       setNewSocialUrl('');
+    }
+  };
+
+  // Handle parsed CV data - auto-fill profile and skills
+  const handleCVParsed = async (data: ParsedCVData) => {
+    // Update form data with parsed info
+    setFormData(prev => ({
+      ...prev,
+      firstName: data.firstName || prev.firstName,
+      lastName: data.lastName || prev.lastName,
+      headline: data.headline || prev.headline,
+      bio: data.bio || prev.bio,
+      location: data.location || prev.location,
+      yearsExperience: data.yearsExperience || prev.yearsExperience,
+    }));
+
+    // Add parsed skills
+    if (data.skills && data.skills.length > 0) {
+      for (const skillName of data.skills.slice(0, 10)) {
+        // Check if skill exists in catalog
+        const catalogSkill = skills.find(s => 
+          s.name.toLowerCase() === skillName.toLowerCase()
+        );
+        
+        if (catalogSkill) {
+          // Check if already added
+          const alreadyAdded = hardSkills.some(hs => hs.skillId === catalogSkill.id);
+          if (!alreadyAdded) {
+            await addHardSkill(catalogSkill.id, undefined, 3);
+          }
+        } else {
+          // Add as custom skill if not already present
+          const alreadyCustom = hardSkills.some(hs => 
+            hs.customSkillName?.toLowerCase() === skillName.toLowerCase()
+          );
+          if (!alreadyCustom) {
+            await addHardSkill(undefined, skillName, 3);
+          }
+        }
+      }
     }
   };
 
@@ -444,6 +489,18 @@ export const KarmaProfileEdit: React.FC<KarmaProfileEditProps> = ({ onBack, onSa
               </p>
             )}
           </div>
+        </Card>
+
+        {/* Portfolio Section */}
+        <Card className="mb-6">
+          <PortfolioManager
+            items={portfolio}
+            onAddItem={addPortfolioItem}
+            onRemoveItem={removePortfolioItem}
+            onUploadFile={uploadPortfolioFile}
+            onCVParsed={handleCVParsed}
+            userId={profile?.id || ''}
+          />
         </Card>
 
         {/* Social Links */}

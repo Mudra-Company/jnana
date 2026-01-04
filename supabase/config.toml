@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.karma-analyze]
 verify_jwt = false
+
+[functions.cv-parser]
+verify_jwt = false
