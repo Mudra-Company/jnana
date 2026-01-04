@@ -31,6 +31,12 @@ import { UserResultView } from './views/user/UserResultView';
 import SeedDataView from './src/views/admin/SeedDataView';
 import { DemoBanner } from './src/components/DemoBanner';
 
+// Karma Platform Views
+import { KarmaOnboarding } from './views/karma/KarmaOnboarding';
+import { KarmaDashboard } from './views/karma/KarmaDashboard';
+import { KarmaProfileEdit } from './views/karma/KarmaProfileEdit';
+import { KarmaResults } from './views/karma/KarmaResults';
+
 // Adapter to convert DB profile to legacy User type
 const profileToLegacyUser = (
   profile: any, 
@@ -360,6 +366,14 @@ const AppContent: React.FC = () => {
       } else if (isCompanyAdmin && userData.membership?.company_id) {
         await loadCompanyData(userData.membership.company_id);
         setView({ type: 'ADMIN_DASHBOARD' });
+      } else if (!userData.membership?.company_id) {
+        // User without company = Karma user (public platform)
+        // Check if they have completed onboarding (has first/last name)
+        if (userData.first_name && userData.last_name) {
+          setView({ type: 'KARMA_DASHBOARD' });
+        } else {
+          setView({ type: 'KARMA_ONBOARDING' });
+        }
       } else if (userData.membership?.status === 'completed') {
         setView({ type: 'USER_RESULT', userId: user.id });
       } else {
@@ -819,7 +833,8 @@ const AppContent: React.FC = () => {
   return (
     <div className={isDark ? 'dark' : ''}>
       <div className="min-h-screen bg-white dark:bg-gray-900 text-jnana-text dark:text-gray-100 transition-colors duration-300 font-sans">
-        {currentUserData && view.type !== 'LOGIN' && view.type !== 'LOADING' && (
+        {currentUserData && view.type !== 'LOGIN' && view.type !== 'LOADING' && 
+          !view.type.startsWith('KARMA_') && (
           <Header
             onLogout={handleLogout}
             view={view}
@@ -954,6 +969,56 @@ const AppContent: React.FC = () => {
               onStartClimate={() => navigate({ type: 'USER_CLIMATE_TEST', userId: currentUserData.id })}
               company={activeCompanyData || undefined}
               companyUsers={companyUsers}
+            />
+          )}
+
+          {/* ===== KARMA PLATFORM VIEWS ===== */}
+          {view.type === 'KARMA_ONBOARDING' && (
+            <KarmaOnboarding
+              onComplete={() => setView({ type: 'KARMA_DASHBOARD' })}
+              onSkip={() => setView({ type: 'KARMA_DASHBOARD' })}
+            />
+          )}
+
+          {view.type === 'KARMA_DASHBOARD' && (
+            <KarmaDashboard
+              onEditProfile={() => navigate({ type: 'KARMA_PROFILE_EDIT' })}
+              onStartTest={() => navigate({ type: 'KARMA_TEST_RIASEC' })}
+              onViewResults={() => navigate({ type: 'KARMA_RESULTS' })}
+            />
+          )}
+
+          {view.type === 'KARMA_PROFILE_EDIT' && (
+            <KarmaProfileEdit
+              onBack={() => setView({ type: 'KARMA_DASHBOARD' })}
+              onSave={() => setView({ type: 'KARMA_DASHBOARD' })}
+            />
+          )}
+
+          {view.type === 'KARMA_RESULTS' && (
+            <KarmaResults
+              onBack={() => setView({ type: 'KARMA_DASHBOARD' })}
+              onEditProfile={() => navigate({ type: 'KARMA_PROFILE_EDIT' })}
+            />
+          )}
+
+          {view.type === 'KARMA_TEST_RIASEC' && currentUserData && (
+            <UserTestView
+              user={currentUserData}
+              onComplete={async (score) => {
+                await handleTestComplete(score);
+                setView({ type: 'KARMA_TEST_CHAT' });
+              }}
+            />
+          )}
+
+          {view.type === 'KARMA_TEST_CHAT' && currentUserData && (
+            <KarmaChatView
+              user={currentUserData}
+              onComplete={async (transcript) => {
+                await handleKarmaComplete(transcript);
+                setView({ type: 'KARMA_RESULTS' });
+              }}
             />
           )}
 
