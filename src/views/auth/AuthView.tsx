@@ -2,14 +2,18 @@ import React, { useState } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import { Card } from '../../../components/Card';
 import { Button } from '../../../components/Button';
-import { LogIn, UserPlus, Mail, Lock, User, AlertCircle, Eye, EyeOff } from 'lucide-react';
+import { LogIn, UserPlus, Mail, Lock, User, AlertCircle, Eye, EyeOff, Building, Sparkles, ArrowLeft } from 'lucide-react';
 import { ForgotPasswordView } from './ForgotPasswordView';
+
+type AuthMode = 'select' | 'jnana' | 'karma';
 
 interface AuthViewProps {
   onSuccess?: () => void;
+  onKarmaSignup?: () => void;
 }
 
-export const AuthView: React.FC<AuthViewProps> = ({ onSuccess }) => {
+export const AuthView: React.FC<AuthViewProps> = ({ onSuccess, onKarmaSignup }) => {
+  const [mode, setMode] = useState<AuthMode>('select');
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -51,8 +55,13 @@ export const AuthView: React.FC<AuthViewProps> = ({ onSuccess }) => {
             setError(error.message);
           }
         } else {
-          setSuccessMessage('Account creato! Ora puoi accedere.');
-          setIsLogin(true);
+          // For Karma signup, trigger callback
+          if (mode === 'karma') {
+            onKarmaSignup?.();
+          } else {
+            setSuccessMessage('Account creato! Ora puoi accedere.');
+            setIsLogin(true);
+          }
         }
       }
     } catch (err) {
@@ -67,16 +76,107 @@ export const AuthView: React.FC<AuthViewProps> = ({ onSuccess }) => {
     return <ForgotPasswordView onBack={() => setShowForgotPassword(false)} />;
   }
 
+  // Platform Selection Screen
+  if (mode === 'select') {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-jnana-bg via-white to-jnana-powder/30 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 px-4">
+        <div className="w-full max-w-2xl">
+          {/* Logo */}
+          <div className="text-center mb-10">
+            <h1 className="text-4xl font-bold text-jnana-charcoal dark:text-white tracking-tight">
+              MUDRA
+            </h1>
+            <p className="text-jnana-text/60 dark:text-gray-400 mt-2">
+              People Analytics Platform
+            </p>
+          </div>
+
+          {/* Platform Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* JNANA Card */}
+            <Card 
+              className="p-8 cursor-pointer hover:shadow-xl transition-all border-2 border-transparent hover:border-jnana-sage group"
+              onClick={() => setMode('jnana')}
+            >
+              <div className="text-center">
+                <div className="w-16 h-16 mx-auto mb-4 bg-jnana-sage/10 rounded-2xl flex items-center justify-center group-hover:bg-jnana-sage/20 transition-colors">
+                  <Building className="w-8 h-8 text-jnana-sage" />
+                </div>
+                <h2 className="text-2xl font-bold text-jnana-charcoal dark:text-white mb-2">
+                  JNANA
+                </h2>
+                <p className="text-lg text-jnana-text/70 dark:text-gray-400 mb-4">
+                  Per le Aziende
+                </p>
+                <p className="text-sm text-jnana-text/50 dark:text-gray-500">
+                  Invitato dalla tua azienda? Accedi qui per completare il tuo profilo.
+                </p>
+                <Button className="mt-6 bg-jnana-sage hover:bg-jnana-sage/90 text-white w-full">
+                  <LogIn className="w-4 h-4 mr-2" />
+                  Accedi
+                </Button>
+              </div>
+            </Card>
+
+            {/* KARMA Card */}
+            <Card 
+              className="p-8 cursor-pointer hover:shadow-xl transition-all border-2 border-transparent hover:border-violet-500 group"
+              onClick={() => { setMode('karma'); setIsLogin(false); }}
+            >
+              <div className="text-center">
+                <div className="w-16 h-16 mx-auto mb-4 bg-violet-100 dark:bg-violet-900/30 rounded-2xl flex items-center justify-center group-hover:bg-violet-200 dark:group-hover:bg-violet-900/50 transition-colors">
+                  <Sparkles className="w-8 h-8 text-violet-600 dark:text-violet-400" />
+                </div>
+                <h2 className="text-2xl font-bold text-jnana-charcoal dark:text-white mb-2">
+                  KARMA
+                </h2>
+                <p className="text-lg text-jnana-text/70 dark:text-gray-400 mb-4">
+                  Per i Talenti
+                </p>
+                <p className="text-sm text-jnana-text/50 dark:text-gray-500">
+                  Crea il tuo profilo pubblico e scopri le opportunità giuste per te.
+                </p>
+                <Button className="mt-6 bg-violet-600 hover:bg-violet-700 text-white w-full">
+                  <Sparkles className="w-4 h-4 mr-2" />
+                  Inizia Ora
+                </Button>
+              </div>
+            </Card>
+          </div>
+
+          {/* Footer */}
+          <p className="text-center mt-8 text-sm text-jnana-text/50 dark:text-gray-500">
+            © 2024 Mudra People Analytics
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Auth Form (JNANA or KARMA)
+  const isKarma = mode === 'karma';
+  const brandColor = isKarma ? 'violet' : 'jnana-sage';
+  const brandName = isKarma ? 'KARMA' : 'JNANA';
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-jnana-bg via-white to-jnana-powder/30 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 px-4">
       <div className="w-full max-w-md">
+        {/* Back Button */}
+        <button
+          onClick={() => setMode('select')}
+          className="flex items-center gap-2 text-jnana-text/60 dark:text-gray-400 hover:text-jnana-text dark:hover:text-white mb-6 transition-colors"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Torna alla selezione
+        </button>
+
         {/* Logo */}
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-jnana-charcoal dark:text-white tracking-tight">
-            JNANA
+          <h1 className={`text-4xl font-bold tracking-tight ${isKarma ? 'text-violet-600 dark:text-violet-400' : 'text-jnana-charcoal dark:text-white'}`}>
+            {brandName}
           </h1>
           <p className="text-jnana-text/60 dark:text-gray-400 mt-2">
-            People Analytics Platform
+            {isKarma ? 'Crea il tuo profilo pubblico' : 'Accesso Aziendale'}
           </p>
         </div>
 
@@ -87,7 +187,7 @@ export const AuthView: React.FC<AuthViewProps> = ({ onSuccess }) => {
               onClick={() => { setIsLogin(true); setError(null); }}
               className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all ${
                 isLogin
-                  ? 'bg-white dark:bg-gray-600 text-jnana-charcoal dark:text-white shadow-sm'
+                  ? `bg-white dark:bg-gray-600 ${isKarma ? 'text-violet-600' : 'text-jnana-charcoal'} dark:text-white shadow-sm`
                   : 'text-jnana-text/60 dark:text-gray-400 hover:text-jnana-text dark:hover:text-gray-200'
               }`}
             >
@@ -98,7 +198,7 @@ export const AuthView: React.FC<AuthViewProps> = ({ onSuccess }) => {
               onClick={() => { setIsLogin(false); setError(null); }}
               className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-all ${
                 !isLogin
-                  ? 'bg-white dark:bg-gray-600 text-jnana-charcoal dark:text-white shadow-sm'
+                  ? `bg-white dark:bg-gray-600 ${isKarma ? 'text-violet-600' : 'text-jnana-charcoal'} dark:text-white shadow-sm`
                   : 'text-jnana-text/60 dark:text-gray-400 hover:text-jnana-text dark:hover:text-gray-200'
               }`}
             >
@@ -230,7 +330,11 @@ export const AuthView: React.FC<AuthViewProps> = ({ onSuccess }) => {
             <Button
               type="submit"
               disabled={isLoading}
-              className="w-full py-3 bg-jnana-charcoal hover:bg-jnana-charcoal/90 text-white font-medium rounded-lg transition-all disabled:opacity-50"
+              className={`w-full py-3 font-medium rounded-lg transition-all disabled:opacity-50 ${
+                isKarma 
+                  ? 'bg-violet-600 hover:bg-violet-700 text-white' 
+                  : 'bg-jnana-charcoal hover:bg-jnana-charcoal/90 text-white'
+              }`}
             >
               {isLoading ? (
                 <span className="flex items-center justify-center gap-2">
@@ -247,8 +351,8 @@ export const AuthView: React.FC<AuthViewProps> = ({ onSuccess }) => {
                 </>
               ) : (
                 <>
-                  <UserPlus className="w-4 h-4 inline-block mr-2" />
-                  Crea Account
+                  {isKarma ? <Sparkles className="w-4 h-4 inline-block mr-2" /> : <UserPlus className="w-4 h-4 inline-block mr-2" />}
+                  {isKarma ? 'Crea Profilo Karma' : 'Crea Account'}
                 </>
               )}
             </Button>
@@ -257,7 +361,7 @@ export const AuthView: React.FC<AuthViewProps> = ({ onSuccess }) => {
 
         {/* Footer */}
         <p className="text-center mt-6 text-sm text-jnana-text/50 dark:text-gray-500">
-          © 2024 JNANA People Analytics
+          © 2024 {isKarma ? 'KARMA' : 'JNANA'} People Analytics
         </p>
       </div>
     </div>

@@ -18,6 +18,7 @@ import { AuthView } from './src/views/auth/AuthView';
 import { ResetPasswordView } from './src/views/auth/ResetPasswordView';
 import { SuperAdminDashboard } from './views/superadmin/SuperAdminDashboard';
 import { JobDatabaseEditor } from './views/superadmin/JobDatabaseEditor';
+import { KarmaTalentsView } from './views/superadmin/KarmaTalentsView';
 import { AdminDashboardView } from './views/admin/AdminDashboard';
 
 import { CompanyOrgView } from './views/admin/CompanyOrgView';
@@ -260,7 +261,7 @@ const AppContent: React.FC = () => {
   useEffect(() => {
     if (!user || !authInitialized) return;
     
-    const superAdminViews = ['SUPER_ADMIN_DASHBOARD', 'SUPER_ADMIN_JOBS'];
+    const superAdminViews = ['SUPER_ADMIN_DASHBOARD', 'SUPER_ADMIN_JOBS', 'SUPER_ADMIN_KARMA_TALENTS', 'SUPER_ADMIN_KARMA_PROFILE'];
     const adminViews = ['ADMIN_DASHBOARD', 'ADMIN_ORG_CHART', 'ADMIN_IDENTITY_HUB', 'ADMIN_COMPANY_PROFILE'];
     
     // Regular users trying to access super admin views
@@ -845,6 +846,7 @@ const AppContent: React.FC = () => {
             onUsersManagement={() => {}}
             onSuperAdminHome={() => navigate({ type: 'SUPER_ADMIN_DASHBOARD' })}
             onJobDb={() => navigate({ type: 'SUPER_ADMIN_JOBS' })}
+            onKarmaTalents={() => navigate({ type: 'SUPER_ADMIN_KARMA_TALENTS' })}
             activeCompany={activeCompanyData || undefined}
             isSuperAdminMode={isSuperAdmin}
             onExitImpersonation={() => {
@@ -890,6 +892,13 @@ const AppContent: React.FC = () => {
               onImpersonate={handleImpersonate}
               onCreateCompany={handleCreateCompany}
               onStartDemoMode={handleStartDemoMode}
+              onNavigateToKarmaTalents={() => navigate({ type: 'SUPER_ADMIN_KARMA_TALENTS' })}
+            />
+          )}
+
+          {view.type === 'SUPER_ADMIN_KARMA_TALENTS' && canAccessSuperAdminViews && (
+            <KarmaTalentsView
+              onViewProfile={(userId) => navigate({ type: 'SUPER_ADMIN_KARMA_PROFILE', userId })}
             />
           )}
 
