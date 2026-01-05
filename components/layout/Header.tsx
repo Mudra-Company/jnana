@@ -11,7 +11,8 @@ import {
   LogOut, 
   Sun, 
   Moon,
-  ArrowLeft
+  ArrowLeft,
+  Sparkles
 } from 'lucide-react';
 import { Button } from '../Button';
 import { ViewState, CompanyProfile } from '../../types';
@@ -28,6 +29,7 @@ interface HeaderProps {
   
   onSuperAdminHome: () => void;
   onJobDb: () => void;
+  onKarmaTalents?: () => void;
   activeCompany?: CompanyProfile;
   isSuperAdminMode: boolean;
   onExitImpersonation: () => void;
@@ -40,11 +42,11 @@ interface HeaderProps {
 
 export const Header: React.FC<HeaderProps> = ({ 
   onLogout, view, onAdminHome, onOrgChart, onIdentityHub, onCompanyProfile,
-  onSuperAdminHome, onJobDb, activeCompany, isSuperAdminMode, onExitImpersonation,
+  onSuperAdminHome, onJobDb, onKarmaTalents, activeCompany, isSuperAdminMode, onExitImpersonation,
   isDark, toggleTheme, onBack, canGoBack, userRole
 }) => {
   // Determine what navigation to show based on role
-  const showSuperAdminNav = userRole === 'super_admin' && view.type.startsWith('SUPER_ADMIN');
+  const showSuperAdminNav = userRole === 'super_admin' && (view.type.startsWith('SUPER_ADMIN') || view.type === 'SUPER_ADMIN_KARMA_TALENTS');
   const showAdminNav = (userRole === 'super_admin' || userRole === 'company_admin') && 
     activeCompany && 
     (view.type.startsWith('ADMIN') || view.type === 'USER_RESULT');
@@ -123,6 +125,17 @@ export const Header: React.FC<HeaderProps> = ({
               <Globe size={16} className="mr-2" />
               Aziende
             </Button>
+            {onKarmaTalents && (
+              <Button 
+                variant={view.type === 'SUPER_ADMIN_KARMA_TALENTS' ? 'primary' : 'ghost'} 
+                size="sm"
+                onClick={onKarmaTalents}
+                className={view.type === 'SUPER_ADMIN_KARMA_TALENTS' ? '!bg-violet-600' : ''}
+              >
+                <Sparkles size={16} className="mr-2" />
+                Karma Talents
+              </Button>
+            )}
           </div>
         )}
 
