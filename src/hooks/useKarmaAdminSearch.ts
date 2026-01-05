@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { supabase } from '../integrations/supabase/client';
-import type { KarmaProfile } from '../types/karma';
+import type { KarmaProfile, WorkType, UserHardSkill, PortfolioItem, SocialLink } from '../types/karma';
+import type { SeniorityLevel } from '../../types';
 
 // Type definitions for database results
 interface RiasecResultRow {
@@ -28,8 +29,14 @@ export interface KarmaSearchFilters {
   query?: string;
   lookingForWorkOnly?: boolean;
   hasCompletedTests?: boolean;
-  skills?: string[];
+  skills?: string[];  // Hard skill IDs
+  softSkills?: string[];  // Soft skill names from Karma AI
   locations?: string[];
+  riasecCodes?: string[];  // e.g. ['R', 'I', 'A']
+  minExperience?: number;
+  maxExperience?: number;
+  workTypes?: WorkType[];
+  seniorityLevels?: SeniorityLevel[];
 }
 
 export interface KarmaSearchResult {
@@ -37,6 +44,7 @@ export interface KarmaSearchResult {
   hasRiasec: boolean;
   hasKarma: boolean;
   skillsCount: number;
+  topSkills?: string[];  // Top 3 skill names
 }
 
 export const useKarmaAdminSearch = () => {
@@ -50,17 +58,17 @@ export const useKarmaAdminSearch = () => {
     setError(null);
 
     try {
-      // Get company members to filter them out
+      // Get company members to filter them out - these are NOT Karma profiles
       const { data: members } = await supabase
         .from('company_members')
         .select('user_id');
 
-      const memberUserIds = new Set(members?.map(m => m.user_id) || []);
+      const memberUserIds = new Set(members?.map(m => m.user_id).filter(Boolean) || []);
 
-      // Build query
+      // Build query for profiles
       let query = supabase
         .from('profiles')
-        .select('*', { count: 'exact' });
+        .select('*');
 
       // Text search
       if (filters.query) {
@@ -77,21 +85,39 @@ export const useKarmaAdminSearch = () => {
         query = query.in('location', filters.locations);
       }
 
-      // Pagination
-      query = query
-        .order('created_at', { ascending: false })
-        .range(page * pageSize, (page + 1) * pageSize - 1);
+      // Work type filter
+      if (filters.workTypes && filters.workTypes.length > 0) {
+        query = query.in('preferred_work_type', filters.workTypes);
+      }
 
-      const { data: profiles, error: profilesError, count } = await query;
+      // Experience filter
+      if (filters.minExperience !== undefined) {
+        query = query.gte('years_experience', filters.minExperience);
+      }
+      if (filters.maxExperience !== undefined) {
+        query = query.lte('years_experience', filters.maxExperience);
+      }
+
+      // Order and fetch all for filtering
+      query = query.order('created_at', { ascending: false });
+
+      const { data: allProfiles, error: profilesError } = await query;
 
       if (profilesError) throw profilesError;
 
-      // Filter to only Karma profiles (not company members)
-      const karmaProfiles = profiles?.filter(p => 
+      // Filter to only Karma profiles (NOT company members OR explicitly marked as karma profile)
+      const karmaProfiles = allProfiles?.filter(p => 
         p.is_karma_profile === true || !memberUserIds.has(p.id)
       ) || [];
 
       const karmaProfileIds = karmaProfiles.map(p => p.id);
+
+      if (karmaProfileIds.length === 0) {
+        setResults([]);
+        setTotalCount(0);
+        setIsLoading(false);
+        return;
+      }
 
       // Get RIASEC results
       const { data: riasecResults } = await supabase
@@ -109,27 +135,90 @@ export const useKarmaAdminSearch = () => {
 
       const karmaByUser = new Map(karmaSessions?.map(k => [k.user_id, k]) || []);
 
-      // Get hard skills count
-      const { data: skillsCounts } = await supabase
+      // Get hard skills with skill names
+      const { data: userSkills } = await supabase
         .from('user_hard_skills')
-        .select('user_id')
+        .select(`
+          user_id,
+          skill_id,
+          custom_skill_name,
+          proficiency_level,
+          hard_skills_catalog (id, name, category)
+        `)
         .in('user_id', karmaProfileIds);
 
-      const skillsCountByUser: Record<string, number> = {};
-      skillsCounts?.forEach(s => {
-        skillsCountByUser[s.user_id] = (skillsCountByUser[s.user_id] || 0) + 1;
+      // Group skills by user
+      const skillsByUser: Record<string, { count: number; topSkills: string[] }> = {};
+      userSkills?.forEach(s => {
+        if (!skillsByUser[s.user_id]) {
+          skillsByUser[s.user_id] = { count: 0, topSkills: [] };
+        }
+        skillsByUser[s.user_id].count++;
+        const skillName = (s.hard_skills_catalog as any)?.name || s.custom_skill_name;
+        if (skillName && skillsByUser[s.user_id].topSkills.length < 3) {
+          skillsByUser[s.user_id].topSkills.push(skillName);
+        }
       });
 
-      // Apply has completed tests filter
+      // Apply complex filters that need joined data
       let filteredProfiles = karmaProfiles;
+
+      // Filter: has completed tests (RIASEC)
       if (filters.hasCompletedTests) {
-        filteredProfiles = karmaProfiles.filter(p => riasecByUser.has(p.id));
+        filteredProfiles = filteredProfiles.filter(p => riasecByUser.has(p.id));
       }
 
+      // Filter: RIASEC codes (check if profile_code contains any of the selected letters)
+      if (filters.riasecCodes && filters.riasecCodes.length > 0) {
+        filteredProfiles = filteredProfiles.filter(p => {
+          const riasec = riasecByUser.get(p.id);
+          if (!riasec?.profile_code) return false;
+          return filters.riasecCodes!.some(code => 
+            riasec.profile_code!.toUpperCase().includes(code.toUpperCase())
+          );
+        });
+      }
+
+      // Filter: seniority levels
+      if (filters.seniorityLevels && filters.seniorityLevels.length > 0) {
+        filteredProfiles = filteredProfiles.filter(p => {
+          const karma = karmaByUser.get(p.id);
+          if (!karma?.seniority_assessment) return false;
+          return filters.seniorityLevels!.includes(karma.seniority_assessment as SeniorityLevel);
+        });
+      }
+
+      // Filter: soft skills (from Karma AI)
+      if (filters.softSkills && filters.softSkills.length > 0) {
+        filteredProfiles = filteredProfiles.filter(p => {
+          const karma = karmaByUser.get(p.id);
+          if (!karma?.soft_skills) return false;
+          const userSoftSkills = karma.soft_skills.map(s => s.toLowerCase());
+          return filters.softSkills!.some(skill => 
+            userSoftSkills.some(us => us.includes(skill.toLowerCase()))
+          );
+        });
+      }
+
+      // Filter: hard skills
+      if (filters.skills && filters.skills.length > 0) {
+        const usersWithMatchingSkills = new Set(
+          userSkills?.filter(s => filters.skills!.includes(s.skill_id || '')).map(s => s.user_id) || []
+        );
+        filteredProfiles = filteredProfiles.filter(p => usersWithMatchingSkills.has(p.id));
+      }
+
+      // Set total count AFTER all filtering
+      setTotalCount(filteredProfiles.length);
+
+      // Apply pagination AFTER counting
+      const paginatedProfiles = filteredProfiles.slice(page * pageSize, (page + 1) * pageSize);
+
       // Build results
-      const searchResults: KarmaSearchResult[] = filteredProfiles.map(p => {
+      const searchResults: KarmaSearchResult[] = paginatedProfiles.map(p => {
         const riasec = riasecByUser.get(p.id);
         const karma = karmaByUser.get(p.id);
+        const skills = skillsByUser[p.id];
 
         return {
           profile: {
@@ -171,12 +260,12 @@ export const useKarmaAdminSearch = () => {
           },
           hasRiasec: !!riasec,
           hasKarma: !!karma,
-          skillsCount: skillsCountByUser[p.id] || 0,
+          skillsCount: skills?.count || 0,
+          topSkills: skills?.topSkills || [],
         };
       });
 
       setResults(searchResults);
-      setTotalCount(count || 0);
     } catch (err) {
       console.error('Error searching Karma profiles:', err);
       setError(err instanceof Error ? err.message : 'Search failed');
@@ -209,11 +298,69 @@ export const useKarmaAdminSearch = () => {
         .eq('user_id', userId)
         .maybeSingle();
 
-      // Get skills count
-      const { count: skillsCount } = await supabase
+      // Get hard skills with details
+      const { data: hardSkills } = await supabase
         .from('user_hard_skills')
-        .select('*', { count: 'exact', head: true })
+        .select(`
+          id,
+          user_id,
+          skill_id,
+          custom_skill_name,
+          proficiency_level,
+          created_at,
+          hard_skills_catalog (id, name, category)
+        `)
         .eq('user_id', userId);
+
+      // Get portfolio items
+      const { data: portfolio } = await supabase
+        .from('user_portfolio_items')
+        .select('*')
+        .eq('user_id', userId)
+        .order('sort_order');
+
+      // Get social links
+      const { data: socialLinks } = await supabase
+        .from('user_social_links')
+        .select('*')
+        .eq('user_id', userId);
+
+      // Transform hard skills
+      const transformedSkills: UserHardSkill[] = (hardSkills || []).map(s => ({
+        id: s.id,
+        userId: s.user_id,
+        skillId: s.skill_id || undefined,
+        customSkillName: s.custom_skill_name || undefined,
+        proficiencyLevel: s.proficiency_level as 1 | 2 | 3 | 4 | 5,
+        createdAt: s.created_at || undefined,
+        skill: (s.hard_skills_catalog as any) ? {
+          id: (s.hard_skills_catalog as any).id,
+          name: (s.hard_skills_catalog as any).name,
+          category: (s.hard_skills_catalog as any).category,
+        } : undefined,
+      }));
+
+      // Transform portfolio
+      const transformedPortfolio: PortfolioItem[] = (portfolio || []).map(p => ({
+        id: p.id,
+        userId: p.user_id,
+        itemType: p.item_type as any,
+        title: p.title,
+        description: p.description || undefined,
+        fileUrl: p.file_url || undefined,
+        externalUrl: p.external_url || undefined,
+        sortOrder: p.sort_order || 0,
+        createdAt: p.created_at,
+      }));
+
+      // Transform social links
+      const transformedSocialLinks: SocialLink[] = (socialLinks || []).map(s => ({
+        id: s.id,
+        userId: s.user_id,
+        platform: s.platform as any,
+        url: s.url,
+        createdAt: s.created_at || undefined,
+      }));
 
       return {
         profile: {
@@ -252,10 +399,14 @@ export const useKarmaAdminSearch = () => {
             riskFactors: karma.risk_factors || undefined,
             seniorityAssessment: karma.seniority_assessment || undefined,
           } : undefined,
+          hardSkills: transformedSkills,
+          portfolio: transformedPortfolio,
+          socialLinks: transformedSocialLinks,
         },
         hasRiasec: !!riasec,
         hasKarma: !!karma,
-        skillsCount: skillsCount || 0,
+        skillsCount: hardSkills?.length || 0,
+        topSkills: transformedSkills.slice(0, 3).map(s => s.skill?.name || s.customSkillName || ''),
       };
     } catch (err) {
       console.error('Error fetching profile:', err);

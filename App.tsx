@@ -19,6 +19,7 @@ import { ResetPasswordView } from './src/views/auth/ResetPasswordView';
 import { SuperAdminDashboard } from './views/superadmin/SuperAdminDashboard';
 import { JobDatabaseEditor } from './views/superadmin/JobDatabaseEditor';
 import { KarmaTalentsView } from './views/superadmin/KarmaTalentsView';
+import { KarmaProfileDetailView } from './views/superadmin/KarmaProfileDetailView';
 import { AdminDashboardView } from './views/admin/AdminDashboard';
 
 import { CompanyOrgView } from './views/admin/CompanyOrgView';
@@ -899,6 +900,13 @@ const AppContent: React.FC = () => {
           {view.type === 'SUPER_ADMIN_KARMA_TALENTS' && canAccessSuperAdminViews && (
             <KarmaTalentsView
               onViewProfile={(userId) => navigate({ type: 'SUPER_ADMIN_KARMA_PROFILE', userId })}
+            />
+          )}
+
+          {view.type === 'SUPER_ADMIN_KARMA_PROFILE' && canAccessSuperAdminViews && (
+            <KarmaProfileDetailView
+              userId={view.userId}
+              onBack={() => navigate({ type: 'SUPER_ADMIN_KARMA_TALENTS' })}
             />
           )}
 

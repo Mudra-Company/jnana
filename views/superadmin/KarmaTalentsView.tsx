@@ -12,25 +12,59 @@ import {
   ChevronRight,
   Sparkles,
   Target,
-  X
+  X,
+  ChevronDown,
+  ChevronUp,
+  Clock,
+  Brain
 } from 'lucide-react';
 import { Card } from '../../components/Card';
 import { Button } from '../../components/Button';
 import { useKarmaStats } from '../../src/hooks/useKarmaStats';
 import { useKarmaAdminSearch, KarmaSearchFilters, KarmaSearchResult } from '../../src/hooks/useKarmaAdminSearch';
+import { useHardSkillsCatalog } from '../../src/hooks/useHardSkillsCatalog';
+import type { WorkType } from '../../src/types/karma';
+import type { SeniorityLevel } from '../../types';
 
 interface KarmaTalentsViewProps {
   onViewProfile?: (userId: string) => void;
 }
 
+const RIASEC_DIMENSIONS = [
+  { code: 'R', label: 'Realistico', color: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300' },
+  { code: 'I', label: 'Investigativo', color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' },
+  { code: 'A', label: 'Artistico', color: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300' },
+  { code: 'S', label: 'Sociale', color: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' },
+  { code: 'E', label: 'Intraprendente', color: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300' },
+  { code: 'C', label: 'Convenzionale', color: 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300' },
+];
+
+const WORK_TYPES: { value: WorkType; label: string }[] = [
+  { value: 'remote', label: 'Remoto' },
+  { value: 'hybrid', label: 'Ibrido' },
+  { value: 'onsite', label: 'In sede' },
+  { value: 'any', label: 'Qualsiasi' },
+];
+
+const SENIORITY_LEVELS: { value: SeniorityLevel; label: string }[] = [
+  { value: 'Junior', label: 'Junior' },
+  { value: 'Mid', label: 'Mid-Level' },
+  { value: 'Senior', label: 'Senior' },
+  { value: 'Lead', label: 'Lead' },
+  { value: 'C-Level', label: 'C-Level' },
+];
+
 export const KarmaTalentsView: React.FC<KarmaTalentsViewProps> = ({ onViewProfile }) => {
   const { stats, isLoading: statsLoading } = useKarmaStats();
   const { results, isLoading: searchLoading, totalCount, search } = useKarmaAdminSearch();
+  const { skills: skillsCatalog, categories: skillCategories, isLoading: skillsLoading } = useHardSkillsCatalog();
   
   const [filters, setFilters] = useState<KarmaSearchFilters>({});
   const [searchQuery, setSearchQuery] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [page, setPage] = useState(0);
+  const [skillSearchQuery, setSkillSearchQuery] = useState('');
+  const [showSkillDropdown, setShowSkillDropdown] = useState(false);
   const pageSize = 20;
 
   // Initial load
@@ -57,6 +91,30 @@ export const KarmaTalentsView: React.FC<KarmaTalentsViewProps> = ({ onViewProfil
     search(newFilters, 0, pageSize);
   };
 
+  const toggleArrayFilter = (key: 'riasecCodes' | 'workTypes' | 'seniorityLevels' | 'skills', value: string) => {
+    const currentArray = (filters[key] || []) as string[];
+    const newArray = currentArray.includes(value)
+      ? currentArray.filter(v => v !== value)
+      : [...currentArray, value];
+    handleFilterChange(key, newArray.length > 0 ? newArray : undefined);
+  };
+
+  const addSkillFilter = (skillId: string) => {
+    const currentSkills = filters.skills || [];
+    if (!currentSkills.includes(skillId)) {
+      handleFilterChange('skills', [...currentSkills, skillId]);
+    }
+    setSkillSearchQuery('');
+    setShowSkillDropdown(false);
+  };
+
+  const removeSkillFilter = (skillId: string) => {
+    const currentSkills = filters.skills || [];
+    handleFilterChange('skills', currentSkills.filter(id => id !== skillId).length > 0 
+      ? currentSkills.filter(id => id !== skillId) 
+      : undefined);
+  };
+
   const clearFilters = () => {
     setFilters({});
     setSearchQuery('');
@@ -65,6 +123,31 @@ export const KarmaTalentsView: React.FC<KarmaTalentsViewProps> = ({ onViewProfil
   };
 
   const totalPages = Math.ceil(totalCount / pageSize);
+  
+  // Count active filters
+  const activeFiltersCount = [
+    filters.lookingForWorkOnly,
+    filters.hasCompletedTests,
+    filters.riasecCodes?.length,
+    filters.skills?.length,
+    filters.workTypes?.length,
+    filters.seniorityLevels?.length,
+    filters.minExperience !== undefined,
+    filters.maxExperience !== undefined,
+  ].filter(Boolean).length;
+
+  // Filter skills for dropdown
+  const filteredSkills = skillSearchQuery
+    ? skillsCatalog.filter(s => 
+        s.name.toLowerCase().includes(skillSearchQuery.toLowerCase()) &&
+        !filters.skills?.includes(s.id)
+      ).slice(0, 10)
+    : [];
+
+  // Get skill names for selected IDs
+  const getSkillName = (skillId: string) => {
+    return skillsCatalog.find(s => s.id === skillId)?.name || skillId;
+  };
 
   return (
     <div className="p-8 max-w-7xl mx-auto">
@@ -165,18 +248,25 @@ export const KarmaTalentsView: React.FC<KarmaTalentsViewProps> = ({ onViewProfil
           >
             <Filter className="w-4 h-4 mr-2" />
             Filtri
+            {activeFiltersCount > 0 && (
+              <span className="ml-2 px-1.5 py-0.5 bg-violet-600 text-white text-xs rounded-full">
+                {activeFiltersCount}
+              </span>
+            )}
+            {showFilters ? <ChevronUp className="w-4 h-4 ml-1" /> : <ChevronDown className="w-4 h-4 ml-1" />}
           </Button>
         </div>
 
         {/* Expanded Filters */}
         {showFilters && (
-          <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+          <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700 space-y-6">
+            {/* Basic Filters */}
             <div className="flex flex-wrap gap-4">
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={filters.lookingForWorkOnly || false}
-                  onChange={(e) => handleFilterChange('lookingForWorkOnly', e.target.checked)}
+                  onChange={(e) => handleFilterChange('lookingForWorkOnly', e.target.checked || undefined)}
                   className="w-4 h-4 rounded border-gray-300 text-violet-600 focus:ring-violet-500"
                 />
                 <span className="text-sm text-gray-700 dark:text-gray-300">Solo in cerca di lavoro</span>
@@ -185,14 +275,169 @@ export const KarmaTalentsView: React.FC<KarmaTalentsViewProps> = ({ onViewProfil
                 <input
                   type="checkbox"
                   checked={filters.hasCompletedTests || false}
-                  onChange={(e) => handleFilterChange('hasCompletedTests', e.target.checked)}
+                  onChange={(e) => handleFilterChange('hasCompletedTests', e.target.checked || undefined)}
                   className="w-4 h-4 rounded border-gray-300 text-violet-600 focus:ring-violet-500"
                 />
                 <span className="text-sm text-gray-700 dark:text-gray-300">Con test completati</span>
               </label>
+            </div>
+
+            {/* RIASEC Filter */}
+            <div>
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
+                <Target className="w-4 h-4" />
+                Profilo RIASEC
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {RIASEC_DIMENSIONS.map(dim => (
+                  <button
+                    key={dim.code}
+                    onClick={() => toggleArrayFilter('riasecCodes', dim.code)}
+                    className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                      filters.riasecCodes?.includes(dim.code)
+                        ? 'ring-2 ring-violet-500 ring-offset-2 ' + dim.color
+                        : dim.color + ' opacity-60 hover:opacity-100'
+                    }`}
+                  >
+                    {dim.code} - {dim.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Hard Skills Filter */}
+            <div>
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
+                <Star className="w-4 h-4" />
+                Hard Skills
+              </p>
+              <div className="relative">
+                <input
+                  type="text"
+                  value={skillSearchQuery}
+                  onChange={(e) => {
+                    setSkillSearchQuery(e.target.value);
+                    setShowSkillDropdown(true);
+                  }}
+                  onFocus={() => setShowSkillDropdown(true)}
+                  placeholder="Cerca skill..."
+                  className="w-full md:w-80 px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+                />
+                {showSkillDropdown && filteredSkills.length > 0 && (
+                  <div className="absolute z-10 mt-1 w-full md:w-80 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                    {filteredSkills.map(skill => (
+                      <button
+                        key={skill.id}
+                        onClick={() => addSkillFilter(skill.id)}
+                        className="w-full px-3 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-800 dark:text-white"
+                      >
+                        {skill.name}
+                        {skill.category && (
+                          <span className="ml-2 text-xs text-gray-500">({skill.category})</span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              {filters.skills && filters.skills.length > 0 && (
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {filters.skills.map(skillId => (
+                    <span
+                      key={skillId}
+                      className="inline-flex items-center gap-1 px-2 py-1 bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300 text-sm rounded"
+                    >
+                      {getSkillName(skillId)}
+                      <button onClick={() => removeSkillFilter(skillId)} className="hover:text-violet-900">
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Seniority Filter */}
+            <div>
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
+                <Brain className="w-4 h-4" />
+                Seniority (da Karma AI)
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {SENIORITY_LEVELS.map(level => (
+                  <button
+                    key={level.value}
+                    onClick={() => toggleArrayFilter('seniorityLevels', level.value)}
+                    className={`px-3 py-1.5 rounded-lg text-sm transition-all ${
+                      filters.seniorityLevels?.includes(level.value as SeniorityLevel)
+                        ? 'bg-purple-600 text-white'
+                        : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                    }`}
+                  >
+                    {level.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Work Type Filter */}
+            <div>
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
+                <Briefcase className="w-4 h-4" />
+                Tipo di Lavoro Preferito
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {WORK_TYPES.map(type => (
+                  <button
+                    key={type.value}
+                    onClick={() => toggleArrayFilter('workTypes', type.value)}
+                    className={`px-3 py-1.5 rounded-lg text-sm transition-all ${
+                      filters.workTypes?.includes(type.value as WorkType)
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                    }`}
+                  >
+                    {type.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Experience Filter */}
+            <div>
+              <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-2">
+                <Clock className="w-4 h-4" />
+                Anni di Esperienza
+              </p>
+              <div className="flex items-center gap-3">
+                <input
+                  type="number"
+                  min="0"
+                  max="50"
+                  value={filters.minExperience ?? ''}
+                  onChange={(e) => handleFilterChange('minExperience', e.target.value ? parseInt(e.target.value) : undefined)}
+                  placeholder="Min"
+                  className="w-20 px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-white placeholder-gray-400"
+                />
+                <span className="text-gray-500">—</span>
+                <input
+                  type="number"
+                  min="0"
+                  max="50"
+                  value={filters.maxExperience ?? ''}
+                  onChange={(e) => handleFilterChange('maxExperience', e.target.value ? parseInt(e.target.value) : undefined)}
+                  placeholder="Max"
+                  className="w-20 px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-white placeholder-gray-400"
+                />
+                <span className="text-sm text-gray-500">anni</span>
+              </div>
+            </div>
+
+            {/* Clear Filters */}
+            <div className="pt-2">
               <Button variant="ghost" size="sm" onClick={clearFilters}>
                 <X className="w-4 h-4 mr-1" />
-                Reset Filtri
+                Azzera tutti i filtri
               </Button>
             </div>
           </div>
@@ -216,6 +461,11 @@ export const KarmaTalentsView: React.FC<KarmaTalentsViewProps> = ({ onViewProfil
           <div className="p-8 text-center">
             <Users className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
             <p className="text-gray-500 dark:text-gray-400">Nessun profilo trovato</p>
+            {activeFiltersCount > 0 && (
+              <Button variant="ghost" size="sm" onClick={clearFilters} className="mt-2">
+                Azzera filtri
+              </Button>
+            )}
           </div>
         ) : (
           <div className="divide-y divide-gray-100 dark:divide-gray-700">
@@ -282,15 +532,15 @@ export const KarmaTalentsView: React.FC<KarmaTalentsViewProps> = ({ onViewProfil
   );
 };
 
-// Profile Row Component
+// Enhanced Profile Row Component
 const ProfileRow: React.FC<{ result: KarmaSearchResult; onView: () => void }> = ({ result, onView }) => {
-  const { profile, hasRiasec, hasKarma, skillsCount } = result;
+  const { profile, hasRiasec, hasKarma, skillsCount, topSkills } = result;
   
   return (
     <div className="p-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
       <div className="flex items-center gap-4">
         {/* Avatar */}
-        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-violet-400 to-purple-600 flex items-center justify-center text-white font-bold text-lg overflow-hidden">
+        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-violet-400 to-purple-600 flex items-center justify-center text-white font-bold text-lg overflow-hidden flex-shrink-0">
           {profile.avatarUrl ? (
             <img src={profile.avatarUrl} alt="" className="w-full h-full object-cover" />
           ) : (
@@ -302,7 +552,7 @@ const ProfileRow: React.FC<{ result: KarmaSearchResult; onView: () => void }> = 
 
         {/* Info */}
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <h4 className="font-semibold text-gray-800 dark:text-white truncate">
               {profile.firstName && profile.lastName 
                 ? `${profile.firstName} ${profile.lastName}`
@@ -313,15 +563,26 @@ const ProfileRow: React.FC<{ result: KarmaSearchResult; onView: () => void }> = 
                 Disponibile
               </span>
             )}
+            {profile.karmaData?.seniorityAssessment && (
+              <span className="px-2 py-0.5 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 text-xs rounded-full capitalize">
+                {profile.karmaData.seniorityAssessment}
+              </span>
+            )}
           </div>
           {profile.headline && (
             <p className="text-sm text-gray-500 dark:text-gray-400 truncate">{profile.headline}</p>
           )}
-          <div className="flex items-center gap-4 mt-1 text-xs text-gray-400">
+          <div className="flex items-center gap-4 mt-1 text-xs text-gray-400 flex-wrap">
             {profile.location && (
               <span className="flex items-center gap-1">
                 <MapPin className="w-3 h-3" />
                 {profile.location}
+              </span>
+            )}
+            {profile.yearsExperience !== undefined && (
+              <span className="flex items-center gap-1">
+                <Clock className="w-3 h-3" />
+                {profile.yearsExperience} anni
               </span>
             )}
             {profile.profileCode && (
@@ -330,29 +591,42 @@ const ProfileRow: React.FC<{ result: KarmaSearchResult; onView: () => void }> = 
               </span>
             )}
           </div>
+          {/* Top Skills Preview */}
+          {topSkills && topSkills.length > 0 && (
+            <div className="flex gap-1 mt-2">
+              {topSkills.map((skill, i) => (
+                <span 
+                  key={i}
+                  className="px-2 py-0.5 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 text-xs rounded"
+                >
+                  {skill}
+                </span>
+              ))}
+              {skillsCount > 3 && (
+                <span className="text-xs text-gray-400">+{skillsCount - 3}</span>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Status Badges */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-shrink-0">
           {hasRiasec && (
-            <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-xs rounded">
+            <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-xs rounded flex items-center gap-1">
+              <Target className="w-3 h-3" />
               RIASEC
             </span>
           )}
           {hasKarma && (
-            <span className="px-2 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 text-xs rounded">
+            <span className="px-2 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 text-xs rounded flex items-center gap-1">
+              <Brain className="w-3 h-3" />
               Karma
-            </span>
-          )}
-          {skillsCount > 0 && (
-            <span className="text-xs text-gray-500">
-              {skillsCount} skills
             </span>
           )}
         </div>
 
         {/* Actions */}
-        <Button variant="outline" size="sm" onClick={onView}>
+        <Button variant="outline" size="sm" onClick={onView} className="flex-shrink-0">
           <Eye className="w-4 h-4 mr-1" />
           Visualizza
         </Button>
