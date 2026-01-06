@@ -676,13 +676,26 @@ const AppContent: React.FC = () => {
     const newCompany = await createCompany(fullCompanyData as any);
     if (newCompany) {
       // Create root org node for the company
-      await supabase.from('org_nodes').insert({
+      const { data: rootNode } = await supabase.from('org_nodes').insert({
         company_id: newCompany.id,
         name: companyData.name,
         type: 'root',
         sort_order: 0,
         is_cultural_driver: false
-      });
+      }).select().single();
+      
+      // CRITICAL FIX: Assign current user as admin of the new company
+      // This ensures the company has an admin and RLS policies work correctly
+      if (user?.id) {
+        await supabase.from('company_members').insert({
+          user_id: user.id,
+          company_id: newCompany.id,
+          department_id: rootNode?.id || null,
+          role: 'admin',
+          status: 'completed',
+          is_hiring: false
+        });
+      }
       
       // Refresh companies list
       await loadAllCompaniesForSuperAdmin();

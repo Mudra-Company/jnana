@@ -69,12 +69,34 @@ export const useCompanyMembers = () => {
         }
       }
 
+      // Validate department_id exists in org_nodes (if provided)
+      let validDepartmentId: string | null = null;
+      if (input.departmentId) {
+        const { data: orgNode } = await supabase
+          .from('org_nodes')
+          .select('id')
+          .eq('id', input.departmentId)
+          .maybeSingle();
+        
+        validDepartmentId = orgNode?.id || null;
+        
+        if (!orgNode) {
+          console.warn('[useCompanyMembers] department_id not found in org_nodes, using null');
+        }
+      }
+
       // Prepare required_profile as Json
       const requiredProfileJson: Json = input.requiredProfile ? {
         hardSkills: input.requiredProfile.hardSkills || [],
         softSkills: input.requiredProfile.softSkills || [],
         seniority: input.requiredProfile.seniority || 'Mid'
       } : {};
+
+      // CRITICAL FIX: The constraint `company_members_user_or_hiring_check` requires:
+      // (user_id IS NOT NULL) OR (is_hiring = true)
+      // If no user_id, we MUST set is_hiring = true to satisfy the constraint
+      const hasUserId = userId !== null;
+      const isHiringValue = hasUserId ? (input.isHiring || false) : true;
 
       // Create the company_member entry
       const insertData: {
@@ -91,10 +113,10 @@ export const useCompanyMembers = () => {
         placeholder_email?: string;
       } = {
         company_id: input.companyId,
-        department_id: input.departmentId,
+        department_id: validDepartmentId,
         role: 'user' as const,
-        status: input.isHiring ? 'pending' : (input.email ? 'invited' : 'pending'),
-        is_hiring: input.isHiring || false,
+        status: hasUserId ? 'invited' : 'pending',
+        is_hiring: isHiringValue,
         required_profile: requiredProfileJson,
         job_title: input.jobTitle
       };
