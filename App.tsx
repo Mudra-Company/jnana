@@ -1059,6 +1059,8 @@ const AppContent: React.FC = () => {
               onEditProfile={() => navigate({ type: 'KARMA_PROFILE_EDIT' })}
               onStartTest={() => navigate({ type: 'KARMA_TEST_RIASEC' })}
               onViewResults={() => navigate({ type: 'KARMA_RESULTS' })}
+              onLogout={handleLogout}
+              onGoHome={() => setView({ type: 'LANDING' })}
             />
           )}
 
