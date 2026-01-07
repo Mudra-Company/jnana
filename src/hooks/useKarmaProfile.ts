@@ -639,6 +639,42 @@ export const useKarmaProfile = (userId?: string) => {
     }
   }, []);
 
+  // Helper function to normalize date strings to YYYY-MM-DD format
+  const normalizeDate = (dateStr: string | null | undefined): string | null => {
+    if (!dateStr) return null;
+    
+    const trimmed = dateStr.trim();
+    
+    // Handle "Present", "Presente", etc.
+    const presentTerms = ['present', 'presente', 'current', 'attuale', 'oggi', 'ad oggi', 'now'];
+    if (presentTerms.includes(trimmed.toLowerCase())) {
+      return null;
+    }
+    
+    // If already in YYYY-MM-DD format, return as-is
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+      return trimmed;
+    }
+    
+    // If only year (e.g., "2025"), add -01-01
+    if (/^\d{4}$/.test(trimmed)) {
+      return `${trimmed}-01-01`;
+    }
+    
+    // If year-month (e.g., "2025-03"), add -01
+    if (/^\d{4}-\d{2}$/.test(trimmed)) {
+      return `${trimmed}-01`;
+    }
+    
+    // Try to parse as Date
+    const parsed = new Date(trimmed);
+    if (!isNaN(parsed.getTime())) {
+      return parsed.toISOString().split('T')[0];
+    }
+    
+    return null;
+  };
+
   // ============ BULK OPERATIONS (for CV import) ============
   const importFromCV = useCallback(async (parsedData: {
     experiences?: Array<Omit<UserExperience, 'id' | 'userId' | 'createdAt'>>;
@@ -655,23 +691,16 @@ export const useKarmaProfile = (userId?: string) => {
       // Import experiences
       if (parsedData.experiences && parsedData.experiences.length > 0) {
         const expRows = parsedData.experiences.map((exp, idx) => {
-          // Extra validation: ensure endDate is a valid date or null
-          // Handle "Present", "Presente", etc. that might slip through
-          let validEndDate: string | null = exp.endDate || null;
-          if (validEndDate && typeof validEndDate === 'string') {
-            const endDateLower = validEndDate.toLowerCase().trim();
-            if (['present', 'presente', 'current', 'attuale', 'oggi', 'ad oggi'].includes(endDateLower)) {
-              validEndDate = null;
-            }
-          }
+          const normalizedStartDate = normalizeDate(exp.startDate);
+          const normalizedEndDate = normalizeDate(exp.endDate);
           
           return {
             user_id: targetUserId,
             company: exp.company,
             role: exp.role,
-            start_date: exp.startDate || null,
-            end_date: validEndDate,
-            is_current: exp.isCurrent || !validEndDate,
+            start_date: normalizedStartDate,
+            end_date: normalizedEndDate,
+            is_current: exp.isCurrent || !normalizedEndDate,
             description: exp.description || null,
             location: exp.location || null,
             sort_order: idx,
