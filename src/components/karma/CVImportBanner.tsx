@@ -15,9 +15,18 @@ interface CVImportBannerProps {
     skills?: string[];
   }) => Promise<void>;
   onSkip?: () => void;
+  // NEW: Props for uploading CV to portfolio
+  onUploadFile?: (file: File) => Promise<string | null>;
+  onAddPortfolioItem?: (item: { itemType: 'cv'; title: string; description?: string; fileUrl?: string; sortOrder: number }) => Promise<any>;
 }
 
-export const CVImportBanner: React.FC<CVImportBannerProps> = ({ mode = 'full', onImportComplete, onSkip }) => {
+export const CVImportBanner: React.FC<CVImportBannerProps> = ({ 
+  mode = 'full', 
+  onImportComplete, 
+  onSkip,
+  onUploadFile,
+  onAddPortfolioItem,
+}) => {
   const [status, setStatus] = useState<'idle' | 'uploading' | 'parsing' | 'done' | 'error'>('idle');
   const [parseProgress, setParseProgress] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -114,6 +123,25 @@ export const CVImportBanner: React.FC<CVImportBannerProps> = ({ mode = 'full', o
       }));
 
       setStatus('done');
+
+      // Save CV to portfolio if handlers are provided
+      if (onUploadFile && onAddPortfolioItem) {
+        try {
+          const fileUrl = await onUploadFile(file);
+          if (fileUrl) {
+            await onAddPortfolioItem({
+              itemType: 'cv',
+              title: `CV - ${new Date().toLocaleDateString('it-IT')}`,
+              description: 'Curriculum Vitae importato automaticamente',
+              fileUrl,
+              sortOrder: 0,
+            });
+          }
+        } catch (portfolioError) {
+          console.error('Failed to save CV to portfolio:', portfolioError);
+          // Don't fail the whole import, just log the error
+        }
+      }
 
       // Call the onImportComplete with all data
       await onImportComplete({

@@ -468,6 +468,16 @@ const PortfolioItemCard: React.FC<PortfolioItemCardProps> = ({ item, onRemove, i
       
       <div className="flex-1 min-w-0">
         <h5 className="font-medium text-foreground truncate">{item.title}</h5>
+        {/* Show upload date for CVs */}
+        {item.itemType === 'cv' && item.createdAt && (
+          <p className="text-xs text-muted-foreground">
+            Caricato il {new Date(item.createdAt).toLocaleDateString('it-IT', {
+              day: 'numeric',
+              month: 'long',
+              year: 'numeric'
+            })}
+          </p>
+        )}
         {item.description && (
           <p className="text-sm text-muted-foreground truncate">{item.description}</p>
         )}
