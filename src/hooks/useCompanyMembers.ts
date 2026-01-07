@@ -92,11 +92,13 @@ export const useCompanyMembers = () => {
         seniority: input.requiredProfile.seniority || 'Mid'
       } : {};
 
-      // CRITICAL FIX: The constraint `company_members_user_or_hiring_check` requires:
-      // (user_id IS NOT NULL) OR (is_hiring = true)
-      // If no user_id, we MUST set is_hiring = true to satisfy the constraint
+      // Determine is_hiring status:
+      // - If user_id exists -> NOT hiring (real user assigned)
+      // - If no user_id BUT has name/email -> NOT hiring (identified person, pending invite)
+      // - If no user_id AND no name/email -> IS hiring (empty slot)
       const hasUserId = userId !== null;
-      const isHiringValue = hasUserId ? (input.isHiring || false) : true;
+      const hasPlaceholderInfo = !!(input.email || (input.firstName && input.lastName));
+      const isHiringValue = input.isHiring ?? (!hasUserId && !hasPlaceholderInfo);
 
       // Create the company_member entry
       const insertData: {
