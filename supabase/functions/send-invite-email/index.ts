@@ -68,9 +68,11 @@ const handler = async (req: Request): Promise<Response> => {
       console.error("Error updating member status:", updateError);
     }
 
-    // Send the invite email
+    // Send the invite email - use configured sender or fallback
+    const fromEmail = Deno.env.get("RESEND_FROM_EMAIL") || "Jnana <onboarding@resend.dev>";
+    
     const emailResponse = await resend.emails.send({
-      from: "Jnana <noreply@resend.dev>", // Replace with your verified domain
+      from: fromEmail,
       to: [employeeEmail],
       subject: `${inviterName || companyName} ti ha invitato su Jnana`,
       html: `
