@@ -171,13 +171,13 @@ export const OrgNodeCard: React.FC<OrgNodeCardProps> = ({
 
   return (
     <Card 
-      className={`relative min-w-[320px] max-w-[360px] flex flex-col transition-all duration-200 hover:-translate-y-0.5 hover:shadow-xl ${getHierarchyStyle()}`}
+      className={`relative min-w-[300px] max-w-[400px] w-max flex flex-col transition-all duration-200 hover:-translate-y-0.5 hover:shadow-xl ${getHierarchyStyle()}`}
       padding="sm"
     >
       {/* Header */}
-      <div className="flex justify-between items-start mb-3 pb-3 border-b border-gray-200 dark:border-gray-700">
-        <div className="flex-1 pr-3">
-          <h4 className="font-bold text-gray-800 dark:text-gray-100 text-lg leading-tight truncate" title={node.name}>
+      <div className="flex justify-between items-start mb-3 pb-3 border-b border-gray-200 dark:border-gray-700 gap-2">
+        <div className="flex-1 min-w-0">
+          <h4 className="font-bold text-gray-800 dark:text-gray-100 text-base leading-snug break-words">
             {node.name}
           </h4>
           <div className="flex items-center gap-2 mt-2 flex-wrap">
