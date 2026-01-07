@@ -239,10 +239,11 @@ export const KarmaProfileEdit: React.FC<KarmaProfileEditProps> = ({ onBack, onSa
           </Button>
         </div>
 
-        {/* CV Import Banner */}
+        {/* CV Import Banner - Full mode for new profiles */}
         {showCVBanner && experiences.length === 0 && education.length === 0 && (
           <div className="mb-6">
             <CVImportBanner
+              mode="full"
               onImportComplete={async (data) => {
                 if (data.profileData) {
                   setFormData(prev => ({
@@ -300,9 +301,36 @@ export const KarmaProfileEdit: React.FC<KarmaProfileEditProps> = ({ onBack, onSa
               <h3 className="font-bold text-gray-900 dark:text-white mb-1">
                 Foto Profilo
               </h3>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
                 Carica una foto professionale. Formati accettati: JPG, PNG.
               </p>
+              
+              {/* CV Re-upload option for existing profiles */}
+              {(experiences.length > 0 || education.length > 0 || hardSkills.length > 0) && (
+                <CVImportBanner
+                  mode="compact"
+                  onImportComplete={async (data) => {
+                    if (data.profileData) {
+                      setFormData(prev => ({
+                        ...prev,
+                        firstName: data.profileData?.firstName || prev.firstName,
+                        lastName: data.profileData?.lastName || prev.lastName,
+                        headline: data.profileData?.headline || prev.headline,
+                        bio: data.profileData?.bio || prev.bio,
+                        location: data.profileData?.location || prev.location,
+                        yearsExperience: data.profileData?.yearsExperience || prev.yearsExperience,
+                      }));
+                    }
+                    await importFromCV({
+                      experiences: data.experiences,
+                      education: data.education,
+                      certifications: data.certifications,
+                      languages: data.languages,
+                      skills: data.skills,
+                    });
+                  }}
+                />
+              )}
             </div>
           </div>
         </Card>

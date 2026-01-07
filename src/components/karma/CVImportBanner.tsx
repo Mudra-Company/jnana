@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { FileUp, Sparkles, Check, Loader2, AlertCircle } from 'lucide-react';
+import { FileUp, Sparkles, Check, Loader2, AlertCircle, RefreshCw } from 'lucide-react';
 import { Button } from '../../../components/Button';
 import { supabase } from '../../integrations/supabase/client';
 import type { ParsedCVData, UserExperience, UserEducation, UserCertification, UserLanguage } from '../../types/karma';
 
 interface CVImportBannerProps {
+  mode?: 'full' | 'compact';
   onImportComplete: (data: {
     profileData?: Partial<{ firstName: string; lastName: string; headline: string; bio: string; location: string; yearsExperience: number }>;
     experiences?: Omit<UserExperience, 'id' | 'userId' | 'createdAt'>[];
@@ -13,10 +14,10 @@ interface CVImportBannerProps {
     languages?: Omit<UserLanguage, 'id' | 'userId' | 'createdAt'>[];
     skills?: string[];
   }) => Promise<void>;
-  onSkip: () => void;
+  onSkip?: () => void;
 }
 
-export const CVImportBanner: React.FC<CVImportBannerProps> = ({ onImportComplete, onSkip }) => {
+export const CVImportBanner: React.FC<CVImportBannerProps> = ({ mode = 'full', onImportComplete, onSkip }) => {
   const [status, setStatus] = useState<'idle' | 'uploading' | 'parsing' | 'done' | 'error'>('idle');
   const [parseProgress, setParseProgress] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -126,6 +127,58 @@ export const CVImportBanner: React.FC<CVImportBannerProps> = ({ onImportComplete
     }
   };
 
+  // Compact mode - just a small button
+  if (mode === 'compact') {
+    if (status === 'uploading' || status === 'parsing') {
+      return (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Loader2 size={14} className="animate-spin" />
+          <span>{status === 'uploading' ? 'Caricamento...' : 'Analisi CV...'}</span>
+        </div>
+      );
+    }
+
+    if (status === 'done') {
+      return (
+        <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400">
+          <Check size={14} />
+          <span>CV aggiornato!</span>
+        </div>
+      );
+    }
+
+    if (status === 'error') {
+      return (
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-red-600 dark:text-red-400">{error}</span>
+          <label className="text-sm text-primary hover:underline cursor-pointer">
+            Riprova
+            <input
+              type="file"
+              accept=".pdf,.doc,.docx,image/*"
+              onChange={handleFileSelect}
+              className="hidden"
+            />
+          </label>
+        </div>
+      );
+    }
+
+    return (
+      <label className="text-sm text-primary hover:underline cursor-pointer flex items-center gap-1.5">
+        <RefreshCw size={14} />
+        Ricarica CV
+        <input
+          type="file"
+          accept=".pdf,.doc,.docx,image/*"
+          onChange={handleFileSelect}
+          className="hidden"
+        />
+      </label>
+    );
+  }
+
+  // Full mode below
   if (status === 'done') {
     return (
       <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-2xl p-6">
@@ -161,7 +214,7 @@ export const CVImportBanner: React.FC<CVImportBannerProps> = ({ onImportComplete
         </div>
         <div className="flex gap-2">
           <Button size="sm" onClick={() => setStatus('idle')}>Riprova</Button>
-          <Button variant="ghost" size="sm" onClick={onSkip}>Compila manualmente</Button>
+          {onSkip && <Button variant="ghost" size="sm" onClick={onSkip}>Compila manualmente</Button>}
         </div>
       </div>
     );
@@ -219,9 +272,11 @@ export const CVImportBanner: React.FC<CVImportBannerProps> = ({ onImportComplete
               className="hidden"
             />
           </label>
-          <Button variant="ghost" size="sm" onClick={onSkip}>
-            Compila manualmente
-          </Button>
+          {onSkip && (
+            <Button variant="ghost" size="sm" onClick={onSkip}>
+              Compila manualmente
+            </Button>
+          )}
         </div>
       </div>
     </div>
