@@ -60,7 +60,11 @@ export const AdminDashboardView: React.FC<AdminDashboardProps> = ({
   currentUserId,
   onRefreshUsers
 }) => {
-  const companyUsers = users.filter(u => u.companyId === activeCompany.id);
+  // Separate real employees from hiring positions
+  const allCompanyRecords = users.filter(u => u.companyId === activeCompany.id);
+  const companyUsers = allCompanyRecords.filter(u => !u.isHiring);
+  const hiringPositions = allCompanyRecords.filter(u => u.isHiring);
+  
   const completedCount = companyUsers.filter(u => u.status === 'completed').length;
   const adminCount = companyUsers.filter(u => u.role === 'admin').length;
 
@@ -361,7 +365,7 @@ export const AdminDashboardView: React.FC<AdminDashboardProps> = ({
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
         <Card className="flex flex-col justify-between">
           <span className="text-gray-500 text-xs font-bold uppercase tracking-wider">Totale Dipendenti</span>
           <span className="text-3xl font-bold text-gray-800 dark:text-white mt-2">{companyUsers.length}</span>
@@ -373,6 +377,16 @@ export const AdminDashboardView: React.FC<AdminDashboardProps> = ({
         <Card className="flex flex-col justify-between">
           <span className="text-gray-500 text-xs font-bold uppercase tracking-wider">Admin</span>
           <span className="text-3xl font-bold text-amber-500 mt-2">{adminCount}</span>
+        </Card>
+        <Card 
+          className="flex flex-col justify-between bg-gradient-to-br from-blue-500 to-cyan-600 text-white border-0 shadow-lg cursor-pointer hover:scale-[1.02] transition-transform" 
+          onClick={() => setView({ type: 'TALENT_SEARCH' })}
+        >
+          <div className="flex justify-between items-start">
+            <span className="text-blue-100 text-xs font-bold uppercase tracking-wider">Posizioni Aperte</span>
+            <ArrowRight size={16} className="text-white"/>
+          </div>
+          <span className="text-3xl font-bold mt-2">{hiringPositions.length}</span>
         </Card>
         <Card className="flex flex-col justify-between bg-gradient-to-br from-purple-600 to-indigo-700 text-white border-0 shadow-lg cursor-pointer hover:scale-[1.02] transition-transform" onClick={() => setView({ type: 'ADMIN_IDENTITY_HUB' })}>
           <div className="flex justify-between items-start">
@@ -386,7 +400,7 @@ export const AdminDashboardView: React.FC<AdminDashboardProps> = ({
       {/* User Table */}
       <Card>
         <div className="flex justify-between items-center mb-6">
-          <h3 className="font-bold text-lg text-gray-800 dark:text-gray-200">Elenco Dipendenti / Candidati</h3>
+          <h3 className="font-bold text-lg text-gray-800 dark:text-gray-200">Elenco Dipendenti</h3>
           <div className="flex gap-2">
             <input 
               placeholder="Cerca..." 
