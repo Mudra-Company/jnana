@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { UserPlus, ArrowRight, Eye, Shield, User as UserIcon, MoreVertical, UserCog, UserMinus, Trash2, Loader2 } from 'lucide-react';
+import { UserPlus, ArrowRight, Eye, Shield, User as UserIcon, MoreVertical, UserCog, UserMinus, Trash2, Loader2, Mail, Edit } from 'lucide-react';
 import { Card } from '../../components/Card';
 import { Button } from '../../components/Button';
 import { CompanyProfile, User, ViewState } from '../../types';
@@ -7,6 +7,7 @@ import { calculateCultureAnalysis } from '../../services/riasecService';
 import { useCompanyMembers } from '../../src/hooks/useCompanyMembers';
 import { toast } from '../../src/hooks/use-toast';
 import { supabase } from '../../src/integrations/supabase/client';
+import { EditUserModal } from '../../src/components/admin/EditUserModal';
 
 interface AdminDashboardProps {
   activeCompany: CompanyProfile;
@@ -84,6 +85,12 @@ export const AdminDashboardView: React.FC<AdminDashboardProps> = ({
 
   // --- SEARCH ---
   const [searchTerm, setSearchTerm] = useState('');
+
+  // --- EDIT USER MODAL ---
+  const [editingUser, setEditingUser] = useState<User | null>(null);
+  
+  // --- SENDING INVITE STATE ---
+  const [sendingInviteId, setSendingInviteId] = useState<string | null>(null);
 
   const filteredUsers = useMemo(() => {
     if (!searchTerm) return companyUsers;
@@ -221,6 +228,51 @@ export const AdminDashboardView: React.FC<AdminDashboardProps> = ({
     setOpenMenuId(null);
   };
 
+  const handleSendInvite = async (user: User) => {
+    if (!user.memberId) {
+      toast({ title: 'Errore', description: 'ID membro non trovato', variant: 'destructive' });
+      return;
+    }
+
+    setOpenMenuId(null);
+    setSendingInviteId(user.memberId);
+
+    try {
+      const { data, error } = await supabase.functions.invoke('send-invite-email', {
+        body: {
+          employeeEmail: user.email,
+          employeeName: `${user.firstName} ${user.lastName}`.trim(),
+          companyName: activeCompany.name,
+          companyId: activeCompany.id,
+          memberId: user.memberId,
+        }
+      });
+
+      if (error) throw error;
+
+      toast({ 
+        title: 'Invito inviato! ✉️', 
+        description: `Email di invito inviata a ${user.email}` 
+      });
+
+      if (onRefreshUsers) await onRefreshUsers();
+    } catch (err) {
+      console.error('Error sending invite:', err);
+      toast({ 
+        title: 'Errore', 
+        description: 'Impossibile inviare l\'invito. Verifica la configurazione email.', 
+        variant: 'destructive' 
+      });
+    } finally {
+      setSendingInviteId(null);
+    }
+  };
+
+  const handleOpenEditModal = (user: User) => {
+    setOpenMenuId(null);
+    setEditingUser(user);
+  };
+
   const isCurrentUser = (userId: string) => currentUserId === userId;
 
   return (
@@ -254,6 +306,16 @@ export const AdminDashboardView: React.FC<AdminDashboardProps> = ({
           else handleRemoveMember(confirmModal.user);
         }}
         onCancel={() => setConfirmModal({ isOpen: false, type: 'promote', user: null })}
+      />
+
+      {/* Edit User Modal */}
+      <EditUserModal
+        isOpen={!!editingUser}
+        user={editingUser}
+        onClose={() => setEditingUser(null)}
+        onSaved={async () => {
+          if (onRefreshUsers) await onRefreshUsers();
+        }}
       />
 
       {showInvite && (
@@ -404,6 +466,29 @@ export const AdminDashboardView: React.FC<AdminDashboardProps> = ({
                             className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             <Eye size={14} /> Vedi Profilo
+                          </button>
+                          
+                          {/* Invia/Reinvia Invito - solo per utenti pending/invited */}
+                          {(u.status === 'pending' || u.status === 'invited') && (
+                            <button
+                              onClick={() => handleSendInvite(u)}
+                              disabled={sendingInviteId === u.memberId}
+                              className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2 text-blue-600 disabled:opacity-50"
+                            >
+                              {sendingInviteId === u.memberId ? (
+                                <><Loader2 size={14} className="animate-spin" /> Invio...</>
+                              ) : (
+                                <><Mail size={14} /> {u.status === 'pending' ? 'Invia Invito' : 'Reinvia Invito'}</>
+                              )}
+                            </button>
+                          )}
+                          
+                          {/* Modifica Utente */}
+                          <button
+                            onClick={() => handleOpenEditModal(u)}
+                            className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
+                          >
+                            <Edit size={14} /> Modifica
                           </button>
                           
                           {!isCurrentUser(u.id) && u.role !== 'super_admin' && (

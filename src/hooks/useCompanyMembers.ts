@@ -164,7 +164,7 @@ export const useCompanyMembers = () => {
   }, []);
 
   /**
-   * Updates an existing company member's department, job title, or required profile
+   * Updates an existing company member's department, job title, required profile, or placeholder info
    */
   const updateCompanyMember = useCallback(async (
     memberId: string, 
@@ -173,6 +173,9 @@ export const useCompanyMembers = () => {
       is_hiring?: boolean;
       required_profile?: RequiredProfileData;
       job_title?: string;
+      placeholder_first_name?: string;
+      placeholder_last_name?: string;
+      placeholder_email?: string;
     }
   ): Promise<{ success: boolean; error?: string }> => {
     setIsLoading(true);
@@ -184,11 +187,17 @@ export const useCompanyMembers = () => {
         is_hiring?: boolean;
         required_profile?: Json;
         job_title?: string;
+        placeholder_first_name?: string;
+        placeholder_last_name?: string;
+        placeholder_email?: string;
       } = {};
       
       if (updates.department_id !== undefined) updateData.department_id = updates.department_id;
       if (updates.is_hiring !== undefined) updateData.is_hiring = updates.is_hiring;
       if (updates.job_title !== undefined) updateData.job_title = updates.job_title;
+      if (updates.placeholder_first_name !== undefined) updateData.placeholder_first_name = updates.placeholder_first_name;
+      if (updates.placeholder_last_name !== undefined) updateData.placeholder_last_name = updates.placeholder_last_name;
+      if (updates.placeholder_email !== undefined) updateData.placeholder_email = updates.placeholder_email;
       if (updates.required_profile) {
         updateData.required_profile = {
           hardSkills: updates.required_profile.hardSkills || [],
