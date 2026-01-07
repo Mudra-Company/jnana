@@ -4,7 +4,7 @@ import {
   CheckCircle2, Circle, Sparkles, Star, Link2, Eye, 
   AlertCircle, TrendingUp, LogOut, GraduationCap, Award,
   Languages, Building2, Linkedin, Github, Globe, ExternalLink,
-  Home
+  Home, FileText, Image, FolderOpen
 } from 'lucide-react';
 import { Button } from '../../components/Button';
 import { Card } from '../../components/Card';
@@ -97,7 +97,7 @@ export const KarmaDashboard: React.FC<KarmaDashboardProps> = ({
     <div className="min-h-screen bg-gradient-to-br from-jnana-bg via-white to-jnana-powder/30 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
       {/* Header */}
       <header className="sticky top-0 z-50 bg-white/80 dark:bg-gray-900/80 backdrop-blur-lg border-b border-gray-200 dark:border-gray-800">
-        <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Hexagon size={28} className="text-jnana-sage" strokeWidth={1.5} />
             <div>
@@ -107,21 +107,34 @@ export const KarmaDashboard: React.FC<KarmaDashboardProps> = ({
             </div>
           </div>
           
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
+            <a 
+              href="/" 
+              className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-900 dark:hover:text-white transition-colors"
+            >
+              <Home size={16} />
+              Home
+            </a>
             <Button variant="outline" size="sm" onClick={onEditProfile}>
               <Edit size={16} className="mr-2" />
               Modifica
             </Button>
             {onLogout && (
-              <Button variant="ghost" size="sm" onClick={onLogout} className="text-gray-500">
-                <LogOut size={16} />
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={onLogout} 
+                className="text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
+              >
+                <LogOut size={16} className="mr-2" />
+                Esci
               </Button>
             )}
           </div>
         </div>
       </header>
 
-      <main className="max-w-5xl mx-auto px-4 py-8">
+      <main className="max-w-7xl mx-auto px-4 py-8">
         {/* Profile Header Card */}
         <Card className="mb-6 overflow-hidden">
           <div className="flex flex-col md:flex-row gap-6">
@@ -433,6 +446,64 @@ export const KarmaDashboard: React.FC<KarmaDashboardProps> = ({
                       </div>
                     </div>
                   ))}
+                </div>
+              </Card>
+            )}
+
+            {/* Portfolio Section */}
+            {portfolio.length > 0 && (
+              <Card>
+                <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                  <FolderOpen size={20} className="text-jnana-sage" />
+                  Portfolio
+                </h3>
+                <div className="space-y-3">
+                  {portfolio.map(item => {
+                    const getItemIcon = () => {
+                      switch (item.itemType) {
+                        case 'cv': return FileText;
+                        case 'certificate': return Award;
+                        case 'image': return Image;
+                        default: return FileText;
+                      }
+                    };
+                    const ItemIcon = getItemIcon();
+                    const getItemLabel = () => {
+                      switch (item.itemType) {
+                        case 'cv': return 'CV';
+                        case 'certificate': return 'Certificato';
+                        case 'image': return 'Immagine';
+                        case 'project': return 'Progetto';
+                        default: return 'Documento';
+                      }
+                    };
+                    
+                    return (
+                      <div key={item.id} className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-xl">
+                        <div className="w-10 h-10 rounded-lg bg-white dark:bg-gray-700 flex items-center justify-center flex-shrink-0">
+                          <ItemIcon size={18} className="text-gray-500" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-medium text-gray-900 dark:text-white text-sm truncate">
+                            {item.title}
+                          </h4>
+                          <p className="text-xs text-gray-500">
+                            {getItemLabel()} • {formatDate(item.createdAt)}
+                          </p>
+                        </div>
+                        {(item.fileUrl || item.externalUrl) && (
+                          <a
+                            href={item.fileUrl || item.externalUrl || '#'}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="w-8 h-8 rounded-lg bg-jnana-sage/10 flex items-center justify-center text-jnana-sage hover:bg-jnana-sage/20 transition-colors"
+                          >
+                            <ExternalLink size={14} />
+                          </a>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </Card>
             )}
