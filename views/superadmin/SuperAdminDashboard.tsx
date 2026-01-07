@@ -1,11 +1,9 @@
 import React, { useState } from 'react';
-import { Building, Plus, X, Loader2, FlaskConical, Sparkles, Globe, BarChart3 } from 'lucide-react';
+import { Building, Plus, X, Loader2, FlaskConical, Globe } from 'lucide-react';
 import { Card } from '../../components/Card';
 import { Button } from '../../components/Button';
 import { CompanyProfile, User } from '../../types';
 import { INDUSTRIES, SIZE_RANGES } from '../../constants';
-
-type TabType = 'companies' | 'karma' | 'analytics';
 
 interface CreateCompanyData {
   name: string;
@@ -22,8 +20,6 @@ interface SuperAdminDashboardProps {
   onImpersonate: (companyId: string) => void;
   onCreateCompany?: (data: CreateCompanyData) => Promise<boolean>;
   onStartDemoMode?: () => void;
-  onNavigateToKarmaTalents?: () => void;
-  activeTab?: TabType;
 }
 
 export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({ 
@@ -31,13 +27,10 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
   users, 
   onImpersonate,
   onCreateCompany,
-  onStartDemoMode,
-  onNavigateToKarmaTalents,
-  activeTab = 'companies'
+  onStartDemoMode
 }) => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
-  const [currentTab, setCurrentTab] = useState<TabType>(activeTab);
   
   // Form state
   const [newName, setNewName] = useState('');
@@ -79,21 +72,21 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
     }
   };
 
-  const handleTabChange = (tab: TabType) => {
-    setCurrentTab(tab);
-    if (tab === 'karma' && onNavigateToKarmaTalents) {
-      onNavigateToKarmaTalents();
-    }
-  };
-
   return (
     <div className="p-8 max-w-7xl mx-auto">
       <div className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-brand font-bold text-gray-800 dark:text-white">Console Super Admin</h1>
-          <p className="text-gray-500">Gestione multi-tenant e configurazione globale.</p>
+          <div className="flex items-center gap-3 mb-2">
+            <div className="p-2 bg-amber-100 dark:bg-amber-900/30 rounded-lg">
+              <Globe className="w-6 h-6 text-amber-600 dark:text-amber-400" />
+            </div>
+            <h1 className="text-3xl font-brand font-bold text-gray-800 dark:text-white">
+              Console Super Admin - Aziende
+            </h1>
+          </div>
+          <p className="text-gray-500 dark:text-gray-400">Gestione multi-tenant e configurazione globale.</p>
         </div>
-        {onStartDemoMode && currentTab === 'companies' && (
+        {onStartDemoMode && (
           <Button 
             onClick={onStartDemoMode}
             className="bg-purple-600 hover:bg-purple-700 text-white shadow-lg"
@@ -104,49 +97,8 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
         )}
       </div>
 
-      {/* Tab Navigation */}
-      <div className="flex gap-2 mb-8 border-b border-gray-200 dark:border-gray-700">
-        <button
-          onClick={() => handleTabChange('companies')}
-          className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-colors font-medium ${
-            currentTab === 'companies'
-              ? 'border-amber-500 text-amber-600 dark:text-amber-400'
-              : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
-          }`}
-        >
-          <Globe size={18} />
-          Aziende
-          <span className="ml-1 px-2 py-0.5 bg-gray-100 dark:bg-gray-700 rounded-full text-xs">
-            {companies.length}
-          </span>
-        </button>
-        <button
-          onClick={() => handleTabChange('karma')}
-          className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-colors font-medium ${
-            currentTab === 'karma'
-              ? 'border-violet-500 text-violet-600 dark:text-violet-400'
-              : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
-          }`}
-        >
-          <Sparkles size={18} />
-          Karma Talents
-        </button>
-        <button
-          onClick={() => handleTabChange('analytics')}
-          className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-colors font-medium ${
-            currentTab === 'analytics'
-              ? 'border-blue-500 text-blue-600 dark:text-blue-400'
-              : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
-          }`}
-        >
-          <BarChart3 size={18} />
-          Analytics
-        </button>
-      </div>
-
-      {/* Companies Tab Content */}
-      {currentTab === 'companies' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      {/* Companies Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {companies.map(company => (
           <Card key={company.id} className="hover:shadow-lg transition-shadow border-t-4 border-t-amber-500">
             <div className="flex justify-between items-start mb-4">
@@ -193,16 +145,6 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
           <span className="font-bold">Aggiungi Tenant</span>
         </Card>
       </div>
-      )}
-
-      {/* Analytics Tab Placeholder */}
-      {currentTab === 'analytics' && (
-        <div className="text-center py-16">
-          <BarChart3 size={64} className="mx-auto text-gray-300 dark:text-gray-600 mb-4" />
-          <h3 className="text-xl font-semibold text-gray-700 dark:text-gray-300 mb-2">Analytics Dashboard</h3>
-          <p className="text-gray-500 dark:text-gray-400">Coming soon - Statistiche globali della piattaforma</p>
-        </div>
-      )}
 
       {/* Create Company Modal */}
       {showCreateModal && (

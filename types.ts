@@ -187,6 +187,7 @@ export type ViewState =
   | { type: 'SUPER_ADMIN_JOBS' }
   | { type: 'SUPER_ADMIN_KARMA_TALENTS' }
   | { type: 'SUPER_ADMIN_KARMA_PROFILE'; userId: string }
+  | { type: 'SUPER_ADMIN_ANALYTICS' }
   | { type: 'ADMIN_DASHBOARD' }
   | { type: 'ADMIN_ORG_CHART' }
   | { type: 'ADMIN_IDENTITY_HUB' } 
