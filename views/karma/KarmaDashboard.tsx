@@ -16,6 +16,7 @@ interface KarmaDashboardProps {
   onStartTest: () => void;
   onViewResults: () => void;
   onLogout?: () => void;
+  onGoHome?: () => void;
 }
 
 export const KarmaDashboard: React.FC<KarmaDashboardProps> = ({
@@ -23,6 +24,7 @@ export const KarmaDashboard: React.FC<KarmaDashboardProps> = ({
   onStartTest,
   onViewResults,
   onLogout,
+  onGoHome,
 }) => {
   const { 
     profile, 
@@ -108,13 +110,13 @@ export const KarmaDashboard: React.FC<KarmaDashboardProps> = ({
           </div>
           
           <div className="flex items-center gap-3">
-            <a 
-              href="/" 
+            <button 
+              onClick={onGoHome}
               className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-900 dark:hover:text-white transition-colors"
             >
               <Home size={16} />
               Home
-            </a>
+            </button>
             <Button variant="outline" size="sm" onClick={onEditProfile}>
               <Edit size={16} className="mr-2" />
               Modifica
