@@ -74,15 +74,27 @@ export const CVImportBanner: React.FC<CVImportBannerProps> = ({ mode = 'full', o
       setParseProgress(progress);
 
       // Transform parsed data to match our types
-      const experiences: Omit<UserExperience, 'id' | 'userId' | 'createdAt'>[] = (parsed.experiences || []).map((exp, idx) => ({
-        company: exp.company,
-        role: exp.role,
-        startDate: exp.startDate,
-        endDate: exp.endDate,
-        isCurrent: !exp.endDate,
-        description: exp.description,
-        sortOrder: idx,
-      }));
+      const experiences: Omit<UserExperience, 'id' | 'userId' | 'createdAt'>[] = (parsed.experiences || []).map((exp, idx) => {
+        // Handle "Present", "Presente", "Current", "Attuale" - convert to undefined for DB (will be null)
+        const endDateLower = (exp.endDate || '').toLowerCase().trim();
+        const isCurrentJob = !exp.endDate || 
+          endDateLower === 'present' ||
+          endDateLower === 'presente' ||
+          endDateLower === 'current' ||
+          endDateLower === 'attuale' ||
+          endDateLower === 'oggi' ||
+          endDateLower === 'ad oggi';
+        
+        return {
+          company: exp.company,
+          role: exp.role,
+          startDate: exp.startDate,
+          endDate: isCurrentJob ? undefined : exp.endDate,
+          isCurrent: isCurrentJob,
+          description: exp.description,
+          sortOrder: idx,
+        };
+      });
 
       const education: Omit<UserEducation, 'id' | 'userId' | 'createdAt'>[] = (parsed.education || []).map((edu, idx) => ({
         institution: edu.institution,

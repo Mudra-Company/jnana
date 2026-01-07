@@ -237,6 +237,23 @@ IMPORTANTE: Rispondi SOLO con il JSON, senza backtick, senza markdown, senza spi
       );
     }
 
+    // Normalize experiences - convert "Present" endDate to null
+    const normalizedExperiences = (Array.isArray(parsedData.experiences) ? parsedData.experiences : []).map(exp => {
+      const endDateLower = (exp.endDate || '').toLowerCase().trim();
+      const isCurrentJob = !exp.endDate || 
+        endDateLower === 'present' ||
+        endDateLower === 'presente' ||
+        endDateLower === 'current' ||
+        endDateLower === 'attuale' ||
+        endDateLower === 'oggi' ||
+        endDateLower === 'ad oggi';
+      
+      return {
+        ...exp,
+        endDate: isCurrentJob ? null : exp.endDate
+      };
+    });
+
     // Build result with defaults
     const result: ParsedCVData = {
       firstName: parsedData.firstName || undefined,
@@ -246,7 +263,7 @@ IMPORTANTE: Rispondi SOLO con il JSON, senza backtick, senza markdown, senza spi
       location: parsedData.location || undefined,
       yearsExperience: parsedData.yearsExperience || undefined,
       skills: Array.isArray(parsedData.skills) ? parsedData.skills : [],
-      experiences: Array.isArray(parsedData.experiences) ? parsedData.experiences : [],
+      experiences: normalizedExperiences,
       education: Array.isArray(parsedData.education) ? parsedData.education : [],
       certifications: Array.isArray(parsedData.certifications) ? parsedData.certifications : [],
       languages: Array.isArray(parsedData.languages) ? parsedData.languages : [],
