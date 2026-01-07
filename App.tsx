@@ -39,6 +39,8 @@ import { KarmaOnboarding } from './views/karma/KarmaOnboarding';
 import { KarmaDashboard } from './views/karma/KarmaDashboard';
 import { KarmaProfileEdit } from './views/karma/KarmaProfileEdit';
 import { KarmaResults } from './views/karma/KarmaResults';
+import { KarmaTestRiasec } from './views/karma/KarmaTestRiasec';
+import { KarmaTestChat } from './views/karma/KarmaTestChat';
 
 // Landing Page
 import { LandingPage } from './views/landing/LandingPage';
@@ -1037,23 +1039,68 @@ const AppContent: React.FC = () => {
             />
           )}
 
-          {view.type === 'KARMA_TEST_RIASEC' && currentUserData && (
-            <UserTestView
-              user={currentUserData}
+          {view.type === 'KARMA_TEST_RIASEC' && (
+            <KarmaTestRiasec
               onComplete={async (score) => {
-                await handleTestComplete(score);
+                // Save RIASEC result to DB
+                if (user) {
+                  const profileCode = calculateProfileCode(score);
+                  await saveRiasecResult(user.id, null, score, profileCode);
+                  
+                  // Update local state
+                  setCurrentUserData(prev => prev ? {
+                    ...prev,
+                    results: score,
+                    profileCode,
+                    submissionDate: new Date().toISOString().split('T')[0],
+                  } : null);
+                }
                 setView({ type: 'KARMA_TEST_CHAT' });
               }}
+              onBack={() => setView({ type: 'KARMA_DASHBOARD' })}
             />
           )}
 
-          {view.type === 'KARMA_TEST_CHAT' && currentUserData && (
-            <KarmaChatView
-              user={currentUserData}
+          {view.type === 'KARMA_TEST_CHAT' && currentUserData?.results && currentUserData?.profileCode && (
+            <KarmaTestChat
+              riasecScore={currentUserData.results}
+              profileCode={currentUserData.profileCode}
+              firstName={currentUserData.firstName || ''}
               onComplete={async (transcript) => {
-                await handleKarmaComplete(transcript);
+                // Call AI analysis
+                let karmaDataPartial: any = {};
+                try {
+                  const { data, error } = await supabase.functions.invoke('karma-analyze', {
+                    body: { transcript: transcript.map(m => ({ role: m.role, text: m.text })) }
+                  });
+                  if (!error && data) karmaDataPartial = data;
+                } catch (e) {
+                  console.error('Error calling karma-analyze:', e);
+                }
+
+                // Save to database
+                if (user) {
+                  await saveKarmaSession(user.id, null, transcript, {
+                    summary: karmaDataPartial.summary,
+                    softSkills: karmaDataPartial.softSkills,
+                    primaryValues: karmaDataPartial.primaryValues,
+                    riskFactors: karmaDataPartial.riskFactors,
+                    seniorityAssessment: karmaDataPartial.seniorityAssessment,
+                  });
+                }
+
+                // Update local state
+                setCurrentUserData(prev => prev ? {
+                  ...prev,
+                  karmaData: {
+                    transcript,
+                    ...karmaDataPartial,
+                  },
+                } : null);
+
                 setView({ type: 'KARMA_RESULTS' });
               }}
+              onBack={() => setView({ type: 'KARMA_DASHBOARD' })}
             />
           )}
 

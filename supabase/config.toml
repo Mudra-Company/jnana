@@ -11,3 +11,6 @@ verify_jwt = false
 
 [functions.cv-parser]
 verify_jwt = false
+
+[functions.send-invite-email]
+verify_jwt = false
