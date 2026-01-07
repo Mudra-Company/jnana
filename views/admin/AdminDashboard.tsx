@@ -1,11 +1,12 @@
 import React, { useState, useMemo } from 'react';
-import { UserPlus, ArrowRight, Eye, Shield, User as UserIcon, MoreVertical, UserCog, UserMinus, Trash2 } from 'lucide-react';
+import { UserPlus, ArrowRight, Eye, Shield, User as UserIcon, MoreVertical, UserCog, UserMinus, Trash2, Loader2 } from 'lucide-react';
 import { Card } from '../../components/Card';
 import { Button } from '../../components/Button';
 import { CompanyProfile, User, ViewState } from '../../types';
 import { calculateCultureAnalysis } from '../../services/riasecService';
 import { useCompanyMembers } from '../../src/hooks/useCompanyMembers';
 import { toast } from '../../src/hooks/use-toast';
+import { supabase } from '../../src/integrations/supabase/client';
 
 interface AdminDashboardProps {
   activeCompany: CompanyProfile;
@@ -69,6 +70,7 @@ export const AdminDashboardView: React.FC<AdminDashboardProps> = ({
   const [inviteName, setInviteName] = useState('');
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState('');
+  const [isInviting, setIsInviting] = useState(false);
   
   // --- ACTION MENU ---
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
@@ -94,23 +96,73 @@ export const AdminDashboardView: React.FC<AdminDashboardProps> = ({
     );
   }, [companyUsers, searchTerm]);
 
-  const handleInviteUser = () => {
+  const handleInviteUser = async () => {
     if (!inviteName || !inviteEmail) return;
-    const newUser: User = {
-      id: `u_${Date.now()}`,
-      firstName: inviteName.split(' ')[0],
-      lastName: inviteName.split(' ')[1] || '',
-      email: inviteEmail,
-      companyId: activeCompany.id,
-      status: 'invited',
-      jobTitle: inviteRole
-    };
-    const updatedUsers = [...users, newUser];
-    onUpdateUsers(updatedUsers);
-    setShowInvite(false);
-    setInviteName('');
-    setInviteEmail('');
-    setInviteRole('');
+    
+    setIsInviting(true);
+    
+    try {
+      // 1. Create a placeholder company_member record
+      const firstName = inviteName.split(' ')[0];
+      const lastName = inviteName.split(' ').slice(1).join(' ') || '';
+      
+      const { data: memberData, error: memberError } = await supabase
+        .from('company_members')
+        .insert({
+          company_id: activeCompany.id,
+          placeholder_email: inviteEmail,
+          placeholder_first_name: firstName,
+          placeholder_last_name: lastName,
+          job_title: inviteRole || null,
+          status: 'pending',
+          role: 'user',
+        })
+        .select()
+        .single();
+
+      if (memberError) {
+        console.error('Error creating member:', memberError);
+        toast({ title: 'Errore', description: 'Impossibile creare l\'invito', variant: 'destructive' });
+        return;
+      }
+
+      // 2. Call edge function to send email
+      const { data, error } = await supabase.functions.invoke('send-invite-email', {
+        body: {
+          employeeEmail: inviteEmail,
+          employeeName: `${firstName} ${lastName}`,
+          companyName: activeCompany.name,
+          companyId: activeCompany.id,
+          memberId: memberData.id,
+        }
+      });
+
+      if (error) {
+        console.error('Error sending invite email:', error);
+        toast({ 
+          title: 'Utente creato', 
+          description: `${firstName} aggiunto ma l'email non è stata inviata. Contattalo manualmente.`,
+        });
+      } else {
+        toast({ 
+          title: 'Invito inviato! ✉️', 
+          description: `Email di invito inviata a ${inviteEmail}` 
+        });
+      }
+
+      // 3. Refresh users list
+      if (onRefreshUsers) await onRefreshUsers();
+      
+      setShowInvite(false);
+      setInviteName('');
+      setInviteEmail('');
+      setInviteRole('');
+    } catch (err) {
+      console.error('Invite error:', err);
+      toast({ title: 'Errore', description: 'Si è verificato un errore durante l\'invito', variant: 'destructive' });
+    } finally {
+      setIsInviting(false);
+    }
   };
 
   const handlePromoteToAdmin = async (user: User) => {
@@ -228,8 +280,10 @@ export const AdminDashboardView: React.FC<AdminDashboardProps> = ({
                 onChange={e => setInviteRole(e.target.value)}
               />
               <div className="flex gap-2 pt-2">
-                <Button fullWidth onClick={handleInviteUser}>Invia Invito</Button>
-                <Button variant="ghost" onClick={() => setShowInvite(false)}>Annulla</Button>
+                <Button fullWidth onClick={handleInviteUser} disabled={isInviting || !inviteName || !inviteEmail}>
+                  {isInviting ? <><Loader2 size={16} className="mr-2 animate-spin" />Invio in corso...</> : 'Invia Invito'}
+                </Button>
+                <Button variant="ghost" onClick={() => setShowInvite(false)} disabled={isInviting}>Annulla</Button>
               </div>
             </div>
           </Card>
