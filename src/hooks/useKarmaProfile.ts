@@ -654,17 +654,30 @@ export const useKarmaProfile = (userId?: string) => {
 
       // Import experiences
       if (parsedData.experiences && parsedData.experiences.length > 0) {
-        const expRows = parsedData.experiences.map((exp, idx) => ({
-          user_id: targetUserId,
-          company: exp.company,
-          role: exp.role,
-          start_date: exp.startDate || null,
-          end_date: exp.endDate || null,
-          is_current: exp.isCurrent || false,
-          description: exp.description || null,
-          location: exp.location || null,
-          sort_order: idx,
-        }));
+        const expRows = parsedData.experiences.map((exp, idx) => {
+          // Extra validation: ensure endDate is a valid date or null
+          // Handle "Present", "Presente", etc. that might slip through
+          let validEndDate: string | null = exp.endDate || null;
+          if (validEndDate && typeof validEndDate === 'string') {
+            const endDateLower = validEndDate.toLowerCase().trim();
+            if (['present', 'presente', 'current', 'attuale', 'oggi', 'ad oggi'].includes(endDateLower)) {
+              validEndDate = null;
+            }
+          }
+          
+          return {
+            user_id: targetUserId,
+            company: exp.company,
+            role: exp.role,
+            start_date: exp.startDate || null,
+            end_date: validEndDate,
+            is_current: exp.isCurrent || !validEndDate,
+            description: exp.description || null,
+            location: exp.location || null,
+            sort_order: idx,
+          };
+        });
+        console.log('Importing experiences to DB:', expRows);
         operations.push(supabase.from('user_experiences' as any).insert(expRows as any).select() as unknown as Promise<any>);
       }
 
