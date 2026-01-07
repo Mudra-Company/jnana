@@ -1,12 +1,12 @@
 {
   "compilerOptions": {
-    "allowJs": true,
-    "lib": ["deno.window"],
-    "strict": true
+    "lib": ["deno.window", "deno.ns", "esnext"],
+    "strict": false
   },
   "lint": {
     "rules": {
       "tags": ["recommended"]
     }
-  }
+  },
+  "nodeModulesDir": "none"
 }
