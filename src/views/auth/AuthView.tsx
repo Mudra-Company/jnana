@@ -1,11 +1,19 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import { Card } from '../../../components/Card';
 import { Button } from '../../../components/Button';
-import { LogIn, UserPlus, Mail, Lock, User, AlertCircle, Eye, EyeOff, Building, Sparkles, ArrowLeft } from 'lucide-react';
+import { LogIn, UserPlus, Mail, Lock, User, AlertCircle, Eye, EyeOff, Building, Sparkles, ArrowLeft, CheckCircle } from 'lucide-react';
 import { ForgotPasswordView } from './ForgotPasswordView';
+import { supabase } from '../../integrations/supabase/client';
 
 type AuthMode = 'select' | 'jnana' | 'karma';
+
+interface PendingInvite {
+  inviteId: string;
+  companyId: string;
+  companyName?: string;
+  memberName?: string;
+}
 
 interface AuthViewProps {
   onSuccess?: () => void;
@@ -27,8 +35,46 @@ export const AuthView: React.FC<AuthViewProps> = ({ onSuccess, onKarmaSignup, in
   const [rememberMe, setRememberMe] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [pendingInvite, setPendingInvite] = useState<PendingInvite | null>(null);
 
   const { signIn, signUp } = useAuth();
+
+  // Check for pending invite on mount
+  useEffect(() => {
+    const checkPendingInvite = async () => {
+      const pendingInviteStr = localStorage.getItem('pendingInvite');
+      if (pendingInviteStr) {
+        try {
+          const invite = JSON.parse(pendingInviteStr);
+          
+          // Fetch company name and member details
+          const [{ data: company }, { data: member }] = await Promise.all([
+            supabase.from('companies').select('name').eq('id', invite.companyId).maybeSingle(),
+            supabase.from('company_members').select('placeholder_first_name, placeholder_last_name, placeholder_email').eq('id', invite.inviteId).maybeSingle()
+          ]);
+          
+          setPendingInvite({
+            ...invite,
+            companyName: company?.name,
+            memberName: member?.placeholder_first_name ? `${member.placeholder_first_name} ${member.placeholder_last_name || ''}`.trim() : undefined
+          });
+          
+          // Pre-populate fields
+          if (member?.placeholder_email) setEmail(member.placeholder_email);
+          if (member?.placeholder_first_name) setFirstName(member.placeholder_first_name);
+          if (member?.placeholder_last_name) setLastName(member.placeholder_last_name);
+          
+          // Force JNANA mode and signup for invites
+          setMode('jnana');
+          setIsLogin(false);
+        } catch (err) {
+          console.error('Error loading pending invite:', err);
+        }
+      }
+    };
+    
+    checkPendingInvite();
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -183,6 +229,31 @@ export const AuthView: React.FC<AuthViewProps> = ({ onSuccess, onKarmaSignup, in
         </div>
 
         <Card className="p-8">
+          {/* Pending Invite Banner */}
+          {pendingInvite && (
+            <div className="mb-6 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl">
+              <div className="flex items-start gap-3">
+                <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5" />
+                <div>
+                  <h3 className="font-semibold text-green-800 dark:text-green-200">
+                    Sei stato invitato! 🎉
+                  </h3>
+                  <p className="text-sm text-green-700 dark:text-green-300 mt-1">
+                    {pendingInvite.companyName ? (
+                      <>
+                        <strong>{pendingInvite.companyName}</strong> ti ha invitato a far parte del team.
+                        <br />
+                        Crea il tuo account per completare il profilo.
+                      </>
+                    ) : (
+                      'Crea il tuo account per accettare l\'invito aziendale.'
+                    )}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Tabs */}
           <div className="flex mb-6 bg-jnana-bg dark:bg-gray-700 rounded-lg p-1">
             <button

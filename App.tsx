@@ -202,6 +202,16 @@ const AppContent: React.FC = () => {
     if (urlParams.get('seed') === 'true') {
       return { type: 'SEED_DATA' };
     }
+    // Check for invite URL parameters
+    const inviteId = urlParams.get('invite');
+    const companyId = urlParams.get('company');
+    if (inviteId && companyId) {
+      // Store invite info for after signup
+      localStorage.setItem('pendingInvite', JSON.stringify({ inviteId, companyId }));
+      // Clean the URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+      return { type: 'AUTH' };
+    }
     return { type: 'LOADING' }; // Start with LOADING, not LOGIN
   });
   const [viewHistory, setViewHistory] = useState<ViewState[]>([]);

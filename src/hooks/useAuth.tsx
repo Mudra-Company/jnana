@@ -168,7 +168,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const signUp = useCallback(async (email: string, password: string, firstName?: string, lastName?: string) => {
     const redirectUrl = `${window.location.origin}/`;
     
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -179,6 +179,42 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }
       }
     });
+
+    // If signup was successful and there's a pending invite, link the user to the company
+    if (!error && data.user) {
+      const pendingInviteStr = localStorage.getItem('pendingInvite');
+      if (pendingInviteStr) {
+        try {
+          const pendingInvite = JSON.parse(pendingInviteStr);
+          console.log('[Auth] Found pending invite, linking user:', pendingInvite);
+          
+          // Update the company_member record to link this user
+          const { error: linkError } = await supabase
+            .from('company_members')
+            .update({ 
+              user_id: data.user.id,
+              status: 'invited',
+              placeholder_first_name: null, // Clear placeholder since we now have real user
+              placeholder_last_name: null,
+              placeholder_email: null
+            })
+            .eq('id', pendingInvite.inviteId)
+            .eq('company_id', pendingInvite.companyId);
+          
+          if (linkError) {
+            console.error('[Auth] Error linking user to company member:', linkError);
+          } else {
+            console.log('[Auth] Successfully linked user to company member');
+          }
+          
+          // Clear the pending invite
+          localStorage.removeItem('pendingInvite');
+        } catch (err) {
+          console.error('[Auth] Error processing pending invite:', err);
+        }
+      }
+    }
+
     return { error: error as Error | null };
   }, []);
 

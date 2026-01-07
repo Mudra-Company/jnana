@@ -51,7 +51,9 @@ const handler = async (req: Request): Promise<Response> => {
     }
 
     // Generate magic link for signup (employee will create account)
-    const signupUrl = `${supabaseUrl.replace('.supabase.co', '.lovable.app')}?invite=${memberId}&company=${companyId}`;
+    // Use APP_URL env variable or fallback to the Lovable project URL
+    const appUrl = Deno.env.get("APP_URL") || "https://e4ad29b8-93fe-4ec2-96d9-004df5b23aa1.lovableproject.com";
+    const signupUrl = `${appUrl}?invite=${memberId}&company=${companyId}`;
     
     // Update member status to 'invited'
     const { error: updateError } = await supabase
