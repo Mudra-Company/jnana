@@ -1075,7 +1075,7 @@ const renderOrgTreeChildren = (
             <React.Fragment key={child.id}>
                 <TreeNode
                     label={
-                        <div className="inline-block">
+                        <div className="inline-block relative z-10">
                             <OrgNodeCard
                                 node={child}
                                 users={users}
@@ -1484,13 +1484,13 @@ export const CompanyOrgView: React.FC<{
             <div className="pb-20 overflow-x-auto">
                 <div className="w-fit mx-auto">
                     <Tree
-                        lineWidth="2px"
-                        lineColor="rgb(209, 213, 219)"
-                        lineBorderRadius="8px"
-                        lineHeight="32px"
-                        nodePadding="16px"
+                        lineWidth="3px"
+                        lineColor="rgb(99, 102, 241)"
+                        lineBorderRadius="12px"
+                        lineHeight="40px"
+                        nodePadding="24px"
                         label={
-                            <div className="inline-block">
+                            <div className="inline-block relative z-10">
                                 <OrgNodeCard
                                     node={company.structure}
                                     users={users}
