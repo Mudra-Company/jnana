@@ -244,18 +244,35 @@ export const KarmaProfileEdit: React.FC<KarmaProfileEditProps> = ({ onBack, onSa
           <div className="mb-6">
             <CVImportBanner
               mode="full"
+              onUploadFile={(file) => uploadPortfolioFile(file, 'cv')}
+              onAddPortfolioItem={addPortfolioItem}
               onImportComplete={async (data) => {
+                // Update local form state
                 if (data.profileData) {
-                  setFormData(prev => ({
-                    ...prev,
-                    firstName: data.profileData?.firstName || prev.firstName,
-                    lastName: data.profileData?.lastName || prev.lastName,
-                    headline: data.profileData?.headline || prev.headline,
-                    bio: data.profileData?.bio || prev.bio,
-                    location: data.profileData?.location || prev.location,
-                    yearsExperience: data.profileData?.yearsExperience || prev.yearsExperience,
-                  }));
+                  const newFormData = {
+                    firstName: data.profileData?.firstName || formData.firstName,
+                    lastName: data.profileData?.lastName || formData.lastName,
+                    headline: data.profileData?.headline || formData.headline,
+                    bio: data.profileData?.bio || formData.bio,
+                    location: data.profileData?.location || formData.location,
+                    yearsExperience: data.profileData?.yearsExperience || formData.yearsExperience,
+                    lookingForWork: formData.lookingForWork,
+                    preferredWorkType: formData.preferredWorkType,
+                  };
+                  setFormData(newFormData);
+                  
+                  // Auto-save profile data to database
+                  await updateProfile({
+                    firstName: newFormData.firstName,
+                    lastName: newFormData.lastName,
+                    headline: newFormData.headline,
+                    bio: newFormData.bio,
+                    location: newFormData.location,
+                    yearsExperience: newFormData.yearsExperience,
+                  });
                 }
+                
+                // Import experiences, education, certifications, languages, skills
                 await importFromCV({
                   experiences: data.experiences,
                   education: data.education,
@@ -309,18 +326,35 @@ export const KarmaProfileEdit: React.FC<KarmaProfileEditProps> = ({ onBack, onSa
               {(experiences.length > 0 || education.length > 0 || hardSkills.length > 0) && (
                 <CVImportBanner
                   mode="compact"
+                  onUploadFile={(file) => uploadPortfolioFile(file, 'cv')}
+                  onAddPortfolioItem={addPortfolioItem}
                   onImportComplete={async (data) => {
+                    // Update local form state
                     if (data.profileData) {
-                      setFormData(prev => ({
-                        ...prev,
-                        firstName: data.profileData?.firstName || prev.firstName,
-                        lastName: data.profileData?.lastName || prev.lastName,
-                        headline: data.profileData?.headline || prev.headline,
-                        bio: data.profileData?.bio || prev.bio,
-                        location: data.profileData?.location || prev.location,
-                        yearsExperience: data.profileData?.yearsExperience || prev.yearsExperience,
-                      }));
+                      const newFormData = {
+                        firstName: data.profileData?.firstName || formData.firstName,
+                        lastName: data.profileData?.lastName || formData.lastName,
+                        headline: data.profileData?.headline || formData.headline,
+                        bio: data.profileData?.bio || formData.bio,
+                        location: data.profileData?.location || formData.location,
+                        yearsExperience: data.profileData?.yearsExperience || formData.yearsExperience,
+                        lookingForWork: formData.lookingForWork,
+                        preferredWorkType: formData.preferredWorkType,
+                      };
+                      setFormData(newFormData);
+                      
+                      // Auto-save profile data to database
+                      await updateProfile({
+                        firstName: newFormData.firstName,
+                        lastName: newFormData.lastName,
+                        headline: newFormData.headline,
+                        bio: newFormData.bio,
+                        location: newFormData.location,
+                        yearsExperience: newFormData.yearsExperience,
+                      });
                     }
+                    
+                    // Import experiences, education, certifications, languages, skills
                     await importFromCV({
                       experiences: data.experiences,
                       education: data.education,
