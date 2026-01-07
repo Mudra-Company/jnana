@@ -3,6 +3,7 @@ import { Sparkles, Send, Info, Loader2, Hexagon, ArrowLeft } from 'lucide-react'
 import { Card } from '../../components/Card';
 import { Button } from '../../components/Button';
 import { ChatMessage, RiasecScore } from '../../types';
+import type { UserExperience, UserEducation, UserHardSkill } from '../../src/types/karma';
 
 interface KarmaTestChatProps {
   riasecScore: RiasecScore;
@@ -10,6 +11,12 @@ interface KarmaTestChatProps {
   firstName: string;
   onComplete: (transcript: ChatMessage[]) => Promise<void>;
   onBack: () => void;
+  // Profile context for personalized interview
+  experiences?: UserExperience[];
+  education?: UserEducation[];
+  skills?: UserHardSkill[];
+  bio?: string;
+  headline?: string;
 }
 
 // Helper to parse **bold** text inside chat messages
@@ -121,7 +128,12 @@ export const KarmaTestChat: React.FC<KarmaTestChatProps> = ({
   profileCode, 
   firstName, 
   onComplete,
-  onBack 
+  onBack,
+  experiences = [],
+  education = [],
+  skills = [],
+  bio,
+  headline
 }) => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
@@ -131,17 +143,50 @@ export const KarmaTestChat: React.FC<KarmaTestChatProps> = ({
   
   const systemPromptRef = useRef<string>('');
 
-  // Generate system prompt for Karma B2C (no climate data)
+  // Generate system prompt for Karma B2C with profile context
   const generateKarmaB2CSystemPrompt = () => {
     const topDimensions = Object.entries(riasecScore)
       .sort(([, a], [, b]) => (b as number) - (a as number))
       .slice(0, 3)
       .map(([dim]) => dim);
 
+    // Build context from profile data
+    let profileContext = '';
+    
+    if (headline) {
+      profileContext += `\nHeadline del candidato: ${headline}`;
+    }
+    
+    if (bio) {
+      profileContext += `\nBio: ${bio}`;
+    }
+    
+    if (experiences.length > 0) {
+      const expList = experiences.slice(0, 3).map(exp => 
+        `- ${exp.role} presso ${exp.company}${exp.isCurrent ? ' (attuale)' : ''}`
+      ).join('\n');
+      profileContext += `\n\nEsperienze lavorative recenti:\n${expList}`;
+    }
+    
+    if (education.length > 0) {
+      const eduList = education.slice(0, 2).map(edu => 
+        `- ${edu.degree} presso ${edu.institution}`
+      ).join('\n');
+      profileContext += `\n\nFormazione:\n${eduList}`;
+    }
+    
+    if (skills.length > 0) {
+      const skillNames = skills.slice(0, 8).map(s => s.skill?.name || s.customSkillName).filter(Boolean);
+      if (skillNames.length > 0) {
+        profileContext += `\n\nCompetenze tecniche: ${skillNames.join(', ')}`;
+      }
+    }
+
     return `Sei Karma, un consulente di carriera AI specializzato in colloqui attitudinali per la piattaforma Karma.
     
 Il candidato ha completato il test RIASEC con il seguente profilo: ${profileCode}
 Le sue dimensioni dominanti sono: ${topDimensions.join(', ')}
+${profileContext}
 
 OBIETTIVO:
 Conduci un breve colloquio (5-8 scambi) per capire:
@@ -150,14 +195,16 @@ Conduci un breve colloquio (5-8 scambi) per capire:
 3. Stile di lavoro e preferenze
 4. Potenziale seniority e leadership
 
+USA LE INFORMAZIONI DEL PROFILO per fare domande mirate e contestuali. Ad esempio, se vedi che ha lavorato in un certo settore, chiedi di esperienze specifiche in quel contesto.
+
 STILE:
 - Professionale ma amichevole
-- Domande aperte e situazionali
+- Domande aperte e situazionali basate sul background del candidato
 - Ascolto attivo e follow-up
 - Mai giudicante
 
 STRUTTURA:
-1. Inizia chiedendo di una sfida professionale recente
+1. Inizia chiedendo di una sfida professionale recente (riferisciti al suo lavoro attuale se presente)
 2. Approfondisci le soft skills emerse
 3. Esplora valori e motivazioni
 4. Chiedi del modo di lavorare in team

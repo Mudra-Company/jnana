@@ -56,8 +56,10 @@ export const CVImportBanner: React.FC<CVImportBannerProps> = ({ onImportComplete
       });
 
       if (parseError) throw parseError;
+      if (data?.error) throw new Error(data.error);
 
-      const parsed = data as ParsedCVData;
+      // Extract parsed data from response (edge function returns { data: ParsedCVData })
+      const parsed = (data?.data || data) as ParsedCVData;
 
       // Build progress messages
       const progress: string[] = [];
@@ -207,11 +209,9 @@ export const CVImportBanner: React.FC<CVImportBannerProps> = ({ onImportComplete
         </div>
 
         <div className="flex flex-col gap-2">
-          <label className="cursor-pointer">
-            <Button className="pointer-events-none">
-              <FileUp size={18} className="mr-2" />
-              Carica CV
-            </Button>
+          <label className="cursor-pointer inline-flex items-center justify-center font-medium transition-all duration-300 focus:outline-none rounded-full tracking-wide bg-jnana-sage text-white hover:bg-jnana-sageDark hover:shadow-glow hover:-translate-y-0.5 shadow-sm px-8 py-3 text-sm">
+            <FileUp size={18} className="mr-2" />
+            Carica CV
             <input
               type="file"
               accept=".pdf,.doc,.docx,image/*"
