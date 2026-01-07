@@ -391,56 +391,83 @@ const AppContent: React.FC = () => {
   };
 
   // Load all company users with full details (RIASEC, Karma, Climate) directly from DB
+  // INCLUDES PLACEHOLDERS (slots without user_id)
   const loadCompanyUsersWithDetails = async (companyId: string): Promise<User[]> => {
     const { supabase } = await import('./src/integrations/supabase/client');
     
-    // 1. Load company_members with profiles
+    // 1. Load ALL company_members (including placeholders without user_id)
     const { data: members, error: membersError } = await supabase
       .from('company_members')
-      .select(`
-        *,
-        profiles:user_id (*)
-      `)
+      .select(`*, profiles:user_id (*)`)
       .eq('company_id', companyId);
     
-    if (membersError || !members || members.length === 0) {
+    if (membersError || !members) {
       console.error('Error loading company members:', membersError);
       return [];
     }
     
-    const userIds = members.map(m => m.user_id);
+    if (members.length === 0) {
+      return [];
+    }
     
-    // 2. Load RIASEC results for all users
-    const { data: riasecResults } = await supabase
-      .from('riasec_results')
-      .select('*')
-      .in('user_id', userIds);
+    // Separate members with profiles from placeholders
+    const membersWithProfiles = members.filter(m => m.user_id && m.profiles);
+    const placeholders = members.filter(m => !m.user_id);
     
-    // 3. Load Karma sessions for all users
-    const { data: karmaSessions } = await supabase
-      .from('karma_sessions')
-      .select('*')
-      .in('user_id', userIds);
+    // Get user IDs for test data loading (only real users)
+    const userIds = membersWithProfiles.map(m => m.user_id).filter(Boolean);
     
-    // 4. Load Climate responses for all users
-    const { data: climateResponses } = await supabase
-      .from('climate_responses')
-      .select('*')
-      .in('user_id', userIds);
+    // 2. Load test results for real users only
+    let riasecResults: any[] = [];
+    let karmaSessions: any[] = [];
+    let climateResponses: any[] = [];
     
-    // 5. Transform to legacy User format
-    return members
-      .filter(m => m.profiles)
-      .map(member => {
-        const profile = member.profiles as any;
-        const riasec = riasecResults?.find(r => r.user_id === member.user_id);
-        const karma = karmaSessions?.find(k => k.user_id === member.user_id);
-        const climate = climateResponses?.find(c => c.user_id === member.user_id);
-        
-        const legacyUser = profileToLegacyUser(profile, member, riasec, karma, climate);
-        legacyUser.role = member.role || 'user';
-        return legacyUser;
-      });
+    if (userIds.length > 0) {
+      const [riasec, karma, climate] = await Promise.all([
+        supabase.from('riasec_results').select('*').in('user_id', userIds),
+        supabase.from('karma_sessions').select('*').in('user_id', userIds),
+        supabase.from('climate_responses').select('*').in('user_id', userIds)
+      ]);
+      riasecResults = riasec.data || [];
+      karmaSessions = karma.data || [];
+      climateResponses = climate.data || [];
+    }
+    
+    // 3. Transform real users
+    const realUsers = membersWithProfiles.map(member => {
+      const profile = member.profiles as any;
+      const riasec = riasecResults.find(r => r.user_id === member.user_id);
+      const karma = karmaSessions.find(k => k.user_id === member.user_id);
+      const climate = climateResponses.find(c => c.user_id === member.user_id);
+      
+      const legacyUser = profileToLegacyUser(profile, member, riasec, karma, climate);
+      legacyUser.role = member.role || 'user';
+      legacyUser.memberId = member.id;
+      return legacyUser;
+    });
+    
+    // 4. Transform placeholder/hiring slots to User objects
+    const placeholderUsers: User[] = placeholders.map(member => ({
+      id: member.id, // Use member.id as user id for placeholders
+      memberId: member.id,
+      firstName: member.placeholder_first_name || '',
+      lastName: member.placeholder_last_name || '',
+      email: member.placeholder_email || '',
+      companyId: member.company_id,
+      departmentId: member.department_id || '',
+      jobTitle: member.job_title || '',
+      status: member.status || 'pending',
+      isHiring: member.is_hiring || false,
+      requiredProfile: member.required_profile ? {
+        hardSkills: (member.required_profile as any).hardSkills || [],
+        softSkills: (member.required_profile as any).softSkills || [],
+        seniority: (member.required_profile as any).seniority || 'Mid'
+      } : undefined,
+      role: member.role || 'user'
+    }));
+    
+    // 5. Combine and return all users
+    return [...realUsers, ...placeholderUsers];
   };
 
   const loadCompanyData = async (companyId: string) => {
