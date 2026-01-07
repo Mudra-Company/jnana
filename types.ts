@@ -178,6 +178,7 @@ export interface JobSuggestion {
 export type JobDatabase = Record<string, JobSuggestion[]>;
 
 export type ViewState = 
+  | { type: 'LANDING' }
   | { type: 'LOADING' }
   | { type: 'LOGIN' }
   | { type: 'RESET_PASSWORD' }

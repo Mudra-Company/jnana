@@ -10,10 +10,12 @@ type AuthMode = 'select' | 'jnana' | 'karma';
 interface AuthViewProps {
   onSuccess?: () => void;
   onKarmaSignup?: () => void;
+  initialMode?: AuthMode;
+  onBackToLanding?: () => void;
 }
 
-export const AuthView: React.FC<AuthViewProps> = ({ onSuccess, onKarmaSignup }) => {
-  const [mode, setMode] = useState<AuthMode>('select');
+export const AuthView: React.FC<AuthViewProps> = ({ onSuccess, onKarmaSignup, initialMode = 'select', onBackToLanding }) => {
+  const [mode, setMode] = useState<AuthMode>(initialMode);
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -163,11 +165,11 @@ export const AuthView: React.FC<AuthViewProps> = ({ onSuccess, onKarmaSignup }) 
       <div className="w-full max-w-md">
         {/* Back Button */}
         <button
-          onClick={() => setMode('select')}
+          onClick={() => onBackToLanding ? onBackToLanding() : setMode('select')}
           className="flex items-center gap-2 text-jnana-text/60 dark:text-gray-400 hover:text-jnana-text dark:hover:text-white mb-6 transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
-          Torna alla selezione
+          {onBackToLanding ? 'Torna alla home' : 'Torna alla selezione'}
         </button>
 
         {/* Logo */}

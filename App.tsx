@@ -39,6 +39,9 @@ import { KarmaDashboard } from './views/karma/KarmaDashboard';
 import { KarmaProfileEdit } from './views/karma/KarmaProfileEdit';
 import { KarmaResults } from './views/karma/KarmaResults';
 
+// Landing Page
+import { LandingPage } from './views/landing/LandingPage';
+
 // Adapter to convert DB profile to legacy User type
 const profileToLegacyUser = (
   profile: any, 
@@ -233,9 +236,9 @@ const AppContent: React.FC = () => {
     
     // Auth is initialized - now decide what to show
     if (!user) {
-      // No user = show login
-      console.log('[App] No user after auth init, showing login');
-      setView({ type: 'LOGIN' });
+      // No user = show landing page
+      console.log('[App] No user after auth init, showing landing');
+      setView({ type: 'LANDING' });
       setCurrentUserData(null);
       setActiveCompanyData(null);
       lastUserIdRef.current = null;
@@ -837,7 +840,7 @@ const AppContent: React.FC = () => {
   return (
     <div className={isDark ? 'dark' : ''}>
       <div className="min-h-screen bg-white dark:bg-gray-900 text-jnana-text dark:text-gray-100 transition-colors duration-300 font-sans">
-        {currentUserData && view.type !== 'LOGIN' && view.type !== 'LOADING' && 
+        {currentUserData && view.type !== 'LOGIN' && view.type !== 'LANDING' && view.type !== 'LOADING' && 
           !view.type.startsWith('KARMA_') && (
           <Header
             onLogout={handleLogout}
@@ -867,7 +870,16 @@ const AppContent: React.FC = () => {
         )}
 
         <main className="animate-fade-in">
-          {view.type === 'LOGIN' && !user && <AuthView />}
+          {view.type === 'LANDING' && !user && (
+            <LandingPage 
+              onSelectJnana={() => navigate({ type: 'LOGIN' })}
+              onSelectKarma={() => navigate({ type: 'LOGIN' })}
+            />
+          )}
+          
+          {view.type === 'LOGIN' && !user && (
+            <AuthView onBackToLanding={() => setView({ type: 'LANDING' })} />
+          )}
           
           {view.type === 'RESET_PASSWORD' && (
             <ResetPasswordView 
