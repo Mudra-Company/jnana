@@ -61,7 +61,7 @@ const profileToLegacyUser = (
     gender: profile.gender as 'M' | 'F' | undefined,
     age: profile.age || undefined,
     companyId: membership?.company_id || '',
-    jobTitle: profile.job_title || '',
+    jobTitle: membership?.job_title || profile.job_title || '',
     departmentId: membership?.department_id || '',
     status: membership?.status || 'pending',
     memberId: membership?.id || undefined,
