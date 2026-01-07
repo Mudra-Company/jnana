@@ -12,7 +12,8 @@ import {
   Sun, 
   Moon,
   ArrowLeft,
-  Sparkles
+  Sparkles,
+  BarChart3
 } from 'lucide-react';
 import { Button } from '../Button';
 import { ViewState, CompanyProfile } from '../../types';
@@ -30,6 +31,7 @@ interface HeaderProps {
   onSuperAdminHome: () => void;
   onJobDb: () => void;
   onKarmaTalents?: () => void;
+  onAnalytics?: () => void;
   activeCompany?: CompanyProfile;
   isSuperAdminMode: boolean;
   onExitImpersonation: () => void;
@@ -42,7 +44,7 @@ interface HeaderProps {
 
 export const Header: React.FC<HeaderProps> = ({ 
   onLogout, view, onAdminHome, onOrgChart, onIdentityHub, onCompanyProfile,
-  onSuperAdminHome, onJobDb, onKarmaTalents, activeCompany, isSuperAdminMode, onExitImpersonation,
+  onSuperAdminHome, onJobDb, onKarmaTalents, onAnalytics, activeCompany, isSuperAdminMode, onExitImpersonation,
   isDark, toggleTheme, onBack, canGoBack, userRole
 }) => {
   // Determine what navigation to show based on role
@@ -127,13 +129,24 @@ export const Header: React.FC<HeaderProps> = ({
             </Button>
             {onKarmaTalents && (
               <Button 
-                variant={view.type === 'SUPER_ADMIN_KARMA_TALENTS' ? 'primary' : 'ghost'} 
+                variant={view.type === 'SUPER_ADMIN_KARMA_TALENTS' || view.type === 'SUPER_ADMIN_KARMA_PROFILE' ? 'primary' : 'ghost'} 
                 size="sm"
                 onClick={onKarmaTalents}
-                className={view.type === 'SUPER_ADMIN_KARMA_TALENTS' ? '!bg-violet-600' : ''}
+                className={view.type === 'SUPER_ADMIN_KARMA_TALENTS' || view.type === 'SUPER_ADMIN_KARMA_PROFILE' ? '!bg-violet-600' : ''}
               >
                 <Sparkles size={16} className="mr-2" />
                 Karma Talents
+              </Button>
+            )}
+            {onAnalytics && (
+              <Button 
+                variant={view.type === 'SUPER_ADMIN_ANALYTICS' ? 'primary' : 'ghost'} 
+                size="sm"
+                onClick={onAnalytics}
+                className={view.type === 'SUPER_ADMIN_ANALYTICS' ? '!bg-blue-600' : ''}
+              >
+                <BarChart3 size={16} className="mr-2" />
+                Analytics
               </Button>
             )}
           </div>

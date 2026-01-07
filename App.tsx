@@ -20,6 +20,7 @@ import { SuperAdminDashboard } from './views/superadmin/SuperAdminDashboard';
 import { JobDatabaseEditor } from './views/superadmin/JobDatabaseEditor';
 import { KarmaTalentsView } from './views/superadmin/KarmaTalentsView';
 import { KarmaProfileDetailView } from './views/superadmin/KarmaProfileDetailView';
+import { SuperAdminAnalyticsView } from './views/superadmin/SuperAdminAnalyticsView';
 import { AdminDashboardView } from './views/admin/AdminDashboard';
 
 import { CompanyOrgView } from './views/admin/CompanyOrgView';
@@ -849,10 +850,10 @@ const AppContent: React.FC = () => {
             onOrgChart={() => navigate({ type: 'ADMIN_ORG_CHART' })}
             onIdentityHub={() => navigate({ type: 'ADMIN_IDENTITY_HUB' })}
             onCompanyProfile={() => navigate({ type: 'ADMIN_COMPANY_PROFILE' })}
-            onUsersManagement={() => {}}
             onSuperAdminHome={() => navigate({ type: 'SUPER_ADMIN_DASHBOARD' })}
             onJobDb={() => navigate({ type: 'SUPER_ADMIN_JOBS' })}
             onKarmaTalents={() => navigate({ type: 'SUPER_ADMIN_KARMA_TALENTS' })}
+            onAnalytics={() => navigate({ type: 'SUPER_ADMIN_ANALYTICS' })}
             activeCompany={activeCompanyData || undefined}
             isSuperAdminMode={isSuperAdmin}
             onExitImpersonation={() => {
@@ -907,7 +908,6 @@ const AppContent: React.FC = () => {
               onImpersonate={handleImpersonate}
               onCreateCompany={handleCreateCompany}
               onStartDemoMode={handleStartDemoMode}
-              onNavigateToKarmaTalents={() => navigate({ type: 'SUPER_ADMIN_KARMA_TALENTS' })}
             />
           )}
 
@@ -932,6 +932,10 @@ const AppContent: React.FC = () => {
                 saveJobDb(newDb);
               }}
             />
+          )}
+
+          {view.type === 'SUPER_ADMIN_ANALYTICS' && canAccessSuperAdminViews && (
+            <SuperAdminAnalyticsView />
           )}
 
           {/* ADMIN VIEWS - Only for company admins and super admins */}

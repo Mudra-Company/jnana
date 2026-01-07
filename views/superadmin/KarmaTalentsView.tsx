@@ -157,7 +157,9 @@ export const KarmaTalentsView: React.FC<KarmaTalentsViewProps> = ({ onViewProfil
           <div className="p-2 bg-violet-100 dark:bg-violet-900/30 rounded-lg">
             <Sparkles className="w-6 h-6 text-violet-600 dark:text-violet-400" />
           </div>
-          <h1 className="text-3xl font-bold text-gray-800 dark:text-white">Karma Talents</h1>
+          <h1 className="text-3xl font-brand font-bold text-gray-800 dark:text-white">
+            Console Super Admin - Karma Talents
+          </h1>
         </div>
         <p className="text-gray-500 dark:text-gray-400">
           Gestione profili pubblici della piattaforma Karma
