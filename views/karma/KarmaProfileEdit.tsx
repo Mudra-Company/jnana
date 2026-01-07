@@ -8,6 +8,11 @@ import { Card } from '../../components/Card';
 import { useKarmaProfile } from '../../src/hooks/useKarmaProfile';
 import { useHardSkillsCatalog } from '../../src/hooks/useHardSkillsCatalog';
 import { PortfolioManager } from '../../src/components/karma/PortfolioManager';
+import { CVImportBanner } from '../../src/components/karma/CVImportBanner';
+import { ExperienceManager } from '../../src/components/karma/ExperienceManager';
+import { EducationManager } from '../../src/components/karma/EducationManager';
+import { CertificationManager } from '../../src/components/karma/CertificationManager';
+import { LanguagesManager } from '../../src/components/karma/LanguagesManager';
 import type { WorkType, SocialPlatform, ParsedCVData } from '../../src/types/karma';
 
 interface KarmaProfileEditProps {
@@ -21,6 +26,10 @@ export const KarmaProfileEdit: React.FC<KarmaProfileEditProps> = ({ onBack, onSa
     hardSkills,
     portfolio,
     socialLinks,
+    experiences,
+    education,
+    certifications,
+    languages,
     isLoading,
     updateProfile,
     uploadAvatar,
@@ -32,6 +41,19 @@ export const KarmaProfileEdit: React.FC<KarmaProfileEditProps> = ({ onBack, onSa
     uploadPortfolioFile,
     upsertSocialLink,
     removeSocialLink,
+    addExperience,
+    updateExperience,
+    removeExperience,
+    addEducation,
+    updateEducation,
+    removeEducation,
+    addCertification,
+    updateCertification,
+    removeCertification,
+    addLanguage,
+    updateLanguage,
+    removeLanguage,
+    importFromCV,
   } = useKarmaProfile();
 
   const { skills } = useHardSkillsCatalog();
@@ -53,6 +75,7 @@ export const KarmaProfileEdit: React.FC<KarmaProfileEditProps> = ({ onBack, onSa
   const [customSkill, setCustomSkill] = useState('');
   const [newSocialPlatform, setNewSocialPlatform] = useState<SocialPlatform | ''>('');
   const [newSocialUrl, setNewSocialUrl] = useState('');
+  const [showCVBanner, setShowCVBanner] = useState(true);
 
   useEffect(() => {
     if (profile) {
@@ -215,6 +238,36 @@ export const KarmaProfileEdit: React.FC<KarmaProfileEditProps> = ({ onBack, onSa
             )}
           </Button>
         </div>
+
+        {/* CV Import Banner */}
+        {showCVBanner && experiences.length === 0 && education.length === 0 && (
+          <div className="mb-6">
+            <CVImportBanner
+              onImportComplete={async (data) => {
+                if (data.profileData) {
+                  setFormData(prev => ({
+                    ...prev,
+                    firstName: data.profileData?.firstName || prev.firstName,
+                    lastName: data.profileData?.lastName || prev.lastName,
+                    headline: data.profileData?.headline || prev.headline,
+                    bio: data.profileData?.bio || prev.bio,
+                    location: data.profileData?.location || prev.location,
+                    yearsExperience: data.profileData?.yearsExperience || prev.yearsExperience,
+                  }));
+                }
+                await importFromCV({
+                  experiences: data.experiences,
+                  education: data.education,
+                  certifications: data.certifications,
+                  languages: data.languages,
+                  skills: data.skills,
+                });
+                setShowCVBanner(false);
+              }}
+              onSkip={() => setShowCVBanner(false)}
+            />
+          </div>
+        )}
 
         {/* Avatar Section */}
         <Card className="mb-6">
@@ -489,6 +542,46 @@ export const KarmaProfileEdit: React.FC<KarmaProfileEditProps> = ({ onBack, onSa
               </p>
             )}
           </div>
+        </Card>
+
+        {/* Experiences Section */}
+        <Card className="mb-6">
+          <ExperienceManager
+            experiences={experiences}
+            onAdd={addExperience}
+            onUpdate={updateExperience}
+            onRemove={removeExperience}
+          />
+        </Card>
+
+        {/* Education Section */}
+        <Card className="mb-6">
+          <EducationManager
+            education={education}
+            onAdd={addEducation}
+            onUpdate={updateEducation}
+            onRemove={removeEducation}
+          />
+        </Card>
+
+        {/* Certifications Section */}
+        <Card className="mb-6">
+          <CertificationManager
+            certifications={certifications}
+            onAdd={addCertification}
+            onUpdate={updateCertification}
+            onRemove={removeCertification}
+          />
+        </Card>
+
+        {/* Languages Section */}
+        <Card className="mb-6">
+          <LanguagesManager
+            languages={languages}
+            onAdd={addLanguage}
+            onUpdate={updateLanguage}
+            onRemove={removeLanguage}
+          />
         </Card>
 
         {/* Portfolio Section */}
