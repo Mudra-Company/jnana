@@ -37,6 +37,59 @@ export interface PortfolioItem {
   createdAt: string;
 }
 
+// Work Experience
+export interface UserExperience {
+  id: string;
+  userId: string;
+  company: string;
+  role: string;
+  startDate?: string;
+  endDate?: string;
+  isCurrent?: boolean;
+  description?: string;
+  location?: string;
+  sortOrder: number;
+  createdAt?: string;
+}
+
+// Education
+export interface UserEducation {
+  id: string;
+  userId: string;
+  institution: string;
+  degree: string;
+  fieldOfStudy?: string;
+  startYear?: number;
+  endYear?: number;
+  description?: string;
+  sortOrder: number;
+  createdAt?: string;
+}
+
+// Certification
+export interface UserCertification {
+  id: string;
+  userId: string;
+  name: string;
+  issuingOrganization?: string;
+  issueDate?: string;
+  expiryDate?: string;
+  credentialId?: string;
+  credentialUrl?: string;
+  createdAt?: string;
+}
+
+// Language
+export type LanguageProficiency = 'native' | 'fluent' | 'professional' | 'intermediate' | 'basic';
+
+export interface UserLanguage {
+  id: string;
+  userId: string;
+  language: string;
+  proficiency: LanguageProficiency;
+  createdAt?: string;
+}
+
 // Social Links
 export type SocialPlatform = 'linkedin' | 'github' | 'portfolio' | 'twitter' | 'dribbble' | 'behance' | 'other';
 
@@ -119,6 +172,10 @@ export interface KarmaProfile {
   hardSkills?: UserHardSkill[];
   portfolio?: PortfolioItem[];
   socialLinks?: SocialLink[];
+  experiences?: UserExperience[];
+  education?: UserEducation[];
+  certifications?: UserCertification[];
+  languages?: UserLanguage[];
   
   // Test results
   riasecScore?: RiasecScore;

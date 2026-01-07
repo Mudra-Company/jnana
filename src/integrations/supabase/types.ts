@@ -620,6 +620,123 @@ export type Database = {
         }
         Relationships: []
       }
+      user_certifications: {
+        Row: {
+          created_at: string | null
+          credential_id: string | null
+          credential_url: string | null
+          expiry_date: string | null
+          id: string
+          issue_date: string | null
+          issuing_organization: string | null
+          name: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          credential_id?: string | null
+          credential_url?: string | null
+          expiry_date?: string | null
+          id?: string
+          issue_date?: string | null
+          issuing_organization?: string | null
+          name: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          credential_id?: string | null
+          credential_url?: string | null
+          expiry_date?: string | null
+          id?: string
+          issue_date?: string | null
+          issuing_organization?: string | null
+          name?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_education: {
+        Row: {
+          created_at: string | null
+          degree: string
+          description: string | null
+          end_year: number | null
+          field_of_study: string | null
+          id: string
+          institution: string
+          sort_order: number | null
+          start_year: number | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          degree: string
+          description?: string | null
+          end_year?: number | null
+          field_of_study?: string | null
+          id?: string
+          institution: string
+          sort_order?: number | null
+          start_year?: number | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          degree?: string
+          description?: string | null
+          end_year?: number | null
+          field_of_study?: string | null
+          id?: string
+          institution?: string
+          sort_order?: number | null
+          start_year?: number | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_experiences: {
+        Row: {
+          company: string
+          created_at: string | null
+          description: string | null
+          end_date: string | null
+          id: string
+          is_current: boolean | null
+          location: string | null
+          role: string
+          sort_order: number | null
+          start_date: string | null
+          user_id: string
+        }
+        Insert: {
+          company: string
+          created_at?: string | null
+          description?: string | null
+          end_date?: string | null
+          id?: string
+          is_current?: boolean | null
+          location?: string | null
+          role: string
+          sort_order?: number | null
+          start_date?: string | null
+          user_id: string
+        }
+        Update: {
+          company?: string
+          created_at?: string | null
+          description?: string | null
+          end_date?: string | null
+          id?: string
+          is_current?: boolean | null
+          location?: string | null
+          role?: string
+          sort_order?: number | null
+          start_date?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_hard_skills: {
         Row: {
           created_at: string | null
@@ -661,6 +778,30 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      user_languages: {
+        Row: {
+          created_at: string | null
+          id: string
+          language: string
+          proficiency: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          language: string
+          proficiency?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          language?: string
+          proficiency?: string | null
+          user_id?: string
+        }
+        Relationships: []
       }
       user_portfolio_items: {
         Row: {
