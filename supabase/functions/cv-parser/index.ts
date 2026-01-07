@@ -29,6 +29,41 @@ interface ParsedCVData {
   }[];
   certifications: string[];
   languages: string[];
+  confidence: 'high' | 'low' | 'failed';
+}
+
+// Generic/suspicious names that indicate hallucination
+const SUSPICIOUS_NAMES = [
+  'mario rossi', 'paola rossi', 'giuseppe rossi', 'maria rossi',
+  'mario bianchi', 'paola bianchi', 'luca bianchi',
+  'john doe', 'jane doe', 'john smith',
+  'nome cognome', 'first last'
+];
+
+// Generic company names that indicate hallucination
+const SUSPICIOUS_COMPANIES = [
+  'azienda x', 'azienda y', 'azienda z',
+  'company x', 'company y', 'company z',
+  'company abc', 'acme', 'example company',
+  'nome azienda', 'company name'
+];
+
+function detectHallucination(data: ParsedCVData): { isHallucinated: boolean; reason?: string } {
+  // Check for suspicious names
+  const fullName = `${data.firstName || ''} ${data.lastName || ''}`.toLowerCase().trim();
+  if (SUSPICIOUS_NAMES.some(name => fullName.includes(name))) {
+    return { isHallucinated: true, reason: `Nome sospetto rilevato: ${fullName}` };
+  }
+
+  // Check for suspicious companies
+  for (const exp of data.experiences) {
+    const companyLower = exp.company.toLowerCase();
+    if (SUSPICIOUS_COMPANIES.some(c => companyLower.includes(c))) {
+      return { isHallucinated: true, reason: `Azienda sospetta rilevata: ${exp.company}` };
+    }
+  }
+
+  return { isHallucinated: false };
 }
 
 serve(async (req) => {
@@ -44,109 +79,83 @@ serve(async (req) => {
       throw new Error('No file data provided');
     }
 
-    console.log(`Processing CV: ${fileName}, type: ${fileType}`);
+    // Log file details for debugging
+    const base64Length = fileBase64.length;
+    console.log(`Processing CV: ${fileName}`);
+    console.log(`File type: ${fileType}`);
+    console.log(`Base64 length: ${base64Length} characters (~${Math.round(base64Length * 0.75 / 1024)} KB)`);
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    // Build the message content based on file type
     const isImage = fileType?.startsWith('image/');
     const isPDF = fileType === 'application/pdf';
 
-    let messageContent: any[];
+    if (!isImage && !isPDF) {
+      throw new Error(`Formato file non supportato: ${fileType}. Usa PDF o immagine.`);
+    }
 
-    if (isImage) {
-      // For images, use vision capability
-      messageContent = [
-        {
-          type: "text",
-          text: `Analizza questo CV/curriculum e estrai le seguenti informazioni in formato JSON:
+    // Build the prompt with anti-hallucination instructions
+    const extractionPrompt = `Analizza questo curriculum vitae e estrai le informazioni in formato JSON.
+
+REGOLE CRITICHE:
+1. Estrai SOLO informazioni che trovi ESPLICITAMENTE nel documento
+2. NON INVENTARE MAI nomi, aziende, ruoli, date o competenze
+3. Se non riesci a leggere una sezione o il testo è illeggibile, lascia il campo vuoto o array vuoto
+4. Se il documento non sembra un CV, restituisci tutti i campi vuoti
+5. Cerca: nome/cognome nell'header o contatti, sezioni "Esperienze/Experience", "Istruzione/Education", "Competenze/Skills"
+
+FORMATO RISPOSTA (JSON puro, senza markdown):
 {
-  "firstName": "nome",
-  "lastName": "cognome", 
-  "headline": "titolo professionale breve",
-  "bio": "breve descrizione professionale (max 200 caratteri)",
-  "location": "città, paese",
-  "yearsExperience": numero_anni_esperienza,
-  "skills": ["skill1", "skill2", ...],
+  "firstName": "nome trovato nel documento o null",
+  "lastName": "cognome trovato nel documento o null", 
+  "headline": "titolo professionale se presente o null",
+  "bio": "breve descrizione professionale se presente (max 200 caratteri) o null",
+  "location": "città/paese se presente o null",
+  "yearsExperience": numero anni esperienza calcolato dalle date o null,
+  "skills": ["competenza1", "competenza2"],
   "experiences": [
     {
-      "company": "nome azienda",
-      "role": "ruolo",
-      "startDate": "MM/YYYY",
-      "endDate": "MM/YYYY o 'Present'",
-      "description": "breve descrizione"
+      "company": "nome azienda ESATTO dal documento",
+      "role": "ruolo ESATTO dal documento",
+      "startDate": "MM/YYYY o YYYY",
+      "endDate": "MM/YYYY o YYYY o 'Present'",
+      "description": "descrizione se presente"
     }
   ],
   "education": [
     {
-      "institution": "nome istituto",
+      "institution": "nome istituto ESATTO",
       "degree": "tipo laurea/diploma",
       "field": "campo di studi",
-      "year": anno_completamento
+      "year": anno completamento
     }
   ],
-  "certifications": ["certificazione1", "certificazione2", ...],
-  "languages": ["lingua1", "lingua2", ...]
+  "certifications": ["certificazione1", "certificazione2"],
+  "languages": ["lingua1", "lingua2"]
 }
 
-Rispondi SOLO con il JSON, senza markdown o testo aggiuntivo.`
-        },
-        {
-          type: "image_url",
-          image_url: {
-            url: `data:${fileType};base64,${fileBase64}`
-          }
+IMPORTANTE: Rispondi SOLO con il JSON, senza backtick, senza markdown, senza spiegazioni.`;
+
+    // Build message content with COMPLETE file as inline_data
+    const messageContent = [
+      {
+        type: "text",
+        text: extractionPrompt
+      },
+      {
+        type: "image_url",
+        image_url: {
+          url: `data:${fileType};base64,${fileBase64}` // COMPLETE file, no truncation
         }
-      ];
-    } else if (isPDF) {
-      // For PDFs, we need to decode and send as text or use document parsing
-      // Lovable AI with Gemini can process PDFs
-      messageContent = [
-        {
-          type: "text",
-          text: `Analizza questo documento CV in formato PDF (base64 encoded) e estrai le seguenti informazioni in formato JSON:
-{
-  "firstName": "nome",
-  "lastName": "cognome", 
-  "headline": "titolo professionale breve",
-  "bio": "breve descrizione professionale (max 200 caratteri)",
-  "location": "città, paese",
-  "yearsExperience": numero_anni_esperienza,
-  "skills": ["skill1", "skill2", ...],
-  "experiences": [
-    {
-      "company": "nome azienda",
-      "role": "ruolo",
-      "startDate": "MM/YYYY",
-      "endDate": "MM/YYYY o 'Present'",
-      "description": "breve descrizione"
-    }
-  ],
-  "education": [
-    {
-      "institution": "nome istituto",
-      "degree": "tipo laurea/diploma",
-      "field": "campo di studi",
-      "year": anno_completamento
-    }
-  ],
-  "certifications": ["certificazione1", "certificazione2", ...],
-  "languages": ["lingua1", "lingua2", ...]
-}
+      }
+    ];
 
-PDF Base64: ${fileBase64.substring(0, 50000)}
+    console.log("Sending to Gemini Pro (complete file, no truncation)...");
 
-Rispondi SOLO con il JSON, senza markdown o testo aggiuntivo.`
-        }
-      ];
-    } else {
-      throw new Error(`Unsupported file type: ${fileType}`);
-    }
-
-    // Call Lovable AI Gateway
+    // Call Lovable AI Gateway with Gemini Pro for better document understanding
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -154,11 +163,11 @@ Rispondi SOLO con il JSON, senza markdown o testo aggiuntivo.`
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+        model: "google/gemini-2.5-pro", // Pro for better accuracy
         messages: [
           {
             role: "system",
-            content: "Sei un esperto analizzatore di CV. Estrai informazioni strutturate dai curriculum vitae. Rispondi sempre e solo in formato JSON valido."
+            content: "Sei un estrattore di dati da CV. Estrai SOLO dati reali dal documento. MAI inventare informazioni. Rispondi sempre in JSON valido senza markdown."
           },
           {
             role: "user",
@@ -175,31 +184,32 @@ Rispondi SOLO con il JSON, senza markdown o testo aggiuntivo.`
       
       if (response.status === 429) {
         return new Response(
-          JSON.stringify({ error: "Rate limit exceeded. Please try again later." }),
+          JSON.stringify({ error: "Troppi tentativi. Riprova tra qualche secondo." }),
           { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
       if (response.status === 402) {
         return new Response(
-          JSON.stringify({ error: "Payment required. Please add credits to your workspace." }),
+          JSON.stringify({ error: "Crediti esauriti. Contatta il supporto." }),
           { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
       
-      throw new Error(`AI Gateway error: ${response.status}`);
+      throw new Error(`Errore AI: ${response.status}`);
     }
 
     const aiResponse = await response.json();
     const content = aiResponse.choices?.[0]?.message?.content;
 
     if (!content) {
-      throw new Error("No response from AI");
+      throw new Error("Nessuna risposta dall'AI");
     }
 
-    console.log("AI Response:", content);
+    console.log("AI Response received, parsing...");
+    console.log("Raw response:", content.substring(0, 500));
 
     // Parse the JSON response
-    let parsedData: ParsedCVData;
+    let parsedData: Partial<ParsedCVData>;
     try {
       // Clean up the response - remove markdown code blocks if present
       let cleanContent = content.trim();
@@ -216,17 +226,18 @@ Rispondi SOLO con il JSON, senza markdown o testo aggiuntivo.`
       parsedData = JSON.parse(cleanContent.trim());
     } catch (parseError) {
       console.error("Failed to parse AI response:", parseError);
-      // Return a default structure with empty data
-      parsedData = {
-        skills: [],
-        experiences: [],
-        education: [],
-        certifications: [],
-        languages: [],
-      };
+      console.error("Content was:", content);
+      
+      return new Response(
+        JSON.stringify({ 
+          error: "Non siamo riusciti a leggere il CV. Prova con un PDF con testo selezionabile.",
+          details: "Parsing JSON fallito"
+        }),
+        { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
-    // Ensure all required fields exist
+    // Build result with defaults
     const result: ParsedCVData = {
       firstName: parsedData.firstName || undefined,
       lastName: parsedData.lastName || undefined,
@@ -239,18 +250,47 @@ Rispondi SOLO con il JSON, senza markdown o testo aggiuntivo.`
       education: Array.isArray(parsedData.education) ? parsedData.education : [],
       certifications: Array.isArray(parsedData.certifications) ? parsedData.certifications : [],
       languages: Array.isArray(parsedData.languages) ? parsedData.languages : [],
+      confidence: 'high'
     };
 
-    console.log("Parsed CV data:", result);
+    // Check for hallucination
+    const hallucinationCheck = detectHallucination(result);
+    if (hallucinationCheck.isHallucinated) {
+      console.warn("HALLUCINATION DETECTED:", hallucinationCheck.reason);
+      result.confidence = 'low';
+      
+      // Return error for clearly hallucinated data
+      return new Response(
+        JSON.stringify({ 
+          error: "Il CV non è stato letto correttamente. Riprova con un documento più leggibile.",
+          details: hallucinationCheck.reason,
+          confidence: 'failed'
+        }),
+        { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Check if we got meaningful data
+    const hasName = result.firstName || result.lastName;
+    const hasExperiences = result.experiences.length > 0;
+    const hasEducation = result.education.length > 0;
+    
+    if (!hasName && !hasExperiences && !hasEducation) {
+      result.confidence = 'low';
+      console.warn("LOW CONFIDENCE: No meaningful data extracted");
+    }
+
+    console.log("Parsed CV data:", JSON.stringify(result, null, 2));
+    console.log("Confidence:", result.confidence);
 
     return new Response(
-      JSON.stringify({ data: result }),
+      JSON.stringify(result), // Return directly, no extra wrapping
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
 
   } catch (error: unknown) {
     console.error("CV Parser error:", error);
-    const errorMessage = error instanceof Error ? error.message : "Failed to parse CV";
+    const errorMessage = error instanceof Error ? error.message : "Errore durante il parsing del CV";
     return new Response(
       JSON.stringify({ error: errorMessage }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
