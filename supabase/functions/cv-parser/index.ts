@@ -66,6 +66,91 @@ function detectHallucination(data: ParsedCVData): { isHallucinated: boolean; rea
   return { isHallucinated: false };
 }
 
+// Helper functions for extracting data from truncated/malformed JSON
+function extractJsonField(content: string, fieldName: string): string | undefined {
+  const regex = new RegExp(`"${fieldName}"\\s*:\\s*"([^"]*)"`, 'i');
+  const match = content.match(regex);
+  return match ? match[1] : undefined;
+}
+
+function extractJsonNumberField(content: string, fieldName: string): number | undefined {
+  const regex = new RegExp(`"${fieldName}"\\s*:\\s*(\\d+)`, 'i');
+  const match = content.match(regex);
+  return match ? parseInt(match[1], 10) : undefined;
+}
+
+function extractJsonArray(content: string, fieldName: string): string[] {
+  const regex = new RegExp(`"${fieldName}"\\s*:\\s*\\[([^\\]]*?)\\]`, 'is');
+  const match = content.match(regex);
+  if (!match) return [];
+  
+  const arrayContent = match[1];
+  const items: string[] = [];
+  const itemRegex = /"([^"]+)"/g;
+  let itemMatch;
+  while ((itemMatch = itemRegex.exec(arrayContent)) !== null) {
+    items.push(itemMatch[1]);
+  }
+  return items;
+}
+
+function extractJsonArrayOfObjects(content: string, fieldName: string): any[] {
+  // Find the start of the array
+  const startRegex = new RegExp(`"${fieldName}"\\s*:\\s*\\[`, 'i');
+  const startMatch = content.match(startRegex);
+  if (!startMatch || startMatch.index === undefined) return [];
+  
+  const arrayStart = startMatch.index + startMatch[0].length;
+  
+  // Extract complete objects from the array
+  const objects: any[] = [];
+  let depth = 0;
+  let objectStart = -1;
+  let inString = false;
+  let escapeNext = false;
+  
+  for (let i = arrayStart; i < content.length; i++) {
+    const char = content[i];
+    
+    if (escapeNext) {
+      escapeNext = false;
+      continue;
+    }
+    
+    if (char === '\\') {
+      escapeNext = true;
+      continue;
+    }
+    
+    if (char === '"') {
+      inString = !inString;
+      continue;
+    }
+    
+    if (!inString) {
+      if (char === '{') {
+        if (depth === 0) objectStart = i;
+        depth++;
+      } else if (char === '}') {
+        depth--;
+        if (depth === 0 && objectStart !== -1) {
+          const objectStr = content.substring(objectStart, i + 1);
+          try {
+            objects.push(JSON.parse(objectStr));
+          } catch (e) {
+            // Skip malformed object
+          }
+          objectStart = -1;
+        }
+      } else if (char === ']' && depth === 0) {
+        break; // End of array
+      }
+    }
+  }
+  
+  return objects;
+}
+
 serve(async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
@@ -153,9 +238,9 @@ IMPORTANTE: Rispondi SOLO con il JSON, senza backtick, senza markdown, senza spi
       }
     ];
 
-    console.log("Sending to Gemini Pro (complete file, no truncation)...");
+    console.log("Sending to Gemini Flash (complete file, no truncation)...");
 
-    // Call Lovable AI Gateway with Gemini Pro for better document understanding
+    // Call Lovable AI Gateway with Gemini Flash for faster response and less truncation
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -163,18 +248,18 @@ IMPORTANTE: Rispondi SOLO con il JSON, senza backtick, senza markdown, senza spi
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-pro", // Pro for better accuracy
+        model: "google/gemini-2.5-flash", // Flash is faster and less likely to truncate
         messages: [
           {
             role: "system",
-            content: "Sei un estrattore di dati da CV. Estrai SOLO dati reali dal documento. MAI inventare informazioni. Rispondi sempre in JSON valido senza markdown."
+            content: "Sei un estrattore di dati da CV. Estrai SOLO dati reali dal documento. MAI inventare informazioni. Rispondi sempre in JSON valido senza markdown. Mantieni le risposte concise."
           },
           {
             role: "user",
             content: messageContent
           }
         ],
-        max_tokens: 4000,
+        max_tokens: 8000, // Increased to prevent truncation
       }),
     });
 
@@ -222,8 +307,115 @@ IMPORTANTE: Rispondi SOLO con il JSON, senza backtick, senza markdown, senza spi
       if (cleanContent.endsWith("```")) {
         cleanContent = cleanContent.slice(0, -3);
       }
+      cleanContent = cleanContent.trim();
       
-      parsedData = JSON.parse(cleanContent.trim());
+      // Try to parse the JSON
+      try {
+        parsedData = JSON.parse(cleanContent);
+      } catch (firstParseError) {
+        console.log("First parse failed, attempting to repair truncated JSON...");
+        
+        // Try to repair truncated JSON by finding the last complete object/array
+        let repairedContent = cleanContent;
+        
+        // Count brackets to find where JSON breaks
+        let braceCount = 0;
+        let bracketCount = 0;
+        let lastValidIndex = 0;
+        let inString = false;
+        let escapeNext = false;
+        
+        for (let i = 0; i < repairedContent.length; i++) {
+          const char = repairedContent[i];
+          
+          if (escapeNext) {
+            escapeNext = false;
+            continue;
+          }
+          
+          if (char === '\\') {
+            escapeNext = true;
+            continue;
+          }
+          
+          if (char === '"' && !escapeNext) {
+            inString = !inString;
+            continue;
+          }
+          
+          if (!inString) {
+            if (char === '{') braceCount++;
+            if (char === '}') {
+              braceCount--;
+              if (braceCount >= 0) lastValidIndex = i;
+            }
+            if (char === '[') bracketCount++;
+            if (char === ']') {
+              bracketCount--;
+              if (bracketCount >= 0) lastValidIndex = i;
+            }
+          }
+        }
+        
+        // If we have unclosed braces/brackets, try to close them
+        if (braceCount > 0 || bracketCount > 0) {
+          // Find the last complete property or array element
+          // Look for the last comma or opening bracket/brace before truncation
+          let truncatePoint = repairedContent.length;
+          for (let i = repairedContent.length - 1; i >= 0; i--) {
+            const char = repairedContent[i];
+            if (char === ',' || char === '[' || char === '{') {
+              truncatePoint = i;
+              if (char === ',') truncatePoint = i; // Keep content before the comma
+              break;
+            }
+            if (char === ']' || char === '}') {
+              // Found a complete element
+              truncatePoint = i + 1;
+              break;
+            }
+          }
+          
+          repairedContent = repairedContent.substring(0, truncatePoint);
+          
+          // Remove trailing comma if present
+          repairedContent = repairedContent.replace(/,\s*$/, '');
+          
+          // Close any open brackets/braces
+          while (bracketCount > 0) {
+            repairedContent += ']';
+            bracketCount--;
+          }
+          while (braceCount > 0) {
+            repairedContent += '}';
+            braceCount--;
+          }
+          
+          console.log("Repaired JSON (last 200 chars):", repairedContent.slice(-200));
+        }
+        
+        try {
+          parsedData = JSON.parse(repairedContent);
+          console.log("Successfully parsed repaired JSON");
+        } catch (repairError) {
+          // Last resort: try to extract just the data we can find using regex
+          console.log("Repair failed, attempting regex extraction...");
+          parsedData = {
+            firstName: extractJsonField(cleanContent, 'firstName'),
+            lastName: extractJsonField(cleanContent, 'lastName'),
+            headline: extractJsonField(cleanContent, 'headline'),
+            bio: extractJsonField(cleanContent, 'bio'),
+            location: extractJsonField(cleanContent, 'location'),
+            yearsExperience: extractJsonNumberField(cleanContent, 'yearsExperience'),
+            skills: extractJsonArray(cleanContent, 'skills'),
+            experiences: extractJsonArrayOfObjects(cleanContent, 'experiences'),
+            education: extractJsonArrayOfObjects(cleanContent, 'education'),
+            certifications: extractJsonArray(cleanContent, 'certifications'),
+            languages: extractJsonArray(cleanContent, 'languages'),
+          };
+          console.log("Regex extraction result:", JSON.stringify(parsedData, null, 2));
+        }
+      }
     } catch (parseError) {
       console.error("Failed to parse AI response:", parseError);
       console.error("Content was:", content);
