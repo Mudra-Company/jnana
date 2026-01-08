@@ -6,6 +6,7 @@ import { KarmaSection } from './KarmaSection';
 import { BridgeSection } from './BridgeSection';
 import { SocialProofSection } from './SocialProofSection';
 import { FooterSection } from './FooterSection';
+import { LandingHeader } from './LandingHeader';
 import { Building, ArrowRight, AlertCircle } from 'lucide-react';
 
 interface PendingInvite {
@@ -15,12 +16,12 @@ interface PendingInvite {
 }
 
 interface LandingPageProps {
-  onSelectJnana: () => void;
-  onSelectKarma: () => void;
+  onLoginJnana: () => void;
+  onLoginKarma: () => void;
   pendingInvite?: PendingInvite | null;
 }
 
-export const LandingPage: React.FC<LandingPageProps> = ({ onSelectJnana, onSelectKarma, pendingInvite }) => {
+export const LandingPage: React.FC<LandingPageProps> = ({ onLoginJnana, onLoginKarma, pendingInvite }) => {
   // If there's a pending invite, show a prominent banner and block KARMA
   if (pendingInvite) {
     return (
@@ -44,7 +45,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSelectJnana, onSelec
               </div>
             </div>
             <button
-              onClick={onSelectJnana}
+              onClick={onLoginJnana}
               className="flex items-center gap-2 bg-white text-jnana-sage px-4 py-2 rounded-lg font-medium hover:bg-white/90 transition-colors"
             >
               Accetta Invito
@@ -53,9 +54,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSelectJnana, onSelec
           </div>
         </div>
 
-        <HeroSection onSelectJnana={onSelectJnana} onSelectKarma={onSelectJnana} />
+        <HeroSection onSelectJnana={() => {}} onSelectKarma={() => {}} />
         <ProblemSection />
-        <JnanaSection onCta={onSelectJnana} />
+        <JnanaSection onCta={onLoginJnana} />
         
         {/* KARMA Section - Disabled with overlay */}
         <div className="relative">
@@ -70,32 +71,33 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onSelectJnana, onSelec
                 Completa prima la registrazione JNANA.
               </p>
               <button
-                onClick={onSelectJnana}
+                onClick={onLoginJnana}
                 className="bg-jnana-sage text-white px-6 py-2 rounded-lg font-medium hover:bg-jnana-sage/90 transition-colors"
               >
                 Vai a JNANA
               </button>
             </div>
           </div>
-          <KarmaSection onCta={onSelectJnana} />
+          <KarmaSection onCta={onLoginJnana} />
         </div>
         
         <BridgeSection />
         <SocialProofSection />
-        <FooterSection onSelectJnana={onSelectJnana} onSelectKarma={onSelectJnana} />
+        <FooterSection onSelectJnana={onLoginJnana} onSelectKarma={onLoginJnana} />
       </div>
     );
   }
 
   return (
     <div className="min-h-screen bg-jnana-bg dark:bg-gray-900 overflow-x-hidden">
-      <HeroSection onSelectJnana={onSelectJnana} onSelectKarma={onSelectKarma} />
+      <LandingHeader onLoginJnana={onLoginJnana} onLoginKarma={onLoginKarma} />
+      <HeroSection onSelectJnana={() => {}} onSelectKarma={() => {}} />
       <ProblemSection />
-      <JnanaSection onCta={onSelectJnana} />
-      <KarmaSection onCta={onSelectKarma} />
+      <JnanaSection onCta={onLoginJnana} />
+      <KarmaSection onCta={onLoginKarma} />
       <BridgeSection />
       <SocialProofSection />
-      <FooterSection onSelectJnana={onSelectJnana} onSelectKarma={onSelectKarma} />
+      <FooterSection onSelectJnana={onLoginJnana} onSelectKarma={onLoginKarma} />
     </div>
   );
 };

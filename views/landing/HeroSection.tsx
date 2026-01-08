@@ -8,6 +8,14 @@ interface HeroSectionProps {
 }
 
 export const HeroSection: React.FC<HeroSectionProps> = ({ onSelectJnana, onSelectKarma }) => {
+  const scrollToJnana = () => {
+    document.getElementById('jnana-section')?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  const scrollToKarma = () => {
+    document.getElementById('karma-section')?.scrollIntoView({ behavior: 'smooth' });
+  };
+
   const scrollToContent = () => {
     window.scrollTo({ top: window.innerHeight, behavior: 'smooth' });
   };
@@ -47,7 +55,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onSelectJnana, onSelec
         {/* CTA Buttons */}
         <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
           <Button
-            onClick={onSelectJnana}
+            onClick={scrollToJnana}
             className="group relative px-8 py-4 bg-jnana-sage hover:bg-jnana-sageDark text-white rounded-xl text-lg font-medium transition-all shadow-lg hover:shadow-xl hover:scale-105"
           >
             <Building className="w-5 h-5 mr-2 inline-block" />
@@ -56,7 +64,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onSelectJnana, onSelec
           </Button>
           
           <Button
-            onClick={onSelectKarma}
+            onClick={scrollToKarma}
             className="group relative px-8 py-4 bg-violet-600 hover:bg-violet-700 text-white rounded-xl text-lg font-medium transition-all shadow-lg hover:shadow-xl hover:scale-105"
           >
             <Sparkles className="w-5 h-5 mr-2 inline-block" />
