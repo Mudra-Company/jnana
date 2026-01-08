@@ -226,9 +226,10 @@ interface UserResultViewProps {
   companyUsers?: User[];
   onLogout: () => void;
   onStartClimate: () => void;
+  onStartKarma?: () => void;
 }
 
-export const UserResultView: React.FC<UserResultViewProps> = ({ user, jobDb, company, companyUsers, onLogout, onStartClimate }) => {
+export const UserResultView: React.FC<UserResultViewProps> = ({ user, jobDb, company, companyUsers, onLogout, onStartClimate, onStartKarma }) => {
     const [activeTab, setActiveTab] = useState<'overview' | 'riasec' | 'karma' | 'climate'>('overview');
 
     // --- SINGLE SOURCE OF TRUTH ---
@@ -456,12 +457,31 @@ export const UserResultView: React.FC<UserResultViewProps> = ({ user, jobDb, com
                         </Card>
                      )}
 
+                     {/* Call to action if karma not done */}
+                     {!user.karmaData && onStartKarma && (
+                        <div className="bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 border-l-8 border-indigo-500 rounded-2xl p-8 shadow-md flex flex-col md:flex-row items-center justify-between gap-6">
+                            <div className="flex items-start gap-5">
+                                <div className="p-4 bg-white dark:bg-gray-800 rounded-full text-indigo-500 shadow-sm shrink-0 mt-1"><BrainCircuit size={32} strokeWidth={2} /></div>
+                                <div>
+                                    <h3 className="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-2">🎯 Completa il tuo profilo!</h3>
+                                    <p className="text-gray-600 dark:text-gray-300 text-lg">
+                                        Hai completato {user.results ? 'RIASEC' : ''}{user.results && user.climateData ? ' e ' : ''}{user.climateData ? 'Climate' : ''}.
+                                        Parla con Karma AI per scoprire le tue soft skills e valori.
+                                    </p>
+                                </div>
+                            </div>
+                            <Button onClick={onStartKarma} className="bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg px-8 py-4 text-lg font-bold shrink-0 min-w-[200px]">
+                                Inizia Colloquio <ArrowRight className="ml-2"/>
+                            </Button>
+                        </div>
+                     )}
+
                      {/* Call to action if climate not done */}
                      {!user.climateData && (
-                        <div className="bg-gradient-to-r from-amber-50 to-orange-50 border-l-8 border-amber-500 rounded-2xl p-8 shadow-md flex flex-col md:flex-row items-center justify-between gap-6">
+                        <div className="bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 border-l-8 border-amber-500 rounded-2xl p-8 shadow-md flex flex-col md:flex-row items-center justify-between gap-6">
                             <div className="flex items-start gap-5">
-                                <div className="p-4 bg-white rounded-full text-amber-500 shadow-sm shrink-0 mt-1"><ThermometerSun size={32} strokeWidth={2} /></div>
-                                <div><h3 className="text-2xl font-bold text-gray-800 mb-2">Analisi Clima Richiesta</h3><p className="text-gray-600 text-lg">Completa il sondaggio per sbloccare l'analisi completa.</p></div>
+                                <div className="p-4 bg-white dark:bg-gray-800 rounded-full text-amber-500 shadow-sm shrink-0 mt-1"><ThermometerSun size={32} strokeWidth={2} /></div>
+                                <div><h3 className="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-2">Analisi Clima Richiesta</h3><p className="text-gray-600 dark:text-gray-300 text-lg">Completa il sondaggio per sbloccare l'analisi completa.</p></div>
                             </div>
                             <Button onClick={onStartClimate} className="bg-amber-600 hover:bg-amber-700 text-white shadow-lg px-8 py-4 text-lg font-bold shrink-0 min-w-[200px]">Compila Ora <ArrowRight className="ml-2"/></Button>
                         </div>
@@ -524,7 +544,25 @@ export const UserResultView: React.FC<UserResultViewProps> = ({ user, jobDb, com
                                  <Card className="bg-red-50/30 border-red-100"><h3 className="font-bold text-red-700 mb-4">Rischi (Entropia)</h3><ul>{user.karmaData.riskFactors?.map(r => <li key={r} className="flex gap-2 items-center text-red-800 text-sm mb-2"><X size={14}/> {r}</li>)}</ul></Card>
                              </div>
                          </>
-                     ) : <div className="text-center py-20 text-gray-400">Analisi non disponibile.</div>}
+                     ) : (
+                         <div className="text-center py-16">
+                             <div className="max-w-md mx-auto">
+                                 <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center">
+                                     <BrainCircuit size={40} className="text-indigo-500" />
+                                 </div>
+                                 <h3 className="text-2xl font-bold text-gray-800 dark:text-gray-100 mb-3">Colloquio Karma AI</h3>
+                                 <p className="text-gray-500 dark:text-gray-400 mb-8">
+                                     Parla con la nostra AI per scoprire le tue soft skills, valori e aree di crescita.
+                                     Il colloquio dura circa 5 minuti.
+                                 </p>
+                                 {onStartKarma && (
+                                     <Button onClick={onStartKarma} className="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-4 text-lg font-bold">
+                                         <BrainCircuit className="mr-2" size={20} /> Inizia Colloquio
+                                     </Button>
+                                 )}
+                             </div>
+                         </div>
+                     )}
                  </div>
              )}
 
