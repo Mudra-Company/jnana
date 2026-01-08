@@ -156,6 +156,7 @@ export interface KarmaProfile {
   avatarUrl?: string;
   bio?: string;
   location?: string;
+  region?: string; // Italian region for geographical filtering
   headline?: string;
   jobTitle?: string;
   gender?: 'M' | 'F';

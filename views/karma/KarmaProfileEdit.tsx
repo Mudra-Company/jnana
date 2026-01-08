@@ -14,7 +14,8 @@ import { ExperienceManager } from '../../src/components/karma/ExperienceManager'
 import { EducationManager } from '../../src/components/karma/EducationManager';
 import { CertificationManager } from '../../src/components/karma/CertificationManager';
 import { LanguagesManager } from '../../src/components/karma/LanguagesManager';
-import type { WorkType, SocialPlatform, ParsedCVData } from '../../src/types/karma';
+import { VisibilitySettingsCard } from '../../src/components/karma/VisibilitySettingsCard';
+import type { WorkType, SocialPlatform, ParsedCVData, ProfileVisibility } from '../../src/types/karma';
 
 interface KarmaProfileEditProps {
   onBack: () => void;
@@ -64,10 +65,12 @@ export const KarmaProfileEdit: React.FC<KarmaProfileEditProps> = ({ onBack, onSa
     lastName: '',
     headline: '',
     location: '',
+    region: '',
     bio: '',
     yearsExperience: 0,
     lookingForWork: false,
     preferredWorkType: 'any' as WorkType,
+    profileVisibility: 'private' as ProfileVisibility,
   });
 
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
@@ -87,10 +90,12 @@ export const KarmaProfileEdit: React.FC<KarmaProfileEditProps> = ({ onBack, onSa
         lastName: profile.lastName || '',
         headline: profile.headline || '',
         location: profile.location || '',
+        region: profile.region || '',
         bio: profile.bio || '',
         yearsExperience: profile.yearsExperience || 0,
         lookingForWork: profile.lookingForWork,
         preferredWorkType: profile.preferredWorkType || 'any',
+        profileVisibility: profile.profileVisibility || 'private',
       };
       setFormData(newFormData);
       initialFormData.current = newFormData;
@@ -206,10 +211,12 @@ export const KarmaProfileEdit: React.FC<KarmaProfileEditProps> = ({ onBack, onSa
         lastName: formData.lastName,
         headline: formData.headline,
         location: formData.location,
+        region: formData.region,
         bio: formData.bio,
         yearsExperience: formData.yearsExperience,
         lookingForWork: formData.lookingForWork,
         preferredWorkType: formData.preferredWorkType,
+        profileVisibility: formData.profileVisibility,
       });
       initialFormData.current = formData;
       setIsDirty(false);
@@ -454,35 +461,20 @@ export const KarmaProfileEdit: React.FC<KarmaProfileEditProps> = ({ onBack, onSa
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  <MapPin size={14} className="inline mr-1" />
-                  Località
-                </label>
-                <input
-                  type="text"
-                  value={formData.location}
-                  onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-                  className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-jnana-sage focus:border-transparent transition-all"
-                  placeholder="Milano, Italia"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  <Briefcase size={14} className="inline mr-1" />
-                  Anni di esperienza
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  max="50"
-                  value={formData.yearsExperience}
-                  onChange={(e) => setFormData({ ...formData, yearsExperience: parseInt(e.target.value) || 0 })}
-                  className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-jnana-sage focus:border-transparent transition-all"
-                  placeholder="Es: 15"
-                />
-              </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <Briefcase size={14} className="inline mr-1" />
+                Anni di esperienza
+              </label>
+              <input
+                type="number"
+                min="0"
+                max="50"
+                value={formData.yearsExperience}
+                onChange={(e) => setFormData({ ...formData, yearsExperience: parseInt(e.target.value) || 0 })}
+                className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-jnana-sage focus:border-transparent transition-all"
+                placeholder="Es: 15"
+              />
             </div>
 
             <div>
@@ -500,62 +492,19 @@ export const KarmaProfileEdit: React.FC<KarmaProfileEditProps> = ({ onBack, onSa
           </div>
         </Card>
 
-        {/* Work Preferences */}
-        <Card className="mb-6">
-          <h3 className="font-bold text-gray-900 dark:text-white mb-4">
-            Preferenze Lavorative
-          </h3>
-
-          <div className="space-y-4">
-            <label className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-xl cursor-pointer">
-              <div>
-                <h4 className="font-medium text-gray-900 dark:text-white">
-                  Sto cercando lavoro
-                </h4>
-                <p className="text-sm text-gray-500">
-                  Le aziende potranno vedere la tua disponibilità
-                </p>
-              </div>
-              <div className="relative">
-                <input
-                  type="checkbox"
-                  checked={formData.lookingForWork}
-                  onChange={(e) => setFormData({ ...formData, lookingForWork: e.target.checked })}
-                  className="sr-only"
-                />
-                <div className={`w-12 h-7 rounded-full transition-colors ${formData.lookingForWork ? 'bg-jnana-sage' : 'bg-gray-300 dark:bg-gray-600'}`}>
-                  <div className={`w-5 h-5 bg-white rounded-full shadow-sm transform transition-transform mt-1 ${formData.lookingForWork ? 'translate-x-6' : 'translate-x-1'}`} />
-                </div>
-              </div>
-            </label>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Modalità di lavoro preferita
-              </label>
-              <div className="grid grid-cols-2 gap-2">
-                {[
-                  { value: 'remote', label: 'Full Remote' },
-                  { value: 'hybrid', label: 'Ibrido' },
-                  { value: 'onsite', label: 'In Sede' },
-                  { value: 'any', label: 'Indifferente' },
-                ].map(option => (
-                  <button
-                    key={option.value}
-                    onClick={() => setFormData({ ...formData, preferredWorkType: option.value as WorkType })}
-                    className={`p-3 rounded-xl border-2 text-sm font-medium transition-all ${
-                      formData.preferredWorkType === option.value
-                        ? 'border-jnana-sage bg-jnana-sage/5 text-jnana-sage'
-                        : 'border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:border-gray-300'
-                    }`}
-                  >
-                    {option.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-        </Card>
+        {/* Visibility & Work Preferences */}
+        <VisibilitySettingsCard
+          profileVisibility={formData.profileVisibility}
+          lookingForWork={formData.lookingForWork}
+          preferredWorkType={formData.preferredWorkType}
+          location={formData.location}
+          region={formData.region}
+          onVisibilityChange={(visibility) => setFormData({ ...formData, profileVisibility: visibility })}
+          onLookingForWorkChange={(value) => setFormData({ ...formData, lookingForWork: value })}
+          onPreferredWorkTypeChange={(type) => setFormData({ ...formData, preferredWorkType: type })}
+          onLocationChange={(location) => setFormData({ ...formData, location: location })}
+          onRegionChange={(region) => setFormData({ ...formData, region: region })}
+        />
 
         {/* Skills */}
         <Card className="mb-6">

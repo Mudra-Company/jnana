@@ -73,6 +73,7 @@ export const useKarmaProfile = (userId?: string) => {
         avatarUrl: profileData.avatar_url || undefined,
         bio: profileData.bio || undefined,
         location: profileData.location || undefined,
+        region: profileData.region || undefined,
         headline: profileData.headline || undefined,
         jobTitle: profileData.job_title || undefined,
         gender: profileData.gender as 'M' | 'F' | undefined,
@@ -227,6 +228,7 @@ export const useKarmaProfile = (userId?: string) => {
       if (updates.lookingForWork !== undefined) dbUpdates.looking_for_work = updates.lookingForWork;
       if (updates.preferredWorkType !== undefined) dbUpdates.preferred_work_type = updates.preferredWorkType;
       if (updates.yearsExperience !== undefined) dbUpdates.years_experience = updates.yearsExperience;
+      if (updates.region !== undefined) dbUpdates.region = updates.region;
 
       const { data, error } = await supabase
         .from('profiles')

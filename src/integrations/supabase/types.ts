@@ -467,6 +467,7 @@ export type Database = {
           looking_for_work: boolean | null
           preferred_work_type: string | null
           profile_visibility: string | null
+          region: string | null
           updated_at: string
           years_experience: number | null
         }
@@ -487,6 +488,7 @@ export type Database = {
           looking_for_work?: boolean | null
           preferred_work_type?: string | null
           profile_visibility?: string | null
+          region?: string | null
           updated_at?: string
           years_experience?: number | null
         }
@@ -507,6 +509,7 @@ export type Database = {
           looking_for_work?: boolean | null
           preferred_work_type?: string | null
           profile_visibility?: string | null
+          region?: string | null
           updated_at?: string
           years_experience?: number | null
         }
