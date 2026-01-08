@@ -427,20 +427,23 @@ const AppContent: React.FC = () => {
     // Get user IDs for test data loading (only real users)
     const userIds = membersWithProfiles.map(m => m.user_id).filter(Boolean);
     
-    // 2. Load test results for real users only
+    // 2. Load test results AND user_roles for real users only
     let riasecResults: any[] = [];
     let karmaSessions: any[] = [];
     let climateResponses: any[] = [];
+    let userRolesData: any[] = [];
     
     if (userIds.length > 0) {
-      const [riasec, karma, climate] = await Promise.all([
+      const [riasec, karma, climate, roles] = await Promise.all([
         supabase.from('riasec_results').select('*').in('user_id', userIds),
         supabase.from('karma_sessions').select('*').in('user_id', userIds),
-        supabase.from('climate_responses').select('*').in('user_id', userIds)
+        supabase.from('climate_responses').select('*').in('user_id', userIds),
+        supabase.from('user_roles').select('*').in('user_id', userIds)
       ]);
       riasecResults = riasec.data || [];
       karmaSessions = karma.data || [];
       climateResponses = climate.data || [];
+      userRolesData = roles.data || [];
     }
     
     // 3. Transform real users
@@ -450,8 +453,12 @@ const AppContent: React.FC = () => {
       const karma = karmaSessions.find(k => k.user_id === member.user_id);
       const climate = climateResponses.find(c => c.user_id === member.user_id);
       
+      // Check if user is a super_admin in user_roles table
+      const isSuperAdmin = userRolesData.some(r => r.user_id === member.user_id && r.role === 'super_admin');
+      
       const legacyUser = profileToLegacyUser(profile, member, riasec, karma, climate);
-      legacyUser.role = member.role || 'user';
+      // Override role if user is super_admin (takes precedence over company_member role)
+      legacyUser.role = isSuperAdmin ? 'super_admin' : (member.role || 'user');
       legacyUser.memberId = member.id;
       return legacyUser;
     });
@@ -518,6 +525,18 @@ const AppContent: React.FC = () => {
       setImpersonatedCompanyId(null);
       setActiveCompanyData(null);
       setView({ type: 'SUPER_ADMIN_DASHBOARD' });
+    }
+  };
+
+  // Handler for admins to access their own user profile
+  const handleGoToMyProfile = () => {
+    if (!user || !currentUserData) return;
+    
+    // Navigate to user view based on their status
+    if (currentUserData.status === 'completed') {
+      navigate({ type: 'USER_RESULT', userId: user.id });
+    } else {
+      navigate({ type: 'USER_WELCOME', userId: user.id });
     }
   };
 
@@ -906,6 +925,8 @@ const AppContent: React.FC = () => {
             onBack={goBack}
             canGoBack={viewHistory.length > 0 || (isSuperAdmin && !!activeCompanyData)}
             userRole={userRole}
+            onMyProfile={handleGoToMyProfile}
+            hasCompanyMembership={!!membership}
           />
         )}
 
