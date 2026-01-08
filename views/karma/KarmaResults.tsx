@@ -1,22 +1,13 @@
 import React from 'react';
 import {
   Hexagon, ArrowLeft, Briefcase, Award, Sparkles,
-  TrendingUp, Shield, AlertTriangle, CheckCircle, Target
+  TrendingUp, Shield, AlertTriangle, CheckCircle, Target,
+  Hammer, Lightbulb, Palette, Users, Rocket, ClipboardList
 } from 'lucide-react';
 import { Button } from '../../components/Button';
 import { Card } from '../../components/Card';
 import { useKarmaProfile } from '../../src/hooks/useKarmaProfile';
 import { RIASEC_DESCRIPTIONS } from '../../data/riasecContent';
-
-// Dimension colors for the chart
-const dimensionColors: Record<string, string> = {
-  R: '#4A6741',
-  I: '#5B7E9A',
-  A: '#9A5B7E',
-  S: '#7E9A5B',
-  E: '#9A7E5B',
-  C: '#5B9A7E',
-};
 import {
   RadarChart,
   PolarGrid,
@@ -25,6 +16,38 @@ import {
   Radar,
   ResponsiveContainer,
 } from 'recharts';
+
+// RIASEC configuration with colors and icons - consistent with platform
+const RIASEC_CONFIG: Record<string, { color: string; icon: React.FC<any>; label: string }> = {
+  R: { color: '#E74C3C', icon: Hammer, label: 'Realistico' },
+  I: { color: '#8E44AD', icon: Lightbulb, label: 'Investigativo' },
+  A: { color: '#E67E22', icon: Palette, label: 'Artistico' },
+  S: { color: '#2ECC71', icon: Users, label: 'Sociale' },
+  E: { color: '#3498DB', icon: Rocket, label: 'Intraprendente' },
+  C: { color: '#F1C40F', icon: ClipboardList, label: 'Convenzionale' },
+};
+
+// Custom tick component for radar chart with icons
+const CustomRadarTick = (props: any) => {
+  const { payload, x, y, cx, cy } = props;
+  const config = RIASEC_CONFIG[payload.value];
+  if (!config) return null;
+
+  const Icon = config.icon;
+  const angle = Math.atan2(y - cy, x - cx);
+  const offsetX = Math.cos(angle) * 24;
+  const offsetY = Math.sin(angle) * 24;
+
+  return (
+    <g transform={`translate(${x + offsetX}, ${y + offsetY})`}>
+      <foreignObject x={-14} y={-14} width={28} height={28}>
+        <div className="flex items-center justify-center w-7 h-7 rounded-full" style={{ backgroundColor: config.color }}>
+          <Icon size={14} className="text-white" />
+        </div>
+      </foreignObject>
+    </g>
+  );
+};
 
 interface KarmaResultsProps {
   onBack: () => void;
@@ -57,11 +80,11 @@ export const KarmaResults: React.FC<KarmaResultsProps> = ({ onBack, onEditProfil
 
   const { riasecScore, profileCode, karmaData } = profile;
 
-  // Prepare radar chart data
+  // Prepare radar chart data with correct 0-30 scale
   const radarData = DIMENSIONS.map(dim => ({
     dimension: dim,
     value: riasecScore[dim],
-    fullMark: 100,
+    fullMark: 30,
   }));
 
   // Get top 3 dimensions
@@ -104,15 +127,15 @@ export const KarmaResults: React.FC<KarmaResultsProps> = ({ onBack, onEditProfil
               Profilo RIASEC
             </h3>
             
-            <div className="h-64">
+            <div className="h-72">
               <ResponsiveContainer width="100%" height="100%">
-                <RadarChart data={radarData}>
+                <RadarChart data={radarData} outerRadius="70%">
                   <PolarGrid stroke="#e5e7eb" />
                   <PolarAngleAxis
                     dataKey="dimension"
-                    tick={{ fill: '#6b7280', fontSize: 14, fontWeight: 'bold' }}
+                    tick={<CustomRadarTick />}
                   />
-                  <PolarRadiusAxis angle={30} domain={[0, 100]} tick={false} axisLine={false} />
+                  <PolarRadiusAxis angle={30} domain={[0, 30]} tick={false} axisLine={false} />
                   <Radar
                     name="Score"
                     dataKey="value"
@@ -125,22 +148,35 @@ export const KarmaResults: React.FC<KarmaResultsProps> = ({ onBack, onEditProfil
               </ResponsiveContainer>
             </div>
 
-            {/* Dimension breakdown */}
-            <div className="grid grid-cols-2 gap-2 mt-4">
-              {DIMENSIONS.map(dim => (
-                <div key={dim} className="flex items-center gap-2">
-                  <div
-                    className="w-3 h-3 rounded-full"
-                    style={{ backgroundColor: dimensionColors[dim] }}
-                  />
-                  <span className="text-sm text-gray-600 dark:text-gray-400">
-                    {RIASEC_DESCRIPTIONS[dim]?.title || dim}
-                  </span>
-                  <span className="ml-auto text-sm font-bold text-gray-900 dark:text-white">
-                    {riasecScore[dim]}%
-                  </span>
-                </div>
-              ))}
+            {/* Dimension breakdown with progress bars */}
+            <div className="space-y-2 mt-4">
+              {DIMENSIONS.map(dim => {
+                const config = RIASEC_CONFIG[dim];
+                const score = riasecScore[dim];
+                const percentage = (score / 30) * 100;
+                return (
+                  <div key={dim} className="flex items-center gap-3">
+                    <div
+                      className="w-6 h-6 rounded-full flex items-center justify-center shrink-0"
+                      style={{ backgroundColor: config.color }}
+                    >
+                      <config.icon size={12} className="text-white" />
+                    </div>
+                    <span className="text-sm text-gray-600 dark:text-gray-400 w-24 shrink-0">
+                      {config.label}
+                    </span>
+                    <div className="flex-1 h-2 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+                      <div 
+                        className="h-full rounded-full transition-all" 
+                        style={{ width: `${percentage}%`, backgroundColor: config.color }}
+                      />
+                    </div>
+                    <span className="text-sm font-bold text-gray-900 dark:text-white w-10 text-right">
+                      {score}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
           </Card>
 
@@ -152,29 +188,36 @@ export const KarmaResults: React.FC<KarmaResultsProps> = ({ onBack, onEditProfil
             </h3>
 
             <div className="space-y-4">
-              {topThree.map((dim, index) => (
-                <div key={dim} className="p-4 bg-gray-50 dark:bg-gray-800 rounded-xl">
-                  <div className="flex items-center gap-3 mb-2">
-                    <div
-                      className="w-8 h-8 rounded-full flex items-center justify-center text-white font-bold"
-                      style={{ backgroundColor: dimensionColors[dim] }}
-                    >
-                      {index + 1}
+              {topThree.map((dim, index) => {
+                const config = RIASEC_CONFIG[dim];
+                const Icon = config.icon;
+                return (
+                  <div key={dim} className="p-4 bg-gray-50 dark:bg-gray-800 rounded-xl">
+                    <div className="flex items-center gap-3 mb-2">
+                      <div
+                        className="w-10 h-10 rounded-full flex items-center justify-center text-white"
+                        style={{ backgroundColor: config.color }}
+                      >
+                        <Icon size={20} />
+                      </div>
+                      <div className="flex-1">
+                        <h4 className="font-bold text-gray-900 dark:text-white">
+                          {config.label}
+                        </h4>
+                        <p className="text-sm text-gray-500">
+                          Punteggio: {riasecScore[dim]}/30
+                        </p>
+                      </div>
+                      <div className="text-2xl font-bold" style={{ color: config.color }}>
+                        #{index + 1}
+                      </div>
                     </div>
-                    <div>
-                      <h4 className="font-bold text-gray-900 dark:text-white">
-                        {RIASEC_DESCRIPTIONS[dim]?.title || dim}
-                      </h4>
-                      <p className="text-sm text-gray-500">
-                        {riasecScore[dim]}% di affinità
-                      </p>
-                    </div>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      {RIASEC_DESCRIPTIONS[dim]?.description || ''}
+                    </p>
                   </div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    {RIASEC_DESCRIPTIONS[dim]?.description || ''}
-                  </p>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </Card>
         </div>
