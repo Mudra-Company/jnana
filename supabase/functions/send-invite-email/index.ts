@@ -101,7 +101,7 @@ const handler = async (req: Request): Promise<Response> => {
                   
                   <!-- Header with MUDRA branding -->
                   <tr>
-                    <td style="background: linear-gradient(135deg, #4F7066 0%, #3A524B 100%); padding: 48px 40px 40px; text-align: center;">
+                    <td bgcolor="#4F7066" style="background-color: #4F7066; padding: 48px 40px 40px; text-align: center;">
                       <table width="100%" cellpadding="0" cellspacing="0">
                         <tr>
                           <td align="center">
@@ -120,10 +120,10 @@ const handler = async (req: Request): Promise<Response> => {
                   
                   <!-- Jnana Badge -->
                   <tr>
-                    <td align="center" style="padding: 0;">
-                      <table cellpadding="0" cellspacing="0" style="transform: translateY(-20px);">
+                    <td align="center" style="padding: 24px 0 0;">
+                      <table cellpadding="0" cellspacing="0">
                         <tr>
-                          <td style="background: linear-gradient(135deg, #4F7066 0%, #3A524B 100%); padding: 10px 24px; border-radius: 50px; box-shadow: 0 8px 24px rgba(79, 112, 102, 0.3);">
+                          <td bgcolor="#4F7066" style="background-color: #4F7066; padding: 10px 24px; border-radius: 50px;">
                             <span style="color: #ffffff; font-family: 'Montserrat', sans-serif; font-size: 14px; font-weight: 600; letter-spacing: 1px;">
                               ✨ JNANA
                             </span>
@@ -202,14 +202,20 @@ const handler = async (req: Request): Promise<Response> => {
                         </span>
                       </div>
                       
-                      <!-- CTA Button -->
+                      <!-- CTA Button - Bulletproof button for email clients -->
                       <table width="100%" cellpadding="0" cellspacing="0">
                         <tr>
                           <td align="center" style="padding: 20px 0 32px;">
-                            <a href="${signupUrl}" 
-                               style="display: inline-block; background: linear-gradient(135deg, #4F7066 0%, #3A524B 100%); color: #ffffff; text-decoration: none; font-family: 'Montserrat', sans-serif; font-size: 16px; font-weight: 600; padding: 18px 48px; border-radius: 14px; box-shadow: 0 10px 30px rgba(79, 112, 102, 0.35); letter-spacing: 0.5px;">
-                              Inizia ora →
-                            </a>
+                            <table cellpadding="0" cellspacing="0" border="0">
+                              <tr>
+                                <td bgcolor="#4F7066" style="background-color: #4F7066; border-radius: 14px;">
+                                  <a href="${signupUrl}" 
+                                     style="display: inline-block; color: #ffffff; text-decoration: none; font-family: 'Montserrat', sans-serif; font-size: 16px; font-weight: 600; padding: 18px 48px; letter-spacing: 0.5px;">
+                                    Inizia ora →
+                                  </a>
+                                </td>
+                              </tr>
+                            </table>
                           </td>
                         </tr>
                       </table>
