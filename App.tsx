@@ -22,6 +22,8 @@ import { KarmaTalentsView } from './views/superadmin/KarmaTalentsView';
 import { KarmaProfileDetailView } from './views/superadmin/KarmaProfileDetailView';
 import { SuperAdminAnalyticsView } from './views/superadmin/SuperAdminAnalyticsView';
 import { AdminDashboardView } from './views/admin/AdminDashboard';
+import { OpenPositionsView } from './views/admin/OpenPositionsView';
+import { PositionMatchingView } from './views/admin/PositionMatchingView';
 
 import { CompanyOrgView } from './views/admin/CompanyOrgView';
 import { AdminIdentityHub } from './views/admin/AdminIdentityHub';
@@ -1100,6 +1102,25 @@ const AppContent: React.FC = () => {
             <AdminCompanyProfileView
               company={activeCompanyData}
               onUpdate={handleCompanyUpdate}
+            />
+          )}
+
+          {view.type === 'ADMIN_OPEN_POSITIONS' && activeCompanyData && canAccessAdminViews && (
+            <OpenPositionsView
+              company={activeCompanyData}
+              users={companyUsers}
+              onBack={() => navigate({ type: 'ADMIN_DASHBOARD' })}
+              onFindCandidates={(positionId) => navigate({ type: 'ADMIN_POSITION_MATCHING', positionId })}
+              onEditPosition={() => navigate({ type: 'ADMIN_ORG_CHART' })}
+            />
+          )}
+
+          {view.type === 'ADMIN_POSITION_MATCHING' && activeCompanyData && canAccessAdminViews && (
+            <PositionMatchingView
+              positionId={view.positionId}
+              company={activeCompanyData}
+              onBack={() => navigate({ type: 'ADMIN_OPEN_POSITIONS' })}
+              onViewCandidate={(userId) => navigate({ type: 'KARMA_PROFILE_VIEW', userId })}
             />
           )}
 

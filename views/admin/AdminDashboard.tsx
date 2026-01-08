@@ -380,7 +380,7 @@ export const AdminDashboardView: React.FC<AdminDashboardProps> = ({
         </Card>
         <Card 
           className="flex flex-col justify-between bg-gradient-to-br from-blue-500 to-cyan-600 text-white border-0 shadow-lg cursor-pointer hover:scale-[1.02] transition-transform" 
-          onClick={() => setView({ type: 'TALENT_SEARCH' })}
+          onClick={() => setView({ type: 'ADMIN_OPEN_POSITIONS' })}
         >
           <div className="flex justify-between items-start">
             <span className="text-blue-100 text-xs font-bold uppercase tracking-wider">Posizioni Aperte</span>

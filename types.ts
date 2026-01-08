@@ -193,6 +193,8 @@ export type ViewState =
   | { type: 'ADMIN_IDENTITY_HUB' } 
   | { type: 'ADMIN_COMPANY_PROFILE' }
   | { type: 'ADMIN_USER_DETAIL'; userId: string }
+  | { type: 'ADMIN_OPEN_POSITIONS' }
+  | { type: 'ADMIN_POSITION_MATCHING'; positionId: string }
   | { type: 'USER_WELCOME'; userId: string }
   | { type: 'USER_TEST'; userId: string }
   | { type: 'USER_CHAT'; userId: string } 
