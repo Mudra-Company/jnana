@@ -180,13 +180,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
     });
 
-    // If signup was successful and there's a pending invite, link the user to the company
+    // If signup was successful, try to link user to company
     if (!error && data.user) {
+      let linked = false;
+      
+      // 1. First, check localStorage for pending invite (from URL parameters)
       const pendingInviteStr = localStorage.getItem('pendingInvite');
       if (pendingInviteStr) {
         try {
           const pendingInvite = JSON.parse(pendingInviteStr);
-          console.log('[Auth] Found pending invite, linking user:', pendingInvite);
+          console.log('[Auth] Found pending invite in localStorage, linking user:', pendingInvite);
           
           // Update the company_member record to link this user
           const { error: linkError } = await supabase
@@ -194,7 +197,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             .update({ 
               user_id: data.user.id,
               status: 'invited',
-              placeholder_first_name: null, // Clear placeholder since we now have real user
+              placeholder_first_name: null,
               placeholder_last_name: null,
               placeholder_email: null
             })
@@ -204,13 +207,52 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           if (linkError) {
             console.error('[Auth] Error linking user to company member:', linkError);
           } else {
-            console.log('[Auth] Successfully linked user to company member');
+            console.log('[Auth] Successfully linked user to company member via localStorage');
+            linked = true;
           }
           
           // Clear the pending invite
           localStorage.removeItem('pendingInvite');
         } catch (err) {
           console.error('[Auth] Error processing pending invite:', err);
+        }
+      }
+      
+      // 2. BACKUP: If no localStorage invite, check DB for pending invite by email
+      // This handles cases where user cleared localStorage or used different browser
+      if (!linked) {
+        try {
+          console.log('[Auth] Checking DB for pending invite by email:', email);
+          
+          const { data: pendingMember } = await supabase
+            .from('company_members')
+            .select('id, company_id')
+            .eq('placeholder_email', email.toLowerCase())
+            .is('user_id', null)
+            .maybeSingle();
+          
+          if (pendingMember) {
+            console.log('[Auth] Found pending invite in DB, linking user:', pendingMember);
+            
+            const { error: linkError } = await supabase
+              .from('company_members')
+              .update({ 
+                user_id: data.user.id,
+                status: 'invited',
+                placeholder_first_name: null,
+                placeholder_last_name: null,
+                placeholder_email: null
+              })
+              .eq('id', pendingMember.id);
+            
+            if (linkError) {
+              console.error('[Auth] Error linking user to company member via email:', linkError);
+            } else {
+              console.log('[Auth] Successfully linked user to company member via email matching');
+            }
+          }
+        } catch (err) {
+          console.error('[Auth] Error checking DB for pending invite:', err);
         }
       }
     }
