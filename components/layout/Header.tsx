@@ -13,7 +13,8 @@ import {
   Moon,
   ArrowLeft,
   Sparkles,
-  BarChart3
+  BarChart3,
+  User
 } from 'lucide-react';
 import { Button } from '../Button';
 import { ViewState, CompanyProfile } from '../../types';
@@ -40,12 +41,14 @@ interface HeaderProps {
   onBack: () => void;
   canGoBack: boolean;
   userRole: UserRole;
+  onMyProfile?: () => void;
+  hasCompanyMembership?: boolean;
 }
 
 export const Header: React.FC<HeaderProps> = ({ 
   onLogout, view, onAdminHome, onOrgChart, onIdentityHub, onCompanyProfile,
   onSuperAdminHome, onJobDb, onKarmaTalents, onAnalytics, activeCompany, isSuperAdminMode, onExitImpersonation,
-  isDark, toggleTheme, onBack, canGoBack, userRole
+  isDark, toggleTheme, onBack, canGoBack, userRole, onMyProfile, hasCompanyMembership
 }) => {
   // Determine what navigation to show based on role
   const showSuperAdminNav = userRole === 'super_admin' && (view.type.startsWith('SUPER_ADMIN') || view.type === 'SUPER_ADMIN_KARMA_TALENTS');
@@ -188,6 +191,17 @@ export const Header: React.FC<HeaderProps> = ({
                 <Settings size={16} className="mr-2" />
                 Azienda
               </Button>
+              {/* My Profile button for admins who are also company members */}
+              {onMyProfile && hasCompanyMembership && (
+                <Button 
+                  variant={view.type === 'USER_RESULT' || view.type === 'USER_WELCOME' ? 'primary' : 'ghost'} 
+                  size="sm"
+                  onClick={onMyProfile}
+                >
+                  <User size={16} className="mr-2" />
+                  Il Mio Profilo
+                </Button>
+              )}
             </div>
             <div className="hidden md:flex items-center gap-2 text-sm text-gray-500 border-l border-gray-200 dark:border-gray-700 pl-4 bg-gray-50/50 dark:bg-gray-800/50 px-3 py-1 rounded-r-full">
               <Building size={14} />
