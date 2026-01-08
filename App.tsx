@@ -996,8 +996,8 @@ const AppContent: React.FC = () => {
         <main className="animate-fade-in">
           {view.type === 'LANDING' && !user && (
             <LandingPage 
-              onSelectJnana={() => navigate({ type: 'LOGIN' })}
-              onSelectKarma={() => navigate({ type: 'LOGIN' })}
+              onLoginJnana={() => navigate({ type: 'LOGIN', authMode: 'jnana' } as ViewState)}
+              onLoginKarma={() => navigate({ type: 'LOGIN', authMode: 'karma' } as ViewState)}
               pendingInvite={pendingInviteData}
             />
           )}
@@ -1005,7 +1005,7 @@ const AppContent: React.FC = () => {
           {view.type === 'LOGIN' && !user && (
             <AuthView 
               onBackToLanding={() => setView({ type: 'LANDING' })}
-              initialMode={pendingInviteData ? 'jnana' : 'select'}
+              initialMode={pendingInviteData ? 'jnana' : ((view as any).authMode || 'select')}
             />
           )}
           

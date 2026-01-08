@@ -32,7 +32,7 @@ export const JnanaSection: React.FC<JnanaSectionProps> = ({ onCta }) => {
   ];
 
   return (
-    <section className="py-24 px-4 bg-gradient-to-br from-jnana-sage/5 via-jnana-bg to-jnana-powder/20 dark:from-gray-900 dark:via-gray-800 dark:to-jnana-sage/10">
+    <section id="jnana-section" className="py-24 px-4 bg-gradient-to-br from-jnana-sage/5 via-jnana-bg to-jnana-powder/20 dark:from-gray-900 dark:via-gray-800 dark:to-jnana-sage/10">
       <div className="max-w-6xl mx-auto">
         {/* Section Header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-16">
