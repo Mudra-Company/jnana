@@ -1283,6 +1283,13 @@ const AppContent: React.FC = () => {
             />
           )}
 
+          {view.type === 'KARMA_PROFILE_VIEW' && canAccessAdminViews && (
+            <KarmaProfileDetailView
+              userId={view.userId}
+              onBack={goBack}
+            />
+          )}
+
           {/* ===== DEMO MODE VIEWS ===== */}
           {isDemoMode && demoUserData && (
             <>
