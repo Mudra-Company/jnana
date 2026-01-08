@@ -65,7 +65,7 @@ export const AdminDashboardView: React.FC<AdminDashboardProps> = ({
   const companyUsers = allCompanyRecords.filter(u => !u.isHiring);
   const hiringPositions = allCompanyRecords.filter(u => u.isHiring);
   
-  const completedCount = companyUsers.filter(u => u.status === 'completed').length;
+  const completedCount = companyUsers.filter(u => u.status === 'completed' || u.status === 'test_completed').length;
   const adminCount = companyUsers.filter(u => u.role === 'admin').length;
 
   const { updateMemberRole, deleteCompanyMember } = useCompanyMembers();
@@ -450,11 +450,11 @@ export const AdminDashboardView: React.FC<AdminDashboardProps> = ({
                   <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{u.jobTitle || '-'}</td>
                   <td className="px-4 py-3">
                     <span className={`px-2 py-0.5 rounded text-xs font-bold uppercase ${
-                      u.status === 'completed' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' :
+                      (u.status === 'completed' || u.status === 'test_completed') ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' :
                       u.status === 'invited' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' :
                       'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
                     }`}>
-                      {u.status}
+                      {u.status === 'test_completed' ? 'completato' : u.status}
                     </span>
                   </td>
                   <td className="px-4 py-3 font-mono font-bold text-gray-600 dark:text-gray-300">{u.profileCode || '-'}</td>
@@ -476,7 +476,7 @@ export const AdminDashboardView: React.FC<AdminDashboardProps> = ({
                               setView({ type: 'USER_RESULT', userId: u.id });
                               setOpenMenuId(null);
                             }}
-                            disabled={u.status !== 'completed'}
+                            disabled={u.status !== 'completed' && u.status !== 'test_completed'}
                             className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             <Eye size={14} /> Vedi Profilo
