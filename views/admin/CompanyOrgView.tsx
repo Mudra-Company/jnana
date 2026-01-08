@@ -38,7 +38,7 @@ import { calculateUserCompatibility } from '../../services/riasecService';
 import { InviteToSlotModal } from '../../src/components/InviteToSlotModal';
 import { useCompanyMembers } from '../../src/hooks/useCompanyMembers';
 import { useTalentSearch } from '../../src/hooks/useTalentSearch';
-import { useSubscription } from '../../src/hooks/useSubscription';
+
 import { toast } from '../../src/hooks/use-toast';
 import { OrgNodeCard, findNodeManager } from './OrgNodeCard';
 import { getMatchQuality } from '../../src/utils/matchingEngine';
@@ -234,7 +234,7 @@ const RoleComparisonModal: React.FC<RoleComparisonModalProps> = ({
   
   // External candidates (Karma Talents)
   const { candidates: externalCandidates, isLoading: externalLoading, searchCandidates } = useTalentSearch();
-  const { hasActiveSubscription } = useSubscription();
+  
   const [showExternalSection, setShowExternalSection] = useState(false);
   
   const match = useMemo(() => calculateMatchScore(user), [user]);
@@ -569,21 +569,12 @@ const RoleComparisonModal: React.FC<RoleComparisonModalProps> = ({
                   <div className="space-y-2">
                     {externalCandidates.slice(0, 5).map((candidate, index) => {
                       const quality = getMatchQuality(candidate.matchScore);
-                      const isBlurred = !hasActiveSubscription() && index >= 2;
                       
                       return (
                         <div 
                           key={candidate.profile.id}
-                          className={`relative flex items-center justify-between p-3 bg-white dark:bg-gray-800 rounded-lg border border-green-100 dark:border-green-700 ${isBlurred ? 'overflow-hidden' : ''}`}
+                          className="relative flex items-center justify-between p-3 bg-white dark:bg-gray-800 rounded-lg border border-green-100 dark:border-green-700"
                         >
-                          {isBlurred && (
-                            <div className="absolute inset-0 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm z-10 flex items-center justify-center">
-                              <div className="text-center p-2">
-                                <Award size={16} className="text-green-500 mx-auto mb-1" />
-                                <p className="text-[10px] font-medium">Attiva abbonamento</p>
-                              </div>
-                            </div>
-                          )}
                           <div className="flex items-center gap-3">
                             <div className="w-10 h-10 rounded-full bg-gradient-to-br from-green-500 to-teal-500 flex items-center justify-center text-sm font-bold text-white">
                               {candidate.profile.firstName?.[0] || 'U'}
@@ -604,7 +595,7 @@ const RoleComparisonModal: React.FC<RoleComparisonModalProps> = ({
                             <div className={`px-2 py-0.5 rounded-full ${quality.bgColor}`}>
                               <span className={`text-sm font-bold ${quality.color}`}>{candidate.matchScore}%</span>
                             </div>
-                            {onViewExternalCandidate && !isBlurred && (
+                            {onViewExternalCandidate && (
                               <button 
                                 onClick={() => onViewExternalCandidate(candidate.profile.id)}
                                 className="text-[10px] px-2 py-1 bg-green-100 dark:bg-green-800 text-green-700 dark:text-green-200 rounded hover:bg-green-200 dark:hover:bg-green-700 transition-colors flex items-center gap-1"
