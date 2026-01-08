@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Tree, TreeNode } from 'react-organizational-chart';
 import { 
   X, 
@@ -25,7 +25,10 @@ import {
   ArrowRight,
   Shuffle,
   Trash2,
-  Save
+  Save,
+  MapPin,
+  Loader2,
+  Award
 } from 'lucide-react';
 import { Card } from '../../components/Card';
 import { Button } from '../../components/Button';
@@ -34,8 +37,11 @@ import { SOFT_SKILLS_OPTIONS } from '../../constants';
 import { calculateUserCompatibility } from '../../services/riasecService';
 import { InviteToSlotModal } from '../../src/components/InviteToSlotModal';
 import { useCompanyMembers } from '../../src/hooks/useCompanyMembers';
+import { useTalentSearch } from '../../src/hooks/useTalentSearch';
+import { useSubscription } from '../../src/hooks/useSubscription';
 import { toast } from '../../src/hooks/use-toast';
 import { OrgNodeCard, findNodeManager } from './OrgNodeCard';
+import { getMatchQuality } from '../../src/utils/matchingEngine';
 
 const SENIORITY_OPTIONS: SeniorityLevel[] = ['Junior', 'Mid', 'Senior', 'Lead', 'C-Level'];
 const SENIORITY_LEVELS: Record<SeniorityLevel, number> = { 'Junior': 1, 'Mid': 2, 'Senior': 3, 'Lead': 4, 'C-Level': 5 };
@@ -93,6 +99,7 @@ interface RoleComparisonModalProps {
   onInviteToSlot: (slotUser: User) => void;
   onRemoveFromSlot: (user: User) => void;
   onUpdateRequiredProfile: (user: User, profile: RequiredProfile) => Promise<void>;
+  onViewExternalCandidate?: (userId: string) => void;
 }
 
 const calculateMatchScore = (user: User): { score: number; hardMatches: string[]; hardGaps: string[]; softMatches: string[]; softGaps: string[]; bonusSkills: string[]; seniorityMatch: 'match' | 'above' | 'below' } => {
@@ -163,7 +170,8 @@ const RoleComparisonModal: React.FC<RoleComparisonModalProps> = ({
   onAssignUser,
   onInviteToSlot,
   onRemoveFromSlot,
-  onUpdateRequiredProfile
+  onUpdateRequiredProfile,
+  onViewExternalCandidate
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [showAssignSection, setShowAssignSection] = useState(false);
@@ -180,6 +188,11 @@ const RoleComparisonModal: React.FC<RoleComparisonModalProps> = ({
   const [newSoftSkill, setNewSoftSkill] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   
+  // External candidates (Karma Talents)
+  const { candidates: externalCandidates, isLoading: externalLoading, searchCandidates } = useTalentSearch();
+  const { hasActiveSubscription } = useSubscription();
+  const [showExternalSection, setShowExternalSection] = useState(false);
+  
   const match = useMemo(() => calculateMatchScore(user), [user]);
   const required = user.requiredProfile;
   
@@ -187,6 +200,23 @@ const RoleComparisonModal: React.FC<RoleComparisonModalProps> = ({
   const isEmptySlot = !user.firstName && !user.lastName;
   const isHiringSlot = user.isHiring === true;
   const needsAssignment = isEmptySlot || isHiringSlot;
+  
+  // Fetch external candidates when hiring slot is opened
+  useEffect(() => {
+    if (isHiringSlot && showExternalSection && required) {
+      const requiredSkills = required.hardSkills || [];
+      const seniorityLevels = required.seniority ? [required.seniority] : undefined;
+      
+      searchCandidates(
+        {
+          lookingForWorkOnly: true,
+          seniorityLevels: seniorityLevels as SeniorityLevel[] | undefined,
+        },
+        undefined,
+        requiredSkills
+      );
+    }
+  }, [isHiringSlot, showExternalSection, required]);
   
   const handleSaveRole = async () => {
     setIsSaving(true);
@@ -451,6 +481,92 @@ const RoleComparisonModal: React.FC<RoleComparisonModalProps> = ({
                 </div>
               ))}
             </div>
+          </div>
+        )}
+        
+        {/* EXTERNAL CANDIDATES SECTION (Karma Talents) - only for HIRING slots */}
+        {isHiringSlot && (
+          <div className="mb-4 p-4 bg-gradient-to-br from-green-50 to-teal-50 dark:from-green-900/20 dark:to-teal-900/20 rounded-xl border border-green-100 dark:border-green-800">
+            <div className="flex items-center justify-between mb-3">
+              <label className="text-sm font-bold text-green-700 dark:text-green-300 flex items-center gap-2">
+                <Users size={16}/> Candidati Esterni (Karma Talents)
+              </label>
+              <button 
+                onClick={() => setShowExternalSection(!showExternalSection)}
+                className="text-xs text-green-600 dark:text-green-400 hover:underline"
+              >
+                {showExternalSection ? 'Nascondi' : 'Mostra'}
+              </button>
+            </div>
+            
+            {showExternalSection && (
+              <>
+                {externalLoading && (
+                  <div className="text-center py-4">
+                    <Loader2 size={20} className="animate-spin text-green-500 mx-auto mb-2" />
+                    <p className="text-xs text-gray-500">Ricerca candidati...</p>
+                  </div>
+                )}
+                
+                {!externalLoading && externalCandidates.length > 0 && (
+                  <div className="space-y-2">
+                    {externalCandidates.slice(0, 5).map((candidate, index) => {
+                      const quality = getMatchQuality(candidate.matchScore);
+                      const isBlurred = !hasActiveSubscription() && index >= 2;
+                      
+                      return (
+                        <div 
+                          key={candidate.profile.id}
+                          className={`relative flex items-center justify-between p-3 bg-white dark:bg-gray-800 rounded-lg border border-green-100 dark:border-green-700 ${isBlurred ? 'overflow-hidden' : ''}`}
+                        >
+                          {isBlurred && (
+                            <div className="absolute inset-0 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm z-10 flex items-center justify-center">
+                              <div className="text-center p-2">
+                                <Award size={16} className="text-green-500 mx-auto mb-1" />
+                                <p className="text-[10px] font-medium">Attiva abbonamento</p>
+                              </div>
+                            </div>
+                          )}
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-green-500 to-teal-500 flex items-center justify-center text-sm font-bold text-white">
+                              {candidate.profile.firstName?.[0] || 'U'}
+                            </div>
+                            <div>
+                              <div className="text-sm font-bold text-gray-800 dark:text-gray-100">
+                                {candidate.profile.firstName} {candidate.profile.lastName}
+                              </div>
+                              <div className="text-[10px] text-gray-500">{candidate.profile.headline || candidate.profile.jobTitle}</div>
+                              {candidate.profile.location && (
+                                <div className="text-[9px] text-gray-400 flex items-center gap-1">
+                                  <MapPin size={8}/> {candidate.profile.location}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex flex-col items-end gap-1">
+                            <div className={`px-2 py-0.5 rounded-full ${quality.bgColor}`}>
+                              <span className={`text-sm font-bold ${quality.color}`}>{candidate.matchScore}%</span>
+                            </div>
+                            {onViewExternalCandidate && !isBlurred && (
+                              <button 
+                                onClick={() => onViewExternalCandidate(candidate.profile.id)}
+                                className="text-[10px] px-2 py-1 bg-green-100 dark:bg-green-800 text-green-700 dark:text-green-200 rounded hover:bg-green-200 dark:hover:bg-green-700 transition-colors flex items-center gap-1"
+                              >
+                                <ExternalLink size={10}/> Profilo
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                
+                {!externalLoading && externalCandidates.length === 0 && (
+                  <p className="text-xs text-gray-500 text-center py-2">Nessun candidato esterno trovato</p>
+                )}
+              </>
+            )}
           </div>
         )}
         

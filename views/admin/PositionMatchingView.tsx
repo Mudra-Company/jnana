@@ -1,19 +1,21 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { ArrowLeft, User, Briefcase, MapPin, Award, CheckCircle, XCircle, AlertCircle, Search, Filter, Loader2 } from 'lucide-react';
+import { ArrowLeft, User, Briefcase, MapPin, Award, CheckCircle, XCircle, AlertCircle, Search, Filter, Loader2, Shuffle, Building, ArrowRight, Users } from 'lucide-react';
 import { Card } from '../../components/Card';
 import { Button } from '../../components/Button';
 import { useOpenPositions, OpenPosition } from '../../src/hooks/useOpenPositions';
 import { useTalentSearch } from '../../src/hooks/useTalentSearch';
 import { useSubscription } from '../../src/hooks/useSubscription';
-import { CompanyProfile, SeniorityLevel } from '../../types';
+import { CompanyProfile, SeniorityLevel, User as LegacyUser, RequiredProfile } from '../../types';
 import { getMatchQuality } from '../../src/utils/matchingEngine';
 import type { CandidateMatch } from '../../src/types/karma';
 
 interface PositionMatchingViewProps {
   positionId: string;
   company: CompanyProfile;
+  companyUsers: LegacyUser[];
   onBack: () => void;
   onViewCandidate: (userId: string) => void;
+  onAssignInternal: (slotId: string, userId: string) => void;
 }
 
 const SENIORITY_LABELS: Record<SeniorityLevel, string> = {
@@ -24,11 +26,89 @@ const SENIORITY_LABELS: Record<SeniorityLevel, string> = {
   'C-Level': 'C-Level',
 };
 
+const SENIORITY_LEVELS: Record<SeniorityLevel, number> = { 
+  'Junior': 1, 'Mid': 2, 'Senior': 3, 'Lead': 4, 'C-Level': 5 
+};
+
+// Calculate match for internal candidates
+const calculateInternalMatch = (candidate: LegacyUser, required: RequiredProfile | undefined): { 
+  score: number; 
+  softMatches: string[]; 
+  softGaps: string[]; 
+  hardMatches: string[];
+  hardGaps: string[];
+  seniorityMatch: 'match' | 'above' | 'below';
+} => {
+  if (!required) return { score: 100, softMatches: [], softGaps: [], hardMatches: [], hardGaps: [], seniorityMatch: 'match' };
+  
+  const userSoftSkills = candidate.karmaData?.softSkills || [];
+  const userSeniority = candidate.karmaData?.seniorityAssessment;
+  
+  // Soft skills comparison
+  const softMatches: string[] = [];
+  const softGaps: string[] = [];
+  
+  (required.softSkills || []).forEach(reqSkill => {
+    const found = userSoftSkills.some(us => 
+      us.toLowerCase().includes(reqSkill.toLowerCase()) || 
+      reqSkill.toLowerCase().includes(us.toLowerCase())
+    );
+    if (found) softMatches.push(reqSkill);
+    else softGaps.push(reqSkill);
+  });
+  
+  // Hard skills - we don't have user hard skills data, so all required are gaps
+  const hardMatches: string[] = [];
+  const hardGaps: string[] = required.hardSkills || [];
+  
+  // Seniority comparison
+  let seniorityMatch: 'match' | 'above' | 'below' = 'match';
+  if (required.seniority && userSeniority) {
+    const reqLevel = SENIORITY_LEVELS[required.seniority] || 0;
+    const userLevel = SENIORITY_LEVELS[userSeniority] || 0;
+    if (userLevel > reqLevel) seniorityMatch = 'above';
+    else if (userLevel < reqLevel) seniorityMatch = 'below';
+  }
+  
+  // Calculate overall score
+  const totalRequired = (required.softSkills?.length || 0) + (required.seniority ? 1 : 0);
+  const matches = softMatches.length + (seniorityMatch !== 'below' ? 1 : 0);
+  const score = totalRequired > 0 ? Math.round((matches / totalRequired) * 100) : 100;
+  
+  return { score: Math.min(score, 100), softMatches, softGaps, hardMatches, hardGaps, seniorityMatch };
+};
+
+// Helper to find node name
+const findNodeName = (structure: any, nodeId: string): string => {
+  if (!structure) return '';
+  if (structure.id === nodeId) return structure.name;
+  for (const child of structure.children || []) {
+    const found = findNodeName(child, nodeId);
+    if (found) return found;
+  }
+  return '';
+};
+
+const getScoreColor = (score: number) => {
+  if (score >= 75) return 'text-green-600';
+  if (score >= 50) return 'text-yellow-600';
+  return 'text-red-600';
+};
+
+const getMedalIcon = (index: number) => {
+  if (index === 0) return <span className="text-yellow-500">🥇</span>;
+  if (index === 1) return <span className="text-gray-400">🥈</span>;
+  if (index === 2) return <span className="text-amber-600">🥉</span>;
+  return <span className="text-gray-400">{index + 1}.</span>;
+};
+
 export const PositionMatchingView: React.FC<PositionMatchingViewProps> = ({
   positionId,
   company,
+  companyUsers,
   onBack,
   onViewCandidate,
+  onAssignInternal,
 }) => {
   const { getPositionById } = useOpenPositions();
   const { candidates, isLoading: searchLoading, searchCandidates } = useTalentSearch();
@@ -38,6 +118,7 @@ export const PositionMatchingView: React.FC<PositionMatchingViewProps> = ({
   const [positionLoading, setPositionLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [showOnlyLooking, setShowOnlyLooking] = useState(true);
+  const [activeTab, setActiveTab] = useState<'internal' | 'external'>('internal');
 
   // Load position details
   useEffect(() => {
@@ -89,7 +170,22 @@ export const PositionMatchingView: React.FC<PositionMatchingViewProps> = ({
   const canView = canViewProfiles();
   const viewsRemaining = remainingProfileViews();
 
-  // Filter candidates by search query (client-side additional filter)
+  // Internal candidates ranked by match score
+  const internalCandidates = useMemo(() => {
+    if (!position) return [];
+    
+    return companyUsers
+      .filter(u => !u.isHiring && u.firstName && u.lastName)
+      .map(candidate => ({
+        user: candidate,
+        matchData: calculateInternalMatch(candidate, position.requiredProfile as RequiredProfile),
+        currentDepartment: candidate.departmentId ? findNodeName(company.orgStructure, candidate.departmentId) : 'Non assegnato'
+      }))
+      .sort((a, b) => b.matchData.score - a.matchData.score)
+      .slice(0, 10);
+  }, [companyUsers, position, company.orgStructure]);
+
+  // Filter external candidates by search query
   const filteredCandidates = useMemo(() => {
     if (!searchQuery) return candidates;
     const query = searchQuery.toLowerCase();
@@ -100,11 +196,53 @@ export const PositionMatchingView: React.FC<PositionMatchingViewProps> = ({
     });
   }, [candidates, searchQuery]);
 
-  const renderCandidateCard = (candidate: CandidateMatch, index: number) => {
+  const renderInternalCandidate = (candidate: typeof internalCandidates[0], index: number) => {
+    return (
+      <div 
+        key={candidate.user.id}
+        className="flex items-center justify-between p-3 bg-white dark:bg-gray-800 rounded-lg border border-purple-100 dark:border-purple-700 hover:shadow-md transition-all"
+      >
+        <div className="flex items-center gap-3">
+          <div className="text-lg">{getMedalIcon(index)}</div>
+          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-500 to-indigo-500 flex items-center justify-center text-sm font-bold text-white">
+            {candidate.user.firstName?.[0]}{candidate.user.lastName?.[0]}
+          </div>
+          <div>
+            <div className="text-sm font-bold text-gray-800 dark:text-gray-100">{candidate.user.firstName} {candidate.user.lastName}</div>
+            <div className="text-[10px] text-gray-500 flex items-center gap-2">
+              <span>{candidate.user.karmaData?.seniorityAssessment || 'N/A'} - {candidate.user.jobTitle}</span>
+            </div>
+            <div className="text-[9px] text-purple-500 dark:text-purple-400 flex items-center gap-1">
+              <Building size={9}/> Attualmente in: {candidate.currentDepartment}
+            </div>
+          </div>
+        </div>
+        <div className="flex flex-col items-end gap-1">
+          <div className={`text-lg font-bold ${getScoreColor(candidate.matchData.score)}`}>
+            {candidate.matchData.score}%
+          </div>
+          <div className="flex items-center gap-1 text-[9px] text-gray-500">
+            <span className="text-green-600">✓ {candidate.matchData.softMatches.length}</span>
+            {candidate.matchData.softGaps.length > 0 && (
+              <span className="text-orange-500">⚠ {candidate.matchData.softGaps.length}</span>
+            )}
+          </div>
+          <button 
+            onClick={() => onAssignInternal(positionId, candidate.user.id)}
+            className="text-[10px] px-2 py-1 bg-purple-100 dark:bg-purple-800 text-purple-700 dark:text-purple-200 rounded hover:bg-purple-200 dark:hover:bg-purple-700 transition-colors flex items-center gap-1 mt-1"
+          >
+            <ArrowRight size={10}/> Assegna
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  const renderExternalCandidate = (candidate: CandidateMatch, index: number) => {
     const { profile, matchScore, riasecMatch, skillsMatch, skillsOverlap, missingSkills, seniorityMatch } = candidate;
     const quality = getMatchQuality(matchScore);
     
-    // Show blurred preview for first 3 if no subscription
+    // Show blurred preview for candidates beyond 3 if no subscription
     const isBlurred = !hasSubscription && index >= 3;
     
     return (
@@ -125,7 +263,7 @@ export const PositionMatchingView: React.FC<PositionMatchingViewProps> = ({
         <div className="flex flex-col md:flex-row md:items-start gap-4">
           {/* Avatar & Basic Info */}
           <div className="flex items-center gap-3 flex-1">
-            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center text-white font-bold">
+            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-green-500 to-teal-500 flex items-center justify-center text-white font-bold">
               {profile.avatarUrl ? (
                 <img src={profile.avatarUrl} alt="" className="w-full h-full rounded-full object-cover" />
               ) : (
@@ -278,85 +416,155 @@ export const PositionMatchingView: React.FC<PositionMatchingViewProps> = ({
         </div>
       </Card>
 
-      {/* Filters */}
-      <Card>
-        <div className="flex flex-col md:flex-row gap-4">
-          <div className="flex-1 relative">
-            <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Cerca per nome o headline..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-              className="w-full pl-10 pr-4 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-            />
-          </div>
-          <label className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-            <input
-              type="checkbox"
-              checked={showOnlyLooking}
-              onChange={(e) => setShowOnlyLooking(e.target.checked)}
-              className="rounded border-gray-300"
-            />
-            Solo in cerca di lavoro
-          </label>
-          <Button onClick={handleSearch} disabled={searchLoading}>
-            {searchLoading ? <Loader2 size={16} className="animate-spin mr-2" /> : <Filter size={16} className="mr-2" />}
-            Filtra
-          </Button>
-        </div>
-      </Card>
-
-      {/* Subscription Status */}
-      {!hasSubscription && (
-        <Card className="bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 border-purple-200 dark:border-purple-800">
-          <div className="flex items-center gap-4">
-            <Award size={32} className="text-purple-500" />
-            <div className="flex-1">
-              <h4 className="font-bold text-gray-900 dark:text-white">Attiva Karma Talents</h4>
-              <p className="text-sm text-gray-600 dark:text-gray-300">
-                Sblocca accesso completo a tutti i candidati e funzionalità di matching avanzate.
-              </p>
-            </div>
-            <Button>Scopri i Piani</Button>
-          </div>
-        </Card>
-      )}
-
-      {hasSubscription && viewsRemaining !== Infinity && (
-        <div className="text-sm text-gray-500 dark:text-gray-400">
-          Visualizzazioni profili rimaste questo mese: <strong>{viewsRemaining}</strong>
-        </div>
-      )}
-
-      {/* Results */}
-      <div className="space-y-4">
-        <h3 className="font-bold text-gray-900 dark:text-white">
-          {searchLoading ? 'Ricerca in corso...' : `${filteredCandidates.length} candidati trovati`}
-        </h3>
-
-        {searchLoading && (
-          <div className="text-center py-8">
-            <Loader2 size={32} className="animate-spin text-blue-500 mx-auto mb-4" />
-            <p className="text-gray-500 dark:text-gray-400">Ricerca candidati compatibili...</p>
-          </div>
-        )}
-
-        {!searchLoading && filteredCandidates.length === 0 && (
-          <Card className="text-center py-8">
-            <User size={48} className="text-gray-300 dark:text-gray-600 mx-auto mb-4" />
-            <h4 className="text-lg font-bold text-gray-900 dark:text-white mb-2">
-              Nessun candidato trovato
-            </h4>
-            <p className="text-gray-500 dark:text-gray-400">
-              Prova a rimuovere alcuni filtri o modifica i requisiti della posizione.
-            </p>
-          </Card>
-        )}
-
-        {!searchLoading && filteredCandidates.map((candidate, index) => renderCandidateCard(candidate, index))}
+      {/* Tab Selector */}
+      <div className="flex border-b border-gray-200 dark:border-gray-700">
+        <button
+          onClick={() => setActiveTab('internal')}
+          className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
+            activeTab === 'internal'
+              ? 'border-purple-500 text-purple-600 dark:text-purple-400'
+              : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+          }`}
+        >
+          <Shuffle size={16} />
+          Candidati Interni (Job Rotation)
+          <span className="px-2 py-0.5 rounded-full text-xs bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300">
+            {internalCandidates.length}
+          </span>
+        </button>
+        <button
+          onClick={() => setActiveTab('external')}
+          className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
+            activeTab === 'external'
+              ? 'border-green-500 text-green-600 dark:text-green-400'
+              : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+          }`}
+        >
+          <Users size={16} />
+          Candidati Esterni (Karma Talents)
+          <span className="px-2 py-0.5 rounded-full text-xs bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300">
+            {filteredCandidates.length}
+          </span>
+        </button>
       </div>
+
+      {/* Internal Candidates Tab */}
+      {activeTab === 'internal' && (
+        <div className="space-y-4">
+          <Card className="bg-gradient-to-br from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20 border-purple-100 dark:border-purple-800">
+            <div className="flex items-start gap-3">
+              <Shuffle size={20} className="text-purple-600 dark:text-purple-400 mt-0.5" />
+              <div>
+                <h4 className="font-bold text-purple-800 dark:text-purple-200">Job Rotation</h4>
+                <p className="text-sm text-purple-600 dark:text-purple-400">
+                  Dipendenti interni che potrebbero ricoprire questo ruolo. Considera una riassegnazione per valorizzare i talenti esistenti.
+                </p>
+              </div>
+            </div>
+          </Card>
+
+          {internalCandidates.length > 0 ? (
+            <div className="space-y-2">
+              {internalCandidates.map((candidate, index) => renderInternalCandidate(candidate, index))}
+            </div>
+          ) : (
+            <Card className="text-center py-8">
+              <User size={48} className="text-gray-300 dark:text-gray-600 mx-auto mb-4" />
+              <h4 className="text-lg font-bold text-gray-900 dark:text-white mb-2">
+                Nessun candidato interno
+              </h4>
+              <p className="text-gray-500 dark:text-gray-400">
+                Non ci sono dipendenti con un profilo compatibile per questa posizione.
+              </p>
+            </Card>
+          )}
+        </div>
+      )}
+
+      {/* External Candidates Tab */}
+      {activeTab === 'external' && (
+        <div className="space-y-4">
+          {/* Filters */}
+          <Card>
+            <div className="flex flex-col md:flex-row gap-4">
+              <div className="flex-1 relative">
+                <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Cerca per nome o headline..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                  className="w-full pl-10 pr-4 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                />
+              </div>
+              <label className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+                <input
+                  type="checkbox"
+                  checked={showOnlyLooking}
+                  onChange={(e) => setShowOnlyLooking(e.target.checked)}
+                  className="rounded border-gray-300"
+                />
+                Solo in cerca di lavoro
+              </label>
+              <Button onClick={handleSearch} disabled={searchLoading}>
+                {searchLoading ? <Loader2 size={16} className="animate-spin mr-2" /> : <Filter size={16} className="mr-2" />}
+                Filtra
+              </Button>
+            </div>
+          </Card>
+
+          {/* Subscription Status */}
+          {!hasSubscription && (
+            <Card className="bg-gradient-to-r from-green-50 to-teal-50 dark:from-green-900/20 dark:to-teal-900/20 border-green-200 dark:border-green-800">
+              <div className="flex items-center gap-4">
+                <Award size={32} className="text-green-500" />
+                <div className="flex-1">
+                  <h4 className="font-bold text-gray-900 dark:text-white">Attiva Karma Talents</h4>
+                  <p className="text-sm text-gray-600 dark:text-gray-300">
+                    Sblocca accesso completo a tutti i candidati esterni e funzionalità di matching avanzate.
+                  </p>
+                </div>
+                <Button>Scopri i Piani</Button>
+              </div>
+            </Card>
+          )}
+
+          {hasSubscription && viewsRemaining !== Infinity && (
+            <div className="text-sm text-gray-500 dark:text-gray-400">
+              Visualizzazioni profili rimaste questo mese: <strong>{viewsRemaining}</strong>
+            </div>
+          )}
+
+          {/* Results */}
+          <div className="space-y-4">
+            <h3 className="font-bold text-gray-900 dark:text-white">
+              {searchLoading ? 'Ricerca in corso...' : `${filteredCandidates.length} candidati esterni trovati`}
+            </h3>
+
+            {searchLoading && (
+              <div className="text-center py-8">
+                <Loader2 size={32} className="animate-spin text-green-500 mx-auto mb-4" />
+                <p className="text-gray-500 dark:text-gray-400">Ricerca candidati compatibili...</p>
+              </div>
+            )}
+
+            {!searchLoading && filteredCandidates.length === 0 && (
+              <Card className="text-center py-8">
+                <User size={48} className="text-gray-300 dark:text-gray-600 mx-auto mb-4" />
+                <h4 className="text-lg font-bold text-gray-900 dark:text-white mb-2">
+                  Nessun candidato trovato
+                </h4>
+                <p className="text-gray-500 dark:text-gray-400">
+                  Prova a rimuovere alcuni filtri o modifica i requisiti della posizione.
+                </p>
+              </Card>
+            )}
+
+            {!searchLoading && filteredCandidates.map((candidate, index) => renderExternalCandidate(candidate, index))}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
