@@ -74,7 +74,7 @@ export interface ShortlistCandidate {
   addedAt: string;
   updatedAt: string;
   // Joined data (loaded separately)
-  internalUser?: User;
+  internalUser?: ShortlistUser;
   externalProfile?: KarmaProfile;
   externalMatch?: CandidateMatch;
 }

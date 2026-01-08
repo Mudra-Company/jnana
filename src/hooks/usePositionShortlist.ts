@@ -154,14 +154,14 @@ export const usePositionShortlist = (positionId: string, companyId: string) => {
 
       const { data, error: insertError } = await supabase
         .from('shortlist_candidates')
-        .insert([{
+        .insert({
           shortlist_id: currentShortlist.id,
           candidate_type: 'internal',
           internal_user_id: user.id,
           match_score: matchData.matchScore,
-          match_details: matchDetails as unknown as Record<string, unknown>,
+          match_details: JSON.parse(JSON.stringify(matchDetails)),
           status: 'shortlisted'
-        }])
+        })
         .select()
         .single();
 
@@ -222,14 +222,14 @@ export const usePositionShortlist = (positionId: string, companyId: string) => {
 
       const { data, error: insertError } = await supabase
         .from('shortlist_candidates')
-        .insert([{
+        .insert({
           shortlist_id: currentShortlist.id,
           candidate_type: 'external',
           external_profile_id: match.profile.id,
           match_score: match.matchScore,
-          match_details: matchDetails as unknown as Record<string, unknown>,
+          match_details: JSON.parse(JSON.stringify(matchDetails)),
           status: 'shortlisted'
-        }])
+        })
         .select()
         .single();
 
