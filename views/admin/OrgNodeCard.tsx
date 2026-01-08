@@ -41,15 +41,16 @@ const findNodeManager = (nodeUsers: User[], node: OrgNode): User | undefined => 
 };
 
 // Helper to get user status
-const getUserStatus = (user: User): 'hiring' | 'invited' | 'pending' | 'completed' => {
+const getUserStatus = (user: User): 'hiring' | 'invited' | 'pending' | 'completed' | 'test_completed' => {
   if (user.isHiring) return 'hiring';
   if (!user.firstName && !user.lastName) return 'pending';
+  if (user.status === 'test_completed') return 'test_completed';
   if (user.profileCode) return 'completed';
   return 'invited';
 };
 
 // Status badge component
-const StatusBadge: React.FC<{ status: 'hiring' | 'invited' | 'pending' | 'completed' }> = ({ status }) => {
+const StatusBadge: React.FC<{ status: 'hiring' | 'invited' | 'pending' | 'completed' | 'test_completed' }> = ({ status }) => {
   const config = {
     hiring: {
       bg: 'bg-emerald-100 dark:bg-emerald-900/40',
@@ -78,6 +79,13 @@ const StatusBadge: React.FC<{ status: 'hiring' | 'invited' | 'pending' | 'comple
       border: 'border-blue-300 dark:border-blue-700',
       icon: CheckCircle2,
       label: 'COMPLETO'
+    },
+    test_completed: {
+      bg: 'bg-green-100 dark:bg-green-900/40',
+      text: 'text-green-700 dark:text-green-300',
+      border: 'border-green-300 dark:border-green-700',
+      icon: CheckCircle2,
+      label: 'COMPLETATO'
     }
   };
 
