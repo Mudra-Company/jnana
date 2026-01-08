@@ -413,6 +413,51 @@ export type Database = {
           },
         ]
       }
+      position_shortlists: {
+        Row: {
+          company_id: string
+          created_at: string | null
+          id: string
+          notes: string | null
+          position_id: string
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          company_id: string
+          created_at?: string | null
+          id?: string
+          notes?: string | null
+          position_id: string
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          company_id?: string
+          created_at?: string | null
+          id?: string
+          notes?: string | null
+          position_id?: string
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "position_shortlists_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "position_shortlists_position_id_fkey"
+            columns: ["position_id"]
+            isOneToOne: false
+            referencedRelation: "company_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profile_views_log: {
         Row: {
           id: string
@@ -571,6 +616,59 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shortlist_candidates: {
+        Row: {
+          added_at: string | null
+          candidate_type: string
+          external_profile_id: string | null
+          hr_notes: string | null
+          id: string
+          internal_user_id: string | null
+          match_details: Json | null
+          match_score: number | null
+          rating: number | null
+          shortlist_id: string
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          added_at?: string | null
+          candidate_type: string
+          external_profile_id?: string | null
+          hr_notes?: string | null
+          id?: string
+          internal_user_id?: string | null
+          match_details?: Json | null
+          match_score?: number | null
+          rating?: number | null
+          shortlist_id: string
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          added_at?: string | null
+          candidate_type?: string
+          external_profile_id?: string | null
+          hr_notes?: string | null
+          id?: string
+          internal_user_id?: string | null
+          match_details?: Json | null
+          match_score?: number | null
+          rating?: number | null
+          shortlist_id?: string
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shortlist_candidates_shortlist_id_fkey"
+            columns: ["shortlist_id"]
+            isOneToOne: false
+            referencedRelation: "position_shortlists"
             referencedColumns: ["id"]
           },
         ]
