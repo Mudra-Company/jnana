@@ -58,13 +58,6 @@ export const useKarmaAdminSearch = () => {
     setError(null);
 
     try {
-      // Get company members to filter them out - these are NOT Karma profiles
-      const { data: members } = await supabase
-        .from('company_members')
-        .select('user_id');
-
-      const memberUserIds = new Set(members?.map(m => m.user_id).filter(Boolean) || []);
-
       // Build query for profiles
       let query = supabase
         .from('profiles')
@@ -105,9 +98,44 @@ export const useKarmaAdminSearch = () => {
 
       if (profilesError) throw profilesError;
 
-      // Filter to only Karma profiles (NOT company members OR explicitly marked as karma profile)
+      // Get all profile IDs to check for Karma data
+      const allProfileIds = allProfiles?.map(p => p.id) || [];
+
+      if (allProfileIds.length === 0) {
+        setResults([]);
+        setTotalCount(0);
+        setIsLoading(false);
+        return;
+      }
+
+      // Fetch Karma signals for ALL profiles to determine who qualifies
+      const [
+        { data: riasecCheck },
+        { data: karmaCheck },
+        { data: skillsCheck },
+        { data: portfolioCheck }
+      ] = await Promise.all([
+        supabase.from('riasec_results').select('user_id').in('user_id', allProfileIds),
+        supabase.from('karma_sessions').select('user_id').in('user_id', allProfileIds),
+        supabase.from('user_hard_skills').select('user_id').in('user_id', allProfileIds),
+        supabase.from('user_portfolio_items').select('user_id').in('user_id', allProfileIds)
+      ]);
+
+      // Create sets of users with Karma data
+      const usersWithRiasec = new Set(riasecCheck?.map(r => r.user_id) || []);
+      const usersWithKarma = new Set(karmaCheck?.map(k => k.user_id) || []);
+      const usersWithSkills = new Set(skillsCheck?.map(s => s.user_id) || []);
+      const usersWithPortfolio = new Set(portfolioCheck?.map(p => p.user_id) || []);
+
+      // A profile is a "Karma profile" if:
+      // 1. is_karma_profile = true, OR
+      // 2. Has ANY Karma data (RIASEC, Karma session, skills, portfolio)
       const karmaProfiles = allProfiles?.filter(p => 
-        p.is_karma_profile === true || !memberUserIds.has(p.id)
+        p.is_karma_profile === true ||
+        usersWithRiasec.has(p.id) ||
+        usersWithKarma.has(p.id) ||
+        usersWithSkills.has(p.id) ||
+        usersWithPortfolio.has(p.id)
       ) || [];
 
       const karmaProfileIds = karmaProfiles.map(p => p.id);
@@ -119,7 +147,7 @@ export const useKarmaAdminSearch = () => {
         return;
       }
 
-      // Get RIASEC results
+      // Get full RIASEC results for qualified profiles
       const { data: riasecResults } = await supabase
         .from('riasec_results')
         .select('user_id, profile_code, score_r, score_i, score_a, score_s, score_e, score_c')
@@ -127,7 +155,7 @@ export const useKarmaAdminSearch = () => {
 
       const riasecByUser = new Map(riasecResults?.map(r => [r.user_id, r]) || []);
 
-      // Get Karma sessions
+      // Get full Karma sessions for qualified profiles
       const { data: karmaSessions } = await supabase
         .from('karma_sessions')
         .select('user_id, summary, soft_skills, primary_values, risk_factors, seniority_assessment')
