@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { supabase } from '../integrations/supabase/client';
-import type { KarmaProfile, WorkType, UserHardSkill, PortfolioItem, SocialLink } from '../types/karma';
+import type { KarmaProfile, WorkType, UserHardSkill, PortfolioItem, SocialLink, UserExperience, UserEducation, UserCertification, UserLanguage } from '../types/karma';
 import type { SeniorityLevel } from '../../types';
 
 // Type definitions for database results
@@ -353,6 +353,33 @@ export const useKarmaAdminSearch = () => {
         .select('*')
         .eq('user_id', userId);
 
+      // Get experiences
+      const { data: experiences } = await supabase
+        .from('user_experiences')
+        .select('*')
+        .eq('user_id', userId)
+        .order('sort_order');
+
+      // Get education
+      const { data: education } = await supabase
+        .from('user_education')
+        .select('*')
+        .eq('user_id', userId)
+        .order('sort_order');
+
+      // Get certifications
+      const { data: certifications } = await supabase
+        .from('user_certifications')
+        .select('*')
+        .eq('user_id', userId)
+        .order('issue_date', { ascending: false });
+
+      // Get languages
+      const { data: languages } = await supabase
+        .from('user_languages')
+        .select('*')
+        .eq('user_id', userId);
+
       // Transform hard skills
       const transformedSkills: UserHardSkill[] = (hardSkills || []).map(s => ({
         id: s.id,
@@ -388,6 +415,57 @@ export const useKarmaAdminSearch = () => {
         platform: s.platform as any,
         url: s.url,
         createdAt: s.created_at || undefined,
+      }));
+
+      // Transform experiences
+      const transformedExperiences: UserExperience[] = (experiences || []).map(e => ({
+        id: e.id,
+        userId: e.user_id,
+        company: e.company,
+        role: e.role,
+        startDate: e.start_date || undefined,
+        endDate: e.end_date || undefined,
+        isCurrent: e.is_current || false,
+        description: e.description || undefined,
+        location: e.location || undefined,
+        sortOrder: e.sort_order || 0,
+        createdAt: e.created_at || undefined,
+      }));
+
+      // Transform education
+      const transformedEducation: UserEducation[] = (education || []).map(e => ({
+        id: e.id,
+        userId: e.user_id,
+        institution: e.institution,
+        degree: e.degree,
+        fieldOfStudy: e.field_of_study || undefined,
+        startYear: e.start_year || undefined,
+        endYear: e.end_year || undefined,
+        description: e.description || undefined,
+        sortOrder: e.sort_order || 0,
+        createdAt: e.created_at || undefined,
+      }));
+
+      // Transform certifications
+      const transformedCertifications: UserCertification[] = (certifications || []).map(c => ({
+        id: c.id,
+        userId: c.user_id,
+        name: c.name,
+        issuingOrganization: c.issuing_organization || undefined,
+        issueDate: c.issue_date || undefined,
+        expiryDate: c.expiry_date || undefined,
+        credentialId: c.credential_id || undefined,
+        credentialUrl: c.credential_url || undefined,
+        createdAt: c.created_at || undefined,
+      }));
+
+      // Transform languages
+      const transformedLanguages: UserLanguage[] = (languages || []).map(l => ({
+        id: l.id,
+        userId: l.user_id,
+        language: l.language,
+        proficiency: (l.proficiency || 'intermediate') as UserLanguage['proficiency'],
+        createdAt: l.created_at || undefined,
       }));
 
       return {
@@ -430,6 +508,10 @@ export const useKarmaAdminSearch = () => {
           hardSkills: transformedSkills,
           portfolio: transformedPortfolio,
           socialLinks: transformedSocialLinks,
+          experiences: transformedExperiences,
+          education: transformedEducation,
+          certifications: transformedCertifications,
+          languages: transformedLanguages,
         },
         hasRiasec: !!riasec,
         hasKarma: !!karma,
