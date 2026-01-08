@@ -33,11 +33,30 @@ const renderMessageText = (text: string) => {
 };
 
 // Streaming chat function using edge function
+// Patterns that indicate the AI wants to close the conversation
+const CLOSING_PATTERNS = [
+  'è stato un piacere',
+  'in bocca al lupo',
+  'buona fortuna',
+  'ti auguro il meglio',
+  'grazie per aver condiviso',
+  'concludiamo qui',
+  'questo conclude',
+  'abbiamo concluso',
+  'ti ringrazio per questa conversazione',
+  'ti faccio un grande in bocca al lupo',
+];
+
+const checkForAutoClose = (text: string): boolean => {
+  const lowerText = text.toLowerCase();
+  return CLOSING_PATTERNS.some(pattern => lowerText.includes(pattern));
+};
+
 const streamKarmaChat = async (
   messages: { role: 'user' | 'assistant'; content: string }[],
   systemPrompt: string,
   onDelta: (delta: string) => void,
-  onDone: () => void,
+  onDone: (finalText: string) => void,
   onError: (error: string) => void
 ) => {
   const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/karma-chat`;
@@ -99,7 +118,8 @@ const streamKarmaChat = async (
       }
     }
 
-    // Final flush
+    // Final flush + collect final text
+    let finalText = '';
     if (textBuffer.trim()) {
       for (let raw of textBuffer.split('\n')) {
         if (!raw) continue;
@@ -111,12 +131,15 @@ const streamKarmaChat = async (
         try {
           const parsed = JSON.parse(jsonStr);
           const content = parsed.choices?.[0]?.delta?.content as string | undefined;
-          if (content) onDelta(content);
+          if (content) {
+            onDelta(content);
+            finalText += content;
+          }
         } catch { /* ignore */ }
       }
     }
 
-    onDone();
+    onDone(finalText);
   } catch (error) {
     console.error('Streaming error:', error);
     onError('Errore di connessione con Karma AI');
@@ -139,6 +162,7 @@ export const KarmaTestChat: React.FC<KarmaTestChatProps> = ({
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
+  const [autoClosing, setAutoClosing] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
   const systemPromptRef = useRef<string>('');
@@ -285,8 +309,15 @@ Ora vorrei conoscerti meglio attraverso una breve conversazione. Non ci sono ris
           }];
         });
       },
-      () => {
+      (finalText) => {
         setIsTyping(false);
+        // Check if AI wants to conclude the conversation
+        if (checkForAutoClose(assistantText || finalText)) {
+          setAutoClosing(true);
+          setTimeout(() => {
+            handleConclude();
+          }, 2500);
+        }
       },
       (error) => {
         console.error('Karma AI error:', error);
@@ -404,6 +435,13 @@ Ora vorrei conoscerti meglio attraverso una breve conversazione. Non ci sono ris
           {/* INPUT AREA */}
           <div className="p-4 bg-white dark:bg-gray-800 border-t border-gray-100 dark:border-gray-700">
             <div className="flex gap-2 relative">
+              {autoClosing && (
+                <div className="absolute inset-0 flex items-center justify-center bg-white/90 dark:bg-gray-700/90 rounded-full">
+                  <span className="text-sm text-jnana-sage font-medium animate-pulse">
+                    Karma AI ha concluso il colloquio. Analisi in corso...
+                  </span>
+                </div>
+              )}
               <input
                 type="text"
                 className="flex-1 p-4 pr-12 rounded-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-jnana-sage focus:border-transparent outline-none shadow-sm transition-all"
@@ -411,7 +449,7 @@ Ora vorrei conoscerti meglio attraverso una breve conversazione. Non ci sono ris
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-                disabled={isTyping || isClosing}
+                disabled={isTyping || isClosing || autoClosing}
                 autoFocus
               />
               <button 
