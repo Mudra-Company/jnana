@@ -192,6 +192,7 @@ const AppContent: React.FC = () => {
   const { userRole, canAccessAdminViews, canAccessSuperAdminViews, canViewUser } = useRouteGuard();
 
   const [jobDb, setJobDb] = useState<JobDatabase>({});
+  const [pendingInviteData, setPendingInviteData] = useState<{ inviteId: string; companyId: string; companyName?: string } | null>(null);
   const [view, setView] = useState<ViewState>(() => {
     // Check for reset password URL
     if (window.location.pathname === '/auth/reset-password') {
@@ -214,6 +215,34 @@ const AppContent: React.FC = () => {
     }
     return { type: 'LOADING' }; // Start with LOADING, not LOGIN
   });
+
+  // Check for pending invite and load company name
+  useEffect(() => {
+    const checkPendingInvite = async () => {
+      const pendingInviteStr = localStorage.getItem('pendingInvite');
+      if (pendingInviteStr) {
+        try {
+          const invite = JSON.parse(pendingInviteStr);
+          const { data: company } = await supabase
+            .from('companies')
+            .select('name')
+            .eq('id', invite.companyId)
+            .maybeSingle();
+          
+          setPendingInviteData({
+            ...invite,
+            companyName: company?.name
+          });
+        } catch (err) {
+          console.error('Error loading pending invite:', err);
+        }
+      } else {
+        setPendingInviteData(null);
+      }
+    };
+    
+    checkPendingInvite();
+  }, [view.type]);
   const [viewHistory, setViewHistory] = useState<ViewState[]>([]);
   const [isDark, setIsDark] = useState(false);
   const [impersonatedCompanyId, setImpersonatedCompanyId] = useState<string | null>(null);
@@ -939,11 +968,15 @@ const AppContent: React.FC = () => {
             <LandingPage 
               onSelectJnana={() => navigate({ type: 'LOGIN' })}
               onSelectKarma={() => navigate({ type: 'LOGIN' })}
+              pendingInvite={pendingInviteData}
             />
           )}
           
           {view.type === 'LOGIN' && !user && (
-            <AuthView onBackToLanding={() => setView({ type: 'LANDING' })} />
+            <AuthView 
+              onBackToLanding={() => setView({ type: 'LANDING' })}
+              initialMode={pendingInviteData ? 'jnana' : 'select'}
+            />
           )}
           
           {view.type === 'RESET_PASSWORD' && (
