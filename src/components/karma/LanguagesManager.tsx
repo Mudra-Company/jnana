@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Languages, Plus, Trash2, Check, X } from 'lucide-react';
+import { Languages, Plus, Trash2, Check, X, Loader2 } from 'lucide-react';
 import { Button } from '../../../components/Button';
+import { toast } from '../../hooks/use-toast';
 import type { UserLanguage, LanguageProficiency } from '../../types/karma';
 
 interface LanguagesManagerProps {
@@ -40,6 +41,7 @@ export const LanguagesManager: React.FC<LanguagesManagerProps> = ({
   readOnly = false,
 }) => {
   const [isAdding, setIsAdding] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [form, setForm] = useState({
     language: '',
     proficiency: 'intermediate' as LanguageProficiency,
@@ -55,13 +57,21 @@ export const LanguagesManager: React.FC<LanguagesManagerProps> = ({
   const handleAdd = async () => {
     if (!form.language.trim()) return;
     
-    await onAdd({
-      language: form.language,
-      proficiency: form.proficiency,
-    });
-    
-    resetForm();
-    setIsAdding(false);
+    setIsSaving(true);
+    try {
+      await onAdd({
+        language: form.language,
+        proficiency: form.proficiency,
+      });
+      
+      toast({ title: "Lingua salvata!", description: "La lingua è stata aggiunta al profilo." });
+      resetForm();
+      setIsAdding(false);
+    } catch (error) {
+      toast({ title: "Errore", description: "Impossibile salvare la lingua.", variant: "destructive" });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleProficiencyChange = async (langId: string, newProficiency: LanguageProficiency) => {
@@ -112,10 +122,11 @@ export const LanguagesManager: React.FC<LanguagesManagerProps> = ({
             ))}
           </select>
           <div className="flex gap-2">
-            <Button size="sm" onClick={handleAdd} disabled={!form.language.trim()}>
-              <Check size={14} className="mr-1" /> Salva
+            <Button size="sm" onClick={handleAdd} disabled={!form.language.trim() || isSaving}>
+              {isSaving ? <Loader2 size={14} className="mr-1 animate-spin" /> : <Check size={14} className="mr-1" />}
+              {isSaving ? 'Salvataggio...' : 'Salva'}
             </Button>
-            <Button variant="ghost" size="sm" onClick={() => { setIsAdding(false); resetForm(); }}>
+            <Button variant="ghost" size="sm" onClick={() => { setIsAdding(false); resetForm(); }} disabled={isSaving}>
               <X size={14} className="mr-1" /> Annulla
             </Button>
           </div>
