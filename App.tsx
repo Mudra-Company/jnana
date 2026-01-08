@@ -532,11 +532,23 @@ const AppContent: React.FC = () => {
   const handleGoToMyProfile = () => {
     if (!user || !currentUserData) return;
     
-    // Navigate to user view based on their status
-    if (currentUserData.status === 'completed') {
-      navigate({ type: 'USER_RESULT', userId: user.id });
-    } else {
+    // Determine navigation based on actual test completion, not status field
+    const hasRiasec = !!currentUserData.results;
+    const hasClimate = !!currentUserData.climateData;
+    const hasKarma = !!currentUserData.karmaData;
+    
+    if (!hasRiasec) {
+      // No RIASEC - start from beginning
       navigate({ type: 'USER_WELCOME', userId: user.id });
+    } else if (!hasClimate) {
+      // Has RIASEC but not Climate - go to Climate test
+      navigate({ type: 'USER_CLIMATE_TEST', userId: user.id });
+    } else if (!hasKarma) {
+      // Has RIASEC + Climate but not Karma - go to Karma AI chat
+      navigate({ type: 'USER_CHAT', userId: user.id });
+    } else {
+      // Completed all tests - show results
+      navigate({ type: 'USER_RESULT', userId: user.id });
     }
   };
 
