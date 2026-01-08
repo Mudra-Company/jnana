@@ -1,7 +1,7 @@
 import React from 'react';
 import {
   Hexagon, User, Briefcase, MapPin, Edit, ArrowRight,
-  CheckCircle2, Circle, Sparkles, Star, Link2, Eye, 
+  CheckCircle2, Circle, Sparkles, Star, Link2, Eye, EyeOff,
   AlertCircle, TrendingUp, LogOut, GraduationCap, Award,
   Languages, Building2, Linkedin, Github, Globe, ExternalLink,
   Home, FileText, Image, FolderOpen
@@ -608,20 +608,49 @@ export const KarmaDashboard: React.FC<KarmaDashboardProps> = ({
               </div>
             </Card>
 
-            {/* Privacy Notice */}
-            <div className="p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl">
-              <div className="flex items-start gap-3">
-                <AlertCircle size={18} className="text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
-                <div>
-                  <h4 className="font-medium text-amber-800 dark:text-amber-300 text-sm mb-1">
-                    Profilo Privato
-                  </h4>
-                  <p className="text-xs text-amber-700 dark:text-amber-400">
-                    Il tuo profilo è visibile solo alle aziende con abbonamento attivo.
-                  </p>
+            {/* Visibility Status Card */}
+            {profile.profileVisibility === 'subscribers_only' ? (
+              <div className="p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl">
+                <div className="flex items-start gap-3">
+                  <Eye size={18} className="text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <h4 className="font-medium text-green-800 dark:text-green-300 text-sm mb-1">
+                      Profilo Visibile
+                    </h4>
+                    <p className="text-xs text-green-700 dark:text-green-400">
+                      Il tuo profilo è visibile alle aziende in cerca di talenti.
+                      {profile.lookingForWork && " Sei segnalato come 'in cerca di lavoro'."}
+                    </p>
+                    <button 
+                      onClick={onEditProfile} 
+                      className="text-xs text-green-600 dark:text-green-500 hover:underline mt-2 font-medium"
+                    >
+                      Modifica preferenze →
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
+            ) : (
+              <div className="p-4 bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl">
+                <div className="flex items-start gap-3">
+                  <AlertCircle size={18} className="text-gray-500 dark:text-gray-400 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <h4 className="font-medium text-gray-800 dark:text-gray-200 text-sm mb-1">
+                      Profilo Privato
+                    </h4>
+                    <p className="text-xs text-gray-600 dark:text-gray-400">
+                      Il tuo profilo non è visibile alle aziende. Attiva la visibilità per essere trovato.
+                    </p>
+                    <button 
+                      onClick={onEditProfile} 
+                      className="text-xs text-jnana-sage hover:underline mt-2 font-medium"
+                    >
+                      Attiva visibilità →
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </main>
