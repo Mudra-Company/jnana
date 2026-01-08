@@ -119,6 +119,7 @@ interface RoleComparisonModalProps {
   onAssignUser: (slotUserId: string, selectedUserId: string) => void;
   onInviteToSlot: (slotUser: User) => void;
   onRemoveFromSlot: (user: User) => void;
+  onDeletePosition: (user: User) => void;
   onUpdateRequiredProfile: (user: User, profile: RequiredProfile) => Promise<void>;
   onViewExternalCandidate?: (userId: string) => void;
 }
@@ -211,12 +212,14 @@ const RoleComparisonModal: React.FC<RoleComparisonModalProps> = ({
   onAssignUser,
   onInviteToSlot,
   onRemoveFromSlot,
+  onDeletePosition,
   onUpdateRequiredProfile,
   onViewExternalCandidate
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [showAssignSection, setShowAssignSection] = useState(false);
   const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
+  const [showDeletePositionConfirm, setShowDeletePositionConfirm] = useState(false);
   
   // Role editing state
   const [isEditingRole, setIsEditingRole] = useState(false);
@@ -968,32 +971,80 @@ const RoleComparisonModal: React.FC<RoleComparisonModalProps> = ({
           </div>
         )}
         
+        {/* Delete Position Confirmation (for hiring/empty slots) */}
+        {showDeletePositionConfirm && (
+          <div className="mt-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl">
+            <p className="text-sm text-red-700 dark:text-red-300 mb-2">
+              Sei sicuro di voler eliminare la posizione <strong>"{user.jobTitle}"</strong>?
+            </p>
+            <p className="text-xs text-red-500 dark:text-red-400 mb-3">
+              Questa azione rimuoverà completamente la posizione dall'organigramma.
+            </p>
+            <div className="flex gap-2">
+              <Button variant="ghost" size="sm" onClick={() => setShowDeletePositionConfirm(false)}>
+                Annulla
+              </Button>
+              <Button 
+                size="sm" 
+                className="bg-red-600 hover:bg-red-700 text-white"
+                onClick={() => {
+                  onDeletePosition(user);
+                  onClose();
+                }}
+              >
+                Elimina Posizione
+              </Button>
+            </div>
+          </div>
+        )}
+        
         {/* Action Buttons */}
-        <div className="flex gap-2 pt-4 border-t border-gray-100 dark:border-gray-700">
-          {!isEditingRole && (
-            <Button 
-              variant="ghost" 
-              onClick={() => setIsEditingRole(true)}
-              className="flex items-center gap-1"
-            >
-              <Edit3 size={16}/> Modifica Ruolo
-            </Button>
-          )}
-          {!isEmptySlot && !isHiringSlot && !isEditingRole && (
-            <>
+        <div className="flex flex-col gap-2 pt-4 border-t border-gray-100 dark:border-gray-700">
+          {/* Row 1: Primary Actions */}
+          <div className="flex gap-2">
+            {!isEditingRole && (
+              <Button 
+                variant="ghost" 
+                onClick={() => setIsEditingRole(true)}
+                className="flex items-center gap-1"
+              >
+                <Edit3 size={16}/> Modifica Ruolo
+              </Button>
+            )}
+            {!isEmptySlot && !isHiringSlot && !isEditingRole && (
               <Button fullWidth onClick={onViewFullProfile} className="flex items-center justify-center gap-2">
                 <ExternalLink size={16}/> Vai al Profilo Completo
               </Button>
-              <Button 
-                variant="ghost" 
-                onClick={() => setShowRemoveConfirm(true)}
-                className="text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-1"
-              >
-                <Trash2 size={16}/> Rimuovi
-              </Button>
-            </>
+            )}
+            {!isEditingRole && <Button variant="ghost" onClick={onClose}>Chiudi</Button>}
+          </div>
+          
+          {/* Row 2: Destructive Actions */}
+          {!isEditingRole && (
+            <div className="flex gap-2 pt-2 border-t border-gray-100 dark:border-gray-700">
+              {/* For assigned users: remove from slot */}
+              {!isEmptySlot && !isHiringSlot && (
+                <Button 
+                  variant="ghost" 
+                  onClick={() => setShowRemoveConfirm(true)}
+                  className="text-orange-500 hover:text-orange-700 hover:bg-orange-50 dark:hover:bg-orange-900/20 flex items-center gap-1 text-sm"
+                >
+                  <Trash2 size={14}/> Rimuovi Persona
+                </Button>
+              )}
+              
+              {/* For empty/hiring slots: delete position */}
+              {needsAssignment && (
+                <Button 
+                  variant="ghost" 
+                  onClick={() => setShowDeletePositionConfirm(true)}
+                  className="text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-1 text-sm"
+                >
+                  <Trash2 size={14}/> Elimina Posizione
+                </Button>
+              )}
+            </div>
           )}
-          {!isEditingRole && <Button variant="ghost" onClick={onClose}>Chiudi</Button>}
         </div>
       </Card>
     </div>
@@ -1762,6 +1813,35 @@ export const CompanyOrgView: React.FC<{
                             toast({
                                 title: "Errore",
                                 description: result.error || "Impossibile rimuovere l'utente",
+                                variant: "destructive"
+                            });
+                        }
+                    }}
+                    onDeletePosition={async (positionToDelete) => {
+                        if (!positionToDelete.memberId) {
+                            toast({
+                                title: "Errore",
+                                description: "Impossibile trovare l'associazione per questa posizione",
+                                variant: "destructive"
+                            });
+                            return;
+                        }
+                        
+                        const result = await deleteCompanyMember(positionToDelete.memberId);
+                        
+                        if (result.success) {
+                            const updatedUsers = users.filter(u => u.id !== positionToDelete.id);
+                            onUpdateUsers(updatedUsers);
+                            setSelectedUserForComparison(null);
+                            
+                            toast({
+                                title: "Posizione eliminata",
+                                description: `La posizione "${positionToDelete.jobTitle}" è stata rimossa dall'organigramma`
+                            });
+                        } else {
+                            toast({
+                                title: "Errore",
+                                description: result.error || "Impossibile eliminare la posizione",
                                 variant: "destructive"
                             });
                         }
