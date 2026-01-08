@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Award, Plus, Trash2, Edit2, Check, X, ExternalLink } from 'lucide-react';
+import { Award, Plus, Trash2, Edit2, Check, X, ExternalLink, Loader2 } from 'lucide-react';
 import { Button } from '../../../components/Button';
+import { toast } from '../../hooks/use-toast';
 import type { UserCertification } from '../../types/karma';
 
 interface CertificationManagerProps {
@@ -20,6 +21,7 @@ export const CertificationManager: React.FC<CertificationManagerProps> = ({
 }) => {
   const [isAdding, setIsAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
   const [form, setForm] = useState({
     name: '',
     issuingOrganization: '',
@@ -43,17 +45,25 @@ export const CertificationManager: React.FC<CertificationManagerProps> = ({
   const handleAdd = async () => {
     if (!form.name.trim()) return;
     
-    await onAdd({
-      name: form.name,
-      issuingOrganization: form.issuingOrganization || undefined,
-      issueDate: form.issueDate || undefined,
-      expiryDate: form.expiryDate || undefined,
-      credentialId: form.credentialId || undefined,
-      credentialUrl: form.credentialUrl || undefined,
-    });
-    
-    resetForm();
-    setIsAdding(false);
+    setIsSaving(true);
+    try {
+      await onAdd({
+        name: form.name,
+        issuingOrganization: form.issuingOrganization || undefined,
+        issueDate: form.issueDate || undefined,
+        expiryDate: form.expiryDate || undefined,
+        credentialId: form.credentialId || undefined,
+        credentialUrl: form.credentialUrl || undefined,
+      });
+      
+      toast({ title: "Certificazione salvata!", description: "La certificazione è stata aggiunta al profilo." });
+      resetForm();
+      setIsAdding(false);
+    } catch (error) {
+      toast({ title: "Errore", description: "Impossibile salvare la certificazione.", variant: "destructive" });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleEdit = (cert: UserCertification) => {
@@ -71,17 +81,25 @@ export const CertificationManager: React.FC<CertificationManagerProps> = ({
   const handleUpdate = async () => {
     if (!editingId || !form.name.trim()) return;
     
-    await onUpdate(editingId, {
-      name: form.name,
-      issuingOrganization: form.issuingOrganization || undefined,
-      issueDate: form.issueDate || undefined,
-      expiryDate: form.expiryDate || undefined,
-      credentialId: form.credentialId || undefined,
-      credentialUrl: form.credentialUrl || undefined,
-    });
-    
-    setEditingId(null);
-    resetForm();
+    setIsSaving(true);
+    try {
+      await onUpdate(editingId, {
+        name: form.name,
+        issuingOrganization: form.issuingOrganization || undefined,
+        issueDate: form.issueDate || undefined,
+        expiryDate: form.expiryDate || undefined,
+        credentialId: form.credentialId || undefined,
+        credentialUrl: form.credentialUrl || undefined,
+      });
+      
+      toast({ title: "Certificazione aggiornata!", description: "Le modifiche sono state salvate." });
+      setEditingId(null);
+      resetForm();
+    } catch (error) {
+      toast({ title: "Errore", description: "Impossibile aggiornare la certificazione.", variant: "destructive" });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const formatDate = (dateStr?: string) => {
@@ -149,10 +167,11 @@ export const CertificationManager: React.FC<CertificationManagerProps> = ({
             className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-sm"
           />
           <div className="flex gap-2">
-            <Button size="sm" onClick={handleAdd} disabled={!form.name.trim()}>
-              <Check size={14} className="mr-1" /> Salva
+            <Button size="sm" onClick={handleAdd} disabled={!form.name.trim() || isSaving}>
+              {isSaving ? <Loader2 size={14} className="mr-1 animate-spin" /> : <Check size={14} className="mr-1" />}
+              {isSaving ? 'Salvataggio...' : 'Salva'}
             </Button>
-            <Button variant="ghost" size="sm" onClick={() => { setIsAdding(false); resetForm(); }}>
+            <Button variant="ghost" size="sm" onClick={() => { setIsAdding(false); resetForm(); }} disabled={isSaving}>
               <X size={14} className="mr-1" /> Annulla
             </Button>
           </div>
@@ -184,10 +203,11 @@ export const CertificationManager: React.FC<CertificationManagerProps> = ({
             className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-sm"
           />
           <div className="flex gap-2">
-            <Button size="sm" onClick={handleUpdate}>
-              <Check size={14} className="mr-1" /> Aggiorna
+            <Button size="sm" onClick={handleUpdate} disabled={isSaving}>
+              {isSaving ? <Loader2 size={14} className="mr-1 animate-spin" /> : <Check size={14} className="mr-1" />}
+              {isSaving ? 'Salvataggio...' : 'Aggiorna'}
             </Button>
-            <Button variant="ghost" size="sm" onClick={() => { setEditingId(null); resetForm(); }}>
+            <Button variant="ghost" size="sm" onClick={() => { setEditingId(null); resetForm(); }} disabled={isSaving}>
               <X size={14} className="mr-1" /> Annulla
             </Button>
           </div>

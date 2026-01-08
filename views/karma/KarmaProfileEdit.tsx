@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   User, Camera, MapPin, Briefcase, Save, ArrowLeft,
   Plus, Star, Linkedin, Github, Globe, Link2, Trash2, X
 } from 'lucide-react';
 import { Button } from '../../components/Button';
+import { toast } from '../../src/hooks/use-toast';
 import { Card } from '../../components/Card';
 import { useKarmaProfile } from '../../src/hooks/useKarmaProfile';
 import { useHardSkillsCatalog } from '../../src/hooks/useHardSkillsCatalog';
@@ -76,10 +77,12 @@ export const KarmaProfileEdit: React.FC<KarmaProfileEditProps> = ({ onBack, onSa
   const [newSocialPlatform, setNewSocialPlatform] = useState<SocialPlatform | ''>('');
   const [newSocialUrl, setNewSocialUrl] = useState('');
   const [showCVBanner, setShowCVBanner] = useState(true);
+  const initialFormData = useRef<typeof formData | null>(null);
+  const [isDirty, setIsDirty] = useState(false);
 
   useEffect(() => {
     if (profile) {
-      setFormData({
+      const newFormData = {
         firstName: profile.firstName || '',
         lastName: profile.lastName || '',
         headline: profile.headline || '',
@@ -88,10 +91,32 @@ export const KarmaProfileEdit: React.FC<KarmaProfileEditProps> = ({ onBack, onSa
         yearsExperience: profile.yearsExperience || 0,
         lookingForWork: profile.lookingForWork,
         preferredWorkType: profile.preferredWorkType || 'any',
-      });
+      };
+      setFormData(newFormData);
+      initialFormData.current = newFormData;
       setAvatarPreview(profile.avatarUrl || null);
     }
   }, [profile]);
+
+  // Track dirty state
+  useEffect(() => {
+    if (initialFormData.current) {
+      const hasChanges = JSON.stringify(formData) !== JSON.stringify(initialFormData.current);
+      setIsDirty(hasChanges);
+    }
+  }, [formData]);
+
+  // Warn on navigation with unsaved changes
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (isDirty) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [isDirty]);
 
   const filteredSkills = skillSearch
     ? skills.filter(s =>
@@ -186,11 +211,25 @@ export const KarmaProfileEdit: React.FC<KarmaProfileEditProps> = ({ onBack, onSa
         lookingForWork: formData.lookingForWork,
         preferredWorkType: formData.preferredWorkType,
       });
+      initialFormData.current = formData;
+      setIsDirty(false);
+      toast({ title: "Profilo salvato!", description: "Le modifiche al profilo sono state salvate con successo." });
       onSave();
     } catch (error) {
       console.error('Save error:', error);
+      toast({ title: "Errore", description: "Impossibile salvare il profilo.", variant: "destructive" });
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleBack = () => {
+    if (isDirty) {
+      if (window.confirm('Hai modifiche non salvate. Vuoi uscire senza salvare?')) {
+        onBack();
+      }
+    } else {
+      onBack();
     }
   };
 
@@ -217,11 +256,12 @@ export const KarmaProfileEdit: React.FC<KarmaProfileEditProps> = ({ onBack, onSa
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <button
-            onClick={onBack}
+            onClick={handleBack}
             className="flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
           >
             <ArrowLeft size={20} />
             <span>Indietro</span>
+            {isDirty && <span className="text-xs text-amber-500 ml-1">(modifiche non salvate)</span>}
           </button>
           
           <Button onClick={handleSave} disabled={isSaving}>
@@ -433,17 +473,15 @@ export const KarmaProfileEdit: React.FC<KarmaProfileEditProps> = ({ onBack, onSa
                   <Briefcase size={14} className="inline mr-1" />
                   Anni di esperienza
                 </label>
-                <select
+                <input
+                  type="number"
+                  min="0"
+                  max="50"
                   value={formData.yearsExperience}
-                  onChange={(e) => setFormData({ ...formData, yearsExperience: parseInt(e.target.value) })}
+                  onChange={(e) => setFormData({ ...formData, yearsExperience: parseInt(e.target.value) || 0 })}
                   className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-jnana-sage focus:border-transparent transition-all"
-                >
-                  <option value={0}>0-1 anni</option>
-                  <option value={2}>2-3 anni</option>
-                  <option value={4}>4-5 anni</option>
-                  <option value={6}>6-10 anni</option>
-                  <option value={10}>10+ anni</option>
-                </select>
+                  placeholder="Es: 15"
+                />
               </div>
             </div>
 

@@ -248,17 +248,15 @@ export const KarmaOnboarding: React.FC<KarmaOnboardingProps> = ({ onComplete, on
             <Briefcase size={14} className="inline mr-1" />
             Esperienza
           </label>
-          <select
+          <input
+            type="number"
+            min="0"
+            max="50"
             value={formData.yearsExperience}
-            onChange={(e) => setFormData({ ...formData, yearsExperience: parseInt(e.target.value) })}
+            onChange={(e) => setFormData({ ...formData, yearsExperience: parseInt(e.target.value) || 0 })}
             className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-jnana-sage focus:border-transparent transition-all"
-          >
-            <option value={0}>0-1 anni</option>
-            <option value={2}>2-3 anni</option>
-            <option value={4}>4-5 anni</option>
-            <option value={6}>6-10 anni</option>
-            <option value={10}>10+ anni</option>
-          </select>
+            placeholder="0"
+          />
         </div>
       </div>
     </div>

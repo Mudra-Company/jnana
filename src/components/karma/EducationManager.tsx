@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { GraduationCap, Plus, Trash2, Edit2, Check, X } from 'lucide-react';
+import { GraduationCap, Plus, Trash2, Edit2, Check, X, Loader2 } from 'lucide-react';
 import { Button } from '../../../components/Button';
+import { toast } from '../../hooks/use-toast';
 import type { UserEducation } from '../../types/karma';
 
 interface EducationManagerProps {
@@ -20,6 +21,7 @@ export const EducationManager: React.FC<EducationManagerProps> = ({
 }) => {
   const [isAdding, setIsAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
   const [form, setForm] = useState({
     institution: '',
     degree: '',
@@ -43,18 +45,26 @@ export const EducationManager: React.FC<EducationManagerProps> = ({
   const handleAdd = async () => {
     if (!form.institution.trim() || !form.degree.trim()) return;
     
-    await onAdd({
-      institution: form.institution,
-      degree: form.degree,
-      fieldOfStudy: form.fieldOfStudy || undefined,
-      startYear: form.startYear ? parseInt(form.startYear) : undefined,
-      endYear: form.endYear ? parseInt(form.endYear) : undefined,
-      description: form.description || undefined,
-      sortOrder: 0,
-    });
-    
-    resetForm();
-    setIsAdding(false);
+    setIsSaving(true);
+    try {
+      await onAdd({
+        institution: form.institution,
+        degree: form.degree,
+        fieldOfStudy: form.fieldOfStudy || undefined,
+        startYear: form.startYear ? parseInt(form.startYear) : undefined,
+        endYear: form.endYear ? parseInt(form.endYear) : undefined,
+        description: form.description || undefined,
+        sortOrder: 0,
+      });
+      
+      toast({ title: "Formazione salvata!", description: "Il titolo di studio è stato aggiunto al profilo." });
+      resetForm();
+      setIsAdding(false);
+    } catch (error) {
+      toast({ title: "Errore", description: "Impossibile salvare la formazione.", variant: "destructive" });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleEdit = (edu: UserEducation) => {
@@ -72,17 +82,25 @@ export const EducationManager: React.FC<EducationManagerProps> = ({
   const handleUpdate = async () => {
     if (!editingId || !form.institution.trim() || !form.degree.trim()) return;
     
-    await onUpdate(editingId, {
-      institution: form.institution,
-      degree: form.degree,
-      fieldOfStudy: form.fieldOfStudy || undefined,
-      startYear: form.startYear ? parseInt(form.startYear) : undefined,
-      endYear: form.endYear ? parseInt(form.endYear) : undefined,
-      description: form.description || undefined,
-    });
-    
-    setEditingId(null);
-    resetForm();
+    setIsSaving(true);
+    try {
+      await onUpdate(editingId, {
+        institution: form.institution,
+        degree: form.degree,
+        fieldOfStudy: form.fieldOfStudy || undefined,
+        startYear: form.startYear ? parseInt(form.startYear) : undefined,
+        endYear: form.endYear ? parseInt(form.endYear) : undefined,
+        description: form.description || undefined,
+      });
+      
+      toast({ title: "Formazione aggiornata!", description: "Le modifiche sono state salvate." });
+      setEditingId(null);
+      resetForm();
+    } catch (error) {
+      toast({ title: "Errore", description: "Impossibile aggiornare la formazione.", variant: "destructive" });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const currentYear = new Date().getFullYear();
@@ -147,10 +165,11 @@ export const EducationManager: React.FC<EducationManagerProps> = ({
             </select>
           </div>
           <div className="flex gap-2">
-            <Button size="sm" onClick={handleAdd} disabled={!form.institution.trim() || !form.degree.trim()}>
-              <Check size={14} className="mr-1" /> Salva
+            <Button size="sm" onClick={handleAdd} disabled={!form.institution.trim() || !form.degree.trim() || isSaving}>
+              {isSaving ? <Loader2 size={14} className="mr-1 animate-spin" /> : <Check size={14} className="mr-1" />}
+              {isSaving ? 'Salvataggio...' : 'Salva'}
             </Button>
-            <Button variant="ghost" size="sm" onClick={() => { setIsAdding(false); resetForm(); }}>
+            <Button variant="ghost" size="sm" onClick={() => { setIsAdding(false); resetForm(); }} disabled={isSaving}>
               <X size={14} className="mr-1" /> Annulla
             </Button>
           </div>
@@ -202,10 +221,11 @@ export const EducationManager: React.FC<EducationManagerProps> = ({
             </select>
           </div>
           <div className="flex gap-2">
-            <Button size="sm" onClick={handleUpdate}>
-              <Check size={14} className="mr-1" /> Aggiorna
+            <Button size="sm" onClick={handleUpdate} disabled={isSaving}>
+              {isSaving ? <Loader2 size={14} className="mr-1 animate-spin" /> : <Check size={14} className="mr-1" />}
+              {isSaving ? 'Salvataggio...' : 'Aggiorna'}
             </Button>
-            <Button variant="ghost" size="sm" onClick={() => { setEditingId(null); resetForm(); }}>
+            <Button variant="ghost" size="sm" onClick={() => { setEditingId(null); resetForm(); }} disabled={isSaving}>
               <X size={14} className="mr-1" /> Annulla
             </Button>
           </div>

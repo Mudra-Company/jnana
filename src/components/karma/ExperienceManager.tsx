@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Briefcase, Plus, Trash2, Edit2, Check, X, Building2 } from 'lucide-react';
+import { Briefcase, Plus, Trash2, Edit2, Check, X, Building2, Loader2 } from 'lucide-react';
 import { Button } from '../../../components/Button';
+import { toast } from '../../hooks/use-toast';
 import type { UserExperience } from '../../types/karma';
 
 interface ExperienceManagerProps {
@@ -20,6 +21,7 @@ export const ExperienceManager: React.FC<ExperienceManagerProps> = ({
 }) => {
   const [isAdding, setIsAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
   const [form, setForm] = useState({
     company: '',
     role: '',
@@ -45,19 +47,27 @@ export const ExperienceManager: React.FC<ExperienceManagerProps> = ({
   const handleAdd = async () => {
     if (!form.company.trim() || !form.role.trim()) return;
     
-    await onAdd({
-      company: form.company,
-      role: form.role,
-      startDate: form.startDate || undefined,
-      endDate: form.isCurrent ? undefined : form.endDate || undefined,
-      isCurrent: form.isCurrent,
-      description: form.description || undefined,
-      location: form.location || undefined,
-      sortOrder: 0,
-    });
-    
-    resetForm();
-    setIsAdding(false);
+    setIsSaving(true);
+    try {
+      await onAdd({
+        company: form.company,
+        role: form.role,
+        startDate: form.startDate || undefined,
+        endDate: form.isCurrent ? undefined : form.endDate || undefined,
+        isCurrent: form.isCurrent,
+        description: form.description || undefined,
+        location: form.location || undefined,
+        sortOrder: 0,
+      });
+      
+      toast({ title: "Esperienza salvata!", description: "L'esperienza lavorativa è stata aggiunta al profilo." });
+      resetForm();
+      setIsAdding(false);
+    } catch (error) {
+      toast({ title: "Errore", description: "Impossibile salvare l'esperienza.", variant: "destructive" });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleEdit = (exp: UserExperience) => {
@@ -76,18 +86,26 @@ export const ExperienceManager: React.FC<ExperienceManagerProps> = ({
   const handleUpdate = async () => {
     if (!editingId || !form.company.trim() || !form.role.trim()) return;
     
-    await onUpdate(editingId, {
-      company: form.company,
-      role: form.role,
-      startDate: form.startDate || undefined,
-      endDate: form.isCurrent ? undefined : form.endDate || undefined,
-      isCurrent: form.isCurrent,
-      description: form.description || undefined,
-      location: form.location || undefined,
-    });
-    
-    setEditingId(null);
-    resetForm();
+    setIsSaving(true);
+    try {
+      await onUpdate(editingId, {
+        company: form.company,
+        role: form.role,
+        startDate: form.startDate || undefined,
+        endDate: form.isCurrent ? undefined : form.endDate || undefined,
+        isCurrent: form.isCurrent,
+        description: form.description || undefined,
+        location: form.location || undefined,
+      });
+      
+      toast({ title: "Esperienza aggiornata!", description: "Le modifiche sono state salvate." });
+      setEditingId(null);
+      resetForm();
+    } catch (error) {
+      toast({ title: "Errore", description: "Impossibile aggiornare l'esperienza.", variant: "destructive" });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const formatDate = (dateStr?: string) => {
@@ -171,10 +189,11 @@ export const ExperienceManager: React.FC<ExperienceManagerProps> = ({
             className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-sm resize-none"
           />
           <div className="flex gap-2">
-            <Button size="sm" onClick={handleAdd} disabled={!form.company.trim() || !form.role.trim()}>
-              <Check size={14} className="mr-1" /> Salva
+            <Button size="sm" onClick={handleAdd} disabled={!form.company.trim() || !form.role.trim() || isSaving}>
+              {isSaving ? <Loader2 size={14} className="mr-1 animate-spin" /> : <Check size={14} className="mr-1" />}
+              {isSaving ? 'Salvataggio...' : 'Salva'}
             </Button>
-            <Button variant="ghost" size="sm" onClick={() => { setIsAdding(false); resetForm(); }}>
+            <Button variant="ghost" size="sm" onClick={() => { setIsAdding(false); resetForm(); }} disabled={isSaving}>
               <X size={14} className="mr-1" /> Annulla
             </Button>
           </div>
@@ -233,10 +252,11 @@ export const ExperienceManager: React.FC<ExperienceManagerProps> = ({
             className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-sm resize-none"
           />
           <div className="flex gap-2">
-            <Button size="sm" onClick={handleUpdate}>
-              <Check size={14} className="mr-1" /> Aggiorna
+            <Button size="sm" onClick={handleUpdate} disabled={isSaving}>
+              {isSaving ? <Loader2 size={14} className="mr-1 animate-spin" /> : <Check size={14} className="mr-1" />}
+              {isSaving ? 'Salvataggio...' : 'Aggiorna'}
             </Button>
-            <Button variant="ghost" size="sm" onClick={() => { setEditingId(null); resetForm(); }}>
+            <Button variant="ghost" size="sm" onClick={() => { setEditingId(null); resetForm(); }} disabled={isSaving}>
               <X size={14} className="mr-1" /> Annulla
             </Button>
           </div>
