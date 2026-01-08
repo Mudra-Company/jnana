@@ -227,9 +227,11 @@ interface UserResultViewProps {
   onLogout: () => void;
   onStartClimate: () => void;
   onStartKarma?: () => void;
+  isReadOnly?: boolean;
+  onClose?: () => void;
 }
 
-export const UserResultView: React.FC<UserResultViewProps> = ({ user, jobDb, company, companyUsers, onLogout, onStartClimate, onStartKarma }) => {
+export const UserResultView: React.FC<UserResultViewProps> = ({ user, jobDb, company, companyUsers, onLogout, onStartClimate, onStartKarma, isReadOnly, onClose }) => {
     const [activeTab, setActiveTab] = useState<'overview' | 'riasec' | 'karma' | 'climate'>('overview');
 
     // --- SINGLE SOURCE OF TRUTH ---
@@ -278,6 +280,12 @@ export const UserResultView: React.FC<UserResultViewProps> = ({ user, jobDb, com
 
     return (
         <div className="max-w-7xl mx-auto p-8 font-sans pb-24">
+             {isReadOnly && (
+               <div className="mb-6 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg px-4 py-3 flex items-center gap-3">
+                 <Info size={18} className="text-blue-500" />
+                 <span className="text-sm text-blue-700 dark:text-blue-300">Stai visualizzando il profilo di <strong>{user.firstName} {user.lastName}</strong></span>
+               </div>
+             )}
              <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
                  <div className="flex items-center gap-4">
                      <div>
@@ -293,7 +301,11 @@ export const UserResultView: React.FC<UserResultViewProps> = ({ user, jobDb, com
                          <span className="text-xl font-mono font-bold text-jnana-sage tracking-widest">{activeProfileCode}</span>
                      </div>
                  </div>
-                 <Button variant="outline" onClick={onLogout} size="sm">Esci</Button>
+                 {isReadOnly ? (
+                   <Button variant="outline" onClick={onClose} size="sm">Chiudi</Button>
+                 ) : (
+                   <Button variant="outline" onClick={onLogout} size="sm">Esci</Button>
+                 )}
              </div>
 
              <div className="mb-8 border-b border-gray-200 dark:border-gray-700 overflow-x-auto">
@@ -458,7 +470,7 @@ export const UserResultView: React.FC<UserResultViewProps> = ({ user, jobDb, com
                      )}
 
                      {/* Call to action if karma not done */}
-                     {!user.karmaData && onStartKarma && (
+                     {!user.karmaData && onStartKarma && !isReadOnly && (
                         <div className="bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 border-l-8 border-indigo-500 rounded-2xl p-8 shadow-md flex flex-col md:flex-row items-center justify-between gap-6">
                             <div className="flex items-start gap-5">
                                 <div className="p-4 bg-white dark:bg-gray-800 rounded-full text-indigo-500 shadow-sm shrink-0 mt-1"><BrainCircuit size={32} strokeWidth={2} /></div>
@@ -477,7 +489,7 @@ export const UserResultView: React.FC<UserResultViewProps> = ({ user, jobDb, com
                      )}
 
                      {/* Call to action if climate not done */}
-                     {!user.climateData && (
+                     {!user.climateData && !isReadOnly && (
                         <div className="bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 border-l-8 border-amber-500 rounded-2xl p-8 shadow-md flex flex-col md:flex-row items-center justify-between gap-6">
                             <div className="flex items-start gap-5">
                                 <div className="p-4 bg-white dark:bg-gray-800 rounded-full text-amber-500 shadow-sm shrink-0 mt-1"><ThermometerSun size={32} strokeWidth={2} /></div>
@@ -555,7 +567,7 @@ export const UserResultView: React.FC<UserResultViewProps> = ({ user, jobDb, com
                                      Parla con la nostra AI per scoprire le tue soft skills, valori e aree di crescita.
                                      Il colloquio dura circa 5 minuti.
                                  </p>
-                                 {onStartKarma && (
+                                 {onStartKarma && !isReadOnly && (
                                      <Button onClick={onStartKarma} className="bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-4 text-lg font-bold">
                                          <BrainCircuit className="mr-2" size={20} /> Inizia Colloquio
                                      </Button>
@@ -592,7 +604,7 @@ export const UserResultView: React.FC<UserResultViewProps> = ({ user, jobDb, com
                                  </Card>
                              )}
                          </div>
-                     ) : <div className="text-center py-20 bg-gray-50 border-2 border-dashed rounded-3xl"><Button onClick={onStartClimate}>Compila Ora</Button></div>}
+                     ) : !isReadOnly ? <div className="text-center py-20 bg-gray-50 border-2 border-dashed rounded-3xl"><Button onClick={onStartClimate}>Compila Ora</Button></div> : <div className="text-center py-20 bg-gray-50 border-2 border-dashed rounded-3xl text-gray-500">Test Climate non ancora completato</div>}
                  </div>
              )}
         </div>

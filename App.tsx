@@ -1093,17 +1093,29 @@ const AppContent: React.FC = () => {
             <ClimateTestView user={currentUserData} onComplete={handleClimateComplete} />
           )}
 
-          {view.type === 'USER_RESULT' && currentUserData && (
-            <UserResultView
-              user={currentUserData}
-              jobDb={jobDb}
-              onLogout={handleLogout}
-              onStartClimate={() => navigate({ type: 'USER_CLIMATE_TEST', userId: currentUserData.id })}
-              onStartKarma={() => navigate({ type: 'USER_CHAT', userId: currentUserData.id })}
-              company={activeCompanyData || undefined}
-              companyUsers={companyUsers}
-            />
-          )}
+          {view.type === 'USER_RESULT' && (() => {
+            const targetUserId = view.userId;
+            const isViewingOwnProfile = currentUserData?.id === targetUserId;
+            const userToShow = isViewingOwnProfile 
+              ? currentUserData 
+              : companyUsers.find(u => u.id === targetUserId);
+            
+            if (!userToShow) return null;
+            
+            return (
+              <UserResultView
+                user={userToShow}
+                jobDb={jobDb}
+                onLogout={handleLogout}
+                onStartClimate={() => navigate({ type: 'USER_CLIMATE_TEST', userId: targetUserId })}
+                onStartKarma={() => navigate({ type: 'USER_CHAT', userId: targetUserId })}
+                company={activeCompanyData || undefined}
+                companyUsers={companyUsers}
+                isReadOnly={!isViewingOwnProfile}
+                onClose={() => navigate({ type: 'ADMIN_DASHBOARD' })}
+              />
+            );
+          })()}
 
           {/* ===== KARMA PLATFORM VIEWS ===== */}
           {view.type === 'KARMA_ONBOARDING' && (
