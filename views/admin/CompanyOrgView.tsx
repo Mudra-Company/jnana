@@ -46,17 +46,18 @@ import { getMatchQuality } from '../../src/utils/matchingEngine';
 const SENIORITY_OPTIONS: SeniorityLevel[] = ['Junior', 'Mid', 'Senior', 'Lead', 'C-Level'];
 const SENIORITY_LEVELS: Record<SeniorityLevel, number> = { 'Junior': 1, 'Mid': 2, 'Senior': 3, 'Lead': 4, 'C-Level': 5 };
 
-// --- CANDIDATE MATCH CALCULATION ---
+// --- CANDIDATE MATCH CALCULATION (with seniority penalty) ---
 const calculateCandidateMatch = (candidate: User, required: RequiredProfile | undefined): { 
   score: number; 
   softMatches: string[]; 
   softGaps: string[]; 
   seniorityMatch: 'match' | 'above' | 'below';
+  seniorityPenalty: number;
 } => {
-  if (!required) return { score: 100, softMatches: [], softGaps: [], seniorityMatch: 'match' };
+  if (!required) return { score: 100, softMatches: [], softGaps: [], seniorityMatch: 'match', seniorityPenalty: 0 };
   
   const userSoftSkills = candidate.karmaData?.softSkills || [];
-  const userSeniority = candidate.karmaData?.seniorityAssessment;
+  const userSeniority = candidate.karmaData?.seniorityAssessment as SeniorityLevel | undefined;
   
   // Soft skills comparison
   const softMatches: string[] = [];
@@ -71,21 +72,41 @@ const calculateCandidateMatch = (candidate: User, required: RequiredProfile | un
     else softGaps.push(reqSkill);
   });
   
-  // Seniority comparison
+  // Seniority comparison with penalty system
   let seniorityMatch: 'match' | 'above' | 'below' = 'match';
+  let seniorityScore = 100;
+  let seniorityPenalty = 0;
+  
   if (required.seniority && userSeniority) {
     const reqLevel = SENIORITY_LEVELS[required.seniority] || 0;
     const userLevel = SENIORITY_LEVELS[userSeniority] || 0;
-    if (userLevel > reqLevel) seniorityMatch = 'above';
-    else if (userLevel < reqLevel) seniorityMatch = 'below';
+    const levelDiff = userLevel - reqLevel;
+    
+    if (levelDiff === 0) {
+      seniorityMatch = 'match';
+      seniorityScore = 100;
+    } else if (levelDiff > 0) {
+      // Over-senior: heavy penalty (30% per level above)
+      seniorityPenalty = Math.min(levelDiff * 30, 100);
+      seniorityScore = Math.max(0, 100 - seniorityPenalty);
+      seniorityMatch = 'above';
+    } else {
+      // Under-senior: light penalty (15% per level below)
+      seniorityScore = Math.max(0, 100 + (levelDiff * 15));
+      seniorityMatch = 'below';
+    }
   }
   
-  // Calculate overall score
-  const totalRequired = (required.softSkills?.length || 0) + (required.hardSkills?.length || 0) + (required.seniority ? 1 : 0);
-  const matches = softMatches.length + (seniorityMatch !== 'below' ? 1 : 0);
-  const score = totalRequired > 0 ? Math.round((matches / totalRequired) * 100) : 100;
+  // Calculate overall score (50% soft skills, 50% seniority)
+  const softSkillScore = (required.softSkills?.length || 0) > 0 
+    ? (softMatches.length / required.softSkills.length) * 100 
+    : 100;
   
-  return { score: Math.min(score, 100), softMatches, softGaps, seniorityMatch };
+  const finalScore = Math.round(
+    (softSkillScore * 0.5) + (seniorityScore * 0.5)
+  );
+  
+  return { score: Math.max(0, Math.min(finalScore, 100)), softMatches, softGaps, seniorityMatch, seniorityPenalty };
 };
 
 // --- ROLE COMPARISON MODAL ---
@@ -102,10 +123,10 @@ interface RoleComparisonModalProps {
   onViewExternalCandidate?: (userId: string) => void;
 }
 
-const calculateMatchScore = (user: User): { score: number; hardMatches: string[]; hardGaps: string[]; softMatches: string[]; softGaps: string[]; bonusSkills: string[]; seniorityMatch: 'match' | 'above' | 'below' } => {
+const calculateMatchScore = (user: User): { score: number; hardMatches: string[]; hardGaps: string[]; softMatches: string[]; softGaps: string[]; bonusSkills: string[]; seniorityMatch: 'match' | 'above' | 'below'; seniorityPenalty: number } => {
   const required = user.requiredProfile;
   const userSoftSkills = user.karmaData?.softSkills || [];
-  const userSeniority = user.karmaData?.seniorityAssessment;
+  const userSeniority = user.karmaData?.seniorityAssessment as SeniorityLevel | undefined;
   
   // Hard skills - comparing with requiredProfile.hardSkills (we don't have user hard skills from tests, so we'll show gaps only)
   const hardMatches: string[] = [];
@@ -134,21 +155,41 @@ const calculateMatchScore = (user: User): { score: number; hardMatches: string[]
     if (!isRequired) bonusSkills.push(us);
   });
   
-  // Seniority comparison
+  // Seniority comparison with penalty system
   let seniorityMatch: 'match' | 'above' | 'below' = 'match';
+  let seniorityScore = 100;
+  let seniorityPenalty = 0;
+  
   if (required?.seniority && userSeniority) {
     const reqLevel = SENIORITY_LEVELS[required.seniority] || 0;
     const userLevel = SENIORITY_LEVELS[userSeniority] || 0;
-    if (userLevel > reqLevel) seniorityMatch = 'above';
-    else if (userLevel < reqLevel) seniorityMatch = 'below';
+    const levelDiff = userLevel - reqLevel;
+    
+    if (levelDiff === 0) {
+      seniorityMatch = 'match';
+      seniorityScore = 100;
+    } else if (levelDiff > 0) {
+      // Over-senior: heavy penalty (30% per level above)
+      seniorityPenalty = Math.min(levelDiff * 30, 100);
+      seniorityScore = Math.max(0, 100 - seniorityPenalty);
+      seniorityMatch = 'above';
+    } else {
+      // Under-senior: light penalty (15% per level below)
+      seniorityScore = Math.max(0, 100 + (levelDiff * 15));
+      seniorityMatch = 'below';
+    }
   }
   
-  // Calculate overall score
-  const totalRequired = (required?.softSkills?.length || 0) + (required?.hardSkills?.length || 0) + (required?.seniority ? 1 : 0);
-  const matches = softMatches.length + (seniorityMatch !== 'below' ? 1 : 0);
-  const score = totalRequired > 0 ? Math.round((matches / totalRequired) * 100) : 100;
+  // Calculate overall score (50% soft skills, 50% seniority)
+  const softSkillScore = (required?.softSkills?.length || 0) > 0 
+    ? (softMatches.length / required.softSkills.length) * 100 
+    : 100;
   
-  return { score: Math.min(score, 100), hardMatches, hardGaps, softMatches, softGaps, bonusSkills, seniorityMatch };
+  const finalScore = Math.round(
+    (softSkillScore * 0.5) + (seniorityScore * 0.5)
+  );
+  
+  return { score: Math.max(0, Math.min(finalScore, 100)), hardMatches, hardGaps, softMatches, softGaps, bonusSkills, seniorityMatch, seniorityPenalty };
 };
 
 // Helper to find node name by id
@@ -276,12 +317,25 @@ const RoleComparisonModal: React.FC<RoleComparisonModalProps> = ({
     );
   }, [allUsers, user.id, searchQuery]);
   
-  // Internal candidates ranked by match score (for hiring slots)
+  // Internal candidates ranked by match score (for hiring slots), filtered for over-senior
   const internalCandidates = useMemo(() => {
     if (!isHiringSlot) return [];
     
+    const requiredLevel = SENIORITY_LEVELS[user.requiredProfile?.seniority as SeniorityLevel] || 0;
+    
     return allUsers
-      .filter(u => u.id !== user.id && !u.isHiring && u.firstName && u.lastName)
+      .filter(u => {
+        if (u.id === user.id || u.isHiring || !u.firstName || !u.lastName) return false;
+        
+        // Filter out candidates who are more than 1 level above required
+        const userSeniority = u.karmaData?.seniorityAssessment as SeniorityLevel | undefined;
+        if (userSeniority && requiredLevel > 0) {
+          const userLevel = SENIORITY_LEVELS[userSeniority] || 0;
+          const levelDiff = userLevel - requiredLevel;
+          if (levelDiff > 1) return false;
+        }
+        return true;
+      })
       .map(candidate => ({
         user: candidate,
         matchData: calculateCandidateMatch(candidate, user.requiredProfile),
