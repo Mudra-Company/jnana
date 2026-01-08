@@ -1,14 +1,18 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { ArrowLeft, User, Briefcase, MapPin, Award, CheckCircle, XCircle, AlertCircle, Search, Filter, Loader2, Shuffle, Building, ArrowRight, Users, TrendingDown } from 'lucide-react';
+import { ArrowLeft, User, Briefcase, MapPin, Award, CheckCircle, XCircle, AlertCircle, Search, Filter, Loader2, Shuffle, Building, ArrowRight, Users, TrendingDown, Plus, ListChecks } from 'lucide-react';
 import { Card } from '../../components/Card';
 import { Button } from '../../components/Button';
 import { useOpenPositions, OpenPosition } from '../../src/hooks/useOpenPositions';
 import { useTalentSearch } from '../../src/hooks/useTalentSearch';
 import { useSubscription } from '../../src/hooks/useSubscription';
+import { usePositionShortlist } from '../../src/hooks/usePositionShortlist';
 import { CompanyProfile, SeniorityLevel, User as LegacyUser, RequiredProfile } from '../../types';
 import { getMatchQuality } from '../../src/utils/matchingEngine';
 import type { CandidateMatch } from '../../src/types/karma';
+import type { ShortlistUser } from '../../src/types/shortlist';
+import { ShortlistTab } from '../../src/components/shortlist/ShortlistTab';
 import { supabase } from '../../src/integrations/supabase/client';
+import { useToast } from '../../src/hooks/use-toast';
 
 interface PositionMatchingViewProps {
   positionId: string;
@@ -138,13 +142,26 @@ export const PositionMatchingView: React.FC<PositionMatchingViewProps> = ({
   const { getPositionById } = useOpenPositions();
   const { candidates, isLoading: searchLoading, searchCandidates } = useTalentSearch();
   const { hasActiveSubscription, canViewProfiles, remainingProfileViews } = useSubscription();
+  const { toast } = useToast();
 
   const [position, setPosition] = useState<OpenPosition | null>(null);
   const [positionLoading, setPositionLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [showOnlyLooking, setShowOnlyLooking] = useState(true);
-  const [activeTab, setActiveTab] = useState<'internal' | 'external'>('internal');
+  const [activeTab, setActiveTab] = useState<'internal' | 'external' | 'shortlist'>('internal');
   const [nodeNames, setNodeNames] = useState<Record<string, string>>({});
+
+  // Shortlist hook - initialized after position is loaded
+  const {
+    candidates: shortlistCandidates,
+    isLoading: shortlistLoading,
+    addInternalCandidate,
+    addExternalCandidate,
+    removeCandidate,
+    updateCandidate,
+    buildUnifiedCandidates,
+    isInShortlist
+  } = usePositionShortlist(positionId, company.id);
 
   // Fetch node names for "Attualmente in:" display
   useEffect(() => {
@@ -251,6 +268,66 @@ export const PositionMatchingView: React.FC<PositionMatchingViewProps> = ({
     });
   }, [candidates, searchQuery]);
 
+  // Build unified candidates for shortlist display
+  const unifiedShortlistCandidates = useMemo(() => {
+    const internalUsersMap: ShortlistUser[] = companyUsers.map(u => ({
+      id: u.id,
+      firstName: u.firstName,
+      lastName: u.lastName,
+      email: u.email,
+      avatarUrl: u.avatarUrl,
+      jobTitle: u.jobTitle,
+      seniority: u.karmaData?.seniorityAssessment,
+      yearsExperience: u.yearsExperience,
+      location: u.location,
+      profileCode: u.profileCode,
+      riasecScore: u.riasecScore,
+      karmaData: u.karmaData
+    }));
+    return buildUnifiedCandidates(shortlistCandidates, internalUsersMap);
+  }, [shortlistCandidates, companyUsers, buildUnifiedCandidates]);
+
+  // Handler to add internal candidate to shortlist
+  const handleAddInternalToShortlist = async (candidate: typeof internalCandidates[0]) => {
+    const user: ShortlistUser = {
+      id: candidate.user.id,
+      firstName: candidate.user.firstName,
+      lastName: candidate.user.lastName,
+      email: candidate.user.email,
+      avatarUrl: candidate.user.avatarUrl,
+      jobTitle: candidate.user.jobTitle,
+      seniority: candidate.user.karmaData?.seniorityAssessment,
+      riasecScore: candidate.user.riasecScore,
+      profileCode: candidate.user.profileCode,
+      karmaData: candidate.user.karmaData
+    };
+    
+    const success = await addInternalCandidate(user, {
+      matchScore: candidate.matchData.score,
+      skillsOverlap: candidate.matchData.softMatches,
+      missingSkills: candidate.matchData.softGaps,
+      seniorityMatch: candidate.matchData.seniorityMatch === 'match'
+    });
+    
+    if (success) {
+      toast({
+        title: "Aggiunto alla shortlist",
+        description: `${candidate.user.firstName} ${candidate.user.lastName} è stato aggiunto alla shortlist`
+      });
+    }
+  };
+
+  // Handler to add external candidate to shortlist
+  const handleAddExternalToShortlist = async (match: CandidateMatch) => {
+    const success = await addExternalCandidate(match);
+    if (success) {
+      toast({
+        title: "Aggiunto alla shortlist",
+        description: `${match.profile.firstName} ${match.profile.lastName} è stato aggiunto alla shortlist`
+      });
+    }
+  };
+
   const renderInternalCandidate = (candidate: typeof internalCandidates[0], index: number) => {
     const isOverSenior = candidate.matchData.seniorityMatch === 'above';
     
@@ -289,12 +366,26 @@ export const PositionMatchingView: React.FC<PositionMatchingViewProps> = ({
               <span className="text-orange-500">⚠ {candidate.matchData.softGaps.length}</span>
             )}
           </div>
-          <button 
-            onClick={() => onAssignInternal(positionId, candidate.user.id)}
-            className="text-[10px] px-2 py-1 bg-purple-100 dark:bg-purple-800 text-purple-700 dark:text-purple-200 rounded hover:bg-purple-200 dark:hover:bg-purple-700 transition-colors flex items-center gap-1 mt-1"
-          >
-            <ArrowRight size={10}/> Assegna
-          </button>
+          <div className="flex items-center gap-1">
+            {!isInShortlist(candidate.user.id, 'internal') ? (
+              <button 
+                onClick={() => handleAddInternalToShortlist(candidate)}
+                className="text-[10px] px-2 py-1 bg-blue-100 dark:bg-blue-800 text-blue-700 dark:text-blue-200 rounded hover:bg-blue-200 dark:hover:bg-blue-700 transition-colors flex items-center gap-1"
+              >
+                <Plus size={10}/> Shortlist
+              </button>
+            ) : (
+              <span className="text-[10px] px-2 py-1 bg-green-100 text-green-700 rounded flex items-center gap-1">
+                <CheckCircle size={10}/> In Shortlist
+              </span>
+            )}
+            <button 
+              onClick={() => onAssignInternal(positionId, candidate.user.id)}
+              className="text-[10px] px-2 py-1 bg-purple-100 dark:bg-purple-800 text-purple-700 dark:text-purple-200 rounded hover:bg-purple-200 dark:hover:bg-purple-700 transition-colors flex items-center gap-1"
+            >
+              <ArrowRight size={10}/> Assegna
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -397,14 +488,27 @@ export const PositionMatchingView: React.FC<PositionMatchingViewProps> = ({
 
         {/* Action */}
         {!isBlurred && (
-          <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-700">
+          <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-700 flex gap-2">
+            {!isInShortlist(profile.id, 'external') ? (
+              <Button 
+                variant="ghost"
+                onClick={() => handleAddExternalToShortlist(candidate)}
+                className="flex items-center gap-1"
+              >
+                <Plus size={14}/> Aggiungi a Shortlist
+              </Button>
+            ) : (
+              <span className="px-3 py-2 text-sm bg-green-100 text-green-700 rounded-lg flex items-center gap-1">
+                <CheckCircle size={14}/> In Shortlist
+              </span>
+            )}
             <Button 
               fullWidth 
               variant="ghost"
               onClick={() => onViewCandidate(profile.id)}
               disabled={!canView}
             >
-              {canView ? 'Visualizza Profilo Completo' : 'Limite visualizzazioni raggiunto'}
+              {canView ? 'Visualizza Profilo' : 'Limite visualizzazioni raggiunto'}
             </Button>
           </div>
         )}
@@ -506,6 +610,24 @@ export const PositionMatchingView: React.FC<PositionMatchingViewProps> = ({
           Candidati Esterni (Karma Talents)
           <span className="px-2 py-0.5 rounded-full text-xs bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300">
             {filteredCandidates.length}
+          </span>
+        </button>
+        <button
+          onClick={() => setActiveTab('shortlist')}
+          className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
+            activeTab === 'shortlist'
+              ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+              : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+          }`}
+        >
+          <ListChecks size={16} />
+          Shortlist
+          <span className={`px-2 py-0.5 rounded-full text-xs ${
+            shortlistCandidates.length > 0 
+              ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' 
+              : 'bg-gray-100 text-gray-500'
+          }`}>
+            {shortlistCandidates.length}
           </span>
         </button>
       </div>
@@ -626,6 +748,42 @@ export const PositionMatchingView: React.FC<PositionMatchingViewProps> = ({
             {!searchLoading && filteredCandidates.map((candidate, index) => renderExternalCandidate(candidate, index))}
           </div>
         </div>
+      )}
+
+      {/* Shortlist Tab */}
+      {activeTab === 'shortlist' && (
+        <ShortlistTab
+          candidates={unifiedShortlistCandidates}
+          positionTitle={position.jobTitle}
+          requiredSkills={position.requiredProfile?.hardSkills || []}
+          targetRiasec={undefined}
+          onRemoveCandidate={async (id) => {
+            const success = await removeCandidate(id);
+            if (success) {
+              toast({ title: "Rimosso dalla shortlist" });
+            }
+          }}
+          onUpdateCandidate={(id, updates) => updateCandidate(id, updates)}
+          onViewProfile={(candidate) => {
+            if (candidate.type === 'internal' && candidate.internalUserId) {
+              // Could navigate to internal profile view
+              console.log('View internal profile:', candidate.internalUserId);
+            } else if (candidate.externalProfileId) {
+              onViewCandidate(candidate.externalProfileId);
+            }
+          }}
+          onSelectCandidate={(candidate) => {
+            if (candidate.type === 'internal' && candidate.internalUserId) {
+              onAssignInternal(positionId, candidate.internalUserId);
+            } else {
+              // For external candidates, could trigger invite flow
+              toast({
+                title: "Candidato selezionato",
+                description: `${candidate.name} è stato selezionato per la posizione`
+              });
+            }
+          }}
+        />
       )}
     </div>
   );
