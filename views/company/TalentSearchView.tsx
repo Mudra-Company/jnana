@@ -21,7 +21,7 @@ import { Card } from '../../components/Card';
 import { Button } from '../../components/Button';
 import { useAuth } from '../../src/hooks/useAuth';
 import { useTalentSearch } from '../../src/hooks/useTalentSearch';
-import { useSubscription } from '../../src/hooks/useSubscription';
+
 import { useHardSkillsCatalog } from '../../src/hooks/useHardSkillsCatalog';
 import { calculateMatchScore, getMatchQuality, MatchResult } from '../../src/utils/matchingEngine';
 import type { TalentSearchFilters, WorkType, CandidateMatch } from '../../src/types/karma';
@@ -66,7 +66,7 @@ export const TalentSearchView: React.FC<TalentSearchViewProps> = ({
 }) => {
   const { membership } = useAuth();
   const { candidates, isLoading, searchCandidates } = useTalentSearch();
-  const { subscription, remainingProfileViews, canViewProfiles } = useSubscription();
+  
   const { skills: skillsCatalog } = useHardSkillsCatalog();
   
   const [filters, setFilters] = useState<TalentSearchFilters>({});
@@ -177,29 +177,6 @@ export const TalentSearchView: React.FC<TalentSearchViewProps> = ({
     return scoreB - scoreA;
   });
 
-  // Check subscription
-  const hasActiveSubscription = subscription?.status === 'active';
-  const canSearch = hasActiveSubscription && (subscription?.plan?.canAccessMatching ?? false);
-
-  if (!canSearch) {
-    return (
-      <div className="p-8 max-w-4xl mx-auto">
-        <Card className="p-12 text-center">
-          <Lock size={64} className="mx-auto text-gray-300 dark:text-gray-600 mb-4" />
-          <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-4">
-            Accesso Riservato
-          </h2>
-          <p className="text-gray-600 dark:text-gray-400 mb-6">
-            La ricerca talenti è disponibile solo per abbonamenti Pro ed Enterprise.
-            Aggiorna il tuo piano per accedere a questa funzionalità.
-          </p>
-          <Button className="bg-gradient-to-r from-violet-600 to-purple-600 text-white">
-            Visualizza Piani
-          </Button>
-        </Card>
-      </div>
-    );
-  }
 
   return (
     <div className="p-8 max-w-7xl mx-auto">
@@ -229,15 +206,6 @@ export const TalentSearchView: React.FC<TalentSearchViewProps> = ({
           </div>
         </div>
         
-        {/* Subscription Info */}
-        <div className="flex items-center gap-4 mt-4">
-          <span className="text-sm text-gray-500 dark:text-gray-400">
-            Profili visualizzabili questo mese: 
-            <span className="font-semibold text-violet-600 dark:text-violet-400 ml-1">
-              {remainingProfileViews}
-            </span>
-          </span>
-        </div>
       </div>
 
       {/* Search & Filters */}
@@ -594,7 +562,6 @@ export const TalentSearchView: React.FC<TalentSearchViewProps> = ({
                       e.stopPropagation();
                       onViewProfile?.(candidate.profile.id);
                     }}
-                    disabled={!canViewProfiles()}
                   >
                     <Eye className="w-4 h-4 mr-1" />
                     Visualizza

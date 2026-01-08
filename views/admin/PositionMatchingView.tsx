@@ -4,7 +4,7 @@ import { Card } from '../../components/Card';
 import { Button } from '../../components/Button';
 import { useOpenPositions, OpenPosition } from '../../src/hooks/useOpenPositions';
 import { useTalentSearch } from '../../src/hooks/useTalentSearch';
-import { useSubscription } from '../../src/hooks/useSubscription';
+
 import { usePositionShortlist } from '../../src/hooks/usePositionShortlist';
 import { CompanyProfile, SeniorityLevel, User as LegacyUser, RequiredProfile } from '../../types';
 import { getMatchQuality } from '../../src/utils/matchingEngine';
@@ -141,7 +141,7 @@ export const PositionMatchingView: React.FC<PositionMatchingViewProps> = ({
 }) => {
   const { getPositionById } = useOpenPositions();
   const { candidates, isLoading: searchLoading, searchCandidates } = useTalentSearch();
-  const { hasActiveSubscription, canViewProfiles, remainingProfileViews } = useSubscription();
+  
   const { toast } = useToast();
 
   const [position, setPosition] = useState<OpenPosition | null>(null);
@@ -224,9 +224,6 @@ export const PositionMatchingView: React.FC<PositionMatchingViewProps> = ({
   };
 
   const isLoading = positionLoading || searchLoading;
-  const hasSubscription = hasActiveSubscription();
-  const canView = canViewProfiles();
-  const viewsRemaining = remainingProfileViews();
 
   // Internal candidates ranked by match score, filtered for over-senior
   const internalCandidates = useMemo(() => {
@@ -370,7 +367,7 @@ export const PositionMatchingView: React.FC<PositionMatchingViewProps> = ({
             {!isInShortlist(candidate.user.id, 'internal') ? (
               <button 
                 onClick={() => handleAddInternalToShortlist(candidate)}
-                className="text-[10px] px-2 py-1 bg-blue-100 dark:bg-blue-800 text-blue-700 dark:text-blue-200 rounded hover:bg-blue-200 dark:hover:bg-blue-700 transition-colors flex items-center gap-1"
+                className="text-[10px] px-2.5 py-1.5 bg-slate-800 dark:bg-slate-700 text-white rounded-md hover:bg-slate-700 dark:hover:bg-slate-600 transition-colors flex items-center gap-1 font-medium"
               >
                 <Plus size={10}/> Shortlist
               </button>
@@ -395,23 +392,11 @@ export const PositionMatchingView: React.FC<PositionMatchingViewProps> = ({
     const { profile, matchScore, riasecMatch, skillsMatch, skillsOverlap, missingSkills, seniorityMatch } = candidate;
     const quality = getMatchQuality(matchScore);
     
-    // Show blurred preview for candidates beyond 3 if no subscription
-    const isBlurred = !hasSubscription && index >= 3;
-    
     return (
       <Card 
         key={profile.id} 
-        className={`relative ${isBlurred ? 'overflow-hidden' : ''}`}
+        className="relative"
       >
-        {isBlurred && (
-          <div className="absolute inset-0 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm z-10 flex items-center justify-center">
-            <div className="text-center p-4">
-              <AlertCircle size={32} className="text-purple-500 mx-auto mb-2" />
-              <p className="font-medium text-gray-900 dark:text-white">Abbonamento richiesto</p>
-              <p className="text-sm text-gray-500">Attiva Karma Talents per vedere tutti i candidati</p>
-            </div>
-          </div>
-        )}
 
         <div className="flex flex-col md:flex-row md:items-start gap-4">
           {/* Avatar & Basic Info */}
@@ -487,31 +472,27 @@ export const PositionMatchingView: React.FC<PositionMatchingViewProps> = ({
         </div>
 
         {/* Action */}
-        {!isBlurred && (
-          <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-700 flex gap-2">
-            {!isInShortlist(profile.id, 'external') ? (
-              <Button 
-                variant="ghost"
-                onClick={() => handleAddExternalToShortlist(candidate)}
-                className="flex items-center gap-1"
-              >
-                <Plus size={14}/> Aggiungi a Shortlist
-              </Button>
-            ) : (
-              <span className="px-3 py-2 text-sm bg-green-100 text-green-700 rounded-lg flex items-center gap-1">
-                <CheckCircle size={14}/> In Shortlist
-              </span>
-            )}
-            <Button 
-              fullWidth 
-              variant="ghost"
-              onClick={() => onViewCandidate(profile.id)}
-              disabled={!canView}
+        <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-700 flex gap-2">
+          {!isInShortlist(profile.id, 'external') ? (
+            <button 
+              onClick={() => handleAddExternalToShortlist(candidate)}
+              className="px-3 py-1.5 bg-slate-800 dark:bg-slate-700 text-white text-sm rounded-md hover:bg-slate-700 dark:hover:bg-slate-600 transition-colors flex items-center gap-1 font-medium"
             >
-              {canView ? 'Visualizza Profilo' : 'Limite visualizzazioni raggiunto'}
-            </Button>
-          </div>
-        )}
+              <Plus size={14}/> Shortlist
+            </button>
+          ) : (
+            <span className="px-3 py-2 text-sm bg-green-100 text-green-700 rounded-lg flex items-center gap-1">
+              <CheckCircle size={14}/> In Shortlist
+            </span>
+          )}
+          <Button 
+            fullWidth 
+            variant="ghost"
+            onClick={() => onViewCandidate(profile.id)}
+          >
+            Visualizza Profilo
+          </Button>
+        </div>
       </Card>
     );
   };
@@ -698,27 +679,6 @@ export const PositionMatchingView: React.FC<PositionMatchingViewProps> = ({
             </div>
           </Card>
 
-          {/* Subscription Status */}
-          {!hasSubscription && (
-            <Card className="bg-gradient-to-r from-green-50 to-teal-50 dark:from-green-900/20 dark:to-teal-900/20 border-green-200 dark:border-green-800">
-              <div className="flex items-center gap-4">
-                <Award size={32} className="text-green-500" />
-                <div className="flex-1">
-                  <h4 className="font-bold text-gray-900 dark:text-white">Attiva Karma Talents</h4>
-                  <p className="text-sm text-gray-600 dark:text-gray-300">
-                    Sblocca accesso completo a tutti i candidati esterni e funzionalità di matching avanzate.
-                  </p>
-                </div>
-                <Button>Scopri i Piani</Button>
-              </div>
-            </Card>
-          )}
-
-          {hasSubscription && viewsRemaining !== Infinity && (
-            <div className="text-sm text-gray-500 dark:text-gray-400">
-              Visualizzazioni profili rimaste questo mese: <strong>{viewsRemaining}</strong>
-            </div>
-          )}
 
           {/* Results */}
           <div className="space-y-4">
