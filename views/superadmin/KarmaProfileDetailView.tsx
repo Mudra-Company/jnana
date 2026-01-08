@@ -18,7 +18,11 @@ import {
   Award,
   FolderOpen,
   User,
-  Clock
+  Clock,
+  GraduationCap,
+  Building2,
+  Languages,
+  BadgeCheck
 } from 'lucide-react';
 import { Card } from '../../components/Card';
 import { Button } from '../../components/Button';
@@ -100,6 +104,34 @@ export const KarmaProfileDetailView: React.FC<KarmaProfileDetailViewProps> = ({ 
     portfolio: <Globe className="w-4 h-4" />,
     twitter: <Globe className="w-4 h-4" />,
     other: <ExternalLink className="w-4 h-4" />,
+  };
+
+  // Language proficiency labels
+  const languageProficiencyLabels: Record<string, string> = {
+    native: 'Madrelingua',
+    fluent: 'Fluente (C1-C2)',
+    professional: 'Professionale (B2)',
+    intermediate: 'Intermedio (B1)',
+    basic: 'Base (A1-A2)',
+  };
+
+  // Helper: calculate experience duration
+  const calculateDuration = (startDate?: string, endDate?: string, isCurrent?: boolean): string => {
+    if (!startDate) return '';
+    const start = new Date(startDate);
+    const end = isCurrent ? new Date() : (endDate ? new Date(endDate) : new Date());
+    const months = Math.max(1, Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24 * 30)));
+    const years = Math.floor(months / 12);
+    const remainingMonths = months % 12;
+    if (years === 0) return `${remainingMonths} mesi`;
+    if (remainingMonths === 0) return `${years} ${years === 1 ? 'anno' : 'anni'}`;
+    return `${years} ${years === 1 ? 'anno' : 'anni'}, ${remainingMonths} mesi`;
+  };
+
+  // Helper: format date
+  const formatDate = (dateStr?: string): string => {
+    if (!dateStr) return '';
+    return new Date(dateStr).toLocaleDateString('it-IT', { month: 'short', year: 'numeric' });
   };
 
   return (
@@ -206,7 +238,189 @@ export const KarmaProfileDetailView: React.FC<KarmaProfileDetailViewProps> = ({ 
         )}
       </Card>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {/* Work Experiences */}
+      {profile.experiences && profile.experiences.length > 0 && (
+        <Card className="p-6 mb-6">
+          <h2 className="text-lg font-semibold text-gray-800 dark:text-white mb-4 flex items-center gap-2">
+            <Briefcase className="w-5 h-5 text-blue-500" />
+            Esperienze Lavorative ({profile.experiences.length})
+          </h2>
+          <div className="space-y-4">
+            {profile.experiences.map((exp) => (
+              <div 
+                key={exp.id}
+                className="relative pl-6 pb-4 border-l-2 border-blue-200 dark:border-blue-800 last:pb-0"
+              >
+                <div className="absolute -left-2 top-0 w-4 h-4 bg-blue-500 rounded-full" />
+                <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
+                  <h3 className="font-semibold text-gray-800 dark:text-white uppercase">
+                    {exp.role}
+                  </h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-300 flex items-center gap-2 mt-1">
+                    <Building2 className="w-4 h-4" />
+                    {exp.company}
+                    {exp.location && (
+                      <>
+                        <span className="text-gray-400">•</span>
+                        <MapPin className="w-3 h-3" />
+                        {exp.location}
+                      </>
+                    )}
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 flex items-center gap-1">
+                    <Calendar className="w-3 h-3" />
+                    {formatDate(exp.startDate)} - {exp.isCurrent ? 'Presente' : formatDate(exp.endDate)}
+                    <span className="text-gray-400 ml-1">({calculateDuration(exp.startDate, exp.endDate, exp.isCurrent)})</span>
+                  </p>
+                  {exp.description && (
+                    <p className="text-sm text-gray-600 dark:text-gray-300 mt-3">{exp.description}</p>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+
+      {/* Education */}
+      {profile.education && profile.education.length > 0 && (
+        <Card className="p-6 mb-6">
+          <h2 className="text-lg font-semibold text-gray-800 dark:text-white mb-4 flex items-center gap-2">
+            <GraduationCap className="w-5 h-5 text-green-500" />
+            Formazione ({profile.education.length})
+          </h2>
+          <div className="space-y-4">
+            {profile.education.map((edu) => (
+              <div 
+                key={edu.id}
+                className="relative pl-6 pb-4 border-l-2 border-green-200 dark:border-green-800 last:pb-0"
+              >
+                <div className="absolute -left-2 top-0 w-4 h-4 bg-green-500 rounded-full" />
+                <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
+                  <h3 className="font-semibold text-gray-800 dark:text-white uppercase">
+                    {edu.degree}
+                  </h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-300 flex items-center gap-2 mt-1">
+                    <Building2 className="w-4 h-4" />
+                    {edu.institution}
+                  </p>
+                  {edu.fieldOfStudy && (
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                      {edu.fieldOfStudy}
+                    </p>
+                  )}
+                  {(edu.startYear || edu.endYear) && (
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 flex items-center gap-1">
+                      <Calendar className="w-3 h-3" />
+                      {edu.startYear || '?'} - {edu.endYear || 'Presente'}
+                    </p>
+                  )}
+                  {edu.description && (
+                    <p className="text-sm text-gray-600 dark:text-gray-300 mt-3">{edu.description}</p>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+
+      {/* Certifications */}
+      {profile.certifications && profile.certifications.length > 0 && (
+        <Card className="p-6 mb-6">
+          <h2 className="text-lg font-semibold text-gray-800 dark:text-white mb-4 flex items-center gap-2">
+            <BadgeCheck className="w-5 h-5 text-amber-500" />
+            Certificazioni ({profile.certifications.length})
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {profile.certifications.map((cert) => (
+              <div 
+                key={cert.id}
+                className="flex items-start gap-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg"
+              >
+                <Award className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-gray-800 dark:text-white">{cert.name}</p>
+                  {cert.issuingOrganization && (
+                    <p className="text-sm text-gray-500 dark:text-gray-400">{cert.issuingOrganization}</p>
+                  )}
+                  <div className="flex flex-wrap gap-2 mt-1 text-xs text-gray-400">
+                    {cert.issueDate && <span>Rilasciata: {formatDate(cert.issueDate)}</span>}
+                    {cert.expiryDate && <span>• Scade: {formatDate(cert.expiryDate)}</span>}
+                  </div>
+                  {cert.credentialUrl && (
+                    <a 
+                      href={cert.credentialUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-violet-600 hover:underline flex items-center gap-1 mt-1"
+                    >
+                      <ExternalLink className="w-3 h-3" />
+                      Verifica credenziale
+                    </a>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+
+      {/* Hard Skills */}
+      {profile.hardSkills && profile.hardSkills.length > 0 && (
+        <Card className="p-6 mb-6">
+          <h2 className="text-lg font-semibold text-gray-800 dark:text-white mb-4 flex items-center gap-2">
+            <Star className="w-5 h-5 text-violet-500" />
+            Competenze Tecniche ({profile.hardSkills.length})
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {profile.hardSkills.map((skill) => (
+              <div 
+                key={skill.id}
+                className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg"
+              >
+                <div>
+                  <p className="font-medium text-gray-800 dark:text-white">
+                    {skill.skill?.name || skill.customSkillName}
+                  </p>
+                  {skill.skill?.category && (
+                    <p className="text-xs text-gray-500">{skill.skill.category}</p>
+                  )}
+                </div>
+                <span className="text-xs px-2 py-1 bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300 rounded">
+                  {proficiencyLabels[skill.proficiencyLevel]}
+                </span>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+
+      {/* Languages */}
+      {profile.languages && profile.languages.length > 0 && (
+        <Card className="p-6 mb-6">
+          <h2 className="text-lg font-semibold text-gray-800 dark:text-white mb-4 flex items-center gap-2">
+            <Languages className="w-5 h-5 text-teal-500" />
+            Lingue ({profile.languages.length})
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {profile.languages.map((lang) => (
+              <div 
+                key={lang.id}
+                className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg"
+              >
+                <p className="font-medium text-gray-800 dark:text-white">{lang.language}</p>
+                <span className="text-xs px-2 py-1 bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-300 rounded">
+                  {languageProficiencyLabels[lang.proficiency] || lang.proficiency}
+                </span>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+
+      {/* RIASEC & Karma AI Analysis */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         {/* RIASEC Results */}
         {hasRiasec && profile.riasecScore && (
           <Card className="p-6">
@@ -327,39 +541,9 @@ export const KarmaProfileDetailView: React.FC<KarmaProfileDetailViewProps> = ({ 
         )}
       </div>
 
-      {/* Hard Skills */}
-      {profile.hardSkills && profile.hardSkills.length > 0 && (
-        <Card className="p-6 mt-6">
-          <h2 className="text-lg font-semibold text-gray-800 dark:text-white mb-4 flex items-center gap-2">
-            <Star className="w-5 h-5 text-amber-500" />
-            Hard Skills ({profile.hardSkills.length})
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-            {profile.hardSkills.map((skill) => (
-              <div 
-                key={skill.id}
-                className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg"
-              >
-                <div>
-                  <p className="font-medium text-gray-800 dark:text-white">
-                    {skill.skill?.name || skill.customSkillName}
-                  </p>
-                  {skill.skill?.category && (
-                    <p className="text-xs text-gray-500">{skill.skill.category}</p>
-                  )}
-                </div>
-                <span className="text-xs px-2 py-1 bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300 rounded">
-                  {proficiencyLabels[skill.proficiencyLevel]}
-                </span>
-              </div>
-            ))}
-          </div>
-        </Card>
-      )}
-
       {/* Portfolio */}
       {profile.portfolio && profile.portfolio.length > 0 && (
-        <Card className="p-6 mt-6">
+        <Card className="p-6 mb-6">
           <h2 className="text-lg font-semibold text-gray-800 dark:text-white mb-4 flex items-center gap-2">
             <FolderOpen className="w-5 h-5 text-green-500" />
             Portfolio ({profile.portfolio.length})
@@ -413,7 +597,7 @@ export const KarmaProfileDetailView: React.FC<KarmaProfileDetailViewProps> = ({ 
 
       {/* Social Links */}
       {profile.socialLinks && profile.socialLinks.length > 0 && (
-        <Card className="p-6 mt-6">
+        <Card className="p-6 mb-6">
           <h2 className="text-lg font-semibold text-gray-800 dark:text-white mb-4 flex items-center gap-2">
             <Globe className="w-5 h-5 text-blue-500" />
             Link Social
@@ -436,7 +620,7 @@ export const KarmaProfileDetailView: React.FC<KarmaProfileDetailViewProps> = ({ 
       )}
 
       {/* Metadata */}
-      <Card className="p-4 mt-6 bg-gray-50 dark:bg-gray-800/50">
+      <Card className="p-4 bg-gray-50 dark:bg-gray-800/50">
         <div className="flex flex-wrap gap-6 text-sm text-gray-500 dark:text-gray-400">
           <span className="flex items-center gap-1">
             <Calendar className="w-4 h-4" />
@@ -446,11 +630,14 @@ export const KarmaProfileDetailView: React.FC<KarmaProfileDetailViewProps> = ({ 
             <Clock className="w-4 h-4" />
             Aggiornato: {new Date(profile.updatedAt).toLocaleDateString('it-IT')}
           </span>
-          <span>
-            Visibilità: <span className="capitalize">{profile.profileVisibility === 'subscribers_only' ? 'Solo abbonati' : 'Privato'}</span>
+          <span className="flex items-center gap-1">
+            <User className="w-4 h-4" />
+            Visibilità: {profile.profileVisibility === 'subscribers_only' ? 'Solo abbonati' : 'Privato'}
           </span>
         </div>
       </Card>
     </div>
   );
 };
+
+export default KarmaProfileDetailView;
