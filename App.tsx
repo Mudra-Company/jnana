@@ -1119,8 +1119,26 @@ const AppContent: React.FC = () => {
             <PositionMatchingView
               positionId={view.positionId}
               company={activeCompanyData}
+              companyUsers={companyUsers}
               onBack={() => navigate({ type: 'ADMIN_OPEN_POSITIONS' })}
               onViewCandidate={(userId) => navigate({ type: 'KARMA_PROFILE_VIEW', userId })}
+              onAssignInternal={async (slotId, userId) => {
+                // Assign internal candidate to position
+                const { assignUserToSlot } = await import('./src/hooks/useCompanyMembers').then(m => ({ assignUserToSlot: m.useCompanyMembers().assignUserToSlot }));
+                // Find the slot member by position id
+                const result = await supabase
+                  .from('company_members')
+                  .update({ user_id: userId, is_hiring: false })
+                  .eq('id', slotId);
+                
+                if (result.error) {
+                  toast({ title: 'Errore', description: 'Impossibile assegnare il candidato', variant: 'destructive' });
+                } else {
+                  toast({ title: 'Successo', description: 'Candidato assegnato con successo!' });
+                  // Reload company data
+                  loadCompanyData(activeCompanyData.id);
+                }
+              }}
             />
           )}
 
