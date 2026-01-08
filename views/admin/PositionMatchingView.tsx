@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { ArrowLeft, User, Briefcase, MapPin, Award, CheckCircle, XCircle, AlertCircle, Search, Filter, Loader2, Shuffle, Building, ArrowRight, Users } from 'lucide-react';
+import { ArrowLeft, User, Briefcase, MapPin, Award, CheckCircle, XCircle, AlertCircle, Search, Filter, Loader2, Shuffle, Building, ArrowRight, Users, TrendingDown } from 'lucide-react';
 import { Card } from '../../components/Card';
 import { Button } from '../../components/Button';
 import { useOpenPositions, OpenPosition } from '../../src/hooks/useOpenPositions';
@@ -8,6 +8,7 @@ import { useSubscription } from '../../src/hooks/useSubscription';
 import { CompanyProfile, SeniorityLevel, User as LegacyUser, RequiredProfile } from '../../types';
 import { getMatchQuality } from '../../src/utils/matchingEngine';
 import type { CandidateMatch } from '../../src/types/karma';
+import { supabase } from '../../src/integrations/supabase/client';
 
 interface PositionMatchingViewProps {
   positionId: string;
@@ -30,7 +31,7 @@ const SENIORITY_LEVELS: Record<SeniorityLevel, number> = {
   'Junior': 1, 'Mid': 2, 'Senior': 3, 'Lead': 4, 'C-Level': 5 
 };
 
-// Calculate match for internal candidates
+// Calculate match for internal candidates with seniority penalty
 const calculateInternalMatch = (candidate: LegacyUser, required: RequiredProfile | undefined): { 
   score: number; 
   softMatches: string[]; 
@@ -38,11 +39,12 @@ const calculateInternalMatch = (candidate: LegacyUser, required: RequiredProfile
   hardMatches: string[];
   hardGaps: string[];
   seniorityMatch: 'match' | 'above' | 'below';
+  seniorityPenalty: number;
 } => {
-  if (!required) return { score: 100, softMatches: [], softGaps: [], hardMatches: [], hardGaps: [], seniorityMatch: 'match' };
+  if (!required) return { score: 100, softMatches: [], softGaps: [], hardMatches: [], hardGaps: [], seniorityMatch: 'match', seniorityPenalty: 0 };
   
   const userSoftSkills = candidate.karmaData?.softSkills || [];
-  const userSeniority = candidate.karmaData?.seniorityAssessment;
+  const userSeniority = candidate.karmaData?.seniorityAssessment as SeniorityLevel | undefined;
   
   // Soft skills comparison
   const softMatches: string[] = [];
@@ -61,32 +63,55 @@ const calculateInternalMatch = (candidate: LegacyUser, required: RequiredProfile
   const hardMatches: string[] = [];
   const hardGaps: string[] = required.hardSkills || [];
   
-  // Seniority comparison
+  // Seniority comparison with penalty system
   let seniorityMatch: 'match' | 'above' | 'below' = 'match';
+  let seniorityScore = 100;
+  let seniorityPenalty = 0;
+  
   if (required.seniority && userSeniority) {
     const reqLevel = SENIORITY_LEVELS[required.seniority] || 0;
     const userLevel = SENIORITY_LEVELS[userSeniority] || 0;
-    if (userLevel > reqLevel) seniorityMatch = 'above';
-    else if (userLevel < reqLevel) seniorityMatch = 'below';
+    const levelDiff = userLevel - reqLevel;
+    
+    if (levelDiff === 0) {
+      // Perfect match
+      seniorityMatch = 'match';
+      seniorityScore = 100;
+    } else if (levelDiff > 0) {
+      // Candidate is over-senior (e.g., C-Level for Junior)
+      // Heavy penalty: 30% per level above
+      seniorityPenalty = Math.min(levelDiff * 30, 100);
+      seniorityScore = Math.max(0, 100 - seniorityPenalty);
+      seniorityMatch = 'above';
+    } else {
+      // Candidate is under-senior
+      // Light penalty: 15% per level below
+      seniorityScore = Math.max(0, 100 + (levelDiff * 15));
+      seniorityMatch = 'below';
+    }
   }
   
   // Calculate overall score
-  const totalRequired = (required.softSkills?.length || 0) + (required.seniority ? 1 : 0);
-  const matches = softMatches.length + (seniorityMatch !== 'below' ? 1 : 0);
-  const score = totalRequired > 0 ? Math.round((matches / totalRequired) * 100) : 100;
+  const softSkillsWeight = 0.5;
+  const seniorityWeight = 0.5;
   
-  return { score: Math.min(score, 100), softMatches, softGaps, hardMatches, hardGaps, seniorityMatch };
-};
-
-// Helper to find node name
-const findNodeName = (structure: any, nodeId: string): string => {
-  if (!structure) return '';
-  if (structure.id === nodeId) return structure.name;
-  for (const child of structure.children || []) {
-    const found = findNodeName(child, nodeId);
-    if (found) return found;
-  }
-  return '';
+  const softSkillScore = (required.softSkills?.length || 0) > 0 
+    ? (softMatches.length / required.softSkills.length) * 100 
+    : 100;
+  
+  const finalScore = Math.round(
+    (softSkillScore * softSkillsWeight) + (seniorityScore * seniorityWeight)
+  );
+  
+  return { 
+    score: Math.max(0, Math.min(finalScore, 100)), 
+    softMatches, 
+    softGaps, 
+    hardMatches, 
+    hardGaps, 
+    seniorityMatch,
+    seniorityPenalty
+  };
 };
 
 const getScoreColor = (score: number) => {
@@ -119,6 +144,22 @@ export const PositionMatchingView: React.FC<PositionMatchingViewProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [showOnlyLooking, setShowOnlyLooking] = useState(true);
   const [activeTab, setActiveTab] = useState<'internal' | 'external'>('internal');
+  const [nodeNames, setNodeNames] = useState<Record<string, string>>({});
+
+  // Fetch node names for "Attualmente in:" display
+  useEffect(() => {
+    const fetchNodeNames = async () => {
+      const { data } = await supabase
+        .from('org_nodes')
+        .select('id, name')
+        .eq('company_id', company.id);
+      
+      const map: Record<string, string> = {};
+      (data || []).forEach(n => { map[n.id] = n.name; });
+      setNodeNames(map);
+    };
+    fetchNodeNames();
+  }, [company.id]);
 
   // Load position details
   useEffect(() => {
@@ -170,20 +211,34 @@ export const PositionMatchingView: React.FC<PositionMatchingViewProps> = ({
   const canView = canViewProfiles();
   const viewsRemaining = remainingProfileViews();
 
-  // Internal candidates ranked by match score
+  // Internal candidates ranked by match score, filtered for over-senior
   const internalCandidates = useMemo(() => {
     if (!position) return [];
     
+    const requiredLevel = SENIORITY_LEVELS[position.requiredProfile?.seniority as SeniorityLevel] || 0;
+    
     return companyUsers
-      .filter(u => !u.isHiring && u.firstName && u.lastName)
+      .filter(u => {
+        if (!u.firstName || !u.lastName || u.isHiring) return false;
+        
+        // Filter out candidates who are more than 1 level above required
+        const userSeniority = u.karmaData?.seniorityAssessment as SeniorityLevel | undefined;
+        if (userSeniority && requiredLevel > 0) {
+          const userLevel = SENIORITY_LEVELS[userSeniority] || 0;
+          const levelDiff = userLevel - requiredLevel;
+          // Allow: same level, 1 below, or max 1 above
+          if (levelDiff > 1) return false;
+        }
+        return true;
+      })
       .map(candidate => ({
         user: candidate,
         matchData: calculateInternalMatch(candidate, position.requiredProfile as RequiredProfile),
-        currentDepartment: candidate.departmentId ? findNodeName(company.orgStructure, candidate.departmentId) : 'Non assegnato'
+        currentDepartment: candidate.departmentId ? (nodeNames[candidate.departmentId] || 'Caricamento...') : 'Non assegnato'
       }))
       .sort((a, b) => b.matchData.score - a.matchData.score)
       .slice(0, 10);
-  }, [companyUsers, position, company.orgStructure]);
+  }, [companyUsers, position, nodeNames]);
 
   // Filter external candidates by search query
   const filteredCandidates = useMemo(() => {
@@ -197,6 +252,8 @@ export const PositionMatchingView: React.FC<PositionMatchingViewProps> = ({
   }, [candidates, searchQuery]);
 
   const renderInternalCandidate = (candidate: typeof internalCandidates[0], index: number) => {
+    const isOverSenior = candidate.matchData.seniorityMatch === 'above';
+    
     return (
       <div 
         key={candidate.user.id}
@@ -211,6 +268,11 @@ export const PositionMatchingView: React.FC<PositionMatchingViewProps> = ({
             <div className="text-sm font-bold text-gray-800 dark:text-gray-100">{candidate.user.firstName} {candidate.user.lastName}</div>
             <div className="text-[10px] text-gray-500 flex items-center gap-2">
               <span>{candidate.user.karmaData?.seniorityAssessment || 'N/A'} - {candidate.user.jobTitle}</span>
+              {isOverSenior && (
+                <span className="flex items-center gap-0.5 text-orange-500">
+                  <TrendingDown size={10} /> Seniority alta
+                </span>
+              )}
             </div>
             <div className="text-[9px] text-purple-500 dark:text-purple-400 flex items-center gap-1">
               <Building size={9}/> Attualmente in: {candidate.currentDepartment}
