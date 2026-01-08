@@ -83,6 +83,11 @@ export const AuthView: React.FC<AuthViewProps> = ({ onSuccess, onKarmaSignup, in
     setIsLoading(true);
 
     try {
+      // Save auth intent BEFORE authentication - this determines post-login routing
+      // pendingInvite always means JNANA context
+      const authIntent = pendingInvite ? 'jnana' : mode;
+      localStorage.setItem('auth_intent', authIntent);
+
       if (isLogin) {
         const { error } = await signIn(email, password);
         if (error) {

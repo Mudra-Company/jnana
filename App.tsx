@@ -401,7 +401,38 @@ const AppContent: React.FC = () => {
 
       console.log('[App] Determining view - isSuperAdmin:', isSuperAdmin);
       
-      // isSuperAdmin and isCompanyAdmin are now reliable because useAuth waits for roles
+      // Read auth intent - determines which platform the user intended to access
+      const authIntent = localStorage.getItem('auth_intent') as 'jnana' | 'karma' | null;
+      console.log('[App] Auth intent:', authIntent);
+      
+      // Check if user has Karma data (independent of company membership)
+      const hasKarmaData = userData.is_karma_profile || 
+        userData.riasecResult || 
+        userData.karmaSession;
+      
+      // Determine user contexts
+      const hasJnanaContext = !!userData.membership?.company_id;
+      const hasKarmaContext = hasKarmaData;
+      
+      console.log('[App] Contexts - JNANA:', hasJnanaContext, 'KARMA:', hasKarmaContext, 'Intent:', authIntent);
+
+      // Route based on intent first, then fallback to role-based routing
+      if (authIntent === 'karma' && hasKarmaContext) {
+        // User explicitly logged in via KARMA portal
+        console.log('[App] Routing to KARMA based on intent');
+        localStorage.removeItem('auth_intent'); // Clear after use
+        if (userData.first_name && userData.last_name) {
+          setView({ type: 'KARMA_DASHBOARD' });
+        } else {
+          setView({ type: 'KARMA_ONBOARDING' });
+        }
+        return;
+      }
+      
+      // Clear intent for JNANA or default routing
+      localStorage.removeItem('auth_intent');
+      
+      // Standard role-based routing (JNANA context)
       if (isSuperAdmin) {
         console.log('[App] User is Super Admin, loading admin data...');
         setSuperAdminDataLoading(true);
@@ -415,7 +446,6 @@ const AppContent: React.FC = () => {
         setView({ type: 'ADMIN_DASHBOARD' });
       } else if (!userData.membership?.company_id) {
         // User without company = Karma user (public platform)
-        // Check if they have completed onboarding (has first/last name)
         if (userData.first_name && userData.last_name) {
           setView({ type: 'KARMA_DASHBOARD' });
         } else {
