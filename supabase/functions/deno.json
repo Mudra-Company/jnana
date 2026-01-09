@@ -1,12 +1,14 @@
 {
   "compilerOptions": {
-    "lib": ["deno.window", "deno.ns", "esnext"],
-    "strict": false
+    "lib": ["deno.window", "deno.ns", "esnext", "dom"],
+    "strict": false,
+    "noImplicitAny": false
   },
   "lint": {
     "rules": {
       "tags": ["recommended"]
     }
   },
-  "nodeModulesDir": "none"
+  "nodeModulesDir": "none",
+  "lock": false
 }
