@@ -14,7 +14,8 @@ import {
   ArrowLeft,
   Sparkles,
   BarChart3,
-  User
+  User,
+  Bot
 } from 'lucide-react';
 import { Button } from '../Button';
 import { ViewState, CompanyProfile } from '../../types';
@@ -32,6 +33,7 @@ interface HeaderProps {
   onSuperAdminHome: () => void;
   onJobDb: () => void;
   onKarmaTalents?: () => void;
+  onKarmaAIConfig?: () => void;
   onAnalytics?: () => void;
   activeCompany?: CompanyProfile;
   isSuperAdminMode: boolean;
@@ -47,7 +49,7 @@ interface HeaderProps {
 
 export const Header: React.FC<HeaderProps> = ({ 
   onLogout, view, onAdminHome, onOrgChart, onIdentityHub, onCompanyProfile,
-  onSuperAdminHome, onJobDb, onKarmaTalents, onAnalytics, activeCompany, isSuperAdminMode, onExitImpersonation,
+  onSuperAdminHome, onJobDb, onKarmaTalents, onKarmaAIConfig, onAnalytics, activeCompany, isSuperAdminMode, onExitImpersonation,
   isDark, toggleTheme, onBack, canGoBack, userRole, onMyProfile, hasCompanyMembership
 }) => {
   // Determine what navigation to show based on role
@@ -139,6 +141,17 @@ export const Header: React.FC<HeaderProps> = ({
               >
                 <Sparkles size={16} className="mr-2" />
                 Karma Talents
+              </Button>
+            )}
+            {onKarmaAIConfig && (
+              <Button 
+                variant={view.type === 'SUPER_ADMIN_KARMA_AI_CONFIG' ? 'primary' : 'ghost'} 
+                size="sm"
+                onClick={onKarmaAIConfig}
+                className={view.type === 'SUPER_ADMIN_KARMA_AI_CONFIG' ? '!bg-emerald-600' : ''}
+              >
+                <Bot size={16} className="mr-2" />
+                Karma AI
               </Button>
             )}
             {onAnalytics && (

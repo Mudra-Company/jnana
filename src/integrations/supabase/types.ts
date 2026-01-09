@@ -299,6 +299,99 @@ export type Database = {
           },
         ]
       }
+      karma_bot_configs: {
+        Row: {
+          bot_type: string
+          closing_patterns: Json
+          created_at: string | null
+          created_by: string | null
+          id: string
+          is_active: boolean
+          max_exchanges: number
+          model: string
+          objectives: Json
+          profile_inputs: Json
+          system_prompt: string
+          temperature: number | null
+          version: number
+          version_notes: string | null
+        }
+        Insert: {
+          bot_type: string
+          closing_patterns?: Json
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          max_exchanges?: number
+          model?: string
+          objectives?: Json
+          profile_inputs?: Json
+          system_prompt: string
+          temperature?: number | null
+          version?: number
+          version_notes?: string | null
+        }
+        Update: {
+          bot_type?: string
+          closing_patterns?: Json
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          max_exchanges?: number
+          model?: string
+          objectives?: Json
+          profile_inputs?: Json
+          system_prompt?: string
+          temperature?: number | null
+          version?: number
+          version_notes?: string | null
+        }
+        Relationships: []
+      }
+      karma_bot_documents: {
+        Row: {
+          bot_type: string
+          created_at: string | null
+          extracted_text: string | null
+          extraction_status: string | null
+          file_name: string
+          file_path: string
+          file_size_bytes: number
+          id: string
+          is_active: boolean | null
+          mime_type: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          bot_type: string
+          created_at?: string | null
+          extracted_text?: string | null
+          extraction_status?: string | null
+          file_name: string
+          file_path: string
+          file_size_bytes: number
+          id?: string
+          is_active?: boolean | null
+          mime_type: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          bot_type?: string
+          created_at?: string | null
+          extracted_text?: string | null
+          extraction_status?: string | null
+          file_name?: string
+          file_path?: string
+          file_size_bytes?: number
+          id?: string
+          is_active?: boolean | null
+          mime_type?: string
+          uploaded_by?: string | null
+        }
+        Relationships: []
+      }
       karma_sessions: {
         Row: {
           company_id: string | null
