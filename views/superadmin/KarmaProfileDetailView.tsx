@@ -437,23 +437,25 @@ export const KarmaProfileDetailView: React.FC<KarmaProfileDetailViewProps> = ({ 
               </div>
             )}
 
-            <ResponsiveContainer width="100%" height={250}>
-              <RadarChart data={riasecChartData}>
-                <PolarGrid stroke="#e5e7eb" />
-                <PolarAngleAxis 
-                  dataKey="dimension" 
-                  tick={{ fill: '#6b7280', fontSize: 10 }}
-                />
-                <PolarRadiusAxis angle={30} domain={[0, 10]} tick={{ fontSize: 10 }} />
-                <Radar
-                  name="Score"
-                  dataKey="value"
-                  stroke="#8b5cf6"
-                  fill="#8b5cf6"
-                  fillOpacity={0.4}
-                />
-              </RadarChart>
-            </ResponsiveContainer>
+            <div className="aspect-square max-h-[220px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <RadarChart data={riasecChartData}>
+                  <PolarGrid stroke="#e5e7eb" />
+                  <PolarAngleAxis 
+                    dataKey="dimension" 
+                    tick={{ fill: '#6b7280', fontSize: 10 }}
+                  />
+                  <PolarRadiusAxis angle={30} domain={[0, 10]} tick={{ fontSize: 10 }} />
+                  <Radar
+                    name="Score"
+                    dataKey="value"
+                    stroke="#8b5cf6"
+                    fill="#8b5cf6"
+                    fillOpacity={0.4}
+                  />
+                </RadarChart>
+              </ResponsiveContainer>
+            </div>
           </Card>
         )}
 
@@ -464,6 +466,14 @@ export const KarmaProfileDetailView: React.FC<KarmaProfileDetailViewProps> = ({ 
               <Brain className="w-5 h-5 text-purple-500" />
               Analisi Karma AI
             </h2>
+
+            {/* Summary at the top */}
+            {profile.karmaData.summary && (
+              <div className="mb-4 p-4 bg-gradient-to-r from-purple-50 to-violet-50 dark:from-purple-900/20 dark:to-violet-900/20 rounded-lg border border-purple-100 dark:border-purple-800">
+                <p className="text-sm font-medium text-purple-700 dark:text-purple-300 mb-2">Riepilogo AI</p>
+                <p className="text-gray-700 dark:text-gray-200">{profile.karmaData.summary}</p>
+              </div>
+            )}
 
             {profile.karmaData.seniorityAssessment && (
               <div className="mb-4 p-3 bg-purple-50 dark:bg-purple-900/20 rounded-lg">
@@ -528,13 +538,6 @@ export const KarmaProfileDetailView: React.FC<KarmaProfileDetailViewProps> = ({ 
                     </span>
                   ))}
                 </div>
-              </div>
-            )}
-
-            {profile.karmaData.summary && (
-              <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-                <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">Riepilogo</p>
-                <p className="text-gray-600 dark:text-gray-300 text-sm">{profile.karmaData.summary}</p>
               </div>
             )}
           </Card>
