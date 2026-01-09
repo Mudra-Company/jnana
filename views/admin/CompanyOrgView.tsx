@@ -40,8 +40,9 @@ import { useCompanyMembers } from '../../src/hooks/useCompanyMembers';
 import { useTalentSearch } from '../../src/hooks/useTalentSearch';
 
 import { toast } from '../../src/hooks/use-toast';
-import { OrgNodeCard, findNodeManager } from './OrgNodeCard';
+import { OrgNodeCard, findNodeManager, QuickMatchData } from './OrgNodeCard';
 import { getMatchQuality } from '../../src/utils/matchingEngine';
+import { MatchScorePopover, MatchBreakdown } from '../../src/components/shortlist/MatchScorePopover';
 
 const SENIORITY_OPTIONS: SeniorityLevel[] = ['Junior', 'Mid', 'Senior', 'Lead', 'C-Level'];
 const SENIORITY_LEVELS: Record<SeniorityLevel, number> = { 'Junior': 1, 'Mid': 2, 'Senior': 3, 'Lead': 4, 'C-Level': 5 };
@@ -1271,7 +1272,8 @@ const renderOrgTreeChildren = (
     onInviteUser: (nodeId: string) => void,
     onSelectUserForComparison: (user: User) => void,
     companyValues?: string[],
-    parentManager?: User
+    parentManager?: User,
+    onQuickMatchClick?: (matchData: QuickMatchData) => void
 ): React.ReactNode => {
     if (!node.children || node.children.length === 0) return null;
 
@@ -1295,6 +1297,7 @@ const renderOrgTreeChildren = (
                                 onEditNode={onEditNode}
                                 onInviteUser={onInviteUser}
                                 onSelectUserForComparison={onSelectUserForComparison}
+                                onQuickMatchClick={onQuickMatchClick}
                                 companyValues={companyValues}
                                 parentManager={currentManager}
                             />
@@ -1309,7 +1312,8 @@ const renderOrgTreeChildren = (
                         onInviteUser,
                         onSelectUserForComparison,
                         companyValues,
-                        childManager
+                        childManager,
+                        onQuickMatchClick
                     )}
                 </TreeNode>
             </React.Fragment>
@@ -1336,6 +1340,12 @@ export const CompanyOrgView: React.FC<{
     // State for InviteToSlotModal (simplified invite for existing slots)
     const [inviteToSlotUser, setInviteToSlotUser] = useState<User | null>(null);
     
+    // State for QuickMatch popover (from org chart)
+    const [quickMatchPopover, setQuickMatchPopover] = useState<{
+        matchData: QuickMatchData;
+        breakdown: MatchBreakdown;
+    } | null>(null);
+    
     // Required Profile state for new member
     const [inviteHardSkills, setInviteHardSkills] = useState<string[]>([]);
     const [inviteSoftSkills, setInviteSoftSkills] = useState<string[]>([]);
@@ -1346,6 +1356,21 @@ export const CompanyOrgView: React.FC<{
     
     // Use the company members hook for DB persistence
     const { createCompanyMember, updateCompanyMember, assignUserToSlot, deleteCompanyMember, isLoading: isSaving } = useCompanyMembers();
+
+    // Handle quick match click from org chart
+    const handleQuickMatchClick = (matchData: QuickMatchData) => {
+        const breakdown: MatchBreakdown = {
+            totalScore: matchData.matchScore,
+            softSkillsMatched: matchData.softSkillsMatched,
+            softSkillsMissing: matchData.softSkillsMissing,
+            seniorityMatch: matchData.seniorityMatch,
+            candidateSeniority: matchData.user.karmaData?.seniorityAssessment as string | undefined,
+            requiredSeniority: matchData.hiringPosition.requiredProfile?.seniority,
+            candidateProfileCode: matchData.user.profileCode,
+            targetProfileCode: matchData.hiringPosition.requiredProfile?.seniority ? `${matchData.hiringPosition.requiredProfile.seniority}` : undefined,
+        };
+        setQuickMatchPopover({ matchData, breakdown });
+    };
 
     // Handle inviting a person to an existing slot (simplified modal)
     const handleInviteToSlot = async (data: { firstName: string; lastName: string; email: string }) => {
@@ -1710,13 +1735,14 @@ export const CompanyOrgView: React.FC<{
                                     onEditNode={setEditingNode}
                                     onInviteUser={(nodeId) => setInviteNodeId(nodeId)}
                                     onSelectUserForComparison={setSelectedUserForComparison}
+                                    onQuickMatchClick={handleQuickMatchClick}
                                     companyValues={company.cultureValues}
                                     parentManager={undefined}
                                 />
                             </div>
                         }
                     >
-                        {renderOrgTreeChildren(company.structure, users, handleAddNode, setEditingNode, setInviteNodeId, setSelectedUserForComparison, company.cultureValues)}
+                        {renderOrgTreeChildren(company.structure, users, handleAddNode, setEditingNode, setInviteNodeId, setSelectedUserForComparison, company.cultureValues, undefined, handleQuickMatchClick)}
                     </Tree>
                 </div>
             </div>
@@ -1895,6 +1921,25 @@ export const CompanyOrgView: React.FC<{
                     onSave={handleSaveNode} 
                     onDelete={handleDeleteNode}
                     onClose={() => setEditingNode(null)} 
+                />
+            )}
+            {quickMatchPopover && (
+                <MatchScorePopover
+                    isOpen={true}
+                    onClose={() => setQuickMatchPopover(null)}
+                    candidateName={`${quickMatchPopover.matchData.user.firstName || ''} ${quickMatchPopover.matchData.user.lastName || ''}`.trim() || 'Candidato'}
+                    candidateType="internal"
+                    breakdown={quickMatchPopover.breakdown}
+                    isInShortlist={false}
+                    onAddToShortlist={() => {
+                        // Open comparison modal for shortlist actions
+                        setSelectedUserForComparison(quickMatchPopover.matchData.user);
+                        setQuickMatchPopover(null);
+                    }}
+                    onViewProfile={() => {
+                        onViewUser(quickMatchPopover.matchData.user.id);
+                        setQuickMatchPopover(null);
+                    }}
                 />
             )}
         </div>
