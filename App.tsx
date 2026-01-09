@@ -978,6 +978,7 @@ const AppContent: React.FC = () => {
             onJobDb={() => navigate({ type: 'SUPER_ADMIN_JOBS' })}
             onKarmaTalents={() => navigate({ type: 'SUPER_ADMIN_KARMA_TALENTS' })}
             onAnalytics={() => navigate({ type: 'SUPER_ADMIN_ANALYTICS' })}
+            onKarmaAIConfig={() => navigate({ type: 'SUPER_ADMIN_KARMA_AI_CONFIG' })}
             activeCompany={activeCompanyData || undefined}
             isSuperAdminMode={isSuperAdmin}
             onExitImpersonation={() => {
