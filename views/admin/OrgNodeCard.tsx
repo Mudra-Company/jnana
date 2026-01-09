@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { 
   Crown, 
   Plus, 
@@ -11,11 +11,26 @@ import {
   AlertTriangle,
   Mail,
   Clock,
-  CheckCircle2
+  CheckCircle2,
+  Target
 } from 'lucide-react';
 import { Card } from '../../components/Card';
-import { OrgNode, User } from '../../types';
+import { OrgNode, User, RequiredProfile } from '../../types';
 import { calculateUserCompatibility } from '../../services/riasecService';
+
+// Quick match data for popup
+export interface QuickMatchData {
+  user: User;
+  hiringPosition: {
+    id: string;
+    jobTitle: string;
+    requiredProfile?: RequiredProfile;
+  };
+  matchScore: number;
+  softSkillsMatched: string[];
+  softSkillsMissing: string[];
+  seniorityMatch: 'match' | 'above' | 'below';
+}
 
 interface OrgNodeCardProps {
   node: OrgNode;
@@ -24,6 +39,7 @@ interface OrgNodeCardProps {
   onEditNode: (node: OrgNode) => void;
   onInviteUser: (nodeId: string) => void;
   onSelectUserForComparison: (user: User) => void;
+  onQuickMatchClick?: (matchData: QuickMatchData) => void;
   companyValues?: string[];
   parentManager?: User;
 }
@@ -106,11 +122,15 @@ export const OrgNodeCard: React.FC<OrgNodeCardProps> = ({
   onEditNode,
   onInviteUser,
   onSelectUserForComparison,
+  onQuickMatchClick,
   companyValues,
   parentManager
 }) => {
   // Find users BELONGING to this node
   const nodeUsers = users.filter(u => u.departmentId === node.id);
+  
+  // Find hiring positions in this node (users with isHiring = true)
+  const hiringPositions = nodeUsers.filter(u => u.isHiring);
   
   // Determine who is the "Leader" of THIS node
   const currentNodeManager = findNodeManager(nodeUsers, node);
@@ -148,6 +168,72 @@ export const OrgNodeCard: React.FC<OrgNodeCardProps> = ({
     if (totalRequired === 0) return null;
     return Math.round((totalGaps / totalRequired) * 100);
   }, [nodeUsers]);
+
+  // Calculate quick match score between a user and a hiring position
+  const calculateQuickMatchScore = (user: User, hiringUser: User): QuickMatchData | null => {
+    if (!hiringUser.requiredProfile) return null;
+    
+    const SENIORITY_LEVELS: Record<string, number> = { 
+      'Junior': 1, 'Mid': 2, 'Senior': 3, 'Lead': 4, 'C-Level': 5 
+    };
+    
+    const required = hiringUser.requiredProfile;
+    const userSoftSkills = user.karmaData?.softSkills || [];
+    const userSeniority = user.karmaData?.seniorityAssessment;
+    
+    // Soft skills matching
+    const softMatches: string[] = [];
+    const softGaps: string[] = [];
+    
+    (required.softSkills || []).forEach(reqSkill => {
+      const found = userSoftSkills.some(us => 
+        us.toLowerCase().includes(reqSkill.toLowerCase()) || 
+        reqSkill.toLowerCase().includes(us.toLowerCase())
+      );
+      if (found) softMatches.push(reqSkill);
+      else softGaps.push(reqSkill);
+    });
+    
+    // Seniority comparison
+    let seniorityMatch: 'match' | 'above' | 'below' = 'match';
+    let seniorityScore = 100;
+    
+    if (required.seniority && userSeniority) {
+      const reqLevel = SENIORITY_LEVELS[required.seniority] || 0;
+      const userLevel = SENIORITY_LEVELS[userSeniority] || 0;
+      const levelDiff = userLevel - reqLevel;
+      
+      if (levelDiff === 0) {
+        seniorityMatch = 'match';
+      } else if (levelDiff > 0) {
+        seniorityMatch = 'above';
+        seniorityScore = Math.max(0, 100 - (levelDiff * 30));
+      } else {
+        seniorityMatch = 'below';
+        seniorityScore = Math.max(0, 100 + (levelDiff * 15));
+      }
+    }
+    
+    // Calculate score
+    const softSkillScore = (required.softSkills?.length || 0) > 0 
+      ? (softMatches.length / required.softSkills.length) * 100 
+      : 100;
+    
+    const finalScore = Math.round((softSkillScore * 0.5) + (seniorityScore * 0.5));
+    
+    return {
+      user,
+      hiringPosition: {
+        id: hiringUser.id,
+        jobTitle: hiringUser.jobTitle || 'Posizione aperta',
+        requiredProfile: required,
+      },
+      matchScore: finalScore,
+      softSkillsMatched: softMatches,
+      softSkillsMissing: softGaps,
+      seniorityMatch,
+    };
+  };
 
   const getScoreColor = (score: number) => {
     if (score >= 4) return 'bg-green-100 text-green-700 border-green-300 dark:bg-green-900/40 dark:text-green-300 dark:border-green-700';
@@ -265,14 +351,28 @@ export const OrgNodeCard: React.FC<OrgNodeCardProps> = ({
             const managerFitScore = parentManager ? calculateUserCompatibility(u, parentManager) : null;
             const isInternalLeader = currentNodeManager?.id === u.id;
 
+            // Calculate quick match if there are hiring positions and this user is not hiring
+            const firstHiringPosition = hiringPositions[0];
+            const quickMatch = status !== 'hiring' && firstHiringPosition && onQuickMatchClick
+              ? calculateQuickMatchScore(u, firstHiringPosition)
+              : null;
+
             return (
               <div 
                 key={u.id} 
-                onClick={() => onSelectUserForComparison(u)}
+                onClick={() => {
+                  if (quickMatch && onQuickMatchClick) {
+                    onQuickMatchClick(quickMatch);
+                  } else {
+                    onSelectUserForComparison(u);
+                  }
+                }}
                 className={`flex flex-col p-3 rounded-xl transition-all duration-200 cursor-pointer group/user border-2 hover:shadow-md ${
                   status === 'hiring' 
                     ? 'border-dashed border-emerald-300 dark:border-emerald-700 bg-emerald-50/50 dark:bg-emerald-900/10 hover:bg-emerald-50 dark:hover:bg-emerald-900/20' 
-                    : 'border-transparent bg-gray-50 dark:bg-gray-700/30 hover:bg-white dark:hover:bg-gray-700/60 hover:border-gray-200 dark:hover:border-gray-600'
+                    : quickMatch 
+                      ? 'border-transparent bg-gradient-to-r from-gray-50 to-emerald-50/30 dark:from-gray-700/30 dark:to-emerald-900/10 hover:bg-white dark:hover:bg-gray-700/60 hover:border-emerald-200 dark:hover:border-emerald-700'
+                      : 'border-transparent bg-gray-50 dark:bg-gray-700/30 hover:bg-white dark:hover:bg-gray-700/60 hover:border-gray-200 dark:hover:border-gray-600'
                 }`}
               >
                 {/* User Header Row */}
