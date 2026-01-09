@@ -238,6 +238,16 @@ const RoleComparisonModal: React.FC<RoleComparisonModalProps> = ({
   
   const [showExternalSection, setShowExternalSection] = useState(false);
   
+  // Popover state for showing match breakdown
+  const [popoverData, setPopoverData] = useState<{
+    isOpen: boolean;
+    candidateName: string;
+    candidateType: 'internal' | 'external';
+    breakdown: MatchBreakdown;
+    candidateId?: string;
+    isExternal?: boolean;
+  } | null>(null);
+  
   const match = useMemo(() => calculateMatchScore(user), [user]);
   const required = user.requiredProfile;
   
@@ -497,47 +507,70 @@ const RoleComparisonModal: React.FC<RoleComparisonModalProps> = ({
             </p>
             
             <div className="space-y-2">
-              {internalCandidates.map((candidate, index) => (
-                <div 
-                  key={candidate.user.id}
-                  className="flex items-center justify-between p-3 bg-white dark:bg-gray-800 rounded-lg border border-purple-100 dark:border-purple-700 hover:shadow-md transition-all"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="text-lg">{getMedalIcon(index)}</div>
-                    <div className="w-10 h-10 rounded-full bg-jnana-sage flex items-center justify-center text-sm font-bold text-white">
-                      {candidate.user.firstName?.[0]}{candidate.user.lastName?.[0]}
-                    </div>
-                    <div>
-                      <div className="text-sm font-bold text-gray-800 dark:text-gray-100">{candidate.user.firstName} {candidate.user.lastName}</div>
-                      <div className="text-[10px] text-gray-500 flex items-center gap-2">
-                        <span>{candidate.user.karmaData?.seniorityAssessment || 'N/A'} - {candidate.user.jobTitle}</span>
+              {internalCandidates.map((candidate, index) => {
+                // Build breakdown for internal candidate
+                const internalBreakdown: MatchBreakdown = {
+                  totalScore: candidate.matchData.score,
+                  softSkillsMatched: candidate.matchData.softMatches,
+                  softSkillsMissing: candidate.matchData.softGaps,
+                  seniorityMatch: candidate.matchData.seniorityMatch,
+                  candidateSeniority: candidate.user.karmaData?.seniorityAssessment,
+                  requiredSeniority: user.requiredProfile?.seniority,
+                };
+                
+                return (
+                  <div 
+                    key={candidate.user.id}
+                    className="flex items-center justify-between p-3 bg-white dark:bg-gray-800 rounded-lg border border-purple-100 dark:border-purple-700 hover:shadow-md hover:border-purple-300 transition-all cursor-pointer"
+                    onClick={() => setPopoverData({
+                      isOpen: true,
+                      candidateName: `${candidate.user.firstName} ${candidate.user.lastName}`,
+                      candidateType: 'internal',
+                      breakdown: internalBreakdown,
+                      candidateId: candidate.user.id,
+                      isExternal: false
+                    })}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="text-lg">{getMedalIcon(index)}</div>
+                      <div className="w-10 h-10 rounded-full bg-jnana-sage flex items-center justify-center text-sm font-bold text-white">
+                        {candidate.user.firstName?.[0]}{candidate.user.lastName?.[0]}
                       </div>
-                      <div className="text-[9px] text-purple-500 dark:text-purple-400 flex items-center gap-1">
-                        <Building size={9}/> Attualmente in: {candidate.currentDepartment}
+                      <div>
+                        <div className="text-sm font-bold text-gray-800 dark:text-gray-100">{candidate.user.firstName} {candidate.user.lastName}</div>
+                        <div className="text-[10px] text-gray-500 flex items-center gap-2">
+                          <span>{candidate.user.karmaData?.seniorityAssessment || 'N/A'} - {candidate.user.jobTitle}</span>
+                        </div>
+                        <div className="text-[9px] text-purple-500 dark:text-purple-400 flex items-center gap-1">
+                          <Building size={9}/> Attualmente in: {candidate.currentDepartment}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex flex-col items-end gap-1">
+                      <div className={`text-lg font-bold ${getScoreColor(candidate.matchData.score)}`}>
+                        {candidate.matchData.score}%
+                      </div>
+                      <div className="flex items-center gap-1 text-[9px] text-gray-500">
+                        <span className="text-green-600">✓ {candidate.matchData.softMatches.length}</span>
+                        {candidate.matchData.softGaps.length > 0 && (
+                          <span className="text-orange-500">⚠ {candidate.matchData.softGaps.length}</span>
+                        )}
+                      </div>
+                      <div className="flex gap-1 mt-1">
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onAssignUser(user.id, candidate.user.id);
+                          }}
+                          className="text-[10px] px-2 py-1 bg-purple-100 dark:bg-purple-800 text-purple-700 dark:text-purple-200 rounded hover:bg-purple-200 dark:hover:bg-purple-700 transition-colors flex items-center gap-1"
+                        >
+                          <ArrowRight size={10}/> Assegna
+                        </button>
                       </div>
                     </div>
                   </div>
-                  <div className="flex flex-col items-end gap-1">
-                    <div className={`text-lg font-bold ${getScoreColor(candidate.matchData.score)}`}>
-                      {candidate.matchData.score}%
-                    </div>
-                    <div className="flex items-center gap-1 text-[9px] text-gray-500">
-                      <span className="text-green-600">✓ {candidate.matchData.softMatches.length}</span>
-                      {candidate.matchData.softGaps.length > 0 && (
-                        <span className="text-orange-500">⚠ {candidate.matchData.softGaps.length}</span>
-                      )}
-                    </div>
-                    <div className="flex gap-1 mt-1">
-                      <button 
-                        onClick={() => onAssignUser(user.id, candidate.user.id)}
-                        className="text-[10px] px-2 py-1 bg-purple-100 dark:bg-purple-800 text-purple-700 dark:text-purple-200 rounded hover:bg-purple-200 dark:hover:bg-purple-700 transition-colors flex items-center gap-1"
-                      >
-                        <ArrowRight size={10}/> Assegna
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}
@@ -571,10 +604,43 @@ const RoleComparisonModal: React.FC<RoleComparisonModalProps> = ({
                     {externalCandidates.slice(0, 5).map((candidate, index) => {
                       const quality = getMatchQuality(candidate.matchScore);
                       
+                      // Helper to calculate seniority match
+                      const getSeniorityMatch = (): 'match' | 'above' | 'below' | undefined => {
+                        const candidateSen = candidate.profile.karmaData?.seniorityAssessment as SeniorityLevel | undefined;
+                        const requiredSen = user.requiredProfile?.seniority as SeniorityLevel | undefined;
+                        if (!candidateSen || !requiredSen) return undefined;
+                        const candLevel = SENIORITY_LEVELS[candidateSen] || 0;
+                        const reqLevel = SENIORITY_LEVELS[requiredSen] || 0;
+                        if (candLevel === reqLevel) return 'match';
+                        return candLevel > reqLevel ? 'above' : 'below';
+                      };
+                      
+                      // Build breakdown for external candidate
+                      const externalBreakdown: MatchBreakdown = {
+                        totalScore: candidate.matchScore,
+                        riasecMatch: candidate.riasecMatch,
+                        skillsMatch: candidate.skillsMatch,
+                        hardSkillsMatched: candidate.skillsOverlap,
+                        hardSkillsMissing: candidate.missingSkills,
+                        candidateProfileCode: candidate.profile.profileCode,
+                        targetProfileCode: user.requiredProfile?.riasecCode,
+                        candidateSeniority: candidate.profile.karmaData?.seniorityAssessment,
+                        requiredSeniority: user.requiredProfile?.seniority,
+                        seniorityMatch: getSeniorityMatch(),
+                      };
+                      
                       return (
                         <div 
                           key={candidate.profile.id}
-                          className="relative flex items-center justify-between p-3 bg-white dark:bg-gray-800 rounded-lg border border-green-100 dark:border-green-700"
+                          className="relative flex items-center justify-between p-3 bg-white dark:bg-gray-800 rounded-lg border border-green-100 dark:border-green-700 hover:shadow-md hover:border-green-300 transition-all cursor-pointer"
+                          onClick={() => setPopoverData({
+                            isOpen: true,
+                            candidateName: `${candidate.profile.firstName || ''} ${candidate.profile.lastName || ''}`.trim() || 'Candidato',
+                            candidateType: 'external',
+                            breakdown: externalBreakdown,
+                            candidateId: candidate.profile.id,
+                            isExternal: true
+                          })}
                         >
                           <div className="flex items-center gap-3">
                             <div className="w-10 h-10 rounded-full bg-gradient-to-br from-green-500 to-teal-500 flex items-center justify-center text-sm font-bold text-white">
@@ -598,7 +664,10 @@ const RoleComparisonModal: React.FC<RoleComparisonModalProps> = ({
                             </div>
                             {onViewExternalCandidate && (
                               <button 
-                                onClick={() => onViewExternalCandidate(candidate.profile.id)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onViewExternalCandidate(candidate.profile.id);
+                                }}
                                 className="text-[10px] px-2 py-1 bg-green-100 dark:bg-green-800 text-green-700 dark:text-green-200 rounded hover:bg-green-200 dark:hover:bg-green-700 transition-colors flex items-center gap-1"
                               >
                                 <ExternalLink size={10}/> Profilo
@@ -1039,6 +1108,32 @@ const RoleComparisonModal: React.FC<RoleComparisonModalProps> = ({
           )}
         </div>
       </Card>
+      
+      {/* MatchScorePopover for candidate details */}
+      {popoverData && (
+        <MatchScorePopover
+          isOpen={popoverData.isOpen}
+          onClose={() => setPopoverData(null)}
+          candidateName={popoverData.candidateName}
+          candidateType={popoverData.candidateType}
+          breakdown={popoverData.breakdown}
+          isInShortlist={false}
+          onAddToShortlist={() => {
+            // TODO: implement shortlist add
+            toast({ title: "Aggiunto alla shortlist" });
+            setPopoverData(null);
+          }}
+          onViewProfile={() => {
+            if (popoverData.isExternal && popoverData.candidateId && onViewExternalCandidate) {
+              onViewExternalCandidate(popoverData.candidateId);
+            } else if (!popoverData.isExternal && popoverData.candidateId) {
+              const candidate = allUsers.find(u => u.id === popoverData.candidateId);
+              if (candidate) onViewFullProfile(candidate);
+            }
+            setPopoverData(null);
+          }}
+        />
+      )}
     </div>
   );
 };
