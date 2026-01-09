@@ -11,6 +11,7 @@ import { getMatchQuality } from '../../src/utils/matchingEngine';
 import type { CandidateMatch } from '../../src/types/karma';
 import type { ShortlistUser } from '../../src/types/shortlist';
 import { ShortlistTab } from '../../src/components/shortlist/ShortlistTab';
+import { MatchScorePopover, MatchBreakdown } from '../../src/components/shortlist/MatchScorePopover';
 import { supabase } from '../../src/integrations/supabase/client';
 import { useToast } from '../../src/hooks/use-toast';
 
@@ -150,6 +151,14 @@ export const PositionMatchingView: React.FC<PositionMatchingViewProps> = ({
   const [showOnlyLooking, setShowOnlyLooking] = useState(true);
   const [activeTab, setActiveTab] = useState<'internal' | 'external' | 'shortlist'>('internal');
   const [nodeNames, setNodeNames] = useState<Record<string, string>>({});
+  
+  // Popover state for match breakdown
+  const [selectedCandidatePopover, setSelectedCandidatePopover] = useState<{
+    name: string;
+    type: 'internal' | 'external';
+    breakdown: MatchBreakdown;
+    candidateData: typeof internalCandidates[0] | CandidateMatch;
+  } | null>(null);
 
   // Shortlist hook - initialized after position is loaded
   const {
@@ -325,13 +334,52 @@ export const PositionMatchingView: React.FC<PositionMatchingViewProps> = ({
     }
   };
 
+  const handleOpenInternalPopover = (candidate: typeof internalCandidates[0]) => {
+    setSelectedCandidatePopover({
+      name: `${candidate.user.firstName} ${candidate.user.lastName}`,
+      type: 'internal',
+      breakdown: {
+        totalScore: candidate.matchData.score,
+        softSkillsMatched: candidate.matchData.softMatches,
+        softSkillsMissing: candidate.matchData.softGaps,
+        hardSkillsMatched: candidate.matchData.hardMatches,
+        hardSkillsMissing: candidate.matchData.hardGaps,
+        seniorityMatch: candidate.matchData.seniorityMatch,
+        candidateSeniority: candidate.user.karmaData?.seniorityAssessment,
+        requiredSeniority: position?.requiredProfile?.seniority as string | undefined,
+        candidateProfileCode: candidate.user.profileCode,
+      },
+      candidateData: candidate,
+    });
+  };
+
+  const handleOpenExternalPopover = (match: CandidateMatch) => {
+    setSelectedCandidatePopover({
+      name: `${match.profile.firstName || 'Utente'} ${match.profile.lastName || ''}`,
+      type: 'external',
+      breakdown: {
+        totalScore: match.matchScore,
+        riasecMatch: match.riasecMatch,
+        skillsMatch: match.skillsMatch,
+        hardSkillsMatched: match.skillsOverlap,
+        hardSkillsMissing: match.missingSkills,
+        seniorityMatch: match.seniorityMatch ? 'match' : 'below',
+        candidateSeniority: match.profile.karmaData?.seniorityAssessment,
+        requiredSeniority: position?.requiredProfile?.seniority as string | undefined,
+        candidateProfileCode: match.profile.profileCode,
+      },
+      candidateData: match,
+    });
+  };
+
   const renderInternalCandidate = (candidate: typeof internalCandidates[0], index: number) => {
     const isOverSenior = candidate.matchData.seniorityMatch === 'above';
     
     return (
       <div 
         key={candidate.user.id}
-        className="flex items-center justify-between p-3 bg-white dark:bg-gray-800 rounded-lg border border-purple-100 dark:border-purple-700 hover:shadow-md transition-all"
+        onClick={() => handleOpenInternalPopover(candidate)}
+        className="flex items-center justify-between p-3 bg-white dark:bg-gray-800 rounded-lg border border-purple-100 dark:border-purple-700 hover:shadow-md transition-all cursor-pointer"
       >
         <div className="flex items-center gap-3">
           <div className="text-lg">{getMedalIcon(index)}</div>
@@ -366,7 +414,7 @@ export const PositionMatchingView: React.FC<PositionMatchingViewProps> = ({
           <div className="flex items-center gap-1">
             {!isInShortlist(candidate.user.id, 'internal') ? (
               <button 
-                onClick={() => handleAddInternalToShortlist(candidate)}
+                onClick={(e) => { e.stopPropagation(); handleAddInternalToShortlist(candidate); }}
                 className="text-[10px] px-2.5 py-1.5 bg-slate-800 dark:bg-slate-700 text-white rounded-md hover:bg-slate-700 dark:hover:bg-slate-600 transition-colors flex items-center gap-1 font-medium"
               >
                 <Plus size={10}/> Shortlist
@@ -377,7 +425,7 @@ export const PositionMatchingView: React.FC<PositionMatchingViewProps> = ({
               </span>
             )}
             <button 
-              onClick={() => onAssignInternal(positionId, candidate.user.id)}
+              onClick={(e) => { e.stopPropagation(); onAssignInternal(positionId, candidate.user.id); }}
               className="text-[10px] px-2 py-1 bg-purple-100 dark:bg-purple-800 text-purple-700 dark:text-purple-200 rounded hover:bg-purple-200 dark:hover:bg-purple-700 transition-colors flex items-center gap-1"
             >
               <ArrowRight size={10}/> Assegna
@@ -395,7 +443,8 @@ export const PositionMatchingView: React.FC<PositionMatchingViewProps> = ({
     return (
       <Card 
         key={profile.id} 
-        className="relative"
+        className="relative cursor-pointer hover:shadow-lg transition-shadow"
+        onClick={() => handleOpenExternalPopover(candidate)}
       >
 
         <div className="flex flex-col md:flex-row md:items-start gap-4">
@@ -471,11 +520,10 @@ export const PositionMatchingView: React.FC<PositionMatchingViewProps> = ({
           )}
         </div>
 
-        {/* Action */}
-        <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-700 flex gap-2">
+        <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-700 flex gap-2" onClick={(e) => e.stopPropagation()}>
           {!isInShortlist(profile.id, 'external') ? (
             <button 
-              onClick={() => handleAddExternalToShortlist(candidate)}
+              onClick={(e) => { e.stopPropagation(); handleAddExternalToShortlist(candidate); }}
               className="px-3 py-1.5 bg-slate-800 dark:bg-slate-700 text-white text-sm rounded-md hover:bg-slate-700 dark:hover:bg-slate-600 transition-colors flex items-center gap-1 font-medium"
             >
               <Plus size={14}/> Shortlist
@@ -488,7 +536,7 @@ export const PositionMatchingView: React.FC<PositionMatchingViewProps> = ({
           <Button 
             fullWidth 
             variant="ghost"
-            onClick={() => onViewCandidate(profile.id)}
+            onClick={(e) => { e.stopPropagation(); onViewCandidate(profile.id); }}
           >
             Visualizza Profilo
           </Button>
@@ -741,6 +789,36 @@ export const PositionMatchingView: React.FC<PositionMatchingViewProps> = ({
                 title: "Candidato selezionato",
                 description: `${candidate.name} è stato selezionato per la posizione`
               });
+            }
+          }}
+        />
+      )}
+
+      {/* Match Score Popover */}
+      {selectedCandidatePopover && (
+        <MatchScorePopover
+          isOpen={true}
+          onClose={() => setSelectedCandidatePopover(null)}
+          candidateName={selectedCandidatePopover.name}
+          candidateType={selectedCandidatePopover.type}
+          breakdown={selectedCandidatePopover.breakdown}
+          isInShortlist={
+            selectedCandidatePopover.type === 'internal'
+              ? isInShortlist((selectedCandidatePopover.candidateData as typeof internalCandidates[0]).user.id, 'internal')
+              : isInShortlist((selectedCandidatePopover.candidateData as CandidateMatch).profile.id, 'external')
+          }
+          onAddToShortlist={() => {
+            if (selectedCandidatePopover.type === 'internal') {
+              handleAddInternalToShortlist(selectedCandidatePopover.candidateData as typeof internalCandidates[0]);
+            } else {
+              handleAddExternalToShortlist(selectedCandidatePopover.candidateData as CandidateMatch);
+            }
+          }}
+          onViewProfile={() => {
+            if (selectedCandidatePopover.type === 'internal') {
+              onViewCandidate((selectedCandidatePopover.candidateData as typeof internalCandidates[0]).user.id);
+            } else {
+              onViewCandidate((selectedCandidatePopover.candidateData as CandidateMatch).profile.id);
             }
           }}
         />
