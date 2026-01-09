@@ -23,6 +23,14 @@ interface ProfileData {
   skills?: string[];
   jobTitle?: string;
   companyContext?: string;
+  // Organizational context fields
+  orgNodeName?: string;
+  orgNodeType?: 'root' | 'department' | 'team';
+  directReports?: number;
+  teamSize?: number;
+  orgLevel?: number;
+  isManager?: boolean;
+  managerName?: string;
 }
 
 interface BotConfig {
@@ -88,6 +96,15 @@ function processTemplateVariables(prompt: string, profileData: ProfileData): str
   } else {
     processed = processed.replace(/\{\{skills\}\}/g, 'Nessuna competenza indicata');
   }
+
+  // Organizational context replacements
+  processed = processed.replace(/\{\{orgNodeName\}\}/g, profileData.orgNodeName || 'Non specificato');
+  processed = processed.replace(/\{\{orgNodeType\}\}/g, profileData.orgNodeType || 'team');
+  processed = processed.replace(/\{\{directReports\}\}/g, String(profileData.directReports ?? 0));
+  processed = processed.replace(/\{\{teamSize\}\}/g, String(profileData.teamSize ?? 0));
+  processed = processed.replace(/\{\{orgLevel\}\}/g, String(profileData.orgLevel ?? 0));
+  processed = processed.replace(/\{\{isManager\}\}/g, String(profileData.isManager ?? false));
+  processed = processed.replace(/\{\{managerName\}\}/g, profileData.managerName || 'N/A');
 
   return processed;
 }

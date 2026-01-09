@@ -20,6 +20,10 @@ export interface ProfileInputs {
   certifications: boolean;
   languages: boolean;
   company_context?: boolean;
+  // Organizational context inputs (for Jnana B2B)
+  org_position?: boolean;
+  direct_reports?: boolean;
+  org_level?: boolean;
 }
 
 export interface KarmaBotConfig {
