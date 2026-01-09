@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Bot, FileText, History, Settings, Upload, Trash2, CheckCircle, XCircle, Save, RefreshCw, Eye, ToggleLeft, ToggleRight, Layers, Clock, FileCheck } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Bot, FileText, History, Settings, Upload, Trash2, CheckCircle, XCircle, Save, RefreshCw, Eye, ToggleLeft, ToggleRight, Layers, Clock, FileCheck, Plus, Pencil, Loader2 } from 'lucide-react';
 import { Card } from '../../components/Card';
 import { Button } from '../../components/Button';
 import { useKarmaBotConfig, BotType, KarmaBotConfig, BotObjective, ProfileInputs } from '../../src/hooks/useKarmaBotConfig';
@@ -45,6 +45,10 @@ export default function KarmaAIConfigView({ onBack }: KarmaAIConfigViewProps) {
   const [versionNotes, setVersionNotes] = useState('');
   const [showVersionHistory, setShowVersionHistory] = useState(false);
   const [dragActive, setDragActive] = useState(false);
+  const [newObjectiveLabel, setNewObjectiveLabel] = useState('');
+  const [editingObjectiveId, setEditingObjectiveId] = useState<string | null>(null);
+  const [editingObjectiveLabel, setEditingObjectiveLabel] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const {
     configs,
@@ -96,6 +100,72 @@ export default function KarmaAIConfigView({ onBack }: KarmaAIConfigViewProps) {
         obj.id === objectiveId ? { ...obj, enabled: !obj.enabled } : obj
       ),
     });
+  };
+
+  const handleAddObjective = () => {
+    if (!newObjectiveLabel.trim() || !editedConfig) return;
+    
+    const newObjective: BotObjective = {
+      id: `custom_${Date.now()}`,
+      label: newObjectiveLabel.trim(),
+      enabled: true,
+    };
+    
+    setEditedConfig({
+      ...editedConfig,
+      objectives: [...(editedConfig.objectives || []), newObjective],
+    });
+    setNewObjectiveLabel('');
+  };
+
+  const handleDeleteObjective = (objectiveId: string) => {
+    if (!editedConfig?.objectives) return;
+    
+    setEditedConfig({
+      ...editedConfig,
+      objectives: editedConfig.objectives.filter(obj => obj.id !== objectiveId),
+    });
+  };
+
+  const handleEditObjective = (objectiveId: string, newLabel: string) => {
+    if (!editedConfig?.objectives) return;
+    
+    setEditedConfig({
+      ...editedConfig,
+      objectives: editedConfig.objectives.map(obj =>
+        obj.id === objectiveId ? { ...obj, label: newLabel } : obj
+      ),
+    });
+    setEditingObjectiveId(null);
+    setEditingObjectiveLabel('');
+  };
+
+  const startEditingObjective = (obj: BotObjective) => {
+    setEditingObjectiveId(obj.id);
+    setEditingObjectiveLabel(obj.label);
+  };
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+    
+    const allowedTypes = [
+      'application/pdf',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'text/plain'
+    ];
+    
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      if (allowedTypes.includes(file.type)) {
+        await uploadDocument(file);
+      }
+    }
+    
+    // Reset input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   };
 
   const handleProfileInputToggle = (inputKey: keyof ProfileInputs) => {
@@ -299,32 +369,81 @@ export default function KarmaAIConfigView({ onBack }: KarmaAIConfigViewProps) {
               <h2 className="text-lg font-semibold text-gray-800 dark:text-white">Obiettivi del Colloquio</h2>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2 mb-4">
               {editedConfig?.objectives?.map(obj => (
-                <label
+                <div
                   key={obj.id}
-                  className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all ${
+                  className={`flex items-center gap-3 p-3 rounded-lg border transition-all ${
                     obj.enabled
                       ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-300 dark:border-emerald-700'
-                      : 'bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
+                      : 'bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600'
                   }`}
                 >
-                  <input
-                    type="checkbox"
-                    checked={obj.enabled}
-                    onChange={() => handleObjectiveToggle(obj.id)}
-                    className="sr-only"
-                  />
-                  {obj.enabled ? (
-                    <CheckCircle className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+                  <button
+                    onClick={() => handleObjectiveToggle(obj.id)}
+                    className="flex-shrink-0"
+                  >
+                    {obj.enabled ? (
+                      <CheckCircle className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+                    ) : (
+                      <XCircle className="h-5 w-5 text-gray-400" />
+                    )}
+                  </button>
+                  
+                  {editingObjectiveId === obj.id ? (
+                    <input
+                      type="text"
+                      value={editingObjectiveLabel}
+                      onChange={e => setEditingObjectiveLabel(e.target.value)}
+                      onBlur={() => handleEditObjective(obj.id, editingObjectiveLabel)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') handleEditObjective(obj.id, editingObjectiveLabel);
+                        if (e.key === 'Escape') { setEditingObjectiveId(null); setEditingObjectiveLabel(''); }
+                      }}
+                      className="flex-1 px-2 py-1 bg-white dark:bg-gray-600 border border-emerald-400 rounded text-sm text-gray-800 dark:text-white focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                      autoFocus
+                    />
                   ) : (
-                    <XCircle className="h-5 w-5 text-gray-400" />
+                    <span className={`flex-1 ${obj.enabled ? 'text-gray-800 dark:text-white' : 'text-gray-500 dark:text-gray-400'}`}>
+                      {obj.label}
+                    </span>
                   )}
-                  <span className={obj.enabled ? 'text-gray-800 dark:text-white' : 'text-gray-500 dark:text-gray-400'}>
-                    {obj.label}
-                  </span>
-                </label>
+                  
+                  <button
+                    onClick={() => startEditingObjective(obj)}
+                    className="p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
+                    title="Modifica"
+                  >
+                    <Pencil className="h-4 w-4 text-gray-500 dark:text-gray-400" />
+                  </button>
+                  <button
+                    onClick={() => handleDeleteObjective(obj.id)}
+                    className="p-1 text-red-500 hover:bg-red-100 dark:hover:bg-red-900/30 rounded transition-colors"
+                    title="Elimina"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
               ))}
+            </div>
+
+            {/* Add new objective */}
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={newObjectiveLabel}
+                onChange={e => setNewObjectiveLabel(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') handleAddObjective(); }}
+                placeholder="Nuovo obiettivo..."
+                className="flex-1 px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-sm text-gray-800 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <Button
+                onClick={handleAddObjective}
+                disabled={!newObjectiveLabel.trim()}
+                className="bg-blue-500 hover:bg-blue-600 text-white px-3"
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
             </div>
           </Card>
 
@@ -448,21 +567,39 @@ export default function KarmaAIConfigView({ onBack }: KarmaAIConfigViewProps) {
               <h3 className="text-lg font-semibold text-gray-800 dark:text-white">Knowledge Base</h3>
             </div>
 
-            {/* Drop Zone */}
+            {/* Hidden file input */}
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFileSelect}
+              accept=".pdf,.docx,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain"
+              className="hidden"
+              multiple
+            />
+
+            {/* Drop Zone + Upload Button */}
             <div
               onDrop={handleDrop}
               onDragOver={e => { e.preventDefault(); setDragActive(true); }}
               onDragLeave={() => setDragActive(false)}
-              className={`border-2 border-dashed rounded-lg p-4 text-center transition-all mb-4 ${
+              className={`border-2 border-dashed rounded-lg p-4 text-center transition-all mb-3 ${
                 dragActive
                   ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20'
                   : 'border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500'
               }`}
             >
               <Upload className="h-6 w-6 mx-auto text-gray-400 mb-2" />
-              <p className="text-sm text-gray-500 dark:text-gray-400">
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
                 Trascina PDF, DOCX o TXT
               </p>
+              <Button
+                onClick={() => fileInputRef.current?.click()}
+                variant="outline"
+                className="text-sm"
+              >
+                <Upload className="h-4 w-4 mr-2" />
+                Carica Documento
+              </Button>
             </div>
 
             {/* Document List */}
@@ -481,11 +618,30 @@ export default function KarmaAIConfigView({ onBack }: KarmaAIConfigViewProps) {
                         : 'bg-gray-50/50 dark:bg-gray-800 border-gray-200/50 dark:border-gray-700 opacity-60'
                     }`}
                   >
-                    <FileText className="h-4 w-4 text-blue-500 flex-shrink-0" />
+                    {/* Status icon based on extraction */}
+                    {doc.extraction_status === 'processing' ? (
+                      <Loader2 className="h-4 w-4 text-amber-500 animate-spin flex-shrink-0" />
+                    ) : doc.extraction_status === 'completed' ? (
+                      <CheckCircle className="h-4 w-4 text-emerald-500 flex-shrink-0" />
+                    ) : doc.extraction_status === 'failed' ? (
+                      <XCircle className="h-4 w-4 text-red-500 flex-shrink-0" />
+                    ) : (
+                      <FileText className="h-4 w-4 text-blue-500 flex-shrink-0" />
+                    )}
                     <div className="flex-1 min-w-0">
                       <p className="text-sm text-gray-800 dark:text-white truncate">{doc.file_name}</p>
                       <p className="text-xs text-gray-500 dark:text-gray-400">
-                        {formatFileSize(doc.file_size_bytes)} • {doc.extraction_status}
+                        {formatFileSize(doc.file_size_bytes)} • 
+                        <span className={
+                          doc.extraction_status === 'completed' ? 'text-emerald-600 dark:text-emerald-400' :
+                          doc.extraction_status === 'failed' ? 'text-red-500' :
+                          doc.extraction_status === 'processing' ? 'text-amber-500' :
+                          'text-gray-500'
+                        }>
+                          {' '}{doc.extraction_status === 'completed' ? 'Estratto' : 
+                                doc.extraction_status === 'processing' ? 'Estrazione...' :
+                                doc.extraction_status === 'failed' ? 'Errore' : 'In attesa'}
+                        </span>
                       </p>
                     </div>
                     <button

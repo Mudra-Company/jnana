@@ -201,7 +201,7 @@ export function useKarmaBotConfig(botType: BotType) {
       if (uploadError) throw uploadError;
 
       // Create document record
-      const { error: insertError } = await supabase
+      const { data: insertedDoc, error: insertError } = await supabase
         .from('karma_bot_documents')
         .insert({
           bot_type: botType,
@@ -210,9 +210,32 @@ export function useKarmaBotConfig(botType: BotType) {
           file_size_bytes: file.size,
           mime_type: file.type,
           extraction_status: 'pending',
-        });
+        })
+        .select()
+        .single();
 
       if (insertError) throw insertError;
+
+      // Trigger text extraction edge function
+      if (insertedDoc) {
+        try {
+          const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+          await fetch(`${supabaseUrl}/functions/v1/extract-document-text`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              document_id: insertedDoc.id,
+              file_path: filePath,
+              mime_type: file.type,
+            }),
+          });
+        } catch (extractErr) {
+          console.error('Text extraction trigger failed:', extractErr);
+          // Don't fail the upload if extraction fails - it can be retried
+        }
+      }
 
       await fetchDocuments();
       return true;
