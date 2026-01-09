@@ -21,6 +21,7 @@ import { JobDatabaseEditor } from './views/superadmin/JobDatabaseEditor';
 import { KarmaTalentsView } from './views/superadmin/KarmaTalentsView';
 import { KarmaProfileDetailView } from './views/superadmin/KarmaProfileDetailView';
 import { SuperAdminAnalyticsView } from './views/superadmin/SuperAdminAnalyticsView';
+import KarmaAIConfigView from './views/superadmin/KarmaAIConfigView';
 import { AdminDashboardView } from './views/admin/AdminDashboard';
 import { OpenPositionsView } from './views/admin/OpenPositionsView';
 import { PositionMatchingView } from './views/admin/PositionMatchingView';
@@ -1065,6 +1066,10 @@ const AppContent: React.FC = () => {
 
           {view.type === 'SUPER_ADMIN_ANALYTICS' && canAccessSuperAdminViews && (
             <SuperAdminAnalyticsView />
+          )}
+
+          {view.type === 'SUPER_ADMIN_KARMA_AI_CONFIG' && canAccessSuperAdminViews && (
+            <KarmaAIConfigView onBack={() => navigate({ type: 'SUPER_ADMIN_DASHBOARD' })} />
           )}
 
           {/* ADMIN VIEWS - Only for company admins and super admins */}
