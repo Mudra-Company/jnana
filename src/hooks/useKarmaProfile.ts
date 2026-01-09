@@ -79,6 +79,7 @@ export const useKarmaProfile = (userId?: string) => {
         gender: profileData.gender as 'M' | 'F' | undefined,
         age: profileData.age || undefined,
         isKarmaProfile: profileData.is_karma_profile || false,
+        wantsKarmaVisibility: profileData.wants_karma_visibility || false,
         profileVisibility: (profileData.profile_visibility as ProfileVisibility) || 'private',
         lookingForWork: profileData.looking_for_work || false,
         preferredWorkType: profileData.preferred_work_type as WorkType | undefined,
@@ -229,6 +230,7 @@ export const useKarmaProfile = (userId?: string) => {
       if (updates.preferredWorkType !== undefined) dbUpdates.preferred_work_type = updates.preferredWorkType;
       if (updates.yearsExperience !== undefined) dbUpdates.years_experience = updates.yearsExperience;
       if (updates.region !== undefined) dbUpdates.region = updates.region;
+      if (updates.wantsKarmaVisibility !== undefined) dbUpdates.wants_karma_visibility = updates.wantsKarmaVisibility;
 
       const { data, error } = await supabase
         .from('profiles')

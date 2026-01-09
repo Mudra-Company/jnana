@@ -152,6 +152,7 @@ export interface KarmaProfile {
   id: string;
   email: string;
   firstName?: string;
+  wantsKarmaVisibility?: boolean; // Explicit opt-in to Karma talent pool
   lastName?: string;
   avatarUrl?: string;
   bio?: string;
@@ -166,6 +167,7 @@ export interface KarmaProfile {
   lookingForWork: boolean;
   preferredWorkType?: WorkType;
   yearsExperience?: number;
+  isJnanaUser?: boolean; // User belongs to a company (invited via Jnana)
   createdAt: string;
   updatedAt: string;
   

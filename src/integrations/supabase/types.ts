@@ -607,6 +607,7 @@ export type Database = {
           profile_visibility: string | null
           region: string | null
           updated_at: string
+          wants_karma_visibility: boolean | null
           years_experience: number | null
         }
         Insert: {
@@ -628,6 +629,7 @@ export type Database = {
           profile_visibility?: string | null
           region?: string | null
           updated_at?: string
+          wants_karma_visibility?: boolean | null
           years_experience?: number | null
         }
         Update: {
@@ -649,6 +651,7 @@ export type Database = {
           profile_visibility?: string | null
           region?: string | null
           updated_at?: string
+          wants_karma_visibility?: boolean | null
           years_experience?: number | null
         }
         Relationships: []

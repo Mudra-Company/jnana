@@ -16,7 +16,8 @@ import {
   ChevronDown,
   ChevronUp,
   Clock,
-  Brain
+  Brain,
+  Building2
 } from 'lucide-react';
 import { Card } from '../../components/Card';
 import { Button } from '../../components/Button';
@@ -25,6 +26,8 @@ import { useKarmaAdminSearch, KarmaSearchFilters, KarmaSearchResult } from '../.
 import { useHardSkillsCatalog } from '../../src/hooks/useHardSkillsCatalog';
 import type { WorkType } from '../../src/types/karma';
 import type { SeniorityLevel } from '../../types';
+
+type TabType = 'karma' | 'jnana';
 
 interface KarmaTalentsViewProps {
   onViewProfile?: (userId: string) => void;
@@ -59,6 +62,7 @@ export const KarmaTalentsView: React.FC<KarmaTalentsViewProps> = ({ onViewProfil
   const { results, isLoading: searchLoading, totalCount, search } = useKarmaAdminSearch();
   const { skills: skillsCatalog, categories: skillCategories, isLoading: skillsLoading } = useHardSkillsCatalog();
   
+  const [activeTab, setActiveTab] = useState<TabType>('karma');
   const [filters, setFilters] = useState<KarmaSearchFilters>({});
   const [searchQuery, setSearchQuery] = useState('');
   const [showFilters, setShowFilters] = useState(false);
@@ -67,13 +71,22 @@ export const KarmaTalentsView: React.FC<KarmaTalentsViewProps> = ({ onViewProfil
   const [showSkillDropdown, setShowSkillDropdown] = useState(false);
   const pageSize = 20;
 
-  // Initial load
+  // Initial load based on active tab
   useEffect(() => {
-    search({}, 0, pageSize);
-  }, []);
+    const newFilters = { ...filters, profileSource: activeTab as 'karma' | 'jnana' };
+    setFilters(newFilters);
+    setPage(0);
+    search(newFilters, 0, pageSize);
+  }, [activeTab]);
+
+  const handleTabChange = (tab: TabType) => {
+    setActiveTab(tab);
+    setSearchQuery('');
+    setFilters({});
+  };
 
   const handleSearch = () => {
-    const newFilters = { ...filters, query: searchQuery || undefined };
+    const newFilters = { ...filters, query: searchQuery || undefined, profileSource: activeTab as 'karma' | 'jnana' };
     setFilters(newFilters);
     setPage(0);
     search(newFilters, 0, pageSize);
@@ -81,11 +94,11 @@ export const KarmaTalentsView: React.FC<KarmaTalentsViewProps> = ({ onViewProfil
 
   const handlePageChange = (newPage: number) => {
     setPage(newPage);
-    search(filters, newPage, pageSize);
+    search({ ...filters, profileSource: activeTab as 'karma' | 'jnana' }, newPage, pageSize);
   };
 
   const handleFilterChange = (key: keyof KarmaSearchFilters, value: any) => {
-    const newFilters = { ...filters, [key]: value };
+    const newFilters = { ...filters, [key]: value, profileSource: activeTab as 'karma' | 'jnana' };
     setFilters(newFilters);
     setPage(0);
     search(newFilters, 0, pageSize);
@@ -116,10 +129,10 @@ export const KarmaTalentsView: React.FC<KarmaTalentsViewProps> = ({ onViewProfil
   };
 
   const clearFilters = () => {
-    setFilters({});
+    setFilters({ profileSource: activeTab as 'karma' | 'jnana' });
     setSearchQuery('');
     setPage(0);
-    search({}, 0, pageSize);
+    search({ profileSource: activeTab as 'karma' | 'jnana' }, 0, pageSize);
   };
 
   const totalPages = Math.ceil(totalCount / pageSize);
@@ -162,11 +175,49 @@ export const KarmaTalentsView: React.FC<KarmaTalentsViewProps> = ({ onViewProfil
           </h1>
         </div>
         <p className="text-gray-500 dark:text-gray-400">
-          Gestione profili pubblici della piattaforma Karma
+          Gestione profili della piattaforma
         </p>
       </div>
 
-      {/* Stats Cards */}
+      {/* Tab Selector */}
+      <div className="mb-6 flex gap-2">
+        <button
+          onClick={() => handleTabChange('karma')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium transition-all ${
+            activeTab === 'karma'
+              ? 'bg-green-600 text-white shadow-lg'
+              : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700'
+          }`}
+        >
+          <Sparkles className="w-4 h-4" />
+          Talent Pool Karma
+          <span className={`px-1.5 py-0.5 text-xs rounded-full ${
+            activeTab === 'karma' 
+              ? 'bg-green-500 text-white' 
+              : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
+          }`}>
+            Opt-in
+          </span>
+        </button>
+        <button
+          onClick={() => handleTabChange('jnana')}
+          className={`flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium transition-all ${
+            activeTab === 'jnana'
+              ? 'bg-blue-600 text-white shadow-lg'
+              : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700'
+          }`}
+        >
+          <Building2 className="w-4 h-4" />
+          Utenti Jnana
+          <span className={`px-1.5 py-0.5 text-xs rounded-full ${
+            activeTab === 'jnana' 
+              ? 'bg-blue-500 text-white' 
+              : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400'
+          }`}>
+            Aziende
+          </span>
+        </button>
+      </div>
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
         <Card className="p-4 bg-gradient-to-br from-violet-50 to-white dark:from-violet-900/20 dark:to-gray-800 border-violet-200 dark:border-violet-800">
           <div className="flex items-center gap-3">
@@ -613,8 +664,26 @@ const ProfileRow: React.FC<{ result: KarmaSearchResult; onView: () => void }> = 
 
         {/* Status Badges */}
         <div className="flex items-center gap-2 flex-shrink-0">
-          {hasRiasec && (
+          {/* Source badge - Karma vs Jnana */}
+          {profile.wantsKarmaVisibility && (
+            <span className="px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 text-xs rounded flex items-center gap-1">
+              <Sparkles className="w-3 h-3" />
+              Karma
+            </span>
+          )}
+          {profile.isJnanaUser && (
             <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-xs rounded flex items-center gap-1">
+              <Building2 className="w-3 h-3" />
+              Jnana
+            </span>
+          )}
+          {profile.profileVisibility === 'private' && (
+            <span className="px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 text-xs rounded">
+              Privato
+            </span>
+          )}
+          {hasRiasec && (
+            <span className="px-2 py-1 bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300 text-xs rounded flex items-center gap-1">
               <Target className="w-3 h-3" />
               RIASEC
             </span>
@@ -622,7 +691,7 @@ const ProfileRow: React.FC<{ result: KarmaSearchResult; onView: () => void }> = 
           {hasKarma && (
             <span className="px-2 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 text-xs rounded flex items-center gap-1">
               <Brain className="w-3 h-3" />
-              Karma
+              AI
             </span>
           )}
         </div>
