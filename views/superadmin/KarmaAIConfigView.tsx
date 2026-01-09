@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Bot, FileText, History, Settings, Upload, Trash2, CheckCircle, XCircle, Save, RefreshCw, Eye, ToggleLeft, ToggleRight } from 'lucide-react';
+import { Bot, FileText, History, Settings, Upload, Trash2, CheckCircle, XCircle, Save, RefreshCw, Eye, ToggleLeft, ToggleRight, Layers, Clock, FileCheck } from 'lucide-react';
+import { Card } from '../../components/Card';
+import { Button } from '../../components/Button';
 import { useKarmaBotConfig, BotType, KarmaBotConfig, BotObjective, ProfileInputs } from '../../src/hooks/useKarmaBotConfig';
 
 interface KarmaAIConfigViewProps {
@@ -145,72 +147,138 @@ export default function KarmaAIConfigView({ onBack }: KarmaAIConfigViewProps) {
   if (loading) {
     return (
       <div className="min-h-screen bg-background p-6 flex items-center justify-center">
-        <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
+        <div className="animate-spin h-8 w-8 border-4 border-emerald-500 border-t-transparent rounded-full" />
       </div>
     );
   }
 
+  const activeDocumentsCount = documents.filter(d => d.is_active).length;
+  const lastUpdate = activeConfig?.created_at ? formatDate(activeConfig.created_at) : 'N/A';
+
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <div className="bg-card border-b border-border px-6 py-4">
-        <div className="flex items-center justify-between">
+    <div className="p-8 max-w-7xl mx-auto">
+      {/* Header - Aligned with SuperAdminDashboard */}
+      <div className="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-3 mb-2">
+            <div className="p-2 bg-emerald-100 dark:bg-emerald-900/30 rounded-lg">
+              <Bot className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
+            </div>
+            <h1 className="text-3xl font-brand font-bold text-gray-800 dark:text-white">
+              Karma AI Config
+            </h1>
+          </div>
+          <p className="text-gray-500 dark:text-gray-400">
+            Gestisci il backend dei bot conversazionali con configurazioni dinamiche.
+          </p>
+        </div>
+        <Button
+          variant="outline"
+          onClick={onBack}
+        >
+          ← Torna alla dashboard
+        </Button>
+      </div>
+
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <Card className="border-t-4 border-t-emerald-500">
           <div className="flex items-center gap-3">
-            <Bot className="h-8 w-8 text-primary" />
+            <div className="p-2 bg-emerald-100 dark:bg-emerald-900/30 rounded-lg">
+              <Layers className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+            </div>
             <div>
-              <h1 className="text-2xl font-bold text-foreground">Karma AI Config</h1>
-              <p className="text-muted-foreground text-sm">Gestisci il backend dei bot conversazionali</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Versione Attiva</p>
+              <p className="text-2xl font-bold text-gray-800 dark:text-white">
+                v{activeConfig?.version || 0}
+              </p>
             </div>
           </div>
-          <button
-            onClick={onBack}
-            className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
-          >
-            ← Torna alla dashboard
-          </button>
-        </div>
+        </Card>
 
-        {/* Bot Type Tabs */}
-        <div className="flex gap-2 mt-4">
-          {BOT_TABS.map(tab => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveBotType(tab.id)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                activeBotType === tab.id
-                  ? 'bg-primary text-primary-foreground'
-                  : 'bg-muted text-muted-foreground hover:bg-muted/80'
-              }`}
-            >
-              {tab.label}
-              {activeConfig?.version && activeBotType === tab.id && (
-                <span className="ml-2 text-xs opacity-70">v{activeConfig.version}</span>
-              )}
-            </button>
-          ))}
-        </div>
+        <Card className="border-t-4 border-t-blue-500">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+              <FileCheck className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+            </div>
+            <div>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Documenti Attivi</p>
+              <p className="text-2xl font-bold text-gray-800 dark:text-white">
+                {activeDocumentsCount}
+              </p>
+            </div>
+          </div>
+        </Card>
+
+        <Card className="border-t-4 border-t-purple-500">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
+              <History className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+            </div>
+            <div>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Totale Versioni</p>
+              <p className="text-2xl font-bold text-gray-800 dark:text-white">
+                {configs.length}
+              </p>
+            </div>
+          </div>
+        </Card>
+
+        <Card className="border-t-4 border-t-amber-500">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-amber-100 dark:bg-amber-900/30 rounded-lg">
+              <Clock className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+            </div>
+            <div>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Ultimo Update</p>
+              <p className="text-sm font-medium text-gray-800 dark:text-white truncate">
+                {lastUpdate}
+              </p>
+            </div>
+          </div>
+        </Card>
+      </div>
+
+      {/* Bot Type Tabs */}
+      <div className="flex gap-2 mb-6">
+        {BOT_TABS.map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveBotType(tab.id)}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+              activeBotType === tab.id
+                ? 'bg-emerald-500 text-white shadow-lg'
+                : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+            }`}
+          >
+            {tab.label}
+            {activeConfig?.version && activeBotType === tab.id && (
+              <span className="ml-2 text-xs opacity-70">v{activeConfig.version}</span>
+            )}
+          </button>
+        ))}
       </div>
 
       {error && (
-        <div className="mx-6 mt-4 p-3 bg-destructive/10 border border-destructive/20 rounded-lg text-destructive text-sm">
+        <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl text-red-600 dark:text-red-400 text-sm">
           {error}
         </div>
       )}
 
-      <div className="p-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main Content - 2 columns */}
         <div className="lg:col-span-2 space-y-6">
           {/* System Prompt */}
-          <div className="bg-card rounded-xl border border-border p-6">
+          <Card className="border-t-4 border-t-emerald-500">
             <div className="flex items-center gap-2 mb-4">
-              <Settings className="h-5 w-5 text-primary" />
-              <h2 className="text-lg font-semibold text-foreground">System Prompt</h2>
+              <Settings className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+              <h2 className="text-lg font-semibold text-gray-800 dark:text-white">System Prompt</h2>
             </div>
             
             <div className="mb-3 flex flex-wrap gap-1">
-              <span className="text-xs text-muted-foreground mr-2">Variabili:</span>
+              <span className="text-xs text-gray-500 dark:text-gray-400 mr-2">Variabili disponibili:</span>
               {TEMPLATE_VARIABLES.map(v => (
-                <span key={v} className="px-2 py-0.5 bg-primary/10 text-primary text-xs rounded font-mono">
+                <span key={v} className="px-2 py-0.5 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 text-xs rounded font-mono">
                   {v}
                 </span>
               ))}
@@ -219,16 +287,16 @@ export default function KarmaAIConfigView({ onBack }: KarmaAIConfigViewProps) {
             <textarea
               value={editedConfig?.system_prompt || ''}
               onChange={e => setEditedConfig({ ...editedConfig, system_prompt: e.target.value })}
-              className="w-full h-80 p-4 bg-muted rounded-lg border border-border font-mono text-sm text-foreground resize-none focus:outline-none focus:ring-2 focus:ring-primary"
+              className="w-full h-80 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600 font-mono text-sm text-gray-800 dark:text-gray-100 resize-none focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
               placeholder="Inserisci il system prompt..."
             />
-          </div>
+          </Card>
 
           {/* Objectives */}
-          <div className="bg-card rounded-xl border border-border p-6">
+          <Card className="border-t-4 border-t-blue-500">
             <div className="flex items-center gap-2 mb-4">
-              <CheckCircle className="h-5 w-5 text-primary" />
-              <h2 className="text-lg font-semibold text-foreground">Obiettivi del Colloquio</h2>
+              <CheckCircle className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+              <h2 className="text-lg font-semibold text-gray-800 dark:text-white">Obiettivi del Colloquio</h2>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
@@ -237,8 +305,8 @@ export default function KarmaAIConfigView({ onBack }: KarmaAIConfigViewProps) {
                   key={obj.id}
                   className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all ${
                     obj.enabled
-                      ? 'bg-primary/10 border-primary'
-                      : 'bg-muted border-border hover:border-muted-foreground'
+                      ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-300 dark:border-emerald-700'
+                      : 'bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
                   }`}
                 >
                   <input
@@ -248,24 +316,24 @@ export default function KarmaAIConfigView({ onBack }: KarmaAIConfigViewProps) {
                     className="sr-only"
                   />
                   {obj.enabled ? (
-                    <CheckCircle className="h-5 w-5 text-primary" />
+                    <CheckCircle className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
                   ) : (
-                    <XCircle className="h-5 w-5 text-muted-foreground" />
+                    <XCircle className="h-5 w-5 text-gray-400" />
                   )}
-                  <span className={obj.enabled ? 'text-foreground' : 'text-muted-foreground'}>
+                  <span className={obj.enabled ? 'text-gray-800 dark:text-white' : 'text-gray-500 dark:text-gray-400'}>
                     {obj.label}
                   </span>
                 </label>
               ))}
             </div>
-          </div>
+          </Card>
 
           {/* Profile Inputs */}
-          <div className="bg-card rounded-xl border border-border p-6">
+          <Card className="border-t-4 border-t-purple-500">
             <div className="flex items-center gap-2 mb-4">
-              <Eye className="h-5 w-5 text-primary" />
-              <h2 className="text-lg font-semibold text-foreground">Input Profilo</h2>
-              <span className="text-xs text-muted-foreground">(cosa legge il bot)</span>
+              <Eye className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+              <h2 className="text-lg font-semibold text-gray-800 dark:text-white">Input Profilo</h2>
+              <span className="text-xs text-gray-500 dark:text-gray-400">(cosa legge il bot)</span>
             </div>
 
             <div className="grid grid-cols-3 gap-3">
@@ -274,8 +342,8 @@ export default function KarmaAIConfigView({ onBack }: KarmaAIConfigViewProps) {
                   key={key}
                   className={`flex items-center gap-2 p-2 rounded-lg border cursor-pointer transition-all text-sm ${
                     enabled
-                      ? 'bg-primary/10 border-primary'
-                      : 'bg-muted border-border hover:border-muted-foreground'
+                      ? 'bg-purple-50 dark:bg-purple-900/20 border-purple-300 dark:border-purple-700'
+                      : 'bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
                   }`}
                 >
                   <input
@@ -285,32 +353,32 @@ export default function KarmaAIConfigView({ onBack }: KarmaAIConfigViewProps) {
                     className="sr-only"
                   />
                   {enabled ? (
-                    <ToggleRight className="h-4 w-4 text-primary" />
+                    <ToggleRight className="h-4 w-4 text-purple-600 dark:text-purple-400" />
                   ) : (
-                    <ToggleLeft className="h-4 w-4 text-muted-foreground" />
+                    <ToggleLeft className="h-4 w-4 text-gray-400" />
                   )}
-                  <span className={enabled ? 'text-foreground' : 'text-muted-foreground'}>
+                  <span className={enabled ? 'text-gray-800 dark:text-white' : 'text-gray-500 dark:text-gray-400'}>
                     {PROFILE_INPUT_LABELS[key as keyof ProfileInputs] || key}
                   </span>
                 </label>
               ))}
             </div>
-          </div>
+          </Card>
 
           {/* Model Settings */}
-          <div className="bg-card rounded-xl border border-border p-6">
+          <Card className="border-t-4 border-t-amber-500">
             <div className="flex items-center gap-2 mb-4">
-              <Bot className="h-5 w-5 text-primary" />
-              <h2 className="text-lg font-semibold text-foreground">Impostazioni Modello</h2>
+              <Bot className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+              <h2 className="text-lg font-semibold text-gray-800 dark:text-white">Impostazioni Modello</h2>
             </div>
 
             <div className="grid grid-cols-3 gap-4">
               <div>
-                <label className="block text-sm text-muted-foreground mb-1">Modello AI</label>
+                <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Modello AI</label>
                 <select
                   value={editedConfig?.model || 'google/gemini-2.5-flash'}
                   onChange={e => setEditedConfig({ ...editedConfig, model: e.target.value })}
-                  className="w-full p-2 bg-muted rounded-lg border border-border text-foreground text-sm"
+                  className="w-full p-2 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600 text-gray-800 dark:text-white text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                 >
                   {AVAILABLE_MODELS.map(model => (
                     <option key={model.id} value={model.id}>{model.label}</option>
@@ -319,19 +387,19 @@ export default function KarmaAIConfigView({ onBack }: KarmaAIConfigViewProps) {
               </div>
 
               <div>
-                <label className="block text-sm text-muted-foreground mb-1">Max Scambi</label>
+                <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Max Scambi</label>
                 <input
                   type="number"
                   min={4}
                   max={20}
                   value={editedConfig?.max_exchanges || 8}
                   onChange={e => setEditedConfig({ ...editedConfig, max_exchanges: parseInt(e.target.value) })}
-                  className="w-full p-2 bg-muted rounded-lg border border-border text-foreground text-sm"
+                  className="w-full p-2 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600 text-gray-800 dark:text-white text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                 />
               </div>
 
               <div>
-                <label className="block text-sm text-muted-foreground mb-1">Temperature</label>
+                <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Temperature</label>
                 <input
                   type="number"
                   min={0}
@@ -339,45 +407,45 @@ export default function KarmaAIConfigView({ onBack }: KarmaAIConfigViewProps) {
                   step={0.1}
                   value={editedConfig?.temperature || 0.7}
                   onChange={e => setEditedConfig({ ...editedConfig, temperature: parseFloat(e.target.value) })}
-                  className="w-full p-2 bg-muted rounded-lg border border-border text-foreground text-sm"
+                  className="w-full p-2 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600 text-gray-800 dark:text-white text-sm focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                 />
               </div>
             </div>
-          </div>
+          </Card>
         </div>
 
         {/* Sidebar - 1 column */}
         <div className="space-y-6">
           {/* Save Section */}
-          <div className="bg-card rounded-xl border border-border p-6">
-            <h3 className="text-lg font-semibold text-foreground mb-4">Salva Modifiche</h3>
+          <Card className="border-t-4 border-t-emerald-500">
+            <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">Salva Modifiche</h3>
             
             <textarea
               value={versionNotes}
               onChange={e => setVersionNotes(e.target.value)}
               placeholder="Note di versione (obbligatorio)..."
-              className="w-full h-20 p-3 bg-muted rounded-lg border border-border text-foreground text-sm resize-none mb-3"
+              className="w-full h-20 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600 text-gray-800 dark:text-white text-sm resize-none mb-3 focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
             />
 
-            <button
+            <Button
               onClick={handleSave}
               disabled={saving || !versionNotes.trim()}
-              className="w-full py-3 bg-primary text-primary-foreground rounded-lg font-medium flex items-center justify-center gap-2 hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full bg-emerald-500 hover:bg-emerald-600 text-white"
             >
               {saving ? (
-                <RefreshCw className="h-4 w-4 animate-spin" />
+                <RefreshCw className="h-4 w-4 animate-spin mr-2" />
               ) : (
-                <Save className="h-4 w-4" />
+                <Save className="h-4 w-4 mr-2" />
               )}
               Salva come v{(activeConfig?.version || 0) + 1}
-            </button>
-          </div>
+            </Button>
+          </Card>
 
           {/* Documents */}
-          <div className="bg-card rounded-xl border border-border p-6">
+          <Card className="border-t-4 border-t-blue-500">
             <div className="flex items-center gap-2 mb-4">
-              <FileText className="h-5 w-5 text-primary" />
-              <h3 className="text-lg font-semibold text-foreground">Knowledge Base</h3>
+              <FileText className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+              <h3 className="text-lg font-semibold text-gray-800 dark:text-white">Knowledge Base</h3>
             </div>
 
             {/* Drop Zone */}
@@ -387,12 +455,12 @@ export default function KarmaAIConfigView({ onBack }: KarmaAIConfigViewProps) {
               onDragLeave={() => setDragActive(false)}
               className={`border-2 border-dashed rounded-lg p-4 text-center transition-all mb-4 ${
                 dragActive
-                  ? 'border-primary bg-primary/10'
-                  : 'border-border hover:border-muted-foreground'
+                  ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20'
+                  : 'border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500'
               }`}
             >
-              <Upload className="h-6 w-6 mx-auto text-muted-foreground mb-2" />
-              <p className="text-sm text-muted-foreground">
+              <Upload className="h-6 w-6 mx-auto text-gray-400 mb-2" />
+              <p className="text-sm text-gray-500 dark:text-gray-400">
                 Trascina PDF, DOCX o TXT
               </p>
             </div>
@@ -400,7 +468,7 @@ export default function KarmaAIConfigView({ onBack }: KarmaAIConfigViewProps) {
             {/* Document List */}
             <div className="space-y-2">
               {documents.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-4">
+                <p className="text-sm text-gray-500 dark:text-gray-400 text-center py-4">
                   Nessun documento caricato
                 </p>
               ) : (
@@ -408,30 +476,32 @@ export default function KarmaAIConfigView({ onBack }: KarmaAIConfigViewProps) {
                   <div
                     key={doc.id}
                     className={`flex items-center gap-3 p-3 rounded-lg border ${
-                      doc.is_active ? 'bg-muted border-border' : 'bg-muted/50 border-border/50 opacity-60'
+                      doc.is_active 
+                        ? 'bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600' 
+                        : 'bg-gray-50/50 dark:bg-gray-800 border-gray-200/50 dark:border-gray-700 opacity-60'
                     }`}
                   >
-                    <FileText className="h-4 w-4 text-primary flex-shrink-0" />
+                    <FileText className="h-4 w-4 text-blue-500 flex-shrink-0" />
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm text-foreground truncate">{doc.file_name}</p>
-                      <p className="text-xs text-muted-foreground">
+                      <p className="text-sm text-gray-800 dark:text-white truncate">{doc.file_name}</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
                         {formatFileSize(doc.file_size_bytes)} • {doc.extraction_status}
                       </p>
                     </div>
                     <button
                       onClick={() => toggleDocumentActive(doc.id, !doc.is_active)}
-                      className="p-1 hover:bg-background rounded"
+                      className="p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
                       title={doc.is_active ? 'Disattiva' : 'Attiva'}
                     >
                       {doc.is_active ? (
-                        <ToggleRight className="h-4 w-4 text-primary" />
+                        <ToggleRight className="h-4 w-4 text-emerald-500" />
                       ) : (
-                        <ToggleLeft className="h-4 w-4 text-muted-foreground" />
+                        <ToggleLeft className="h-4 w-4 text-gray-400" />
                       )}
                     </button>
                     <button
                       onClick={() => deleteDocument(doc.id, doc.file_path)}
-                      className="p-1 text-destructive hover:bg-destructive/10 rounded"
+                      className="p-1 text-red-500 hover:bg-red-100 dark:hover:bg-red-900/30 rounded transition-colors"
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>
@@ -439,17 +509,17 @@ export default function KarmaAIConfigView({ onBack }: KarmaAIConfigViewProps) {
                 ))
               )}
             </div>
-          </div>
+          </Card>
 
           {/* Version History */}
-          <div className="bg-card rounded-xl border border-border p-6">
+          <Card className="border-t-4 border-t-purple-500">
             <button
               onClick={() => setShowVersionHistory(!showVersionHistory)}
               className="flex items-center gap-2 w-full text-left"
             >
-              <History className="h-5 w-5 text-primary" />
-              <h3 className="text-lg font-semibold text-foreground flex-1">Cronologia Versioni</h3>
-              <span className="text-sm text-muted-foreground">
+              <History className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+              <h3 className="text-lg font-semibold text-gray-800 dark:text-white flex-1">Cronologia Versioni</h3>
+              <span className="text-sm text-gray-500 dark:text-gray-400">
                 {showVersionHistory ? '▲' : '▼'}
               </span>
             </button>
@@ -461,29 +531,29 @@ export default function KarmaAIConfigView({ onBack }: KarmaAIConfigViewProps) {
                     key={config.id}
                     className={`p-3 rounded-lg border ${
                       config.is_active
-                        ? 'bg-primary/10 border-primary'
-                        : 'bg-muted border-border'
+                        ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-300 dark:border-emerald-700'
+                        : 'bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600'
                     }`}
                   >
                     <div className="flex items-center justify-between mb-1">
-                      <span className="font-medium text-foreground">
+                      <span className="font-medium text-gray-800 dark:text-white">
                         v{config.version}
                         {config.is_active && (
-                          <span className="ml-2 text-xs text-primary">(attiva)</span>
+                          <span className="ml-2 text-xs text-emerald-600 dark:text-emerald-400">(attiva)</span>
                         )}
                       </span>
                       {!config.is_active && (
                         <button
                           onClick={() => activateVersion(config.id)}
-                          className="text-xs text-primary hover:underline"
+                          className="text-xs text-emerald-600 dark:text-emerald-400 hover:underline"
                         >
                           Ripristina
                         </button>
                       )}
                     </div>
-                    <p className="text-xs text-muted-foreground">{formatDate(config.created_at)}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">{formatDate(config.created_at)}</p>
                     {config.version_notes && (
-                      <p className="text-xs text-muted-foreground mt-1 italic">
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 italic">
                         "{config.version_notes}"
                       </p>
                     )}
@@ -491,7 +561,7 @@ export default function KarmaAIConfigView({ onBack }: KarmaAIConfigViewProps) {
                 ))}
               </div>
             )}
-          </div>
+          </Card>
         </div>
       </div>
     </div>

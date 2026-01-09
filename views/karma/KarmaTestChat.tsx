@@ -33,28 +33,19 @@ const renderMessageText = (text: string) => {
 };
 
 // Streaming chat function using edge function
-// Patterns that indicate the AI wants to close the conversation
-const CLOSING_PATTERNS = [
-  'è stato un piacere',
-  'in bocca al lupo',
-  'buona fortuna',
-  'ti auguro il meglio',
-  'grazie per aver condiviso',
-  'concludiamo qui',
-  'questo conclude',
-  'abbiamo concluso',
-  'ti ringrazio per questa conversazione',
-  'ti faccio un grande in bocca al lupo',
-];
-
-const checkForAutoClose = (text: string): boolean => {
-  const lowerText = text.toLowerCase();
-  return CLOSING_PATTERNS.some(pattern => lowerText.includes(pattern));
-};
-
 const streamKarmaChat = async (
   messages: { role: 'user' | 'assistant'; content: string }[],
-  systemPrompt: string,
+  botType: string,
+  profileData: {
+    firstName?: string;
+    lastName?: string;
+    profileCode?: string;
+    headline?: string;
+    bio?: string;
+    experiences?: Array<{ role: string; company: string; isCurrent?: boolean }>;
+    education?: Array<{ degree: string; institution: string }>;
+    skills?: string[];
+  },
   onDelta: (delta: string) => void,
   onDone: (finalText: string) => void,
   onError: (error: string) => void
@@ -68,7 +59,7 @@ const streamKarmaChat = async (
         'Content-Type': 'application/json',
         Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
       },
-      body: JSON.stringify({ messages, systemPrompt }),
+      body: JSON.stringify({ messages, botType, profileData }),
     });
 
     if (!resp.ok) {
@@ -146,6 +137,25 @@ const streamKarmaChat = async (
   }
 };
 
+// Patterns that indicate the AI wants to close the conversation
+const CLOSING_PATTERNS = [
+  'è stato un piacere',
+  'in bocca al lupo',
+  'buona fortuna',
+  'ti auguro il meglio',
+  'grazie per aver condiviso',
+  'concludiamo qui',
+  'questo conclude',
+  'abbiamo concluso',
+  'ti ringrazio per questa conversazione',
+  'ti faccio un grande in bocca al lupo',
+];
+
+const checkForAutoClose = (text: string): boolean => {
+  const lowerText = text.toLowerCase();
+  return CLOSING_PATTERNS.some(pattern => lowerText.includes(pattern));
+};
+
 export const KarmaTestChat: React.FC<KarmaTestChatProps> = ({ 
   riasecScore, 
   profileCode, 
@@ -164,83 +174,27 @@ export const KarmaTestChat: React.FC<KarmaTestChatProps> = ({
   const [isClosing, setIsClosing] = useState(false);
   const [autoClosing, setAutoClosing] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  
-  const systemPromptRef = useRef<string>('');
 
-  // Generate system prompt for Karma B2C with profile context
-  const generateKarmaB2CSystemPrompt = () => {
-    const topDimensions = Object.entries(riasecScore)
-      .sort(([, a], [, b]) => (b as number) - (a as number))
-      .slice(0, 3)
-      .map(([dim]) => dim);
-
-    // Build context from profile data
-    let profileContext = '';
-    
-    if (headline) {
-      profileContext += `\nHeadline del candidato: ${headline}`;
-    }
-    
-    if (bio) {
-      profileContext += `\nBio: ${bio}`;
-    }
-    
-    if (experiences.length > 0) {
-      const expList = experiences.slice(0, 3).map(exp => 
-        `- ${exp.role} presso ${exp.company}${exp.isCurrent ? ' (attuale)' : ''}`
-      ).join('\n');
-      profileContext += `\n\nEsperienze lavorative recenti:\n${expList}`;
-    }
-    
-    if (education.length > 0) {
-      const eduList = education.slice(0, 2).map(edu => 
-        `- ${edu.degree} presso ${edu.institution}`
-      ).join('\n');
-      profileContext += `\n\nFormazione:\n${eduList}`;
-    }
-    
-    if (skills.length > 0) {
-      const skillNames = skills.slice(0, 8).map(s => s.skill?.name || s.customSkillName).filter(Boolean);
-      if (skillNames.length > 0) {
-        profileContext += `\n\nCompetenze tecniche: ${skillNames.join(', ')}`;
-      }
-    }
-
-    return `Sei Karma, un consulente di carriera AI specializzato in colloqui attitudinali per la piattaforma Karma.
-    
-Il candidato ha completato il test RIASEC con il seguente profilo: ${profileCode}
-Le sue dimensioni dominanti sono: ${topDimensions.join(', ')}
-${profileContext}
-
-OBIETTIVO:
-Conduci un breve colloquio (5-8 scambi) per capire:
-1. Soft skills e competenze trasversali
-2. Valori professionali e motivazioni
-3. Stile di lavoro e preferenze
-4. Potenziale seniority e leadership
-
-USA LE INFORMAZIONI DEL PROFILO per fare domande mirate e contestuali. Ad esempio, se vedi che ha lavorato in un certo settore, chiedi di esperienze specifiche in quel contesto.
-
-STILE:
-- Professionale ma amichevole
-- Domande aperte e situazionali basate sul background del candidato
-- Ascolto attivo e follow-up
-- Mai giudicante
-
-STRUTTURA:
-1. Inizia chiedendo di una sfida professionale recente (riferisciti al suo lavoro attuale se presente)
-2. Approfondisci le soft skills emerse
-3. Esplora valori e motivazioni
-4. Chiedi del modo di lavorare in team
-5. Concludi con prospettive future
-
-Rispondi sempre in italiano. Sii conciso (max 100 parole per risposta).`;
-  };
+  // Build profile data for backend
+  const buildProfileData = () => ({
+    firstName,
+    profileCode,
+    headline,
+    bio,
+    experiences: experiences.slice(0, 5).map(exp => ({
+      role: exp.role,
+      company: exp.company,
+      isCurrent: exp.isCurrent
+    })),
+    education: education.slice(0, 3).map(edu => ({
+      degree: edu.degree,
+      institution: edu.institution
+    })),
+    skills: skills.slice(0, 10).map(s => s.skill?.name || s.customSkillName).filter(Boolean) as string[]
+  });
 
   // Initialize on mount
   useEffect(() => {
-    systemPromptRef.current = generateKarmaB2CSystemPrompt();
-
     if (messages.length === 0) {
       const welcomeText = `Ciao ${firstName || 'candidato'}, sono Karma! 👋
 
@@ -293,7 +247,8 @@ Ora vorrei conoscerti meglio attraverso una breve conversazione. Non ci sono ris
 
     await streamKarmaChat(
       apiMessages,
-      systemPromptRef.current,
+      'karma_talents', // Bot type
+      buildProfileData(),
       (delta) => {
         assistantText += delta;
         setMessages(prev => {
