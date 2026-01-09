@@ -42,6 +42,7 @@ interface OrgNodeCardProps {
   onQuickMatchClick?: (matchData: QuickMatchData) => void;
   companyValues?: string[];
   parentManager?: User;
+  allHiringPositions?: User[]; // All open positions in the company
 }
 
 // Helper function to find the leader within a list of users
@@ -124,7 +125,8 @@ export const OrgNodeCard: React.FC<OrgNodeCardProps> = ({
   onSelectUserForComparison,
   onQuickMatchClick,
   companyValues,
-  parentManager
+  parentManager,
+  allHiringPositions
 }) => {
   // Find users BELONGING to this node
   const nodeUsers = users.filter(u => u.departmentId === node.id);
@@ -351,8 +353,11 @@ export const OrgNodeCard: React.FC<OrgNodeCardProps> = ({
             const managerFitScore = parentManager ? calculateUserCompatibility(u, parentManager) : null;
             const isInternalLeader = currentNodeManager?.id === u.id;
 
-            // Calculate quick match if there are hiring positions and this user is not hiring
-            const firstHiringPosition = hiringPositions[0];
+            // Calculate quick match if there are hiring positions (prefer global, fallback to node)
+            const relevantHiringPositions = (allHiringPositions && allHiringPositions.length > 0) 
+              ? allHiringPositions 
+              : hiringPositions;
+            const firstHiringPosition = relevantHiringPositions[0];
             const quickMatch = status !== 'hiring' && firstHiringPosition && onQuickMatchClick
               ? calculateQuickMatchScore(u, firstHiringPosition)
               : null;

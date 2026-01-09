@@ -1273,7 +1273,8 @@ const renderOrgTreeChildren = (
     onSelectUserForComparison: (user: User) => void,
     companyValues?: string[],
     parentManager?: User,
-    onQuickMatchClick?: (matchData: QuickMatchData) => void
+    onQuickMatchClick?: (matchData: QuickMatchData) => void,
+    allHiringPositions?: User[]
 ): React.ReactNode => {
     if (!node.children || node.children.length === 0) return null;
 
@@ -1300,6 +1301,7 @@ const renderOrgTreeChildren = (
                                 onQuickMatchClick={onQuickMatchClick}
                                 companyValues={companyValues}
                                 parentManager={currentManager}
+                                allHiringPositions={allHiringPositions}
                             />
                         </div>
                     }
@@ -1313,7 +1315,8 @@ const renderOrgTreeChildren = (
                         onSelectUserForComparison,
                         companyValues,
                         childManager,
-                        onQuickMatchClick
+                        onQuickMatchClick,
+                        allHiringPositions
                     )}
                 </TreeNode>
             </React.Fragment>
@@ -1356,6 +1359,9 @@ export const CompanyOrgView: React.FC<{
     
     // Use the company members hook for DB persistence
     const { createCompanyMember, updateCompanyMember, assignUserToSlot, deleteCompanyMember, isLoading: isSaving } = useCompanyMembers();
+    
+    // Calculate all hiring positions in the company
+    const allHiringPositions = useMemo(() => users.filter(u => u.isHiring), [users]);
 
     // Handle quick match click from org chart
     const handleQuickMatchClick = (matchData: QuickMatchData) => {
@@ -1738,11 +1744,12 @@ export const CompanyOrgView: React.FC<{
                                     onQuickMatchClick={handleQuickMatchClick}
                                     companyValues={company.cultureValues}
                                     parentManager={undefined}
+                                    allHiringPositions={allHiringPositions}
                                 />
                             </div>
                         }
                     >
-                        {renderOrgTreeChildren(company.structure, users, handleAddNode, setEditingNode, setInviteNodeId, setSelectedUserForComparison, company.cultureValues, undefined, handleQuickMatchClick)}
+                        {renderOrgTreeChildren(company.structure, users, handleAddNode, setEditingNode, setInviteNodeId, setSelectedUserForComparison, company.cultureValues, undefined, handleQuickMatchClick, allHiringPositions)}
                     </Tree>
                 </div>
             </div>
