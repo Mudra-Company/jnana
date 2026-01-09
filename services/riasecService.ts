@@ -467,3 +467,96 @@ export const calculateLeadershipAnalytics = (company: CompanyProfile, users: Use
         distribution: { high: highCount, medium: medCount, low: lowCount }
     };
 };
+
+// --- ORGANIZATIONAL CONTEXT CALCULATION ---
+
+export interface OrgContext {
+  orgNodeName: string;
+  orgNodeType: 'root' | 'department' | 'team';
+  directReports: number;
+  teamSize: number;
+  orgLevel: number;
+  isManager: boolean;
+  managerName: string | null;
+}
+
+/**
+ * Calculate organizational context for a user.
+ * Used to provide context to Karma AI for personalized interviews.
+ */
+export const calculateOrgContext = (
+  user: User,
+  orgStructure: OrgNode,
+  allUsers: User[]
+): OrgContext => {
+  // Default context
+  const defaultContext: OrgContext = {
+    orgNodeName: 'Non assegnato',
+    orgNodeType: 'team',
+    directReports: 0,
+    teamSize: 0,
+    orgLevel: 0,
+    isManager: false,
+    managerName: null,
+  };
+
+  if (!user.departmentId) return defaultContext;
+
+  // Find the user's org node and calculate level
+  let foundNode: OrgNode | null = null;
+  let nodeLevel = 0;
+
+  const findNodeWithLevel = (node: OrgNode, level: number): boolean => {
+    if (node.id === user.departmentId) {
+      foundNode = node;
+      nodeLevel = level;
+      return true;
+    }
+    for (const child of node.children) {
+      if (findNodeWithLevel(child, level + 1)) return true;
+    }
+    return false;
+  };
+
+  findNodeWithLevel(orgStructure, 0);
+
+  if (!foundNode) return defaultContext;
+
+  // Calculate team size (users in the same node)
+  const teamSize = allUsers.filter(u => u.departmentId === foundNode!.id).length;
+
+  // Calculate direct reports (users in child nodes of current node)
+  const getDescendantUsers = (node: OrgNode): User[] => {
+    let users: User[] = [];
+    for (const child of node.children) {
+      users = users.concat(allUsers.filter(u => u.departmentId === child.id));
+      users = users.concat(getDescendantUsers(child));
+    }
+    return users;
+  };
+
+  const directReports = getDescendantUsers(foundNode).length;
+
+  // Check if user is a manager (has reports OR has manager-like title)
+  const isManager = directReports > 0 || 
+    (user.jobTitle?.toLowerCase().includes('manager') || 
+     user.jobTitle?.toLowerCase().includes('director') ||
+     user.jobTitle?.toLowerCase().includes('head') ||
+     user.jobTitle?.toLowerCase().includes('ceo') ||
+     user.jobTitle?.toLowerCase().includes('cto') ||
+     user.jobTitle?.toLowerCase().includes('cfo') ||
+     user.jobTitle?.toLowerCase().includes('lead')) || false;
+
+  // Find manager (user in parent node)
+  const manager = findManagerForUser(user, orgStructure, allUsers);
+
+  return {
+    orgNodeName: foundNode.name,
+    orgNodeType: foundNode.type,
+    directReports,
+    teamSize,
+    orgLevel: nodeLevel,
+    isManager,
+    managerName: manager ? `${manager.firstName} ${manager.lastName}`.trim() : null,
+  };
+};

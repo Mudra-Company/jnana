@@ -1161,7 +1161,12 @@ const AppContent: React.FC = () => {
           )}
 
           {view.type === 'USER_CHAT' && currentUserData && (
-            <KarmaChatView user={currentUserData} onComplete={handleKarmaComplete} />
+            <KarmaChatView 
+              user={currentUserData} 
+              onComplete={handleKarmaComplete}
+              orgStructure={activeCompanyData?.structure}
+              allUsers={companyUsers}
+            />
           )}
 
           {view.type === 'USER_CLIMATE_TEST' && currentUserData && (
@@ -1315,10 +1320,12 @@ const AppContent: React.FC = () => {
                   />
                 )}
 
-                {view.type === 'DEMO_USER_CHAT' && (
+                {view.type === 'DEMO_USER_CHAT' && demoUserData && (
                   <KarmaChatView
                     user={demoUserData}
                     onComplete={handleDemoKarmaComplete}
+                    orgStructure={activeCompanyData?.structure}
+                    allUsers={companyUsers}
                   />
                 )}
 

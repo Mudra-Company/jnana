@@ -24,6 +24,9 @@ const PROFILE_INPUT_LABELS: Record<keyof ProfileInputs, string> = {
   certifications: 'Certificazioni',
   languages: 'Lingue',
   company_context: 'Contesto aziendale',
+  org_position: 'Posizione Organizzativa',
+  direct_reports: 'Riporti Diretti',
+  org_level: 'Livello Gerarchico',
 };
 
 const AVAILABLE_MODELS = [
@@ -36,7 +39,10 @@ const AVAILABLE_MODELS = [
 const TEMPLATE_VARIABLES = [
   '{{firstName}}', '{{lastName}}', '{{profileCode}}', '{{headline}}', 
   '{{bio}}', '{{experiences}}', '{{education}}', '{{skills}}', 
-  '{{jobTitle}}', '{{companyContext}}'
+  '{{jobTitle}}', '{{companyContext}}',
+  // Organizational context variables (Jnana B2B)
+  '{{orgNodeName}}', '{{orgNodeType}}', '{{directReports}}',
+  '{{teamSize}}', '{{orgLevel}}', '{{isManager}}', '{{managerName}}'
 ];
 
 export default function KarmaAIConfigView({ onBack }: KarmaAIConfigViewProps) {

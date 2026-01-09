@@ -2,13 +2,15 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Sparkles, Send, Info, Loader2 } from 'lucide-react';
 import { Card } from '../../components/Card';
 import { Button } from '../../components/Button';
-import { User, ChatMessage, ClimateData } from '../../types';
-import { generateKarmaSystemInstruction } from '../../services/riasecService';
+import { User, ChatMessage, OrgNode } from '../../types';
+import { calculateOrgContext } from '../../services/riasecService';
 import { StepProgressBar } from '../../components/StepProgressBar';
 
 interface KarmaChatViewProps {
   user: User;
   onComplete: (transcript: ChatMessage[]) => Promise<void>;
+  orgStructure?: OrgNode;
+  allUsers?: User[];
 }
 
 // Helper to parse **bold** text inside chat messages
@@ -24,10 +26,11 @@ const renderMessageText = (text: string) => {
     );
 };
 
-// Streaming chat function using edge function
+// Streaming chat function using edge function with centralized bot config
 const streamKarmaChat = async (
   messages: { role: 'user' | 'assistant'; content: string }[],
-  systemPrompt: string,
+  botType: string,
+  profileData: Record<string, any>,
   onDelta: (delta: string) => void,
   onDone: () => void,
   onError: (error: string) => void
@@ -41,11 +44,19 @@ const streamKarmaChat = async (
         'Content-Type': 'application/json',
         Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
       },
-      body: JSON.stringify({ messages, systemPrompt }),
+      body: JSON.stringify({ messages, botType, profileData }),
     });
 
     if (!resp.ok) {
       const errorData = await resp.json().catch(() => ({}));
+      if (resp.status === 429) {
+        onError('Limite richieste superato. Riprova tra qualche secondo.');
+        return;
+      }
+      if (resp.status === 402) {
+        onError('Crediti AI esauriti. Contatta l\'amministratore.');
+        return;
+      }
       onError(errorData.error || 'Errore nella comunicazione con Karma AI');
       return;
     }
@@ -117,26 +128,55 @@ const streamKarmaChat = async (
   }
 };
 
-export const KarmaChatView: React.FC<KarmaChatViewProps> = ({ user, onComplete }) => {
+export const KarmaChatView: React.FC<KarmaChatViewProps> = ({ 
+  user, 
+  onComplete, 
+  orgStructure,
+  allUsers = []
+}) => {
   const [messages, setMessages] = useState<ChatMessage[]>(user.karmaData?.transcript || []);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [isClosing, setIsClosing] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  
-  // Store system prompt
-  const systemPromptRef = useRef<string>('');
+
+  // Build profile data with organizational context
+  const buildProfileData = () => {
+    // Calculate org context if structure is available
+    const orgContext = orgStructure 
+      ? calculateOrgContext(user, orgStructure, allUsers)
+      : null;
+
+    return {
+      firstName: user.firstName,
+      lastName: user.lastName,
+      profileCode: user.profileCode,
+      jobTitle: user.jobTitle,
+      // Organizational context
+      orgNodeName: orgContext?.orgNodeName,
+      orgNodeType: orgContext?.orgNodeType,
+      directReports: orgContext?.directReports,
+      teamSize: orgContext?.teamSize,
+      orgLevel: orgContext?.orgLevel,
+      isManager: orgContext?.isManager,
+      managerName: orgContext?.managerName,
+      // Climate data context
+      companyContext: user.climateData 
+        ? `Clima percepito: ${user.climateData.overallAverage.toFixed(1)}/5`
+        : undefined,
+    };
+  };
 
   // Initialize on mount
   useEffect(() => {
-    // Generate system instruction from RIASEC results AND climate data
-    systemPromptRef.current = user.results 
-      ? generateKarmaSystemInstruction(user.results, user.climateData) 
-      : "Sei un assistente HR esperto in colloqui di lavoro. Conduci un colloquio professionale per valutare soft skills e valori del candidato.";
-
     // If no messages, inject welcome message
     if (messages.length === 0) {
-      const welcomeText = `Ciao ${user.firstName || 'candidato'}, sono Karma. Ho analizzato il tuo profilo RIASEC (Codice: ${user.profileCode || 'N/A'}). 
+      const profileData = buildProfileData();
+      const orgInfo = profileData.isManager && profileData.directReports && profileData.directReports > 0
+        ? ` Vedo che operi in ${profileData.orgNodeName || 'azienda'} con ${profileData.directReports} collaboratori.`
+        : '';
+      
+      const welcomeText = `Ciao ${user.firstName || 'candidato'}, sono Karma. Ho analizzato il tuo profilo RIASEC (Codice: ${user.profileCode || 'N/A'}).${orgInfo}
             
 Il mio obiettivo è conoscerti meglio oltre i numeri. Vorrei farti qualche domanda sul tuo modo di lavorare e sulle tue esperienze passate.
 
@@ -150,7 +190,7 @@ Per iniziare: qual è stata la sfida professionale più complessa che hai affron
       };
       setMessages([welcomeMsg]);
     }
-  }, [user.results, user.firstName, user.profileCode]);
+  }, [user.firstName, user.profileCode]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -184,9 +224,13 @@ Per iniziare: qual è stata la sfida professionale più complessa che hai affron
     let assistantText = '';
     const assistantMsgId = (Date.now() + 1).toString();
 
+    // Build profile data with org context
+    const profileData = buildProfileData();
+
     await streamKarmaChat(
       apiMessages,
-      systemPromptRef.current,
+      'jnana', // Use jnana bot type for B2B
+      profileData,
       (delta) => {
         assistantText += delta;
         setMessages(prev => {
