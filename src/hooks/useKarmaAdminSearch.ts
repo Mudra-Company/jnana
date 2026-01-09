@@ -161,15 +161,19 @@ export const useKarmaAdminSearch = () => {
       const usersWithSkills = new Set(skillsCheck?.map(s => s.user_id) || []);
       const usersWithPortfolio = new Set(portfolioCheck?.map(p => p.user_id) || []);
 
+      // Create a Set of filtered IDs for performance (respects Jnana filter)
+      const filteredIdsSet = new Set(allProfileIds);
+
       // A profile is a "Karma profile" if:
-      // 1. is_karma_profile = true, OR
-      // 2. Has ANY Karma data (RIASEC, Karma session, skills, portfolio)
+      // 1. It's in the filtered IDs (respects profileSource filter), AND
+      // 2. is_karma_profile = true, OR has ANY Karma data (RIASEC, Karma session, skills, portfolio)
       const karmaProfiles = allProfiles?.filter(p => 
-        p.is_karma_profile === true ||
-        usersWithRiasec.has(p.id) ||
-        usersWithKarma.has(p.id) ||
-        usersWithSkills.has(p.id) ||
-        usersWithPortfolio.has(p.id)
+        filteredIdsSet.has(p.id) &&
+        (p.is_karma_profile === true ||
+         usersWithRiasec.has(p.id) ||
+         usersWithKarma.has(p.id) ||
+         usersWithSkills.has(p.id) ||
+         usersWithPortfolio.has(p.id))
       ) || [];
 
       const karmaProfileIds = karmaProfiles.map(p => p.id);
