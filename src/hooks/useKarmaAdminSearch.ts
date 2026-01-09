@@ -37,6 +37,7 @@ export interface KarmaSearchFilters {
   maxExperience?: number;
   workTypes?: WorkType[];
   seniorityLevels?: SeniorityLevel[];
+  profileSource?: 'karma' | 'jnana' | 'all'; // Filter by profile origin
 }
 
 export interface KarmaSearchResult {
@@ -78,6 +79,11 @@ export const useKarmaAdminSearch = () => {
         query = query.in('location', filters.locations);
       }
 
+      // Profile source filter - wants_karma_visibility for Karma talent pool
+      if (filters.profileSource === 'karma') {
+        query = query.eq('wants_karma_visibility', true);
+      }
+
       // Work type filter
       if (filters.workTypes && filters.workTypes.length > 0) {
         query = query.in('preferred_work_type', filters.workTypes);
@@ -99,7 +105,22 @@ export const useKarmaAdminSearch = () => {
       if (profilesError) throw profilesError;
 
       // Get all profile IDs to check for Karma data
-      const allProfileIds = allProfiles?.map(p => p.id) || [];
+      let allProfileIds = allProfiles?.map(p => p.id) || [];
+
+      // For Jnana filter, we need to get only users who belong to a company
+      let jnanaUserIds: Set<string> | null = null;
+      if (filters.profileSource === 'jnana' || filters.profileSource === 'all') {
+        const { data: companyMembers } = await supabase
+          .from('company_members')
+          .select('user_id')
+          .in('user_id', allProfileIds);
+        jnanaUserIds = new Set(companyMembers?.map(cm => cm.user_id) || []);
+        
+        if (filters.profileSource === 'jnana') {
+          // Only keep users who are company members
+          allProfileIds = allProfileIds.filter(id => jnanaUserIds!.has(id));
+        }
+      }
 
       if (allProfileIds.length === 0) {
         setResults([]);
@@ -262,6 +283,7 @@ export const useKarmaAdminSearch = () => {
             gender: p.gender as 'M' | 'F' | undefined,
             age: p.age || undefined,
             isKarmaProfile: p.is_karma_profile || false,
+            wantsKarmaVisibility: p.wants_karma_visibility || false,
             profileVisibility: (p.profile_visibility as 'private' | 'subscribers_only') || 'private',
             lookingForWork: p.looking_for_work || false,
             preferredWorkType: p.preferred_work_type as any,
@@ -269,6 +291,7 @@ export const useKarmaAdminSearch = () => {
             createdAt: p.created_at,
             updatedAt: p.updated_at,
             profileCode: riasec?.profile_code || undefined,
+            isJnanaUser: jnanaUserIds?.has(p.id) || false, // Track if user belongs to a company
             riasecScore: riasec ? {
               R: riasec.score_r,
               I: riasec.score_i,
