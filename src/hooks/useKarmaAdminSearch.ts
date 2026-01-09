@@ -109,16 +109,29 @@ export const useKarmaAdminSearch = () => {
 
       // For Jnana filter, we need to get only users who belong to a company
       let jnanaUserIds: Set<string> | null = null;
+      let userCompanyMap: Map<string, string> = new Map();
+      
       if (filters.profileSource === 'jnana' || filters.profileSource === 'all') {
         const { data: companyMembers } = await supabase
           .from('company_members')
-          .select('user_id')
+          .select('user_id, companies(name)')
           .in('user_id', allProfileIds);
+        
         jnanaUserIds = new Set(companyMembers?.map(cm => cm.user_id) || []);
         
+        // Map user_id to company name
+        companyMembers?.forEach(cm => {
+          if (cm.user_id) {
+            userCompanyMap.set(cm.user_id, (cm.companies as any)?.name || 'Azienda sconosciuta');
+          }
+        });
+        
         if (filters.profileSource === 'jnana') {
-          // Only keep users who are company members
-          allProfileIds = allProfileIds.filter(id => jnanaUserIds!.has(id));
+          // Only keep users who are company members AND do NOT have wants_karma_visibility = true
+          allProfileIds = allProfileIds.filter(id => {
+            const profile = allProfiles?.find(p => p.id === id);
+            return jnanaUserIds!.has(id) && !profile?.wants_karma_visibility;
+          });
         }
       }
 
@@ -292,6 +305,7 @@ export const useKarmaAdminSearch = () => {
             updatedAt: p.updated_at,
             profileCode: riasec?.profile_code || undefined,
             isJnanaUser: jnanaUserIds?.has(p.id) || false, // Track if user belongs to a company
+            companyName: userCompanyMap.get(p.id) || undefined, // Company name for Jnana users
             riasecScore: riasec ? {
               R: riasec.score_r,
               I: riasec.score_i,

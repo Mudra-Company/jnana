@@ -674,7 +674,7 @@ const ProfileRow: React.FC<{ result: KarmaSearchResult; onView: () => void }> = 
           {profile.isJnanaUser && (
             <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-xs rounded flex items-center gap-1">
               <Building2 className="w-3 h-3" />
-              Jnana
+              {profile.companyName || 'Jnana'}
             </span>
           )}
           {profile.profileVisibility === 'private' && (

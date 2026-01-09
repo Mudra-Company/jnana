@@ -168,6 +168,7 @@ export interface KarmaProfile {
   preferredWorkType?: WorkType;
   yearsExperience?: number;
   isJnanaUser?: boolean; // User belongs to a company (invited via Jnana)
+  companyName?: string; // Company name for Jnana users
   createdAt: string;
   updatedAt: string;
   
