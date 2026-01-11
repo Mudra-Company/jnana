@@ -32,6 +32,13 @@ export interface QuickMatchData {
   seniorityMatch: 'match' | 'above' | 'below';
 }
 
+// Manager fit breakdown for popover display
+export interface ManagerFitBreakdown {
+  managerId: string;
+  managerName: string;
+  score: number;
+}
+
 interface OrgNodeCardProps {
   node: OrgNode;
   users: User[];
@@ -41,20 +48,37 @@ interface OrgNodeCardProps {
   onSelectUserForComparison: (user: User) => void;
   onQuickMatchClick?: (matchData: QuickMatchData) => void;
   companyValues?: string[];
-  parentManager?: User;
+  parentManagers?: User[]; // Changed from parentManager to parentManagers (array)
   allHiringPositions?: User[]; // All open positions in the company
 }
 
-// Helper function to find the leader within a list of users
+// Helper function to find ALL leaders within a node (for Cultural Driver nodes, all users are leaders)
+const findNodeManagers = (nodeUsers: User[], node: OrgNode): User[] => {
+  // If the node is a Cultural Driver, ALL users in the node are leaders
+  if (node.isCulturalDriver) {
+    return nodeUsers.filter(u => !u.isHiring && (u.firstName || u.lastName));
+  }
+  
+  // Otherwise, find users with manager-like titles
+  const managers = nodeUsers.filter(u => 
+    !u.isHiring && 
+    (u.firstName || u.lastName) &&
+    (u.jobTitle?.toLowerCase().includes('head') || 
+     u.jobTitle?.toLowerCase().includes('manager') || 
+     u.jobTitle?.toLowerCase().includes('lead') || 
+     u.jobTitle?.toLowerCase().includes('director') ||
+     u.jobTitle?.toLowerCase().includes('ceo') ||
+     u.jobTitle?.toLowerCase().includes('ad'))
+  );
+  
+  // If no managers found, return empty array (fallback to first user if needed elsewhere)
+  return managers.length > 0 ? managers : [];
+};
+
+// Legacy helper for backward compatibility - returns first manager
 const findNodeManager = (nodeUsers: User[], node: OrgNode): User | undefined => {
-  return nodeUsers.find(u => 
-    u.jobTitle?.toLowerCase().includes('head') || 
-    u.jobTitle?.toLowerCase().includes('manager') || 
-    u.jobTitle?.toLowerCase().includes('lead') || 
-    u.jobTitle?.toLowerCase().includes('director') ||
-    u.jobTitle?.toLowerCase().includes('ceo') ||
-    u.jobTitle?.toLowerCase().includes('ad')
-  ) || nodeUsers.find(u => node.isCulturalDriver) || nodeUsers[0];
+  const managers = findNodeManagers(nodeUsers, node);
+  return managers[0] || nodeUsers.find(u => !u.isHiring && (u.firstName || u.lastName));
 };
 
 // Helper to get user status
@@ -125,17 +149,20 @@ export const OrgNodeCard: React.FC<OrgNodeCardProps> = ({
   onSelectUserForComparison,
   onQuickMatchClick,
   companyValues,
-  parentManager,
+  parentManagers = [], // Changed from parentManager to parentManagers
   allHiringPositions
 }) => {
+  // State for showing manager fit breakdown popover
+  const [showManagerBreakdown, setShowManagerBreakdown] = useState<string | null>(null);
+  
   // Find users BELONGING to this node
   const nodeUsers = users.filter(u => u.departmentId === node.id);
   
   // Find hiring positions in this node (users with isHiring = true)
   const hiringPositions = nodeUsers.filter(u => u.isHiring);
   
-  // Determine who is the "Leader" of THIS node
-  const currentNodeManager = findNodeManager(nodeUsers, node);
+  // Determine ALL "Leaders" of THIS node (for Cultural Driver nodes, all users are leaders)
+  const currentNodeManagers = findNodeManagers(nodeUsers, node);
 
   // Calculate Node Climate Average
   const nodeClimateScore = useMemo(() => {
@@ -349,9 +376,23 @@ export const OrgNodeCard: React.FC<OrgNodeCardProps> = ({
               if (cultureFitScore > 100) cultureFitScore = 100;
             }
 
-            // Manager Fit (Compatibility with PARENT NODE Manager)
-            const managerFitScore = parentManager ? calculateUserCompatibility(u, parentManager) : null;
-            const isInternalLeader = currentNodeManager?.id === u.id;
+            // Manager Fit (Average compatibility with ALL PARENT NODE Managers)
+            const managerFitBreakdown: ManagerFitBreakdown[] = parentManagers.length > 0
+              ? parentManagers
+                  .filter(pm => pm.profileCode) // Only managers with profile data
+                  .map(pm => ({
+                    managerId: pm.id,
+                    managerName: `${pm.firstName || ''} ${pm.lastName || ''}`.trim(),
+                    score: calculateUserCompatibility(u, pm)
+                  }))
+              : [];
+            
+            const managerFitScore = managerFitBreakdown.length > 0
+              ? Math.round(managerFitBreakdown.reduce((sum, m) => sum + m.score, 0) / managerFitBreakdown.length)
+              : null;
+            
+            // Check if this user is one of the leaders in this Cultural Driver node
+            const isInternalLeader = currentNodeManagers.some(m => m.id === u.id);
 
             // Calculate quick match if there are hiring positions (prefer global, fallback to node)
             const relevantHiringPositions = (allHiringPositions && allHiringPositions.length > 0) 
@@ -426,9 +467,14 @@ export const OrgNodeCard: React.FC<OrgNodeCardProps> = ({
                       <span className="text-xs text-gray-500">{cultureFitScore}%</span>
                     </div>
 
-                    {/* Manager Fit */}
-                    {parentManager && managerFitScore !== null && (
-                      <div className="flex items-center gap-2 ml-auto" title={`Compatibilità con ${parentManager.firstName} ${parentManager.lastName}`}>
+                    {/* Manager Fit with breakdown popover */}
+                    {parentManagers.length > 0 && managerFitScore !== null && (
+                      <div 
+                        className="flex items-center gap-2 ml-auto relative cursor-pointer"
+                        onMouseEnter={() => setShowManagerBreakdown(u.id)}
+                        onMouseLeave={() => setShowManagerBreakdown(null)}
+                        title={`Compatibilità Media Responsabili: ${managerFitScore}%`}
+                      >
                         <Handshake size={14} className={managerFitScore > 60 ? "text-green-500" : "text-gray-400"} />
                         <div className="w-16 h-2 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden">
                           <div 
@@ -437,10 +483,39 @@ export const OrgNodeCard: React.FC<OrgNodeCardProps> = ({
                           />
                         </div>
                         <span className="text-xs text-gray-500">{managerFitScore}%</span>
+                        
+                        {/* Breakdown Popover */}
+                        {showManagerBreakdown === u.id && managerFitBreakdown.length > 1 && (
+                          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-50 bg-white dark:bg-gray-800 shadow-lg rounded-lg border border-gray-200 dark:border-gray-700 p-3 min-w-[200px]">
+                            <div className="text-xs font-bold text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-1">
+                              <Handshake size={12}/> Compatibilità Responsabili
+                            </div>
+                            <div className="space-y-2">
+                              {managerFitBreakdown.map(mb => (
+                                <div key={mb.managerId} className="flex items-center justify-between gap-2">
+                                  <span className="text-xs text-gray-600 dark:text-gray-400 truncate max-w-[120px]">
+                                    {mb.managerName}
+                                  </span>
+                                  <span className={`text-xs font-bold ${mb.score > 70 ? 'text-green-600' : mb.score > 40 ? 'text-yellow-600' : 'text-red-600'}`}>
+                                    {mb.score}%
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                            <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between">
+                              <span className="text-xs font-bold text-gray-700 dark:text-gray-300">Media</span>
+                              <span className={`text-xs font-bold ${managerFitScore > 70 ? 'text-green-600' : managerFitScore > 40 ? 'text-yellow-600' : 'text-red-600'}`}>
+                                {managerFitScore}%
+                              </span>
+                            </div>
+                            {/* Arrow pointing down */}
+                            <div className="absolute top-full left-1/2 -translate-x-1/2 border-8 border-transparent border-t-white dark:border-t-gray-800"></div>
+                          </div>
+                        )}
                       </div>
                     )}
                     
-                    {/* Leader badge */}
+                    {/* Leader badge - show for ALL users in Cultural Driver node */}
                     {isInternalLeader && node.isCulturalDriver && (
                       <span className="ml-auto flex items-center gap-1 text-xs font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 px-2 py-0.5 rounded-full">
                         <Crown size={12}/> LEADER
@@ -462,5 +537,5 @@ export const OrgNodeCard: React.FC<OrgNodeCardProps> = ({
   );
 };
 
-// Export the helper function for use in parent components
-export { findNodeManager };
+// Export both helper functions for use in parent components
+export { findNodeManager, findNodeManagers };
