@@ -40,7 +40,7 @@ import { useCompanyMembers } from '../../src/hooks/useCompanyMembers';
 import { useTalentSearch } from '../../src/hooks/useTalentSearch';
 
 import { toast } from '../../src/hooks/use-toast';
-import { OrgNodeCard, findNodeManager, QuickMatchData } from './OrgNodeCard';
+import { OrgNodeCard, findNodeManager, findNodeManagers, QuickMatchData } from './OrgNodeCard';
 import { getMatchQuality } from '../../src/utils/matchingEngine';
 import { MatchScorePopover, MatchBreakdown } from '../../src/components/shortlist/MatchScorePopover';
 
@@ -1367,19 +1367,19 @@ const renderOrgTreeChildren = (
     onInviteUser: (nodeId: string) => void,
     onSelectUserForComparison: (user: User) => void,
     companyValues?: string[],
-    parentManager?: User,
+    parentManagers?: User[], // Changed from parentManager to parentManagers (array)
     onQuickMatchClick?: (matchData: QuickMatchData) => void,
     allHiringPositions?: User[]
 ): React.ReactNode => {
     if (!node.children || node.children.length === 0) return null;
 
-    // Find current node's manager to pass to children
+    // Find ALL managers in current node to pass to children (for Cultural Driver nodes, all users are managers)
     const nodeUsers = users.filter(u => u.departmentId === node.id);
-    const currentManager = findNodeManager(nodeUsers, node);
+    const currentManagers = findNodeManagers(nodeUsers, node);
 
     return node.children.map(child => {
         const childNodeUsers = users.filter(u => u.departmentId === child.id);
-        const childManager = findNodeManager(childNodeUsers, child);
+        const childManagers = findNodeManagers(childNodeUsers, child);
 
         return (
             <React.Fragment key={child.id}>
@@ -1395,7 +1395,7 @@ const renderOrgTreeChildren = (
                                 onSelectUserForComparison={onSelectUserForComparison}
                                 onQuickMatchClick={onQuickMatchClick}
                                 companyValues={companyValues}
-                                parentManager={currentManager}
+                                parentManagers={currentManagers}
                                 allHiringPositions={allHiringPositions}
                             />
                         </div>
@@ -1409,7 +1409,7 @@ const renderOrgTreeChildren = (
                         onInviteUser,
                         onSelectUserForComparison,
                         companyValues,
-                        childManager,
+                        childManagers,
                         onQuickMatchClick,
                         allHiringPositions
                     )}
@@ -1838,13 +1838,13 @@ export const CompanyOrgView: React.FC<{
                                     onSelectUserForComparison={setSelectedUserForComparison}
                                     onQuickMatchClick={handleQuickMatchClick}
                                     companyValues={company.cultureValues}
-                                    parentManager={undefined}
+                                    parentManagers={[]}
                                     allHiringPositions={allHiringPositions}
                                 />
                             </div>
                         }
                     >
-                        {renderOrgTreeChildren(company.structure, users, handleAddNode, setEditingNode, setInviteNodeId, setSelectedUserForComparison, company.cultureValues, undefined, handleQuickMatchClick, allHiringPositions)}
+                        {renderOrgTreeChildren(company.structure, users, handleAddNode, setEditingNode, setInviteNodeId, setSelectedUserForComparison, company.cultureValues, [], handleQuickMatchClick, allHiringPositions)}
                     </Tree>
                 </div>
             </div>

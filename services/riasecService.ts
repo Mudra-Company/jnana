@@ -435,29 +435,78 @@ export const calculateLeadershipAnalytics = (company: CompanyProfile, users: Use
     let highCount = 0;
     const teamStats: any[] = [];
 
-    const traverse = (node: OrgNode, parentManager?: User) => {
+    // Helper to find ALL managers in a node (for Cultural Driver nodes, all users are managers)
+    const findNodeManagers = (nodeUsers: User[], node: OrgNode): User[] => {
+        if (node.isCulturalDriver) {
+            return nodeUsers.filter(u => !u.isHiring && (u.firstName || u.lastName) && u.profileCode);
+        }
+        const managers = nodeUsers.filter(u => 
+            !u.isHiring && 
+            (u.firstName || u.lastName) &&
+            u.profileCode &&
+            (u.jobTitle?.toLowerCase().includes('head') || 
+             u.jobTitle?.toLowerCase().includes('manager') || 
+             u.jobTitle?.toLowerCase().includes('lead') || 
+             u.jobTitle?.toLowerCase().includes('director') ||
+             u.jobTitle?.toLowerCase().includes('ceo') ||
+             u.jobTitle?.toLowerCase().includes('ad'))
+        );
+        return managers.length > 0 ? managers : nodeUsers.filter(u => u.profileCode).slice(0, 1);
+    };
+
+    const traverse = (node: OrgNode, parentManagers: User[]) => {
         const nodeUsers = users.filter(u => u.departmentId === node.id);
-        const currentNodeManager = nodeUsers.find(u => u.jobTitle?.toLowerCase().includes('manager')) || nodeUsers[0];
-        if (parentManager) {
+        const currentNodeManagers = findNodeManagers(nodeUsers, node);
+        
+        if (parentManagers.length > 0) {
             let teamTotal = 0;
             let teamCount = 0;
+            
             nodeUsers.forEach(user => {
-                if (user.id !== parentManager.id && user.profileCode && parentManager.profileCode) {
-                    const score = calculateUserCompatibility(user, parentManager);
-                    totalScore += score;
+                // Skip if user is one of the parent managers
+                if (parentManagers.some(pm => pm.id === user.id)) return;
+                if (!user.profileCode) return;
+                
+                // Calculate average compatibility with ALL parent managers
+                const managerScores = parentManagers
+                    .filter(pm => pm.profileCode)
+                    .map(pm => calculateUserCompatibility(user, pm));
+                
+                if (managerScores.length > 0) {
+                    const avgScore = Math.round(managerScores.reduce((a, b) => a + b, 0) / managerScores.length);
+                    totalScore += avgScore;
                     pairsCount++;
-                    teamTotal += score;
+                    teamTotal += avgScore;
                     teamCount++;
-                    if (score >= 70) highCount++;
-                    else if (score >= 40) medCount++;
+                    
+                    if (avgScore >= 70) highCount++;
+                    else if (avgScore >= 40) medCount++;
                     else lowCount++;
                 }
             });
-            if (teamCount > 0) teamStats.push({ teamName: node.name, managerName: parentManager.firstName, averageFit: teamTotal / teamCount, status: (teamTotal/teamCount) >= 70 ? 'High' : 'Low' });
+            
+            if (teamCount > 0) {
+                // Show ALL manager names, not just the first one
+                const managerNames = parentManagers
+                    .filter(pm => pm.firstName || pm.lastName)
+                    .map(pm => pm.firstName || pm.lastName)
+                    .join(', ');
+                    
+                teamStats.push({ 
+                    teamName: node.name, 
+                    managerName: managerNames, // Changed: now shows all manager names
+                    managerCount: parentManagers.length, // NEW: number of managers
+                    averageFit: teamTotal / teamCount, 
+                    status: (teamTotal/teamCount) >= 70 ? 'High' : 'Low' 
+                });
+            }
         }
-        node.children.forEach(child => traverse(child, currentNodeManager));
+        
+        // Pass current node's managers as parent managers for children
+        node.children.forEach(child => traverse(child, currentNodeManagers));
     };
-    traverse(company.structure, undefined);
+    
+    traverse(company.structure, []);
 
     return {
         globalAlignmentIndex: pairsCount > 0 ? Math.round(totalScore / pairsCount) : 0,
@@ -478,6 +527,7 @@ export interface OrgContext {
   orgLevel: number;
   isManager: boolean;
   managerName: string | null;
+  managerNames: string[]; // NEW: All manager names for multi-manager support
 }
 
 /**
@@ -498,6 +548,7 @@ export const calculateOrgContext = (
     orgLevel: 0,
     isManager: false,
     managerName: null,
+    managerNames: [],
   };
 
   if (!user.departmentId) return defaultContext;
@@ -547,8 +598,59 @@ export const calculateOrgContext = (
      user.jobTitle?.toLowerCase().includes('cfo') ||
      user.jobTitle?.toLowerCase().includes('lead')) || false;
 
-  // Find manager (user in parent node)
-  const manager = findManagerForUser(user, orgStructure, allUsers);
+  // Find ALL managers in parent node
+  const findParentNodeManagers = (): User[] => {
+    if (!user.departmentId || orgStructure.id === user.departmentId) return [];
+    
+    const findParentId = (node: OrgNode, targetId: string): string | null => {
+      for (const child of node.children) {
+        if (child.id === targetId) return node.id;
+        const res = findParentId(child, targetId);
+        if (res) return res;
+      }
+      return null;
+    };
+    
+    const parentId = findParentId(orgStructure, user.departmentId);
+    if (!parentId) return [];
+    
+    const parentNode = (() => {
+      const findNode = (node: OrgNode): OrgNode | null => {
+        if (node.id === parentId) return node;
+        for (const child of node.children) {
+          const found = findNode(child);
+          if (found) return found;
+        }
+        return null;
+      };
+      return findNode(orgStructure);
+    })();
+    
+    const parentNodeUsers = allUsers.filter(u => u.departmentId === parentId);
+    
+    // If parent node is a Cultural Driver, all users are managers
+    if (parentNode?.isCulturalDriver) {
+      return parentNodeUsers.filter(u => !u.isHiring && (u.firstName || u.lastName));
+    }
+    
+    // Otherwise, find users with manager-like titles
+    const managers = parentNodeUsers.filter(u =>
+      !u.isHiring && 
+      (u.firstName || u.lastName) &&
+      (u.jobTitle?.toLowerCase().includes('manager') || 
+       u.jobTitle?.toLowerCase().includes('head') || 
+       u.jobTitle?.toLowerCase().includes('director') ||
+       u.jobTitle?.toLowerCase().includes('ceo') ||
+       u.jobTitle?.toLowerCase().includes('ad'))
+    );
+    
+    return managers.length > 0 ? managers : parentNodeUsers.slice(0, 1);
+  };
+
+  const parentManagers = findParentNodeManagers();
+  const managerNames = parentManagers
+    .filter(pm => pm.firstName || pm.lastName)
+    .map(pm => `${pm.firstName || ''} ${pm.lastName || ''}`.trim());
 
   return {
     orgNodeName: foundNode.name,
@@ -557,6 +659,7 @@ export const calculateOrgContext = (
     teamSize,
     orgLevel: nodeLevel,
     isManager,
-    managerName: manager ? `${manager.firstName} ${manager.lastName}`.trim() : null,
+    managerName: managerNames.length > 0 ? managerNames.join(', ') : null,
+    managerNames,
   };
 };
