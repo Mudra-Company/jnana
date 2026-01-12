@@ -40,9 +40,10 @@ import { useCompanyMembers } from '../../src/hooks/useCompanyMembers';
 import { useTalentSearch } from '../../src/hooks/useTalentSearch';
 
 import { toast } from '../../src/hooks/use-toast';
-import { OrgNodeCard, findNodeManager, findNodeManagers, QuickMatchData } from './OrgNodeCard';
+import { OrgNodeCard, findNodeManager, findNodeManagers, EmployeeProfileData } from './OrgNodeCard';
 import { getMatchQuality } from '../../src/utils/matchingEngine';
 import { MatchScorePopover, MatchBreakdown } from '../../src/components/shortlist/MatchScorePopover';
+import { EmployeeProfilePopover } from '../../src/components/shortlist/EmployeeProfilePopover';
 
 const SENIORITY_OPTIONS: SeniorityLevel[] = ['Junior', 'Mid', 'Senior', 'Lead', 'C-Level'];
 const SENIORITY_LEVELS: Record<SeniorityLevel, number> = { 'Junior': 1, 'Mid': 2, 'Senior': 3, 'Lead': 4, 'C-Level': 5 };
@@ -237,6 +238,7 @@ const RoleComparisonModal: React.FC<RoleComparisonModalProps> = ({
   const { candidates: externalCandidates, isLoading: externalLoading, searchCandidates } = useTalentSearch();
   
   const [showExternalSection, setShowExternalSection] = useState(false);
+  const [showInternalSection, setShowInternalSection] = useState(false); // Internal candidates collapsed by default
   
   // Popover state for showing match breakdown
   const [popoverData, setPopoverData] = useState<{
@@ -499,14 +501,26 @@ const RoleComparisonModal: React.FC<RoleComparisonModalProps> = ({
         {/* INTERNAL CANDIDATES SECTION (only for HIRING slots) */}
         {isHiringSlot && internalCandidates.length > 0 && (
           <div className="mb-4 p-4 bg-gradient-to-br from-purple-50 to-indigo-50 dark:from-purple-900/20 dark:to-indigo-900/20 rounded-xl border border-purple-100 dark:border-purple-800">
-            <label className="block text-sm font-bold text-purple-700 dark:text-purple-300 mb-3 flex items-center gap-2">
-              <Shuffle size={16}/> Candidati Interni (Job Rotation)
-            </label>
-            <p className="text-xs text-purple-600 dark:text-purple-400 mb-3">
-              Migliori match interni per questo ruolo:
-            </p>
+            <div className="flex items-center justify-between mb-3">
+              <label className="text-sm font-bold text-purple-700 dark:text-purple-300 flex items-center gap-2">
+                <Shuffle size={16}/> Candidati Interni (Job Rotation)
+                <span className="text-xs font-normal bg-purple-100 dark:bg-purple-800 px-2 py-0.5 rounded-full">{internalCandidates.length}</span>
+              </label>
+              <button 
+                onClick={() => setShowInternalSection(!showInternalSection)}
+                className="text-xs text-purple-600 dark:text-purple-400 hover:underline"
+              >
+                {showInternalSection ? 'Nascondi' : 'Mostra candidati'}
+              </button>
+            </div>
             
-            <div className="space-y-2">
+            {showInternalSection && (
+              <>
+                <p className="text-xs text-purple-600 dark:text-purple-400 mb-3">
+                  Migliori match interni per questo ruolo:
+                </p>
+            
+                <div className="space-y-2">
               {internalCandidates.map((candidate, index) => {
                 // Build breakdown for internal candidate
                 const internalBreakdown: MatchBreakdown = {
@@ -572,6 +586,8 @@ const RoleComparisonModal: React.FC<RoleComparisonModalProps> = ({
                 );
               })}
             </div>
+              </>
+            )}
           </div>
         )}
         
@@ -1368,7 +1384,7 @@ const renderOrgTreeChildren = (
     onSelectUserForComparison: (user: User) => void,
     companyValues?: string[],
     parentManagers?: User[], // Changed from parentManager to parentManagers (array)
-    onQuickMatchClick?: (matchData: QuickMatchData) => void,
+    onEmployeeProfileClick?: (profileData: EmployeeProfileData) => void,
     allHiringPositions?: User[]
 ): React.ReactNode => {
     if (!node.children || node.children.length === 0) return null;
@@ -1393,7 +1409,7 @@ const renderOrgTreeChildren = (
                                 onEditNode={onEditNode}
                                 onInviteUser={onInviteUser}
                                 onSelectUserForComparison={onSelectUserForComparison}
-                                onQuickMatchClick={onQuickMatchClick}
+                                onEmployeeProfileClick={onEmployeeProfileClick}
                                 companyValues={companyValues}
                                 parentManagers={currentManagers}
                                 allHiringPositions={allHiringPositions}
@@ -1410,7 +1426,7 @@ const renderOrgTreeChildren = (
                         onSelectUserForComparison,
                         companyValues,
                         childManagers,
-                        onQuickMatchClick,
+                        onEmployeeProfileClick,
                         allHiringPositions
                     )}
                 </TreeNode>
@@ -1438,11 +1454,8 @@ export const CompanyOrgView: React.FC<{
     // State for InviteToSlotModal (simplified invite for existing slots)
     const [inviteToSlotUser, setInviteToSlotUser] = useState<User | null>(null);
     
-    // State for QuickMatch popover (from org chart)
-    const [quickMatchPopover, setQuickMatchPopover] = useState<{
-        matchData: QuickMatchData;
-        breakdown: MatchBreakdown;
-    } | null>(null);
+    // State for Employee Profile popover (from org chart click on regular employees)
+    const [employeeProfilePopover, setEmployeeProfilePopover] = useState<EmployeeProfileData | null>(null);
     
     // Required Profile state for new member
     const [inviteHardSkills, setInviteHardSkills] = useState<string[]>([]);
@@ -1458,19 +1471,9 @@ export const CompanyOrgView: React.FC<{
     // Calculate all hiring positions in the company
     const allHiringPositions = useMemo(() => users.filter(u => u.isHiring), [users]);
 
-    // Handle quick match click from org chart
-    const handleQuickMatchClick = (matchData: QuickMatchData) => {
-        const breakdown: MatchBreakdown = {
-            totalScore: matchData.matchScore,
-            softSkillsMatched: matchData.softSkillsMatched,
-            softSkillsMissing: matchData.softSkillsMissing,
-            seniorityMatch: matchData.seniorityMatch,
-            candidateSeniority: matchData.user.karmaData?.seniorityAssessment as string | undefined,
-            requiredSeniority: matchData.hiringPosition.requiredProfile?.seniority,
-            candidateProfileCode: matchData.user.profileCode,
-            targetProfileCode: matchData.hiringPosition.requiredProfile?.seniority ? `${matchData.hiringPosition.requiredProfile.seniority}` : undefined,
-        };
-        setQuickMatchPopover({ matchData, breakdown });
+    // Handle employee profile click from org chart (for regular employees, not hiring positions)
+    const handleEmployeeProfileClick = (profileData: EmployeeProfileData) => {
+        setEmployeeProfilePopover(profileData);
     };
 
     // Handle inviting a person to an existing slot (simplified modal)
@@ -1836,7 +1839,7 @@ export const CompanyOrgView: React.FC<{
                                     onEditNode={setEditingNode}
                                     onInviteUser={(nodeId) => setInviteNodeId(nodeId)}
                                     onSelectUserForComparison={setSelectedUserForComparison}
-                                    onQuickMatchClick={handleQuickMatchClick}
+                                    onEmployeeProfileClick={handleEmployeeProfileClick}
                                     companyValues={company.cultureValues}
                                     parentManagers={[]}
                                     allHiringPositions={allHiringPositions}
@@ -1844,7 +1847,7 @@ export const CompanyOrgView: React.FC<{
                             </div>
                         }
                     >
-                        {renderOrgTreeChildren(company.structure, users, handleAddNode, setEditingNode, setInviteNodeId, setSelectedUserForComparison, company.cultureValues, [], handleQuickMatchClick, allHiringPositions)}
+                        {renderOrgTreeChildren(company.structure, users, handleAddNode, setEditingNode, setInviteNodeId, setSelectedUserForComparison, company.cultureValues, [], handleEmployeeProfileClick, allHiringPositions)}
                     </Tree>
                 </div>
             </div>
@@ -2025,23 +2028,33 @@ export const CompanyOrgView: React.FC<{
                     onClose={() => setEditingNode(null)} 
                 />
             )}
-            {quickMatchPopover && (
-                <MatchScorePopover
+            {employeeProfilePopover && (
+                <EmployeeProfilePopover
                     isOpen={true}
-                    onClose={() => setQuickMatchPopover(null)}
-                    candidateName={`${quickMatchPopover.matchData.user.firstName || ''} ${quickMatchPopover.matchData.user.lastName || ''}`.trim() || 'Candidato'}
-                    candidateType="internal"
-                    breakdown={quickMatchPopover.breakdown}
-                    isInShortlist={false}
-                    onAddToShortlist={() => {
-                        // Open comparison modal for shortlist actions
-                        setSelectedUserForComparison(quickMatchPopover.matchData.user);
-                        setQuickMatchPopover(null);
+                    onClose={() => setEmployeeProfilePopover(null)}
+                    user={employeeProfilePopover.user}
+                    metrics={{
+                        roleFitScore: employeeProfilePopover.roleFitScore,
+                        softSkillsMatched: employeeProfilePopover.softSkillsMatched,
+                        softSkillsMissing: employeeProfilePopover.softSkillsMissing,
+                        hardSkillsRequired: employeeProfilePopover.hardSkillsRequired,
+                        seniorityMatch: employeeProfilePopover.seniorityMatch,
+                        userSeniority: employeeProfilePopover.userSeniority,
+                        requiredSeniority: employeeProfilePopover.requiredSeniority,
+                        managerFitScore: employeeProfilePopover.managerFitScore,
+                        managerFitBreakdown: employeeProfilePopover.managerFitBreakdown,
+                        cultureFitScore: employeeProfilePopover.cultureFitScore,
                     }}
-                    onViewProfile={() => {
-                        onViewUser(quickMatchPopover.matchData.user.id);
-                        setQuickMatchPopover(null);
+                    companyValues={company.cultureValues}
+                    onViewFullProfile={() => {
+                        onViewUser(employeeProfilePopover.user.id);
+                        setEmployeeProfilePopover(null);
                     }}
+                    onProposeJobRotation={allHiringPositions.length > 0 ? () => {
+                        // Open comparison modal to see job rotation options
+                        setSelectedUserForComparison(employeeProfilePopover.user);
+                        setEmployeeProfilePopover(null);
+                    } : undefined}
                 />
             )}
         </div>
