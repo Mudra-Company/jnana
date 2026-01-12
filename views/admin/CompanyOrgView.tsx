@@ -2044,6 +2044,7 @@ export const CompanyOrgView: React.FC<{
                         managerFitScore: employeeProfilePopover.managerFitScore,
                         managerFitBreakdown: employeeProfilePopover.managerFitBreakdown,
                         cultureFitScore: employeeProfilePopover.cultureFitScore,
+                        userHardSkills: employeeProfilePopover.userHardSkills || [],
                     }}
                     companyValues={company.cultureValues}
                     onViewFullProfile={() => {
