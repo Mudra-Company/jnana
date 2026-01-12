@@ -9,7 +9,8 @@ import { Card } from '../../components/Card';
 import { useKarmaProfile } from '../../src/hooks/useKarmaProfile';
 import { useHardSkillsCatalog } from '../../src/hooks/useHardSkillsCatalog';
 import { PortfolioManager } from '../../src/components/karma/PortfolioManager';
-import { CVImportBanner } from '../../src/components/karma/CVImportBanner';
+import { CVImportBanner, CVParsedData } from '../../src/components/karma/CVImportBanner';
+import { CVMergePreviewModal, SelectedMergeData } from '../../src/components/karma/CVMergePreviewModal';
 import { ExperienceManager } from '../../src/components/karma/ExperienceManager';
 import { EducationManager } from '../../src/components/karma/EducationManager';
 import { CertificationManager } from '../../src/components/karma/CertificationManager';
@@ -83,6 +84,11 @@ export const KarmaProfileEdit: React.FC<KarmaProfileEditProps> = ({ onBack, onSa
   const [showCVBanner, setShowCVBanner] = useState(true);
   const initialFormData = useRef<typeof formData | null>(null);
   const [isDirty, setIsDirty] = useState(false);
+  
+  // CV Merge Modal state
+  const [showMergeModal, setShowMergeModal] = useState(false);
+  const [pendingCVData, setPendingCVData] = useState<CVParsedData | null>(null);
+  const [isImportingMerge, setIsImportingMerge] = useState(false);
 
   useEffect(() => {
     if (profile) {
@@ -243,6 +249,78 @@ export const KarmaProfileEdit: React.FC<KarmaProfileEditProps> = ({ onBack, onSa
     }
   };
 
+  // Handle CV preview for merge modal (when profile has existing data)
+  const handleCVPreview = (data: CVParsedData) => {
+    // Update profile data immediately
+    if (data.profileData) {
+      setFormData(prev => ({
+        ...prev,
+        firstName: data.profileData?.firstName || prev.firstName,
+        lastName: data.profileData?.lastName || prev.lastName,
+        headline: data.profileData?.headline || prev.headline,
+        bio: data.profileData?.bio || prev.bio,
+        location: data.profileData?.location || prev.location,
+        yearsExperience: data.profileData?.yearsExperience || prev.yearsExperience,
+      }));
+    }
+    
+    // Show merge modal for experiences, education, etc.
+    setPendingCVData(data);
+    setShowMergeModal(true);
+  };
+
+  // Handle merge confirmation
+  const handleMergeConfirm = async (selectedData: SelectedMergeData) => {
+    setIsImportingMerge(true);
+    try {
+      // Save profile data
+      if (pendingCVData?.profileData) {
+        await updateProfile({
+          firstName: pendingCVData.profileData.firstName || formData.firstName,
+          lastName: pendingCVData.profileData.lastName || formData.lastName,
+          headline: pendingCVData.profileData.headline || formData.headline,
+          bio: pendingCVData.profileData.bio || formData.bio,
+          location: pendingCVData.profileData.location || formData.location,
+          yearsExperience: pendingCVData.profileData.yearsExperience || formData.yearsExperience,
+        });
+      }
+      
+      // Import only selected items
+      await importFromCV({
+        experiences: selectedData.experiences,
+        education: selectedData.education,
+        certifications: selectedData.certifications,
+        languages: selectedData.languages,
+        skills: selectedData.skills,
+      });
+      
+      // Count imported items
+      const totalImported = 
+        selectedData.experiences.length + 
+        selectedData.education.length + 
+        selectedData.certifications.length + 
+        selectedData.languages.length + 
+        selectedData.skills.length;
+      
+      toast({
+        title: "Dati importati!",
+        description: `${totalImported} elementi sono stati aggiunti al tuo profilo.`,
+      });
+      
+      setShowMergeModal(false);
+      setPendingCVData(null);
+    } catch (error) {
+      console.error('Merge error:', error);
+      toast({
+        title: "Errore",
+        description: "Impossibile importare i dati selezionati.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsImportingMerge(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -372,47 +450,13 @@ export const KarmaProfileEdit: React.FC<KarmaProfileEditProps> = ({ onBack, onSa
                 Carica una foto professionale. Formati accettati: JPG, PNG.
               </p>
               
-              {/* CV Re-upload option for existing profiles */}
+              {/* CV Re-upload option for existing profiles - uses merge modal */}
               {(experiences.length > 0 || education.length > 0 || hardSkills.length > 0) && (
                 <CVImportBanner
                   mode="compact"
                   onUploadFile={(file) => uploadPortfolioFile(file, 'cv')}
                   onAddPortfolioItem={addPortfolioItem}
-                  onImportComplete={async (data) => {
-                    // Update local form state
-                    if (data.profileData) {
-                      const newFormData = {
-                        firstName: data.profileData?.firstName || formData.firstName,
-                        lastName: data.profileData?.lastName || formData.lastName,
-                        headline: data.profileData?.headline || formData.headline,
-                        bio: data.profileData?.bio || formData.bio,
-                        location: data.profileData?.location || formData.location,
-                        yearsExperience: data.profileData?.yearsExperience || formData.yearsExperience,
-                        lookingForWork: formData.lookingForWork,
-                        preferredWorkType: formData.preferredWorkType,
-                      };
-                      setFormData(newFormData);
-                      
-                      // Auto-save profile data to database
-                      await updateProfile({
-                        firstName: newFormData.firstName,
-                        lastName: newFormData.lastName,
-                        headline: newFormData.headline,
-                        bio: newFormData.bio,
-                        location: newFormData.location,
-                        yearsExperience: newFormData.yearsExperience,
-                      });
-                    }
-                    
-                    // Import experiences, education, certifications, languages, skills
-                    await importFromCV({
-                      experiences: data.experiences,
-                      education: data.education,
-                      certifications: data.certifications,
-                      languages: data.languages,
-                      skills: data.skills,
-                    });
-                  }}
+                  onPreviewData={handleCVPreview}
                 />
               )}
             </div>
@@ -707,6 +751,31 @@ export const KarmaProfileEdit: React.FC<KarmaProfileEditProps> = ({ onBack, onSa
           </div>
         </Card>
       </div>
+      
+      {/* CV Merge Preview Modal */}
+      <CVMergePreviewModal
+        isOpen={showMergeModal}
+        onClose={() => {
+          setShowMergeModal(false);
+          setPendingCVData(null);
+        }}
+        parsedData={pendingCVData ? {
+          experiences: pendingCVData.experiences || [],
+          education: pendingCVData.education || [],
+          certifications: pendingCVData.certifications || [],
+          languages: pendingCVData.languages || [],
+          skills: pendingCVData.skills || [],
+        } : { experiences: [], education: [], certifications: [], languages: [], skills: [] }}
+        existingData={{
+          experiences,
+          education,
+          certifications,
+          languages,
+          hardSkills,
+        }}
+        onConfirm={handleMergeConfirm}
+        isImporting={isImportingMerge}
+      />
     </div>
   );
 };

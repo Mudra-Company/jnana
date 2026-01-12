@@ -4,25 +4,31 @@ import { Button } from '../../../components/Button';
 import { supabase } from '../../integrations/supabase/client';
 import type { ParsedCVData, UserExperience, UserEducation, UserCertification, UserLanguage } from '../../types/karma';
 
+export interface CVParsedData {
+  profileData?: Partial<{ firstName: string; lastName: string; headline: string; bio: string; location: string; yearsExperience: number }>;
+  experiences: Omit<UserExperience, 'id' | 'userId' | 'createdAt'>[];
+  education: Omit<UserEducation, 'id' | 'userId' | 'createdAt'>[];
+  certifications: Omit<UserCertification, 'id' | 'userId' | 'createdAt'>[];
+  languages: Omit<UserLanguage, 'id' | 'userId' | 'createdAt'>[];
+  skills: string[];
+}
+
 interface CVImportBannerProps {
   mode?: 'full' | 'compact';
-  onImportComplete: (data: {
-    profileData?: Partial<{ firstName: string; lastName: string; headline: string; bio: string; location: string; yearsExperience: number }>;
-    experiences?: Omit<UserExperience, 'id' | 'userId' | 'createdAt'>[];
-    education?: Omit<UserEducation, 'id' | 'userId' | 'createdAt'>[];
-    certifications?: Omit<UserCertification, 'id' | 'userId' | 'createdAt'>[];
-    languages?: Omit<UserLanguage, 'id' | 'userId' | 'createdAt'>[];
-    skills?: string[];
-  }) => Promise<void>;
+  // Legacy: direct import (used for first-time profiles with no existing data)
+  onImportComplete?: (data: CVParsedData) => Promise<void>;
+  // NEW: Preview mode - pass parsed data for merge modal
+  onPreviewData?: (data: CVParsedData) => void;
   onSkip?: () => void;
-  // NEW: Props for uploading CV to portfolio
+  // Props for uploading CV to portfolio
   onUploadFile?: (file: File) => Promise<string | null>;
   onAddPortfolioItem?: (item: { itemType: 'cv'; title: string; description?: string; fileUrl?: string; sortOrder: number }) => Promise<any>;
 }
 
 export const CVImportBanner: React.FC<CVImportBannerProps> = ({ 
   mode = 'full', 
-  onImportComplete, 
+  onImportComplete,
+  onPreviewData,
   onSkip,
   onUploadFile,
   onAddPortfolioItem,
@@ -147,6 +153,23 @@ export const CVImportBanner: React.FC<CVImportBannerProps> = ({
         proficiency: 'professional' as const,
       }));
 
+      // Build the parsed data object
+      const parsedDataObj: CVParsedData = {
+        profileData: {
+          firstName: parsed.firstName,
+          lastName: parsed.lastName,
+          headline: parsed.headline,
+          bio: parsed.bio,
+          location: parsed.location,
+          yearsExperience: parsed.yearsExperience,
+        },
+        experiences,
+        education,
+        certifications,
+        languages,
+        skills: parsed.skills || [],
+      };
+
       setStatus('done');
 
       // Save CV to portfolio if handlers are provided
@@ -164,26 +187,16 @@ export const CVImportBanner: React.FC<CVImportBannerProps> = ({
           }
         } catch (portfolioError) {
           console.error('Failed to save CV to portfolio:', portfolioError);
-          // Don't fail the whole import, just log the error
         }
       }
 
-      // Call the onImportComplete with all data
-      await onImportComplete({
-        profileData: {
-          firstName: parsed.firstName,
-          lastName: parsed.lastName,
-          headline: parsed.headline,
-          bio: parsed.bio,
-          location: parsed.location,
-          yearsExperience: parsed.yearsExperience,
-        },
-        experiences,
-        education,
-        certifications,
-        languages,
-        skills: parsed.skills,
-      });
+      // If preview mode, pass data to parent for merge modal
+      if (onPreviewData) {
+        onPreviewData(parsedDataObj);
+      } else if (onImportComplete) {
+        // Legacy: direct import
+        await onImportComplete(parsedDataObj);
+      }
 
     } catch (err: any) {
       console.error('CV parse error:', err);
