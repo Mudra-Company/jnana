@@ -655,6 +655,22 @@ export const useKarmaProfile = (userId?: string) => {
       return null;
     }
     
+    // Handle MM/YYYY format (e.g., "09/2024", "6/2025") - common CV format
+    const mmYyyyMatch = trimmed.match(/^(\d{1,2})\/(\d{4})$/);
+    if (mmYyyyMatch) {
+      const month = mmYyyyMatch[1].padStart(2, '0');
+      const year = mmYyyyMatch[2];
+      return `${year}-${month}-01`;
+    }
+    
+    // Handle YYYY/MM format (e.g., "2024/09")
+    const yyyyMmSlashMatch = trimmed.match(/^(\d{4})\/(\d{1,2})$/);
+    if (yyyyMmSlashMatch) {
+      const year = yyyyMmSlashMatch[1];
+      const month = yyyyMmSlashMatch[2].padStart(2, '0');
+      return `${year}-${month}-01`;
+    }
+    
     // If already in YYYY-MM-DD format, return as-is
     if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
       return trimmed;

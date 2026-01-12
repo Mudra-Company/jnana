@@ -197,9 +197,9 @@ FORMATO RISPOSTA (JSON puro, senza markdown):
   "firstName": "nome trovato nel documento o null",
   "lastName": "cognome trovato nel documento o null", 
   "headline": "titolo professionale se presente o null",
-  "bio": "breve descrizione professionale se presente (max 200 caratteri) o null",
-  "location": "città/paese se presente o null",
-  "yearsExperience": numero anni esperienza calcolato dalle date o null,
+    "bio": "descrizione professionale completa (summary/about/profile) se presente nel documento, senza troncamenti o null",
+    "location": "città/paese se presente o null",
+    "yearsExperience": numero totale anni esperienza lavorativa (calcola: anno corrente meno anno di inizio della prima esperienza lavorativa) o null,
   "skills": ["competenza1", "competenza2"],
   "experiences": [
     {
