@@ -377,18 +377,21 @@ export const OrgNodeCard: React.FC<OrgNodeCardProps> = ({
             }
 
             // Manager Fit (Average compatibility with ALL PARENT NODE Managers)
+            // Include ALL managers in breakdown, but only calculate scores for those with profileCode
             const managerFitBreakdown: ManagerFitBreakdown[] = parentManagers.length > 0
               ? parentManagers
-                  .filter(pm => pm.profileCode) // Only managers with profile data
+                  .filter(pm => pm.firstName || pm.lastName) // Include all managers with names
                   .map(pm => ({
                     managerId: pm.id,
                     managerName: `${pm.firstName || ''} ${pm.lastName || ''}`.trim(),
-                    score: calculateUserCompatibility(u, pm)
+                    score: pm.profileCode ? calculateUserCompatibility(u, pm) : -1 // -1 = no profile data
                   }))
               : [];
             
-            const managerFitScore = managerFitBreakdown.length > 0
-              ? Math.round(managerFitBreakdown.reduce((sum, m) => sum + m.score, 0) / managerFitBreakdown.length)
+            // Calculate average only from managers WITH profile data (score >= 0)
+            const managersWithScores = managerFitBreakdown.filter(m => m.score >= 0);
+            const managerFitScore = managersWithScores.length > 0
+              ? Math.round(managersWithScores.reduce((sum, m) => sum + m.score, 0) / managersWithScores.length)
               : null;
             
             // Check if this user is one of the leaders in this Cultural Driver node
@@ -496,9 +499,13 @@ export const OrgNodeCard: React.FC<OrgNodeCardProps> = ({
                                   <span className="text-xs text-gray-600 dark:text-gray-400 truncate max-w-[120px]">
                                     {mb.managerName}
                                   </span>
-                                  <span className={`text-xs font-bold ${mb.score > 70 ? 'text-green-600' : mb.score > 40 ? 'text-yellow-600' : 'text-red-600'}`}>
-                                    {mb.score}%
-                                  </span>
+                                  {mb.score >= 0 ? (
+                                    <span className={`text-xs font-bold ${mb.score > 70 ? 'text-green-600' : mb.score > 40 ? 'text-yellow-600' : 'text-red-600'}`}>
+                                      {mb.score}%
+                                    </span>
+                                  ) : (
+                                    <span className="text-xs italic text-gray-400">N/A</span>
+                                  )}
                                 </div>
                               ))}
                             </div>
