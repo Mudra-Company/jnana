@@ -1,5 +1,5 @@
 import React from 'react';
-import { Eye, EyeOff, Info, MapPin, Briefcase, Home } from 'lucide-react';
+import { Eye, EyeOff, Info, MapPin, Briefcase, Home, Sparkles } from 'lucide-react';
 import { Card } from '../../../components/Card';
 import type { ProfileVisibility, WorkType } from '../../types/karma';
 
@@ -14,11 +14,12 @@ const ITALIAN_REGIONS = [
 
 interface VisibilitySettingsCardProps {
   profileVisibility: ProfileVisibility;
+  wantsKarmaVisibility: boolean;
   lookingForWork: boolean;
   preferredWorkType: WorkType;
   location: string;
   region?: string;
-  onVisibilityChange: (visibility: ProfileVisibility) => void;
+  onVisibilityChange: (visibility: ProfileVisibility, karmaVisibility: boolean) => void;
   onLookingForWorkChange: (value: boolean) => void;
   onPreferredWorkTypeChange: (type: WorkType) => void;
   onLocationChange: (location: string) => void;
@@ -27,6 +28,7 @@ interface VisibilitySettingsCardProps {
 
 export const VisibilitySettingsCard: React.FC<VisibilitySettingsCardProps> = ({
   profileVisibility,
+  wantsKarmaVisibility,
   lookingForWork,
   preferredWorkType,
   location,
@@ -37,37 +39,51 @@ export const VisibilitySettingsCard: React.FC<VisibilitySettingsCardProps> = ({
   onLocationChange,
   onRegionChange,
 }) => {
-  const isVisible = profileVisibility === 'subscribers_only';
+  // Unified visibility: profile is visible when BOTH fields are active
+  const isVisible = profileVisibility === 'subscribers_only' && wantsKarmaVisibility;
+
+  const handleVisibilityToggle = (enabled: boolean) => {
+    if (enabled) {
+      onVisibilityChange('subscribers_only', true);
+    } else {
+      onVisibilityChange('private', false);
+    }
+  };
 
   return (
     <Card className="mb-6">
       <h3 className="font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-        {isVisible ? (
-          <Eye size={20} className="text-green-600" />
-        ) : (
-          <EyeOff size={20} className="text-gray-500" />
-        )}
+        <Sparkles size={20} className={isVisible ? 'text-green-600' : 'text-gray-500'} />
         Visibilità Profilo
       </h3>
 
       {/* Main Toggle */}
       <label className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-xl cursor-pointer mb-4">
-        <div>
-          <h4 className="font-medium text-gray-900 dark:text-white">
-            Rendi il mio profilo visibile alle aziende
-          </h4>
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            {isVisible 
-              ? 'Il tuo profilo appare nei risultati di ricerca'
-              : 'Solo tu puoi vedere il tuo profilo'
-            }
-          </p>
+        <div className="flex items-start gap-3">
+          <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg flex-shrink-0 mt-0.5">
+            {isVisible ? (
+              <Eye size={18} className="text-green-600 dark:text-green-400" />
+            ) : (
+              <EyeOff size={18} className="text-gray-500" />
+            )}
+          </div>
+          <div>
+            <h4 className="font-medium text-gray-900 dark:text-white">
+              Rendi il mio profilo visibile alle aziende
+            </h4>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              {isVisible 
+                ? 'Il tuo profilo è visibile ai recruiter nel Karma Talent Pool'
+                : 'Solo tu puoi vedere il tuo profilo'
+              }
+            </p>
+          </div>
         </div>
-        <div className="relative">
+        <div className="relative flex-shrink-0 ml-4">
           <input
             type="checkbox"
             checked={isVisible}
-            onChange={(e) => onVisibilityChange(e.target.checked ? 'subscribers_only' : 'private')}
+            onChange={(e) => handleVisibilityToggle(e.target.checked)}
             className="sr-only"
           />
           <div className={`w-14 h-8 rounded-full transition-colors ${isVisible ? 'bg-green-500' : 'bg-gray-300 dark:bg-gray-600'}`}>

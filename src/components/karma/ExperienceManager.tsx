@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Briefcase, Plus, Trash2, Edit2, Check, X, Building2, Loader2 } from 'lucide-react';
 import { Button } from '../../../components/Button';
 import { toast } from '../../hooks/use-toast';
@@ -22,6 +22,8 @@ export const ExperienceManager: React.FC<ExperienceManagerProps> = ({
   const [isAdding, setIsAdding] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [showHighlight, setShowHighlight] = useState(false);
+  const editFormRef = useRef<HTMLDivElement>(null);
   const [form, setForm] = useState({
     company: '',
     role: '',
@@ -43,6 +45,17 @@ export const ExperienceManager: React.FC<ExperienceManagerProps> = ({
       location: '',
     });
   };
+
+  // Scroll to edit form when editing starts
+  useEffect(() => {
+    if (editingId && editFormRef.current) {
+      setShowHighlight(true);
+      editFormRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      // Remove highlight after animation
+      const timer = setTimeout(() => setShowHighlight(false), 1500);
+      return () => clearTimeout(timer);
+    }
+  }, [editingId]);
 
   const handleAdd = async () => {
     if (!form.company.trim() || !form.role.trim()) return;
@@ -202,7 +215,14 @@ export const ExperienceManager: React.FC<ExperienceManagerProps> = ({
 
       {/* Edit Form (inline) */}
       {editingId && (
-        <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl space-y-3 border border-blue-200 dark:border-blue-800">
+        <div 
+          ref={editFormRef}
+          className={`mb-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl space-y-3 border-2 border-blue-400 dark:border-blue-600 transition-all duration-300 ${showHighlight ? 'ring-4 ring-blue-300 dark:ring-blue-700 ring-opacity-50' : ''}`}
+        >
+          <div className="flex items-center gap-2 mb-2 text-blue-700 dark:text-blue-300 text-sm font-medium">
+            <Edit2 size={14} />
+            Modifica esperienza
+          </div>
           <div className="grid grid-cols-2 gap-3">
             <input
               type="text"
