@@ -495,60 +495,24 @@ export const KarmaProfileEdit: React.FC<KarmaProfileEditProps> = ({ onBack, onSa
           </div>
         </Card>
 
-        {/* Visibility & Work Preferences */}
+        {/* Visibility & Work Preferences - Unified */}
         <VisibilitySettingsCard
           profileVisibility={formData.profileVisibility}
+          wantsKarmaVisibility={formData.wantsKarmaVisibility}
           lookingForWork={formData.lookingForWork}
           preferredWorkType={formData.preferredWorkType}
           location={formData.location}
           region={formData.region}
-          onVisibilityChange={(visibility) => setFormData({ ...formData, profileVisibility: visibility })}
+          onVisibilityChange={(visibility, karmaVisibility) => setFormData({ 
+            ...formData, 
+            profileVisibility: visibility,
+            wantsKarmaVisibility: karmaVisibility
+          })}
           onLookingForWorkChange={(value) => setFormData({ ...formData, lookingForWork: value })}
           onPreferredWorkTypeChange={(type) => setFormData({ ...formData, preferredWorkType: type })}
           onLocationChange={(location) => setFormData({ ...formData, location: location })}
           onRegionChange={(region) => setFormData({ ...formData, region: region })}
         />
-
-        {/* Karma Talent Pool Visibility */}
-        <Card className="mb-6 border-green-200 dark:border-green-800">
-          <div className="flex items-start gap-4">
-            <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg flex-shrink-0">
-              <Sparkles className="w-5 h-5 text-green-600 dark:text-green-400" />
-            </div>
-            <div className="flex-1">
-              <h3 className="font-bold text-gray-900 dark:text-white mb-1">
-                Visibilità su Karma Talent Pool
-              </h3>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-                Attivando questa opzione, il tuo profilo sarà visibile alle aziende abbonate a Karma per opportunità lavorative.
-              </p>
-              
-              <label className="flex items-center gap-3 cursor-pointer">
-                <div className="relative">
-                  <input
-                    type="checkbox"
-                    checked={formData.wantsKarmaVisibility}
-                    onChange={(e) => setFormData({ ...formData, wantsKarmaVisibility: e.target.checked })}
-                    className="sr-only peer"
-                  />
-                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 dark:peer-focus:ring-green-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-green-600"></div>
-                </div>
-                <span className="text-sm font-medium text-gray-900 dark:text-gray-300">
-                  {formData.wantsKarmaVisibility ? 'Visibile ai recruiter' : 'Non visibile ai recruiter'}
-                </span>
-              </label>
-
-              {formData.wantsKarmaVisibility && (
-                <div className="mt-4 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg flex items-start gap-2">
-                  <Info className="w-4 h-4 text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5" />
-                  <p className="text-xs text-green-700 dark:text-green-300">
-                    Il tuo profilo, competenze e risultati dei test saranno visibili alle aziende che cercano talenti sulla piattaforma Karma.
-                  </p>
-                </div>
-              )}
-            </div>
-          </div>
-        </Card>
 
         {/* Skills */}
         <Card className="mb-6">
