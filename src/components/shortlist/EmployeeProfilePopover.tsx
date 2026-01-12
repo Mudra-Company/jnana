@@ -12,11 +12,19 @@ import {
   Eye,
   Shuffle,
   Briefcase,
-  Award
+  Award,
+  Wrench,
+  Star
 } from 'lucide-react';
 import { Button } from '../../../components/Button';
 import { User as UserType, RequiredProfile } from '../../../types';
 import { ManagerFitBreakdown } from '../../../views/admin/OrgNodeCard';
+
+export interface UserHardSkillDisplay {
+  name: string;
+  proficiencyLevel: number;
+  category?: string;
+}
 
 interface EmployeeProfilePopoverProps {
   isOpen: boolean;
@@ -35,6 +43,7 @@ interface EmployeeProfilePopoverProps {
     managerFitBreakdown?: ManagerFitBreakdown[];
     cultureFitScore?: number;
     matchedValues?: string[];
+    userHardSkills?: UserHardSkillDisplay[];
   };
   companyValues?: string[];
   onViewFullProfile?: () => void;
@@ -90,11 +99,29 @@ export const EmployeeProfilePopover: React.FC<EmployeeProfilePopoverProps> = ({
     managerFitScore,
     managerFitBreakdown = [],
     cultureFitScore = 0,
-    matchedValues = []
+    matchedValues = [],
+    userHardSkills = []
   } = metrics;
 
   const hasManagerData = managerFitBreakdown.length > 0;
   const hasRoleRequirements = user.requiredProfile?.softSkills?.length || user.requiredProfile?.hardSkills?.length;
+  const hasUserHardSkills = userHardSkills.length > 0;
+
+  const getProficiencyLabel = (level: number) => {
+    if (level >= 5) return 'Esperto';
+    if (level >= 4) return 'Avanzato';
+    if (level >= 3) return 'Intermedio';
+    if (level >= 2) return 'Base';
+    return 'Principiante';
+  };
+
+  const getProficiencyColor = (level: number) => {
+    if (level >= 5) return 'bg-green-500';
+    if (level >= 4) return 'bg-blue-500';
+    if (level >= 3) return 'bg-yellow-500';
+    if (level >= 2) return 'bg-orange-500';
+    return 'bg-gray-400';
+  };
 
   return (
     <>
@@ -299,6 +326,48 @@ export const EmployeeProfilePopover: React.FC<EmployeeProfilePopoverProps> = ({
                   </div>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* 4. HARD SKILLS DEL DIPENDENTE */}
+          {hasUserHardSkills && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 mb-2">
+                <Wrench size={16} className="text-purple-500" />
+                <h4 className="font-bold text-gray-800 dark:text-gray-200 text-sm uppercase tracking-wide">Hard Skills</h4>
+              </div>
+              
+              <div className="space-y-2">
+                {userHardSkills.map((skill, i) => (
+                  <div key={i} className="flex items-center justify-between py-2 px-3 bg-gray-50 dark:bg-gray-900/30 rounded-lg">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{skill.name}</span>
+                      {skill.category && (
+                        <span className="text-xs text-gray-400 bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded">
+                          {skill.category}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="flex gap-0.5">
+                        {[1, 2, 3, 4, 5].map((level) => (
+                          <Star
+                            key={level}
+                            size={12}
+                            className={level <= skill.proficiencyLevel 
+                              ? 'text-yellow-500 fill-yellow-500' 
+                              : 'text-gray-300 dark:text-gray-600'
+                            }
+                          />
+                        ))}
+                      </div>
+                      <span className={`text-xs font-medium px-2 py-0.5 rounded ${getProficiencyColor(skill.proficiencyLevel)} text-white`}>
+                        {getProficiencyLabel(skill.proficiencyLevel)}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </div>

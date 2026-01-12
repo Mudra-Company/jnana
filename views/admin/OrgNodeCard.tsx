@@ -52,6 +52,7 @@ export interface EmployeeProfileData {
   managerFitScore: number | null;
   managerFitBreakdown: ManagerFitBreakdown[];
   cultureFitScore: number;
+  userHardSkills?: { name: string; proficiencyLevel: number; category?: string }[];
 }
 
 interface OrgNodeCardProps {
@@ -491,6 +492,7 @@ export const OrgNodeCard: React.FC<OrgNodeCardProps> = ({
                       managerFitScore,
                       managerFitBreakdown,
                       cultureFitScore,
+                      userHardSkills: u.hardSkills || [],
                     });
                   } else {
                     // Fallback to comparison modal

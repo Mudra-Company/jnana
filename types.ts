@@ -82,6 +82,13 @@ export interface ClimateData {
   submissionDate: string;
 }
 
+// User's hard skill (for org chart display)
+export interface UserHardSkillBasic {
+  name: string;
+  proficiencyLevel: number;
+  category?: string;
+}
+
 export interface User {
   id: string;
   firstName: string;
@@ -102,6 +109,7 @@ export interface User {
   isHiring?: boolean; // Indicates if this is an open hiring position
   memberId?: string; // ID del record in company_members (per operazioni CRUD)
   role?: 'admin' | 'user' | 'super_admin'; // Role in the company
+  hardSkills?: UserHardSkillBasic[]; // Hard skills from Karma profile
 }
 
 export interface Company {

@@ -54,7 +54,8 @@ const profileToLegacyUser = (
   membership?: any, 
   riasecResult?: any, 
   karmaSession?: any, 
-  climateResponse?: any
+  climateResponse?: any,
+  hardSkills?: any[]
 ): User => {
   return {
     id: profile.id,
@@ -92,6 +93,11 @@ const profileToLegacyUser = (
       overallAverage: climateResponse.overall_average || 0,
       submissionDate: climateResponse.submitted_at?.split('T')[0],
     } : undefined,
+    hardSkills: hardSkills?.map(hs => ({
+      name: hs.custom_skill_name || hs.skill?.name || 'Unknown',
+      proficiencyLevel: hs.proficiency_level || 1,
+      category: hs.skill?.category || undefined
+    })) || undefined,
   };
 };
 
@@ -494,18 +500,21 @@ const AppContent: React.FC = () => {
     let karmaSessions: any[] = [];
     let climateResponses: any[] = [];
     let userRolesData: any[] = [];
+    let userHardSkillsData: any[] = [];
     
     if (userIds.length > 0) {
-      const [riasec, karma, climate, roles] = await Promise.all([
+      const [riasec, karma, climate, roles, hardSkills] = await Promise.all([
         supabase.from('riasec_results').select('*').in('user_id', userIds),
         supabase.from('karma_sessions').select('*').in('user_id', userIds),
         supabase.from('climate_responses').select('*').in('user_id', userIds),
-        supabase.from('user_roles').select('*').in('user_id', userIds)
+        supabase.from('user_roles').select('*').in('user_id', userIds),
+        supabase.from('user_hard_skills').select(`*, skill:hard_skills_catalog(*)`).in('user_id', userIds)
       ]);
       riasecResults = riasec.data || [];
       karmaSessions = karma.data || [];
       climateResponses = climate.data || [];
       userRolesData = roles.data || [];
+      userHardSkillsData = hardSkills.data || [];
     }
     
     // 3. Transform real users
@@ -514,11 +523,12 @@ const AppContent: React.FC = () => {
       const riasec = riasecResults.find(r => r.user_id === member.user_id);
       const karma = karmaSessions.find(k => k.user_id === member.user_id);
       const climate = climateResponses.find(c => c.user_id === member.user_id);
+      const hardSkills = userHardSkillsData.filter(hs => hs.user_id === member.user_id);
       
       // Check if user is a super_admin in user_roles table
       const isSuperAdmin = userRolesData.some(r => r.user_id === member.user_id && r.role === 'super_admin');
       
-      const legacyUser = profileToLegacyUser(profile, member, riasec, karma, climate);
+      const legacyUser = profileToLegacyUser(profile, member, riasec, karma, climate, hardSkills);
       // Override role if user is super_admin (takes precedence over company_member role)
       legacyUser.role = isSuperAdmin ? 'super_admin' : (member.role || 'user');
       legacyUser.memberId = member.id;
