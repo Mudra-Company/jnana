@@ -487,7 +487,7 @@ export const KarmaProfileEdit: React.FC<KarmaProfileEditProps> = ({ onBack, onSa
               <textarea
                 value={formData.bio}
                 onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
-                rows={4}
+                rows={6}
                 className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-jnana-sage focus:border-transparent transition-all resize-none"
                 placeholder="Raccontaci qualcosa di te..."
               />

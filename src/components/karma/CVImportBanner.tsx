@@ -70,6 +70,31 @@ export const CVImportBanner: React.FC<CVImportBannerProps> = ({
 
       // Extract parsed data from response (edge function returns { data: ParsedCVData })
       const parsed = (data?.data || data) as ParsedCVData;
+      
+      // Calculate years of experience if not provided by AI
+      if (!parsed.yearsExperience && parsed.experiences?.length > 0) {
+        const parseDate = (dateStr: string | undefined): Date | null => {
+          if (!dateStr) return null;
+          // Handle MM/YYYY format
+          const mmYyyy = dateStr.match(/^(\d{1,2})\/(\d{4})$/);
+          if (mmYyyy) return new Date(parseInt(mmYyyy[2]), parseInt(mmYyyy[1]) - 1);
+          // Handle YYYY format
+          if (/^\d{4}$/.test(dateStr)) return new Date(parseInt(dateStr), 0);
+          // Try standard parsing
+          const d = new Date(dateStr);
+          return isNaN(d.getTime()) ? null : d;
+        };
+        
+        const allStartDates = parsed.experiences
+          .map(exp => parseDate(exp.startDate))
+          .filter((d): d is Date => d !== null);
+        
+        if (allStartDates.length > 0) {
+          const earliest = new Date(Math.min(...allStartDates.map(d => d.getTime())));
+          const now = new Date();
+          parsed.yearsExperience = Math.floor((now.getTime() - earliest.getTime()) / (365.25 * 24 * 60 * 60 * 1000));
+        }
+      }
 
       // Build progress messages
       const progress: string[] = [];
