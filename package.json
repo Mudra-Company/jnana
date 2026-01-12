@@ -10,6 +10,7 @@
     "build:dev": "vite build --mode development"
   },
   "dependencies": {
+    "@radix-ui/react-collapsible": "^1.1.12",
     "@supabase/supabase-js": "^2.89.0",
     "lovable-tagger": "^1.1.13",
     "lucide-react": "0.344.0",

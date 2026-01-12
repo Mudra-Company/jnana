@@ -1,9 +1,10 @@
-import React, { useMemo } from 'react';
-import { Fingerprint, FileSpreadsheet, CheckCircle, Database, AlertTriangle, Users, ThermometerSun, BarChart3, Lightbulb, TrendingUp, Handshake, ShieldAlert, Award, AlertCircle, Info } from 'lucide-react';
+import React, { useMemo, useState } from 'react';
+import { Fingerprint, FileSpreadsheet, CheckCircle, Database, AlertTriangle, Users, ThermometerSun, BarChart3, Lightbulb, TrendingUp, Handshake, ShieldAlert, Award, AlertCircle, Info, ChevronDown, ChevronRight, User as UserIcon } from 'lucide-react';
 import { Card } from '../../components/Card';
 import { CompanyProfile, User } from '../../types';
-import { calculateCultureAnalysis, calculateClimateAnalytics, calculateTeamClimateStats, calculateLeadershipAnalytics } from '../../services/riasecService';
+import { calculateCultureAnalysis, calculateClimateAnalytics, calculateTeamClimateStats, calculateLeadershipAnalytics, MemberBreakdown } from '../../services/riasecService';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, CartesianGrid, ReferenceLine, LabelList, PieChart, Pie } from 'recharts';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '../../src/components/ui/collapsible';
 
 interface AdminIdentityHubProps {
   company: CompanyProfile;
@@ -408,21 +409,66 @@ export const AdminIdentityHub: React.FC<AdminIdentityHubProps> = ({ company, use
                         {/* 3. TEAM ANALYSIS & INSIGHT */}
                         <Card className="flex flex-col">
                             <h3 className="text-sm font-bold uppercase text-gray-500 mb-4 flex items-center gap-2"><Lightbulb size={16}/> Analisi Team</h3>
-                            <div className="flex-1 overflow-y-auto max-h-[250px] space-y-2 pr-2 custom-scrollbar">
+                            <p className="text-[10px] text-gray-400 -mt-2 mb-3">Clicca su un team per vedere il dettaglio dei membri</p>
+                            <div className="flex-1 overflow-y-auto max-h-[320px] space-y-2 pr-2 custom-scrollbar">
                                 {leadershipStats.teamAlignment.map((team, idx) => (
-                                    <div key={idx} className="flex justify-between items-center p-2 rounded bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700">
-                                        <div>
-                                            <div className="font-bold text-xs text-gray-800 dark:text-gray-200">{team.teamName}</div>
-                                            <div className="text-[10px] text-gray-400">Mgr: {team.managerName}</div>
-                                        </div>
-                                        <div className={`px-2 py-1 rounded text-xs font-bold ${
-                                            team.status === 'High' ? 'bg-green-100 text-green-700' :
-                                            team.status === 'Medium' ? 'bg-yellow-100 text-yellow-700' :
-                                            'bg-red-100 text-red-700'
-                                        }`}>
-                                            {Math.round(team.averageFit)}%
-                                        </div>
-                                    </div>
+                                    <Collapsible key={idx}>
+                                        <CollapsibleTrigger className="w-full">
+                                            <div className="flex justify-between items-center p-2 rounded bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors cursor-pointer group">
+                                                <div className="flex items-center gap-2">
+                                                    <ChevronRight size={14} className="text-gray-400 group-data-[state=open]:rotate-90 transition-transform" />
+                                                    <div className="text-left">
+                                                        <div className="font-bold text-xs text-gray-800 dark:text-gray-200">{team.teamName}</div>
+                                                        <div className="text-[10px] text-gray-400">Mgr: {team.managerName}</div>
+                                                    </div>
+                                                </div>
+                                                <div className={`px-2 py-1 rounded text-xs font-bold ${
+                                                    team.status === 'High' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' :
+                                                    team.status === 'Medium' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' :
+                                                    'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                                                }`}>
+                                                    {Math.round(team.averageFit)}%
+                                                </div>
+                                            </div>
+                                        </CollapsibleTrigger>
+                                        <CollapsibleContent>
+                                            <div className="ml-4 pl-3 py-2 space-y-2 border-l-2 border-gray-200 dark:border-gray-600">
+                                                {team.memberBreakdown.map((member: MemberBreakdown) => (
+                                                    <div key={member.memberId} className="text-xs">
+                                                        <div className="flex justify-between items-center font-medium text-gray-700 dark:text-gray-300">
+                                                            <span className="flex items-center gap-1.5">
+                                                                <UserIcon size={12} className={member.averageFit < 40 ? 'text-red-500' : member.averageFit >= 70 ? 'text-green-500' : 'text-yellow-500'} />
+                                                                {member.memberName} 
+                                                                <span className="text-gray-400 font-normal">({member.memberRole})</span>
+                                                            </span>
+                                                            <span className={`font-bold ${
+                                                                member.averageFit >= 70 ? 'text-green-600' :
+                                                                member.averageFit >= 40 ? 'text-yellow-600' :
+                                                                'text-red-600'
+                                                            }`}>
+                                                                {member.averageFit}%
+                                                            </span>
+                                                        </div>
+                                                        <div className="pl-4 mt-0.5 space-y-0.5">
+                                                            {member.managerScores.map(ms => (
+                                                                <div key={ms.managerId} className="flex justify-between text-[10px] text-gray-500 dark:text-gray-400">
+                                                                    <span>↳ {ms.managerName}</span>
+                                                                    <span className={
+                                                                        ms.score >= 70 ? 'text-green-600' :
+                                                                        ms.score >= 40 ? 'text-yellow-600' :
+                                                                        'text-red-600'
+                                                                    }>{ms.score}%</span>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                                {team.memberBreakdown.length === 0 && (
+                                                    <div className="text-[10px] text-gray-400 italic">Nessun membro con profilo completo</div>
+                                                )}
+                                            </div>
+                                        </CollapsibleContent>
+                                    </Collapsible>
                                 ))}
                             </div>
                             <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-700 text-sm text-gray-600 dark:text-gray-300 italic">
