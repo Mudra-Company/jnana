@@ -436,14 +436,16 @@ export const calculateLeadershipAnalytics = (company: CompanyProfile, users: Use
     const teamStats: any[] = [];
 
     // Helper to find ALL managers in a node (for Cultural Driver nodes, all users are managers)
+    // IMPORTANT: Does NOT require profileCode for identification - profileCode is only checked for score calculations
     const findNodeManagers = (nodeUsers: User[], node: OrgNode): User[] => {
         if (node.isCulturalDriver) {
-            return nodeUsers.filter(u => !u.isHiring && (u.firstName || u.lastName) && u.profileCode);
+            // For Cultural Driver nodes, ALL non-hiring users with names are considered managers
+            return nodeUsers.filter(u => !u.isHiring && (u.firstName || u.lastName));
         }
+        // For other nodes, find users with manager-like titles (no profileCode requirement)
         const managers = nodeUsers.filter(u => 
             !u.isHiring && 
             (u.firstName || u.lastName) &&
-            u.profileCode &&
             (u.jobTitle?.toLowerCase().includes('head') || 
              u.jobTitle?.toLowerCase().includes('manager') || 
              u.jobTitle?.toLowerCase().includes('lead') || 
@@ -451,7 +453,8 @@ export const calculateLeadershipAnalytics = (company: CompanyProfile, users: Use
              u.jobTitle?.toLowerCase().includes('ceo') ||
              u.jobTitle?.toLowerCase().includes('ad'))
         );
-        return managers.length > 0 ? managers : nodeUsers.filter(u => u.profileCode).slice(0, 1);
+        // If no managers found, return first non-hiring user with a name
+        return managers.length > 0 ? managers : nodeUsers.filter(u => !u.isHiring && (u.firstName || u.lastName)).slice(0, 1);
     };
 
     const traverse = (node: OrgNode, parentManagers: User[]) => {
