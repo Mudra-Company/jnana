@@ -39,6 +39,21 @@ export interface ManagerFitBreakdown {
   score: number;
 }
 
+// Employee profile data for popover (non-hiring users)
+export interface EmployeeProfileData {
+  user: User;
+  roleFitScore: number;
+  softSkillsMatched: string[];
+  softSkillsMissing: string[];
+  hardSkillsRequired: string[];
+  seniorityMatch: 'match' | 'above' | 'below' | undefined;
+  userSeniority: string | undefined;
+  requiredSeniority: string | undefined;
+  managerFitScore: number | null;
+  managerFitBreakdown: ManagerFitBreakdown[];
+  cultureFitScore: number;
+}
+
 interface OrgNodeCardProps {
   node: OrgNode;
   users: User[];
@@ -46,7 +61,7 @@ interface OrgNodeCardProps {
   onEditNode: (node: OrgNode) => void;
   onInviteUser: (nodeId: string) => void;
   onSelectUserForComparison: (user: User) => void;
-  onQuickMatchClick?: (matchData: QuickMatchData) => void;
+  onEmployeeProfileClick?: (profileData: EmployeeProfileData) => void;
   companyValues?: string[];
   parentManagers?: User[]; // Changed from parentManager to parentManagers (array)
   allHiringPositions?: User[]; // All open positions in the company
@@ -147,7 +162,7 @@ export const OrgNodeCard: React.FC<OrgNodeCardProps> = ({
   onEditNode,
   onInviteUser,
   onSelectUserForComparison,
-  onQuickMatchClick,
+  onEmployeeProfileClick,
   companyValues,
   parentManagers = [], // Changed from parentManager to parentManagers
   allHiringPositions
@@ -397,31 +412,95 @@ export const OrgNodeCard: React.FC<OrgNodeCardProps> = ({
             // Check if this user is one of the leaders in this Cultural Driver node
             const isInternalLeader = currentNodeManagers.some(m => m.id === u.id);
 
-            // Calculate quick match if there are hiring positions (prefer global, fallback to node)
-            const relevantHiringPositions = (allHiringPositions && allHiringPositions.length > 0) 
-              ? allHiringPositions 
-              : hiringPositions;
-            const firstHiringPosition = relevantHiringPositions[0];
-            const quickMatch = status !== 'hiring' && firstHiringPosition && onQuickMatchClick
-              ? calculateQuickMatchScore(u, firstHiringPosition)
-              : null;
+            // Calculate role fit for this user (against their own requiredProfile)
+            const calculateRoleFit = (user: User): {
+              roleFitScore: number;
+              softSkillsMatched: string[];
+              softSkillsMissing: string[];
+              seniorityMatch: 'match' | 'above' | 'below' | undefined;
+            } => {
+              const SENIORITY_LEVELS: Record<string, number> = { 
+                'Junior': 1, 'Mid': 2, 'Senior': 3, 'Lead': 4, 'C-Level': 5 
+              };
+              const required = user.requiredProfile;
+              if (!required) return { roleFitScore: 100, softSkillsMatched: [], softSkillsMissing: [], seniorityMatch: undefined };
+              
+              const userSoftSkills = user.karmaData?.softSkills || [];
+              const userSeniority = user.karmaData?.seniorityAssessment;
+              
+              const softMatches: string[] = [];
+              const softGaps: string[] = [];
+              
+              (required.softSkills || []).forEach(reqSkill => {
+                const found = userSoftSkills.some(us => 
+                  us.toLowerCase().includes(reqSkill.toLowerCase()) || 
+                  reqSkill.toLowerCase().includes(us.toLowerCase())
+                );
+                if (found) softMatches.push(reqSkill);
+                else softGaps.push(reqSkill);
+              });
+              
+              let seniorityMatch: 'match' | 'above' | 'below' | undefined = undefined;
+              let seniorityScore = 100;
+              
+              if (required.seniority && userSeniority) {
+                const reqLevel = SENIORITY_LEVELS[required.seniority] || 0;
+                const userLevel = SENIORITY_LEVELS[userSeniority] || 0;
+                const levelDiff = userLevel - reqLevel;
+                
+                if (levelDiff === 0) {
+                  seniorityMatch = 'match';
+                } else if (levelDiff > 0) {
+                  seniorityMatch = 'above';
+                  seniorityScore = Math.max(0, 100 - (levelDiff * 30));
+                } else {
+                  seniorityMatch = 'below';
+                  seniorityScore = Math.max(0, 100 + (levelDiff * 15));
+                }
+              }
+              
+              const softSkillScore = (required.softSkills?.length || 0) > 0 
+                ? (softMatches.length / required.softSkills.length) * 100 
+                : 100;
+              
+              const roleFitScore = Math.round((softSkillScore * 0.5) + (seniorityScore * 0.5));
+              
+              return { roleFitScore, softSkillsMatched: softMatches, softSkillsMissing: softGaps, seniorityMatch };
+            };
+
+            const roleFitData = status !== 'hiring' ? calculateRoleFit(u) : null;
 
             return (
               <div 
                 key={u.id} 
                 onClick={() => {
-                  if (quickMatch && onQuickMatchClick) {
-                    onQuickMatchClick(quickMatch);
+                  if (status === 'hiring') {
+                    // Hiring position -> open RoleComparisonModal
+                    onSelectUserForComparison(u);
+                  } else if (onEmployeeProfileClick) {
+                    // Regular employee -> open EmployeeProfilePopover
+                    onEmployeeProfileClick({
+                      user: u,
+                      roleFitScore: roleFitData?.roleFitScore || 0,
+                      softSkillsMatched: roleFitData?.softSkillsMatched || [],
+                      softSkillsMissing: roleFitData?.softSkillsMissing || [],
+                      hardSkillsRequired: u.requiredProfile?.hardSkills || [],
+                      seniorityMatch: roleFitData?.seniorityMatch,
+                      userSeniority: u.karmaData?.seniorityAssessment,
+                      requiredSeniority: u.requiredProfile?.seniority,
+                      managerFitScore,
+                      managerFitBreakdown,
+                      cultureFitScore,
+                    });
                   } else {
+                    // Fallback to comparison modal
                     onSelectUserForComparison(u);
                   }
                 }}
                 className={`flex flex-col p-3 rounded-xl transition-all duration-200 cursor-pointer group/user border-2 hover:shadow-md ${
                   status === 'hiring' 
                     ? 'border-dashed border-emerald-300 dark:border-emerald-700 bg-emerald-50/50 dark:bg-emerald-900/10 hover:bg-emerald-50 dark:hover:bg-emerald-900/20' 
-                    : quickMatch 
-                      ? 'border-transparent bg-gradient-to-r from-gray-50 to-emerald-50/30 dark:from-gray-700/30 dark:to-emerald-900/10 hover:bg-white dark:hover:bg-gray-700/60 hover:border-emerald-200 dark:hover:border-emerald-700'
-                      : 'border-transparent bg-gray-50 dark:bg-gray-700/30 hover:bg-white dark:hover:bg-gray-700/60 hover:border-gray-200 dark:hover:border-gray-600'
+                    : 'border-transparent bg-gray-50 dark:bg-gray-700/30 hover:bg-white dark:hover:bg-gray-700/60 hover:border-gray-200 dark:hover:border-gray-600'
                 }`}
               >
                 {/* User Header Row */}
