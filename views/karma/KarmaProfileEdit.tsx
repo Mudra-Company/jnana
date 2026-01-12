@@ -214,6 +214,9 @@ export const KarmaProfileEdit: React.FC<KarmaProfileEditProps> = ({ onBack, onSa
   const handleSave = async () => {
     setIsSaving(true);
     try {
+      // Automatically set isKarmaProfile = true when visibility is enabled
+      const shouldBeKarmaProfile = formData.profileVisibility === 'subscribers_only' && formData.wantsKarmaVisibility;
+      
       await updateProfile({
         firstName: formData.firstName,
         lastName: formData.lastName,
@@ -226,6 +229,8 @@ export const KarmaProfileEdit: React.FC<KarmaProfileEditProps> = ({ onBack, onSa
         preferredWorkType: formData.preferredWorkType,
         profileVisibility: formData.profileVisibility,
         wantsKarmaVisibility: formData.wantsKarmaVisibility,
+        // Set isKarmaProfile when visibility is enabled (never turn it off once set)
+        isKarmaProfile: shouldBeKarmaProfile ? true : profile?.isKarmaProfile,
       });
       initialFormData.current = formData;
       setIsDirty(false);
