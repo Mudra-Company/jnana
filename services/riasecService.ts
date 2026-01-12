@@ -427,13 +427,35 @@ export const calculateTeamClimateStats = (root: OrgNode, users: User[]) => {
     return stats;
 };
 
+// Member breakdown interface for detailed team analysis
+export interface MemberBreakdown {
+    memberId: string;
+    memberName: string;
+    memberRole: string;
+    averageFit: number;
+    managerScores: {
+        managerId: string;
+        managerName: string;
+        score: number;
+    }[];
+}
+
+export interface TeamAlignmentStats {
+    teamName: string;
+    managerName: string;
+    managerCount: number;
+    averageFit: number;
+    status: 'High' | 'Medium' | 'Low';
+    memberBreakdown: MemberBreakdown[];
+}
+
 export const calculateLeadershipAnalytics = (company: CompanyProfile, users: User[]) => {
     let totalScore = 0;
     let pairsCount = 0;
     let lowCount = 0;
     let medCount = 0;
     let highCount = 0;
-    const teamStats: any[] = [];
+    const teamStats: TeamAlignmentStats[] = [];
 
     // Helper to find ALL managers in a node (for Cultural Driver nodes, all users are managers)
     // IMPORTANT: Does NOT require profileCode for identification - profileCode is only checked for score calculations
@@ -464,23 +486,37 @@ export const calculateLeadershipAnalytics = (company: CompanyProfile, users: Use
         if (parentManagers.length > 0) {
             let teamTotal = 0;
             let teamCount = 0;
+            const memberBreakdown: MemberBreakdown[] = [];
             
             nodeUsers.forEach(user => {
                 // Skip if user is one of the parent managers
                 if (parentManagers.some(pm => pm.id === user.id)) return;
                 if (!user.profileCode) return;
                 
-                // Calculate average compatibility with ALL parent managers
+                // Calculate compatibility with ALL parent managers (with details)
                 const managerScores = parentManagers
                     .filter(pm => pm.profileCode)
-                    .map(pm => calculateUserCompatibility(user, pm));
+                    .map(pm => ({
+                        managerId: pm.id,
+                        managerName: `${pm.firstName || ''} ${pm.lastName || ''}`.trim() || 'N/D',
+                        score: calculateUserCompatibility(user, pm)
+                    }));
                 
                 if (managerScores.length > 0) {
-                    const avgScore = Math.round(managerScores.reduce((a, b) => a + b, 0) / managerScores.length);
+                    const avgScore = Math.round(managerScores.reduce((a, b) => a + b.score, 0) / managerScores.length);
                     totalScore += avgScore;
                     pairsCount++;
                     teamTotal += avgScore;
                     teamCount++;
+                    
+                    // Collect member breakdown
+                    memberBreakdown.push({
+                        memberId: user.id,
+                        memberName: `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'N/D',
+                        memberRole: user.jobTitle || 'N/D',
+                        averageFit: avgScore,
+                        managerScores
+                    });
                     
                     if (avgScore >= 70) highCount++;
                     else if (avgScore >= 40) medCount++;
@@ -494,13 +530,15 @@ export const calculateLeadershipAnalytics = (company: CompanyProfile, users: Use
                     .filter(pm => pm.firstName || pm.lastName)
                     .map(pm => pm.firstName || pm.lastName)
                     .join(', ');
-                    
+                
+                const avgFit = teamTotal / teamCount;
                 teamStats.push({ 
                     teamName: node.name, 
-                    managerName: managerNames, // Changed: now shows all manager names
-                    managerCount: parentManagers.length, // NEW: number of managers
-                    averageFit: teamTotal / teamCount, 
-                    status: (teamTotal/teamCount) >= 70 ? 'High' : 'Low' 
+                    managerName: managerNames,
+                    managerCount: parentManagers.length,
+                    averageFit: avgFit, 
+                    status: avgFit >= 70 ? 'High' : avgFit >= 40 ? 'Medium' : 'Low',
+                    memberBreakdown: memberBreakdown.sort((a, b) => b.averageFit - a.averageFit) // Sort by fit descending
                 });
             }
         }
