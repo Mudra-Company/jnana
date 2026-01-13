@@ -11,7 +11,7 @@ import type {
 } from '../types/shortlist';
 import type { CandidateMatch } from '../types/karma';
 
-interface InternalMatchData {
+export interface InternalMatchData {
   matchScore: number;
   skillsOverlap: string[];
   missingSkills: string[];
