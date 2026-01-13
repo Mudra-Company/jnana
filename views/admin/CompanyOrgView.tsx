@@ -426,6 +426,11 @@ const RoleComparisonModal: React.FC<RoleComparisonModalProps> = ({
                 <Search size={10}/> HIRING
               </span>
             )}
+            {isHiringSlot && shortlistCandidates.length > 0 && (
+              <span className="text-xs bg-purple-100 text-purple-700 dark:bg-purple-800 dark:text-purple-200 px-2 py-0.5 rounded-full font-bold flex items-center gap-1">
+                <Users size={10}/> Shortlist: {shortlistCandidates.length}
+              </span>
+            )}
           </div>
           <div className="flex items-center gap-3">
             <div className={`w-12 h-12 rounded-full flex items-center justify-center text-lg font-bold text-white ${user.isHiring ? 'bg-green-500' : isEmptySlot ? 'bg-gray-400' : 'bg-jnana-sage'}`}>
