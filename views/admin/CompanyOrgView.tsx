@@ -427,9 +427,13 @@ const RoleComparisonModal: React.FC<RoleComparisonModalProps> = ({
               </span>
             )}
             {isHiringSlot && shortlistCandidates.length > 0 && (
-              <span className="text-xs bg-purple-100 text-purple-700 dark:bg-purple-800 dark:text-purple-200 px-2 py-0.5 rounded-full font-bold flex items-center gap-1">
+              <button 
+                onClick={() => onOpenPositionMatching?.(positionId, 'shortlist')}
+                className="text-xs bg-purple-100 text-purple-700 dark:bg-purple-800 dark:text-purple-200 px-2 py-0.5 rounded-full font-bold flex items-center gap-1 hover:bg-purple-200 dark:hover:bg-purple-700 transition-colors cursor-pointer"
+              >
                 <Users size={10}/> Shortlist: {shortlistCandidates.length}
-              </span>
+                <ExternalLink size={10}/>
+              </button>
             )}
           </div>
           <div className="flex items-center gap-3">
