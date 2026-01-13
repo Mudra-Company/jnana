@@ -31,14 +31,19 @@ export const usePositionShortlist = (positionId: string, companyId: string) => {
 
     try {
       // First try to get existing active shortlist
-      const { data: existing, error: fetchError } = await supabase
+      // FIX: Use .limit(1) instead of .maybeSingle() to handle potential duplicates gracefully
+      const { data: existingList, error: fetchError } = await supabase
         .from('position_shortlists')
         .select('*')
         .eq('position_id', positionId)
         .eq('status', 'active')
-        .maybeSingle();
+        .order('created_at', { ascending: false })
+        .limit(1);
 
       if (fetchError) throw fetchError;
+
+      // Take the first (most recent) if exists
+      const existing = existingList?.[0];
 
       if (existing) {
         const mapped: PositionShortlist = {

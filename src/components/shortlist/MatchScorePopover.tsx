@@ -207,7 +207,8 @@ export const MatchScorePopover: React.FC<MatchScorePopoverProps> = ({
         <div className="p-4 border-t border-gray-200 dark:border-gray-700 flex gap-2">
           {!isInShortlist ? (
             <Button 
-              onClick={() => {
+              onClick={(e) => {
+                e.stopPropagation();
                 onAddToShortlist?.();
                 onClose();
               }}
@@ -222,7 +223,8 @@ export const MatchScorePopover: React.FC<MatchScorePopoverProps> = ({
           )}
           <Button 
             variant="outline"
-            onClick={() => {
+            onClick={(e) => {
+              e.stopPropagation();
               onViewProfile?.();
               onClose();
             }}
