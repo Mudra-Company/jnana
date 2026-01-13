@@ -375,7 +375,10 @@ export const EmployeeProfilePopover: React.FC<EmployeeProfilePopoverProps> = ({
         {/* Actions */}
         <div className="p-4 border-t border-gray-200 dark:border-gray-700 flex gap-2">
           <Button 
-            onClick={onViewFullProfile}
+            onClick={(e) => {
+              e.stopPropagation();
+              onViewFullProfile?.();
+            }}
             className="flex-1"
           >
             <Eye size={16} className="mr-1" /> Visualizza Profilo Completo
@@ -383,7 +386,10 @@ export const EmployeeProfilePopover: React.FC<EmployeeProfilePopoverProps> = ({
           {onProposeJobRotation && (
             <Button 
               variant="outline"
-              onClick={onProposeJobRotation}
+              onClick={(e) => {
+                e.stopPropagation();
+                onProposeJobRotation();
+              }}
               title="Proponi per Job Rotation"
             >
               <Shuffle size={16} />
