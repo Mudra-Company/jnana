@@ -38,12 +38,15 @@ import { calculateUserCompatibility } from '../../services/riasecService';
 import { InviteToSlotModal } from '../../src/components/InviteToSlotModal';
 import { useCompanyMembers } from '../../src/hooks/useCompanyMembers';
 import { useTalentSearch } from '../../src/hooks/useTalentSearch';
+import { usePositionShortlist, type InternalMatchData } from '../../src/hooks/usePositionShortlist';
+import type { CandidateMatch } from '../../src/types/karma';
 
 import { toast } from '../../src/hooks/use-toast';
 import { OrgNodeCard, findNodeManager, findNodeManagers, EmployeeProfileData } from './OrgNodeCard';
 import { getMatchQuality } from '../../src/utils/matchingEngine';
 import { MatchScorePopover, MatchBreakdown } from '../../src/components/shortlist/MatchScorePopover';
 import { EmployeeProfilePopover } from '../../src/components/shortlist/EmployeeProfilePopover';
+import type { ShortlistUser } from '../../src/types/shortlist';
 
 const SENIORITY_OPTIONS: SeniorityLevel[] = ['Junior', 'Mid', 'Senior', 'Lead', 'C-Level'];
 const SENIORITY_LEVELS: Record<SeniorityLevel, number> = { 'Junior': 1, 'Mid': 2, 'Senior': 3, 'Lead': 4, 'C-Level': 5 };
@@ -116,14 +119,17 @@ interface RoleComparisonModalProps {
   user: User;
   allUsers: User[];
   orgStructure: OrgNode;
+  companyId: string;
   onClose: () => void;
   onViewFullProfile: () => void;
+  onViewUser: (userId: string) => void;
   onAssignUser: (slotUserId: string, selectedUserId: string) => void;
   onInviteToSlot: (slotUser: User) => void;
   onRemoveFromSlot: (user: User) => void;
   onDeletePosition: (user: User) => void;
   onUpdateRequiredProfile: (user: User, profile: RequiredProfile) => Promise<void>;
   onViewExternalCandidate?: (userId: string) => void;
+  onOpenPositionMatching?: (positionId: string, initialTab?: 'internal' | 'external' | 'shortlist') => void;
 }
 
 const calculateMatchScore = (user: User): { score: number; hardMatches: string[]; hardGaps: string[]; softMatches: string[]; softGaps: string[]; bonusSkills: string[]; seniorityMatch: 'match' | 'above' | 'below'; seniorityPenalty: number } => {
@@ -209,14 +215,17 @@ const RoleComparisonModal: React.FC<RoleComparisonModalProps> = ({
   user, 
   allUsers, 
   orgStructure, 
+  companyId,
   onClose, 
-  onViewFullProfile, 
+  onViewFullProfile,
+  onViewUser,
   onAssignUser,
   onInviteToSlot,
   onRemoveFromSlot,
   onDeletePosition,
   onUpdateRequiredProfile,
-  onViewExternalCandidate
+  onViewExternalCandidate,
+  onOpenPositionMatching
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [showAssignSection, setShowAssignSection] = useState(false);
@@ -234,8 +243,29 @@ const RoleComparisonModal: React.FC<RoleComparisonModalProps> = ({
   const [newSoftSkill, setNewSoftSkill] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   
+  const match = useMemo(() => calculateMatchScore(user), [user]);
+  const required = user.requiredProfile;
+  
+  // Check if this is an empty slot or hiring position (moved before hooks that depend on it)
+  const isEmptySlot = !user.firstName && !user.lastName;
+  const isHiringSlot = user.isHiring === true;
+  const needsAssignment = isEmptySlot || isHiringSlot;
+  
   // External candidates (Karma Talents)
   const { candidates: externalCandidates, isLoading: externalLoading, searchCandidates } = useTalentSearch();
+  
+  // Shortlist hook - use user.memberId as positionId (the slot's member id)
+  const positionId = user.memberId || user.id;
+  const {
+    shortlist,
+    candidates: shortlistCandidates,
+    unifiedCandidates: unifiedShortlistCandidates,
+    isLoading: shortlistLoading,
+    addInternalCandidate,
+    addExternalCandidate,
+    isInShortlist: checkIsInShortlist,
+    error: shortlistError
+  } = usePositionShortlist(isHiringSlot ? positionId : '', companyId);
   
   const [showExternalSection, setShowExternalSection] = useState(false);
   const [showInternalSection, setShowInternalSection] = useState(false); // Internal candidates collapsed by default
@@ -248,15 +278,12 @@ const RoleComparisonModal: React.FC<RoleComparisonModalProps> = ({
     breakdown: MatchBreakdown;
     candidateId?: string;
     isExternal?: boolean;
+    candidateData?: {
+      internalUser?: User;
+      externalMatch?: CandidateMatch;
+      matchData?: InternalMatchData;
+    };
   } | null>(null);
-  
-  const match = useMemo(() => calculateMatchScore(user), [user]);
-  const required = user.requiredProfile;
-  
-  // Check if this is an empty slot or hiring position
-  const isEmptySlot = !user.firstName && !user.lastName;
-  const isHiringSlot = user.isHiring === true;
-  const needsAssignment = isEmptySlot || isHiringSlot;
   
   // Fetch external candidates when hiring slot is opened
   useEffect(() => {
@@ -532,6 +559,16 @@ const RoleComparisonModal: React.FC<RoleComparisonModalProps> = ({
                   requiredSeniority: user.requiredProfile?.seniority,
                 };
                 
+                // Build match data for shortlist
+                const matchDataForShortlist: InternalMatchData = {
+                  matchScore: candidate.matchData.score,
+                  skillsOverlap: candidate.matchData.softMatches,
+                  missingSkills: candidate.matchData.softGaps,
+                  seniorityMatch: candidate.matchData.seniorityMatch === 'match',
+                };
+                
+                const candidateInShortlist = checkIsInShortlist(candidate.user.id, 'internal');
+                
                 return (
                   <div 
                     key={candidate.user.id}
@@ -542,7 +579,11 @@ const RoleComparisonModal: React.FC<RoleComparisonModalProps> = ({
                       candidateType: 'internal',
                       breakdown: internalBreakdown,
                       candidateId: candidate.user.id,
-                      isExternal: false
+                      isExternal: false,
+                      candidateData: {
+                        internalUser: candidate.user,
+                        matchData: matchDataForShortlist,
+                      },
                     })}
                   >
                     <div className="flex items-center gap-3">
@@ -570,17 +611,24 @@ const RoleComparisonModal: React.FC<RoleComparisonModalProps> = ({
                           <span className="text-orange-500">⚠ {candidate.matchData.softGaps.length}</span>
                         )}
                       </div>
-                      <div className="flex gap-1 mt-1">
-                        <button 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onAssignUser(user.id, candidate.user.id);
-                          }}
-                          className="text-[10px] px-2 py-1 bg-purple-100 dark:bg-purple-800 text-purple-700 dark:text-purple-200 rounded hover:bg-purple-200 dark:hover:bg-purple-700 transition-colors flex items-center gap-1"
-                        >
-                          <ArrowRight size={10}/> Assegna
-                        </button>
-                      </div>
+                      {/* Shortlist status indicator */}
+                      {candidateInShortlist ? (
+                        <span className="text-[10px] px-2 py-0.5 bg-green-100 dark:bg-green-800 text-green-700 dark:text-green-200 rounded-full font-medium flex items-center gap-1">
+                          <Check size={10}/> In Shortlist
+                        </span>
+                      ) : (
+                        <div className="flex gap-1 mt-1">
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onAssignUser(user.id, candidate.user.id);
+                            }}
+                            className="text-[10px] px-2 py-1 bg-purple-100 dark:bg-purple-800 text-purple-700 dark:text-purple-200 rounded hover:bg-purple-200 dark:hover:bg-purple-700 transition-colors flex items-center gap-1"
+                          >
+                            <ArrowRight size={10}/> Assegna
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 );
@@ -645,6 +693,8 @@ const RoleComparisonModal: React.FC<RoleComparisonModalProps> = ({
                         seniorityMatch: getSeniorityMatch(),
                       };
                       
+                      const externalInShortlist = checkIsInShortlist(candidate.profile.id, 'external');
+                      
                       return (
                         <div 
                           key={candidate.profile.id}
@@ -655,7 +705,10 @@ const RoleComparisonModal: React.FC<RoleComparisonModalProps> = ({
                             candidateType: 'external',
                             breakdown: externalBreakdown,
                             candidateId: candidate.profile.id,
-                            isExternal: true
+                            isExternal: true,
+                            candidateData: {
+                              externalMatch: candidate,
+                            },
                           })}
                         >
                           <div className="flex items-center gap-3">
@@ -678,7 +731,12 @@ const RoleComparisonModal: React.FC<RoleComparisonModalProps> = ({
                             <div className={`px-2 py-0.5 rounded-full ${quality.bgColor}`}>
                               <span className={`text-sm font-bold ${quality.color}`}>{candidate.matchScore}%</span>
                             </div>
-                            {onViewExternalCandidate && (
+                            {/* Shortlist status indicator */}
+                            {externalInShortlist ? (
+                              <span className="text-[10px] px-2 py-0.5 bg-green-100 dark:bg-green-800 text-green-700 dark:text-green-200 rounded-full font-medium flex items-center gap-1">
+                                <Check size={10}/> In Shortlist
+                              </span>
+                            ) : onViewExternalCandidate && (
                               <button 
                                 onClick={(e) => {
                                   e.stopPropagation();
@@ -1133,18 +1191,56 @@ const RoleComparisonModal: React.FC<RoleComparisonModalProps> = ({
           candidateName={popoverData.candidateName}
           candidateType={popoverData.candidateType}
           breakdown={popoverData.breakdown}
-          isInShortlist={false}
-          onAddToShortlist={() => {
-            // TODO: implement shortlist add
-            toast({ title: "Aggiunto alla shortlist" });
+          isInShortlist={popoverData.candidateId ? checkIsInShortlist(popoverData.candidateId, popoverData.candidateType) : false}
+          onAddToShortlist={async () => {
+            if (!popoverData.candidateId) return;
+            
+            try {
+              let success = false;
+              
+              if (popoverData.candidateType === 'internal' && popoverData.candidateData?.internalUser && popoverData.candidateData?.matchData) {
+                // Add internal candidate
+                const internalUser = popoverData.candidateData.internalUser;
+                const matchData = popoverData.candidateData.matchData;
+                
+                const shortlistUser: ShortlistUser = {
+                  id: internalUser.id,
+                  firstName: internalUser.firstName,
+                  lastName: internalUser.lastName,
+                  email: internalUser.email,
+                  jobTitle: internalUser.jobTitle,
+                  seniority: internalUser.karmaData?.seniorityAssessment,
+                  profileCode: internalUser.profileCode,
+                  riasecScore: internalUser.results,
+                  karmaData: {
+                    softSkills: internalUser.karmaData?.softSkills,
+                    seniorityAssessment: internalUser.karmaData?.seniorityAssessment,
+                  },
+                };
+                
+                success = await addInternalCandidate(shortlistUser, matchData);
+              } else if (popoverData.candidateType === 'external' && popoverData.candidateData?.externalMatch) {
+                // Add external candidate
+                success = await addExternalCandidate(popoverData.candidateData.externalMatch);
+              }
+              
+              if (success) {
+                toast({ title: "Candidato aggiunto alla shortlist" });
+              } else if (shortlistError) {
+                toast({ title: "Errore", description: shortlistError, variant: "destructive" });
+              }
+            } catch (err) {
+              toast({ title: "Errore nell'aggiunta", variant: "destructive" });
+            }
+            
             setPopoverData(null);
           }}
           onViewProfile={() => {
             if (popoverData.isExternal && popoverData.candidateId && onViewExternalCandidate) {
               onViewExternalCandidate(popoverData.candidateId);
             } else if (!popoverData.isExternal && popoverData.candidateId) {
-              const candidate = allUsers.find(u => u.id === popoverData.candidateId);
-              if (candidate) onViewFullProfile(candidate);
+              // For internal candidates, use onViewUser to show the correct profile
+              onViewUser(popoverData.candidateId);
             }
             setPopoverData(null);
           }}
@@ -1443,7 +1539,9 @@ export const CompanyOrgView: React.FC<{
     onUpdateStructure: (root: OrgNode) => void;
     onUpdateUsers: (users: User[]) => void;
     onViewUser: (userId: string) => void;
-}> = ({ company, users, onUpdateStructure, onUpdateUsers, onViewUser }) => {
+    onViewExternalCandidate?: (userId: string) => void;
+    onOpenPositionMatching?: (positionId: string, initialTab?: 'internal' | 'external' | 'shortlist') => void;
+}> = ({ company, users, onUpdateStructure, onUpdateUsers, onViewUser, onViewExternalCandidate, onOpenPositionMatching }) => {
     const [editingNode, setEditingNode] = useState<OrgNode | null>(null);
     const [inviteNodeId, setInviteNodeId] = useState<string | null>(null);
     const [inviteName, setInviteName] = useState('');
@@ -1856,11 +1954,15 @@ export const CompanyOrgView: React.FC<{
                     user={selectedUserForComparison}
                     allUsers={users}
                     orgStructure={company.structure}
+                    companyId={company.id}
                     onClose={() => setSelectedUserForComparison(null)}
                     onViewFullProfile={() => {
                         onViewUser(selectedUserForComparison.id);
                         setSelectedUserForComparison(null);
                     }}
+                    onViewUser={onViewUser}
+                    onViewExternalCandidate={onViewExternalCandidate}
+                    onOpenPositionMatching={onOpenPositionMatching}
                     onAssignUser={async (slotUserId, selectedUserId) => {
                         const slot = users.find(u => u.id === slotUserId);
                         const selectedUser = users.find(u => u.id === selectedUserId);

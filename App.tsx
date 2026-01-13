@@ -1107,6 +1107,8 @@ const AppContent: React.FC = () => {
               onUpdateStructure={handleOrgChartUpdate}
               onUpdateUsers={(updatedUsers) => setCompanyUsers(updatedUsers)}
               onViewUser={(userId) => navigate({ type: 'USER_RESULT', userId })}
+              onViewExternalCandidate={(userId) => navigate({ type: 'KARMA_PROFILE_VIEW', userId })}
+              onOpenPositionMatching={(positionId, initialTab) => navigate({ type: 'ADMIN_POSITION_MATCHING', positionId, initialTab })}
             />
           )}
 
