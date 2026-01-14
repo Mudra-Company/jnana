@@ -59,6 +59,19 @@ export interface StoredMatchDetails {
   profileCode?: string;
 }
 
+// Minimal external profile data (loaded from DB)
+export interface ExternalProfileData {
+  id: string;
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  avatarUrl?: string;
+  headline?: string;
+  jobTitle?: string;
+  location?: string;
+  yearsExperience?: number;
+}
+
 // Shortlist Candidate
 export interface ShortlistCandidate {
   id: string;
@@ -75,7 +88,7 @@ export interface ShortlistCandidate {
   updatedAt: string;
   // Joined data (loaded separately)
   internalUser?: ShortlistUser;
-  externalProfile?: KarmaProfile;
+  externalProfile?: ExternalProfileData;
   externalMatch?: CandidateMatch;
 }
 
