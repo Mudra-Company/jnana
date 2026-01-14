@@ -7,7 +7,8 @@ import type {
   CandidateStatus,
   StoredMatchDetails,
   UnifiedCandidate,
-  ShortlistUser
+  ShortlistUser,
+  ExternalProfileData
 } from '../types/shortlist';
 import type { CandidateMatch } from '../types/karma';
 
@@ -94,6 +95,7 @@ export const usePositionShortlist = (positionId: string, companyId: string) => {
   const fetchCandidates = useCallback(async (shortlistId: string) => {
     setIsLoading(true);
     try {
+      // Fetch shortlist candidates
       const { data, error: fetchError } = await supabase
         .from('shortlist_candidates')
         .select('*')
@@ -101,6 +103,37 @@ export const usePositionShortlist = (positionId: string, companyId: string) => {
         .order('added_at', { ascending: false });
 
       if (fetchError) throw fetchError;
+
+      // Get external profile IDs that need to be fetched
+      const externalProfileIds = (data || [])
+        .filter(c => c.candidate_type === 'external' && c.external_profile_id)
+        .map(c => c.external_profile_id as string);
+
+      // Fetch external profiles if any exist
+      let externalProfiles: Record<string, ExternalProfileData> = {};
+      if (externalProfileIds.length > 0) {
+        const { data: profilesData } = await supabase
+          .from('profiles')
+          .select('id, first_name, last_name, email, avatar_url, headline, job_title, location, years_experience')
+          .in('id', externalProfileIds);
+
+        if (profilesData) {
+          externalProfiles = profilesData.reduce((acc, p) => {
+            acc[p.id] = {
+              id: p.id,
+              firstName: p.first_name || undefined,
+              lastName: p.last_name || undefined,
+              email: p.email || undefined,
+              avatarUrl: p.avatar_url || undefined,
+              headline: p.headline || undefined,
+              jobTitle: p.job_title || undefined,
+              location: p.location || undefined,
+              yearsExperience: p.years_experience || undefined
+            };
+            return acc;
+          }, {} as Record<string, ExternalProfileData>);
+        }
+      }
 
       const mapped: ShortlistCandidate[] = (data || []).map(c => ({
         id: c.id,
@@ -114,7 +147,9 @@ export const usePositionShortlist = (positionId: string, companyId: string) => {
         hrNotes: c.hr_notes || undefined,
         rating: c.rating || undefined,
         addedAt: c.added_at,
-        updatedAt: c.updated_at
+        updatedAt: c.updated_at,
+        // Attach loaded external profile data
+        externalProfile: c.external_profile_id ? externalProfiles[c.external_profile_id] : undefined
       }));
 
       setCandidates(mapped);
@@ -381,25 +416,33 @@ export const usePositionShortlist = (positionId: string, companyId: string) => {
           internalUserId: c.internalUserId
         };
       } else {
-        const profile = c.externalMatch?.profile;
+        // Priority: externalMatch.profile (local addition) > externalProfile (from DB JOIN)
+        const matchProfile = c.externalMatch?.profile;
+        const dbProfile = c.externalProfile;
+        const profileName = matchProfile 
+          ? `${matchProfile.firstName} ${matchProfile.lastName}`
+          : dbProfile 
+            ? `${dbProfile.firstName} ${dbProfile.lastName}`
+            : 'External Candidate';
+        
         return {
           id: c.id,
           type: 'external' as CandidateType,
-          name: profile ? `${profile.firstName} ${profile.lastName}` : 'External Candidate',
-          email: profile?.email,
-          avatarUrl: profile?.avatarUrl,
-          jobTitle: profile?.jobTitle || profile?.headline,
+          name: profileName,
+          email: matchProfile?.email || dbProfile?.email,
+          avatarUrl: matchProfile?.avatarUrl || dbProfile?.avatarUrl,
+          jobTitle: matchProfile?.jobTitle || matchProfile?.headline || dbProfile?.jobTitle || dbProfile?.headline,
           matchScore: c.matchScore || 0,
-          riasecScore: c.matchDetails.riasecScore || profile?.riasecScore,
-          profileCode: c.matchDetails.profileCode || profile?.profileCode,
-          skills: profile?.hardSkills?.map(s => s.skill?.name || s.customSkillName || '').filter(Boolean) || [],
+          riasecScore: c.matchDetails.riasecScore || matchProfile?.riasecScore,
+          profileCode: c.matchDetails.profileCode || matchProfile?.profileCode,
+          skills: matchProfile?.hardSkills?.map(s => s.skill?.name || s.customSkillName || '').filter(Boolean) || [],
           matchedSkills: c.matchDetails.skillsOverlap || [],
           missingSkills: c.matchDetails.missingSkills || [],
-          softSkills: profile?.karmaData?.softSkills,
+          softSkills: matchProfile?.karmaData?.softSkills,
           seniority: undefined,
           seniorityMatch: c.matchDetails.seniorityMatch,
-          yearsExperience: profile?.yearsExperience,
-          location: profile?.location,
+          yearsExperience: matchProfile?.yearsExperience || dbProfile?.yearsExperience,
+          location: matchProfile?.location || dbProfile?.location,
           status: c.status,
           hrNotes: c.hrNotes,
           rating: c.rating,
