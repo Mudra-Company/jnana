@@ -189,6 +189,9 @@ export type ViewState =
   | { type: 'LANDING' }
   | { type: 'LOADING' }
   | { type: 'LOGIN' }
+  | { type: 'KARMA_WELCOME' }
+  | { type: 'KARMA_CV_REVIEW' }
+  | { type: 'KARMA_POST_ONBOARDING' }
   | { type: 'RESET_PASSWORD' }
   | { type: 'SEED_DATA' }
   | { type: 'SUPER_ADMIN_DASHBOARD' }
