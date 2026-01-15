@@ -437,7 +437,8 @@ const AppContent: React.FC = () => {
         // User explicitly logged in via KARMA portal
         console.log('[App] Routing to KARMA based on intent');
         localStorage.removeItem('auth_intent'); // Clear after use
-        if (userData.first_name && userData.last_name) {
+        if (userData.is_karma_profile) {
+          // User has completed onboarding
           setView({ type: 'KARMA_DASHBOARD' });
         } else {
           // NEW: Show welcome screen for new Karma users
@@ -463,7 +464,8 @@ const AppContent: React.FC = () => {
         setView({ type: 'ADMIN_DASHBOARD' });
       } else if (!userData.membership?.company_id) {
         // User without company = Karma user (public platform)
-        if (userData.first_name && userData.last_name) {
+        if (userData.is_karma_profile) {
+          // User has completed onboarding
           setView({ type: 'KARMA_DASHBOARD' });
         } else {
           // NEW: Show welcome screen for new Karma users
