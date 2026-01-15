@@ -44,6 +44,10 @@ import { KarmaProfileEdit } from './views/karma/KarmaProfileEdit';
 import { KarmaResults } from './views/karma/KarmaResults';
 import { KarmaTestRiasec } from './views/karma/KarmaTestRiasec';
 import { KarmaTestChat } from './views/karma/KarmaTestChat';
+import { KarmaWelcome } from './views/karma/KarmaWelcome';
+import { CVReviewScreen } from './views/karma/CVReviewScreen';
+import { PostOnboardingPromo } from './views/karma/PostOnboardingPromo';
+import type { CVParsedData } from './src/components/karma/CVImportBanner';
 
 // Landing Page
 import { LandingPage } from './views/landing/LandingPage';
@@ -266,6 +270,9 @@ const AppContent: React.FC = () => {
   const [isDemoMode, setIsDemoMode] = useState(false);
   const [demoUserData, setDemoUserData] = useState<User | null>(null);
   
+  // CV Onboarding State
+  const [cvParsedData, setCvParsedData] = useState<CVParsedData | null>(null);
+  
   // Refs to prevent duplicate loads
   const dataLoadedRef = useRef(false);
   const lastUserIdRef = useRef<string | null>(null);
@@ -426,14 +433,15 @@ const AppContent: React.FC = () => {
       console.log('[App] Contexts - JNANA:', hasJnanaContext, 'KARMA:', hasKarmaContext, 'Intent:', authIntent);
 
       // Route based on intent first, then fallback to role-based routing
-      if (authIntent === 'karma' && hasKarmaContext) {
+      if (authIntent === 'karma') {
         // User explicitly logged in via KARMA portal
         console.log('[App] Routing to KARMA based on intent');
         localStorage.removeItem('auth_intent'); // Clear after use
         if (userData.first_name && userData.last_name) {
           setView({ type: 'KARMA_DASHBOARD' });
         } else {
-          setView({ type: 'KARMA_ONBOARDING' });
+          // NEW: Show welcome screen for new Karma users
+          setView({ type: 'KARMA_WELCOME' });
         }
         return;
       }
@@ -458,7 +466,8 @@ const AppContent: React.FC = () => {
         if (userData.first_name && userData.last_name) {
           setView({ type: 'KARMA_DASHBOARD' });
         } else {
-          setView({ type: 'KARMA_ONBOARDING' });
+          // NEW: Show welcome screen for new Karma users
+          setView({ type: 'KARMA_WELCOME' });
         }
       } else if (userData.membership?.status === 'completed') {
         setView({ type: 'USER_RESULT', userId: user.id });
@@ -1210,9 +1219,123 @@ const AppContent: React.FC = () => {
           })()}
 
           {/* ===== KARMA PLATFORM VIEWS ===== */}
+          
+          {/* NEW: Welcome Screen for new Karma users */}
+          {view.type === 'KARMA_WELCOME' && (
+            <KarmaWelcome
+              userName={profile?.first_name || undefined}
+              onChooseCV={() => {}}
+              onChooseManual={() => setView({ type: 'KARMA_ONBOARDING' })}
+              onCVParsed={(data) => {
+                setCvParsedData(data);
+                setView({ type: 'KARMA_CV_REVIEW' });
+              }}
+            />
+          )}
+
+          {/* NEW: CV Review Screen */}
+          {view.type === 'KARMA_CV_REVIEW' && cvParsedData && (
+            <CVReviewScreen
+              parsedData={cvParsedData}
+              onConfirm={async (selectedData) => {
+                // Import selected data using useKarmaProfile
+                const { supabase } = await import('./src/integrations/supabase/client');
+                const userId = user?.id;
+                if (!userId) return;
+                
+                // Update profile data
+                if (selectedData.profileData) {
+                  await supabase.from('profiles').update({
+                    first_name: selectedData.profileData.firstName,
+                    last_name: selectedData.profileData.lastName,
+                    headline: selectedData.profileData.headline,
+                    bio: selectedData.profileData.bio,
+                    location: selectedData.profileData.location,
+                    years_experience: selectedData.profileData.yearsExperience,
+                    is_karma_profile: true,
+                    wants_karma_visibility: true, // Default ON
+                    profile_visibility: 'subscribers_only',
+                  }).eq('id', userId);
+                }
+                
+                // Import experiences
+                if (selectedData.experiences.length > 0) {
+                  const expRows = selectedData.experiences.map((exp, idx) => ({
+                    user_id: userId,
+                    company: exp.company,
+                    role: exp.role,
+                    start_date: exp.startDate,
+                    end_date: exp.endDate,
+                    is_current: exp.isCurrent,
+                    description: exp.description,
+                    sort_order: idx,
+                  }));
+                  await supabase.from('user_experiences').insert(expRows);
+                }
+                
+                // Import education
+                if (selectedData.education.length > 0) {
+                  const eduRows = selectedData.education.map((edu, idx) => ({
+                    user_id: userId,
+                    institution: edu.institution,
+                    degree: edu.degree,
+                    field_of_study: edu.fieldOfStudy,
+                    end_year: edu.endYear,
+                    sort_order: idx,
+                  }));
+                  await supabase.from('user_education').insert(eduRows);
+                }
+                
+                // Import certifications
+                if (selectedData.certifications.length > 0) {
+                  const certRows = selectedData.certifications.map(cert => ({
+                    user_id: userId,
+                    name: cert.name,
+                  }));
+                  await supabase.from('user_certifications').insert(certRows);
+                }
+                
+                // Import languages
+                if (selectedData.languages.length > 0) {
+                  const langRows = selectedData.languages.map(lang => ({
+                    user_id: userId,
+                    language: lang.language,
+                    proficiency: lang.proficiency || 'professional',
+                  }));
+                  await supabase.from('user_languages').insert(langRows);
+                }
+                
+                // Import skills
+                if (selectedData.skills.length > 0) {
+                  const skillRows = selectedData.skills.map(skill => ({
+                    user_id: userId,
+                    custom_skill_name: skill,
+                    proficiency_level: 3,
+                  }));
+                  await supabase.from('user_hard_skills').insert(skillRows);
+                }
+                
+                setCvParsedData(null);
+                setView({ type: 'KARMA_POST_ONBOARDING' });
+              }}
+              onBack={() => {
+                setCvParsedData(null);
+                setView({ type: 'KARMA_WELCOME' });
+              }}
+            />
+          )}
+
+          {/* NEW: Post-Onboarding Promo Screen */}
+          {view.type === 'KARMA_POST_ONBOARDING' && (
+            <PostOnboardingPromo
+              onStartRiasec={() => setView({ type: 'KARMA_TEST_RIASEC' })}
+              onSkip={() => setView({ type: 'KARMA_DASHBOARD' })}
+            />
+          )}
+
           {view.type === 'KARMA_ONBOARDING' && (
             <KarmaOnboarding
-              onComplete={() => setView({ type: 'KARMA_DASHBOARD' })}
+              onComplete={() => setView({ type: 'KARMA_POST_ONBOARDING' })}
               onSkip={() => setView({ type: 'KARMA_DASHBOARD' })}
             />
           )}

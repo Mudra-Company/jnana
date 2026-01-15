@@ -213,19 +213,20 @@ export const CVReviewScreen: React.FC<CVReviewScreenProps> = ({
             {expandedSections.experiences && (
               <div className="px-4 pb-4 space-y-1">
                 {parsedData.experiences.map((exp, i) => (
-                  <CheckboxItem 
-                    key={i} 
-                    checked={selectedExperiences.includes(i)} 
-                    onChange={() => toggleItem(selectedExperiences, setSelectedExperiences, i)}
-                  >
-                    <div>
-                      <p className="font-medium text-foreground">{exp.role}</p>
-                      <p className="text-sm text-muted-foreground">{exp.company}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {exp.startDate} - {exp.isCurrent ? 'Presente' : exp.endDate}
-                      </p>
-                    </div>
-                  </CheckboxItem>
+                  <div key={i}>
+                    <CheckboxItem 
+                      checked={selectedExperiences.includes(i)} 
+                      onChange={() => toggleItem(selectedExperiences, setSelectedExperiences, i)}
+                    >
+                      <div>
+                        <p className="font-medium text-foreground">{exp.role}</p>
+                        <p className="text-sm text-muted-foreground">{exp.company}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {exp.startDate} - {exp.isCurrent ? 'Presente' : exp.endDate}
+                        </p>
+                      </div>
+                    </CheckboxItem>
+                  </div>
                 ))}
               </div>
             )}
@@ -245,17 +246,18 @@ export const CVReviewScreen: React.FC<CVReviewScreenProps> = ({
             {expandedSections.education && (
               <div className="px-4 pb-4 space-y-1">
                 {parsedData.education.map((edu, i) => (
-                  <CheckboxItem 
-                    key={i} 
-                    checked={selectedEducation.includes(i)} 
-                    onChange={() => toggleItem(selectedEducation, setSelectedEducation, i)}
-                  >
-                    <div>
-                      <p className="font-medium text-foreground">{edu.degree}</p>
-                      <p className="text-sm text-muted-foreground">{edu.institution}</p>
-                      {edu.fieldOfStudy && <p className="text-xs text-muted-foreground">{edu.fieldOfStudy}</p>}
-                    </div>
-                  </CheckboxItem>
+                  <div key={i}>
+                    <CheckboxItem 
+                      checked={selectedEducation.includes(i)} 
+                      onChange={() => toggleItem(selectedEducation, setSelectedEducation, i)}
+                    >
+                      <div>
+                        <p className="font-medium text-foreground">{edu.degree}</p>
+                        <p className="text-sm text-muted-foreground">{edu.institution}</p>
+                        {edu.fieldOfStudy && <p className="text-xs text-muted-foreground">{edu.fieldOfStudy}</p>}
+                      </div>
+                    </CheckboxItem>
+                  </div>
                 ))}
               </div>
             )}
@@ -307,13 +309,14 @@ export const CVReviewScreen: React.FC<CVReviewScreenProps> = ({
             {expandedSections.certifications && (
               <div className="px-4 pb-4 space-y-1">
                 {parsedData.certifications.map((cert, i) => (
-                  <CheckboxItem 
-                    key={i} 
-                    checked={selectedCertifications.includes(i)} 
-                    onChange={() => toggleItem(selectedCertifications, setSelectedCertifications, i)}
-                  >
-                    <p className="font-medium text-foreground">{cert.name}</p>
-                  </CheckboxItem>
+                  <div key={i}>
+                    <CheckboxItem 
+                      checked={selectedCertifications.includes(i)} 
+                      onChange={() => toggleItem(selectedCertifications, setSelectedCertifications, i)}
+                    >
+                      <p className="font-medium text-foreground">{cert.name}</p>
+                    </CheckboxItem>
+                  </div>
                 ))}
               </div>
             )}
@@ -333,13 +336,14 @@ export const CVReviewScreen: React.FC<CVReviewScreenProps> = ({
             {expandedSections.languages && (
               <div className="px-4 pb-4 space-y-1">
                 {parsedData.languages.map((lang, i) => (
-                  <CheckboxItem 
-                    key={i} 
-                    checked={selectedLanguages.includes(i)} 
-                    onChange={() => toggleItem(selectedLanguages, setSelectedLanguages, i)}
-                  >
-                    <p className="font-medium text-foreground">{lang.language}</p>
-                  </CheckboxItem>
+                  <div key={i}>
+                    <CheckboxItem 
+                      checked={selectedLanguages.includes(i)} 
+                      onChange={() => toggleItem(selectedLanguages, setSelectedLanguages, i)}
+                    >
+                      <p className="font-medium text-foreground">{lang.language}</p>
+                    </CheckboxItem>
+                  </div>
                 ))}
               </div>
             )}

@@ -115,7 +115,7 @@ export const KarmaOnboarding: React.FC<KarmaOnboardingProps> = ({ onComplete, on
     setIsSubmitting(true);
     
     try {
-      // Step 1: Update profile basic info
+      // Step 1: Update profile basic info with visibility ON by default
       await updateProfile({
         firstName: formData.firstName,
         lastName: formData.lastName,
@@ -127,6 +127,7 @@ export const KarmaOnboarding: React.FC<KarmaOnboardingProps> = ({ onComplete, on
         preferredWorkType: formData.preferredWorkType,
         isKarmaProfile: true,
         profileVisibility: 'subscribers_only',
+        wantsKarmaVisibility: true, // Default visibility ON
       });
 
       // Step 2: Upload avatar if provided
