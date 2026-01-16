@@ -191,8 +191,15 @@ export const useTalentSearch = () => {
         };
       });
 
-      // Sort by match score
-      scoredCandidates.sort((a, b) => b.matchScore - a.matchScore);
+      // Sort by: 1) looking for work (priority), 2) match score
+      scoredCandidates.sort((a, b) => {
+        // Prioritize candidates actively looking for work
+        if (a.profile.lookingForWork !== b.profile.lookingForWork) {
+          return a.profile.lookingForWork ? -1 : 1;
+        }
+        // Then sort by match score
+        return b.matchScore - a.matchScore;
+      });
 
       setCandidates(scoredCandidates);
     } catch (err) {
