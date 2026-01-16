@@ -137,23 +137,46 @@ const streamKarmaChat = async (
   }
 };
 
-// Patterns that indicate the AI wants to close the conversation
-const CLOSING_PATTERNS = [
-  'è stato un piacere',
-  'in bocca al lupo',
+// Explicit patterns that CLEARLY indicate conversation end
+const EXPLICIT_CLOSING_PATTERNS = [
+  'concludiamo qui il nostro colloquio',
+  'questo conclude il nostro colloquio',
+  'abbiamo concluso il colloquio',
+  'il colloquio è terminato',
+  'terminiamo qui la nostra conversazione',
+  'si conclude qui il nostro incontro',
+];
+
+// Indicators that suggest closing (need confirmation)
+const CLOSING_INDICATORS = [
   'buona fortuna',
+  'in bocca al lupo',
   'ti auguro il meglio',
-  'grazie per aver condiviso',
-  'concludiamo qui',
-  'questo conclude',
-  'abbiamo concluso',
+  'è stato un piacere conoscerti',
   'ti ringrazio per questa conversazione',
-  'ti faccio un grande in bocca al lupo',
+];
+
+// Confirming context (must appear with indicators)
+const CLOSING_CONFIRMERS = [
+  'colloquio',
+  'percorso professionale',
+  'futuro',
+  'carriera',
+  'prossimi passi',
 ];
 
 const checkForAutoClose = (text: string): boolean => {
   const lowerText = text.toLowerCase();
-  return CLOSING_PATTERNS.some(pattern => lowerText.includes(pattern));
+  
+  // Check for explicit patterns (sufficient on their own)
+  const hasExplicitPattern = EXPLICIT_CLOSING_PATTERNS.some(p => lowerText.includes(p));
+  if (hasExplicitPattern) return true;
+  
+  // Check for indicator + confirmer combination
+  const hasIndicator = CLOSING_INDICATORS.some(p => lowerText.includes(p));
+  const hasConfirmer = CLOSING_CONFIRMERS.some(p => lowerText.includes(p));
+  
+  return hasIndicator && hasConfirmer;
 };
 
 export const KarmaTestChat: React.FC<KarmaTestChatProps> = ({ 
@@ -266,8 +289,14 @@ Ora vorrei conoscerti meglio attraverso una breve conversazione. Non ci sono ris
       },
       (finalText) => {
         setIsTyping(false);
-        // Check if AI wants to conclude the conversation
-        if (checkForAutoClose(assistantText || finalText)) {
+        
+        // Count USER messages (not total messages)
+        const userMessageCount = newMessages.filter(m => m.role === 'user').length;
+        
+        // Auto-close only if:
+        // 1. At least 4 user messages (substantial conversation)
+        // 2. AI uses a closing pattern
+        if (userMessageCount >= 4 && checkForAutoClose(assistantText || finalText)) {
           setAutoClosing(true);
           setTimeout(() => {
             handleConclude();
