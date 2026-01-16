@@ -611,9 +611,15 @@ const ProfileRow: React.FC<{ result: KarmaSearchResult; onView: () => void }> = 
                 ? `${profile.firstName} ${profile.lastName}`
                 : profile.email}
             </h4>
-            {profile.lookingForWork && (
-              <span className="px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-xs rounded-full">
-                Disponibile
+            {profile.lookingForWork ? (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-xs rounded-full font-medium">
+                <Briefcase className="w-3 h-3" />
+                In cerca
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 text-xs rounded-full font-medium">
+                <Eye className="w-3 h-3" />
+                Passivo
               </span>
             )}
             {profile.karmaData?.seniorityAssessment && (

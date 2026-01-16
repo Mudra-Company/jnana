@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { ArrowLeft, User, Briefcase, MapPin, Award, CheckCircle, XCircle, AlertCircle, Search, Filter, Loader2, Shuffle, Building, ArrowRight, Users, TrendingDown, Plus, ListChecks } from 'lucide-react';
+import { ArrowLeft, User, Briefcase, MapPin, Award, CheckCircle, XCircle, AlertCircle, Search, Filter, Loader2, Shuffle, Building, ArrowRight, Users, TrendingDown, Plus, ListChecks, Eye } from 'lucide-react';
 import { Card } from '../../components/Card';
 import { Button } from '../../components/Button';
 import { useOpenPositions, OpenPosition } from '../../src/hooks/useOpenPositions';
@@ -458,9 +458,22 @@ export const PositionMatchingView: React.FC<PositionMatchingViewProps> = ({
               )}
             </div>
             <div className="flex-1 min-w-0">
-              <h3 className="font-bold text-gray-900 dark:text-white truncate">
-                {profile.firstName || 'Utente'} {profile.lastName || ''}
-              </h3>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3 className="font-bold text-gray-900 dark:text-white truncate">
+                  {profile.firstName || 'Utente'} {profile.lastName || ''}
+                </h3>
+                {profile.lookingForWork ? (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300 font-medium">
+                    <Briefcase size={10} />
+                    In cerca
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300 font-medium">
+                    <Eye size={10} />
+                    Passivo
+                  </span>
+                )}
+              </div>
               <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
                 {profile.headline || profile.jobTitle || 'Professionista'}
               </p>
