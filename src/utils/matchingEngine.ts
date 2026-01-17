@@ -1,8 +1,9 @@
 // =============================================
-// MATCHING ENGINE - RIASEC + Skills + Seniority
+// MATCHING ENGINE - RIASEC + Skills + Seniority + Generation Synergy
 // =============================================
 
-import type { RiasecScore, SeniorityLevel } from '../../types';
+import type { RiasecScore, SeniorityLevel, SynergyResult } from '../../types';
+import { analyzeSynergy, type UserWithGeneration } from '../../services/generationService';
 
 export interface MatchingTarget {
   riasecScore?: RiasecScore;
@@ -12,6 +13,8 @@ export interface MatchingTarget {
   workTypes?: string[];
   minExperience?: number;
   maxExperience?: number;
+  // Target user for synergy calculation (e.g., hiring manager)
+  targetUser?: UserWithGeneration;
 }
 
 export interface MatchingCandidate {
@@ -20,6 +23,10 @@ export interface MatchingCandidate {
   seniorityLevel?: SeniorityLevel;
   workType?: string;
   yearsExperience?: number;
+  // Candidate data for synergy calculation
+  birthDate?: string;
+  age?: number;
+  hardSkills?: Array<{ name: string; proficiencyLevel?: number; category?: string }>;
 }
 
 export interface MatchResult {
@@ -31,10 +38,13 @@ export interface MatchResult {
   experienceMatch: boolean;
   matchingSkills: string[];
   missingSkills: string[];
+  // NEW: Synergy result for intergenerational matching
+  synergyResult?: SynergyResult;
   breakdown: {
     riasecWeight: number;
     skillsWeight: number;
     bonuses: number;
+    synergyWeight: number;
   };
 }
 
@@ -229,15 +239,17 @@ export function checkExperienceMatch(
 
 /**
  * Main matching function - calculates overall match score
+ * Now includes synergy bonus for intergenerational matching
  */
 export function calculateMatchScore(
   candidate: MatchingCandidate,
   target: MatchingTarget
 ): MatchResult {
-  // Weights for final score calculation
-  const RIASEC_WEIGHT = 0.35; // 35% RIASEC match
-  const SKILLS_WEIGHT = 0.45; // 45% Skills match
-  const BONUS_WEIGHT = 0.20;  // 20% for seniority, work type, experience bonuses
+  // Weights for final score calculation (rebalanced to include synergy)
+  const RIASEC_WEIGHT = 0.30;  // 30% RIASEC match (was 35%)
+  const SKILLS_WEIGHT = 0.40;  // 40% Skills match (was 45%)
+  const BONUS_WEIGHT = 0.20;   // 20% for seniority, work type, experience bonuses
+  const SYNERGY_WEIGHT = 0.10; // 10% for intergenerational synergy (NEW)
   
   // Calculate RIASEC score
   let riasecScore = 50; // Default middle score
@@ -266,11 +278,28 @@ export function calculateMatchScore(
   const bonusCount = [seniorityMatch, workTypeMatch, experienceMatch].filter(Boolean).length;
   const bonusScore = (bonusCount / 3) * 100;
   
+  // Calculate synergy score (NEW)
+  let synergyResult: SynergyResult | undefined;
+  let synergyScore = 50; // Default neutral score
+  
+  if (target.targetUser && (candidate.birthDate || candidate.age)) {
+    synergyResult = analyzeSynergy(
+      {
+        birthDate: candidate.birthDate,
+        age: candidate.age,
+        hardSkills: candidate.hardSkills
+      },
+      target.targetUser
+    );
+    synergyScore = synergyResult.score || 50;
+  }
+  
   // Final weighted score
   const totalScore = Math.round(
     (riasecScore * RIASEC_WEIGHT) +
     (skillsResult.score * SKILLS_WEIGHT) +
-    (bonusScore * BONUS_WEIGHT)
+    (bonusScore * BONUS_WEIGHT) +
+    (synergyScore * SYNERGY_WEIGHT)
   );
   
   return {
@@ -282,10 +311,12 @@ export function calculateMatchScore(
     experienceMatch,
     matchingSkills: skillsResult.matching,
     missingSkills: skillsResult.missing,
+    synergyResult,
     breakdown: {
       riasecWeight: Math.round(riasecScore * RIASEC_WEIGHT),
       skillsWeight: Math.round(skillsResult.score * SKILLS_WEIGHT),
       bonuses: Math.round(bonusScore * BONUS_WEIGHT),
+      synergyWeight: Math.round(synergyScore * SYNERGY_WEIGHT),
     },
   };
 }

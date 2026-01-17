@@ -162,6 +162,7 @@ export interface KarmaProfile {
   jobTitle?: string;
   gender?: 'M' | 'F';
   age?: number;
+  birthDate?: string; // Format YYYY-MM-DD (master field for generation calculation)
   isKarmaProfile: boolean;
   profileVisibility: ProfileVisibility;
   lookingForWork: boolean;
