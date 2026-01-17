@@ -78,6 +78,7 @@ export const useKarmaProfile = (userId?: string) => {
         jobTitle: profileData.job_title || undefined,
         gender: profileData.gender as 'M' | 'F' | undefined,
         age: profileData.age || undefined,
+        birthDate: profileData.birth_date || undefined,
         isKarmaProfile: profileData.is_karma_profile || false,
         wantsKarmaVisibility: profileData.wants_karma_visibility || false,
         profileVisibility: (profileData.profile_visibility as ProfileVisibility) || 'private',

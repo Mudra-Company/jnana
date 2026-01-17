@@ -96,6 +96,7 @@ export interface User {
   email: string;
   gender?: 'M' | 'F';
   age?: number;
+  birthDate?: string; // Format YYYY-MM-DD (master field for generation calculation)
   companyId: string;
   status: TestStatus;
   results?: RiasecScore;
@@ -122,6 +123,26 @@ export interface Company {
 // --- ORG CHART STRUCTURES ---
 
 export type SeniorityLevel = 'Junior' | 'Mid' | 'Senior' | 'Lead' | 'C-Level';
+
+// Generation type definitions (re-exported from generationService for convenience)
+export type GenerationType =
+  | 'Builders'      // Pre-1946
+  | 'Baby Boomer'   // 1946-1964
+  | 'Gen X'         // 1965-1980
+  | 'Millennial'    // 1981-1996
+  | 'Gen Z'         // 1997-2012
+  | 'Gen Alpha';    // Post-2012
+
+// Synergy analysis result for intergenerational matching
+export interface SynergyResult {
+  type: 'Mentoring' | 'Reverse Mentoring' | 'Peer Support' | 'None';
+  score: number; // 0-100
+  reason: string;
+  techSkillsBonus?: string[]; // Tech skills enabling reverse mentoring
+  generationA?: GenerationType;
+  generationB?: GenerationType;
+  ageGap?: number;
+}
 
 // Individual role requirements (stored on company_members)
 export interface RequiredProfile {

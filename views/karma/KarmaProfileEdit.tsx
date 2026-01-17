@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   User, Camera, MapPin, Briefcase, Save, ArrowLeft,
-  Plus, Star, Linkedin, Github, Globe, Link2, Trash2, X, Sparkles, Info
+  Plus, Star, Linkedin, Github, Globe, Link2, Trash2, X, Sparkles, Info, Calendar
 } from 'lucide-react';
 import { Button } from '../../components/Button';
 import { toast } from '../../src/hooks/use-toast';
@@ -16,6 +16,7 @@ import { EducationManager } from '../../src/components/karma/EducationManager';
 import { CertificationManager } from '../../src/components/karma/CertificationManager';
 import { LanguagesManager } from '../../src/components/karma/LanguagesManager';
 import { VisibilitySettingsCard } from '../../src/components/karma/VisibilitySettingsCard';
+import { GenerationBadge } from '../../src/components/GenerationBadge';
 import type { WorkType, SocialPlatform, ParsedCVData, ProfileVisibility } from '../../src/types/karma';
 
 interface KarmaProfileEditProps {
@@ -73,6 +74,7 @@ export const KarmaProfileEdit: React.FC<KarmaProfileEditProps> = ({ onBack, onSa
     preferredWorkType: 'any' as WorkType,
     profileVisibility: 'private' as ProfileVisibility,
     wantsKarmaVisibility: false,
+    birthDate: '',
   });
 
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
@@ -104,6 +106,7 @@ export const KarmaProfileEdit: React.FC<KarmaProfileEditProps> = ({ onBack, onSa
         preferredWorkType: profile.preferredWorkType || 'any',
         profileVisibility: profile.profileVisibility || 'private',
         wantsKarmaVisibility: profile.wantsKarmaVisibility || false,
+        birthDate: profile.birthDate || '',
       };
       setFormData(newFormData);
       initialFormData.current = newFormData;
@@ -229,6 +232,7 @@ export const KarmaProfileEdit: React.FC<KarmaProfileEditProps> = ({ onBack, onSa
         preferredWorkType: formData.preferredWorkType,
         profileVisibility: formData.profileVisibility,
         wantsKarmaVisibility: formData.wantsKarmaVisibility,
+        birthDate: formData.birthDate || undefined,
         // Set isKarmaProfile when visibility is enabled (never turn it off once set)
         isKarmaProfile: shouldBeKarmaProfile ? true : profile?.isKarmaProfile,
       });
@@ -513,20 +517,39 @@ export const KarmaProfileEdit: React.FC<KarmaProfileEditProps> = ({ onBack, onSa
               />
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                <Briefcase size={14} className="inline mr-1" />
-                Anni di esperienza
-              </label>
-              <input
-                type="number"
-                min="0"
-                max="50"
-                value={formData.yearsExperience}
-                onChange={(e) => setFormData({ ...formData, yearsExperience: parseInt(e.target.value) || 0 })}
-                className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-jnana-sage focus:border-transparent transition-all"
-                placeholder="Es: 15"
-              />
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <Calendar size={14} className="inline mr-1" />
+                  Data di nascita
+                </label>
+                <input
+                  type="date"
+                  value={formData.birthDate}
+                  onChange={(e) => setFormData({ ...formData, birthDate: e.target.value })}
+                  className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-jnana-sage focus:border-transparent transition-all"
+                />
+                {formData.birthDate && (
+                  <div className="mt-2">
+                    <GenerationBadge birthDate={formData.birthDate} showAge size="sm" />
+                  </div>
+                )}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <Briefcase size={14} className="inline mr-1" />
+                  Anni di esperienza
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  max="50"
+                  value={formData.yearsExperience}
+                  onChange={(e) => setFormData({ ...formData, yearsExperience: parseInt(e.target.value) || 0 })}
+                  className="w-full px-4 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-jnana-sage focus:border-transparent transition-all"
+                  placeholder="Es: 15"
+                />
+              </div>
             </div>
 
             <div>
