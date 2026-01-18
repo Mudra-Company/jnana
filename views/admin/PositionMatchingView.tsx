@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { ArrowLeft, User, Briefcase, MapPin, Award, CheckCircle, XCircle, AlertCircle, Search, Filter, Loader2, Shuffle, Building, ArrowRight, Users, TrendingDown, Plus, ListChecks, Eye } from 'lucide-react';
+import { ArrowLeft, User, Briefcase, MapPin, Award, CheckCircle, XCircle, AlertCircle, Search, Filter, Loader2, Shuffle, Building, ArrowRight, Users, TrendingDown, Plus, ListChecks, Eye, Lightbulb } from 'lucide-react';
 import { Card } from '../../components/Card';
 import { Button } from '../../components/Button';
 import { useOpenPositions, OpenPosition } from '../../src/hooks/useOpenPositions';
@@ -14,6 +14,9 @@ import { ShortlistTab } from '../../src/components/shortlist/ShortlistTab';
 import { MatchScorePopover, MatchBreakdown } from '../../src/components/shortlist/MatchScorePopover';
 import { supabase } from '../../src/integrations/supabase/client';
 import { useToast } from '../../src/hooks/use-toast';
+import { GenerationBadge } from '../../src/components/GenerationBadge';
+import { SynergyBadge } from '../../src/components/SynergyBadge';
+import { analyzeSynergy, UserWithGeneration } from '../../services/generationService';
 
 interface PositionMatchingViewProps {
   positionId: string;
@@ -372,8 +375,35 @@ export const PositionMatchingView: React.FC<PositionMatchingViewProps> = ({
     });
   };
 
+  // Get hiring manager for synergy calculation (if position has one)
+  const hiringManager = useMemo((): UserWithGeneration | null => {
+    // Try to find the manager associated with this position's org node
+    if (!position?.nodeId) return null;
+    const manager = companyUsers.find(u => u.departmentId === position.nodeId && u.isHiring);
+    if (!manager) return null;
+    return {
+      birthDate: manager.birthDate,
+      age: manager.age,
+      hardSkills: manager.hardSkills?.map(s => ({ 
+        name: typeof s === 'string' ? s : s.name,
+        proficiencyLevel: typeof s === 'object' ? s.proficiencyLevel : undefined
+      }))
+    };
+  }, [position, companyUsers]);
+
   const renderInternalCandidate = (candidate: typeof internalCandidates[0], index: number) => {
     const isOverSenior = candidate.matchData.seniorityMatch === 'above';
+    
+    // Calculate synergy with hiring manager
+    const candidateForSynergy: UserWithGeneration = {
+      birthDate: candidate.user.birthDate,
+      age: candidate.user.age,
+      hardSkills: candidate.user.hardSkills?.map(s => ({
+        name: typeof s === 'string' ? s : s.name,
+        proficiencyLevel: typeof s === 'object' ? s.proficiencyLevel : undefined
+      }))
+    };
+    const synergyResult = hiringManager ? analyzeSynergy(candidateForSynergy, hiringManager) : null;
     
     return (
       <div 
@@ -387,7 +417,10 @@ export const PositionMatchingView: React.FC<PositionMatchingViewProps> = ({
             {candidate.user.firstName?.[0]}{candidate.user.lastName?.[0]}
           </div>
           <div>
-            <div className="text-sm font-bold text-gray-800 dark:text-gray-100">{candidate.user.firstName} {candidate.user.lastName}</div>
+            <div className="text-sm font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
+              {candidate.user.firstName} {candidate.user.lastName}
+              <GenerationBadge birthDate={candidate.user.birthDate} age={candidate.user.age} size="xs" />
+            </div>
             <div className="text-[10px] text-gray-500 flex items-center gap-2">
               <span>{candidate.user.karmaData?.seniorityAssessment || 'N/A'} - {candidate.user.jobTitle}</span>
               {isOverSenior && (
@@ -399,6 +432,11 @@ export const PositionMatchingView: React.FC<PositionMatchingViewProps> = ({
             <div className="text-[9px] text-purple-500 dark:text-purple-400 flex items-center gap-1">
               <Building size={9}/> Attualmente in: {candidate.currentDepartment}
             </div>
+            {synergyResult && synergyResult.type !== 'None' && (
+              <div className="mt-1">
+                <SynergyBadge synergyResult={synergyResult} size="xs" />
+              </div>
+            )}
           </div>
         </div>
         <div className="flex flex-col items-end gap-1">
@@ -440,6 +478,17 @@ export const PositionMatchingView: React.FC<PositionMatchingViewProps> = ({
     const { profile, matchScore, riasecMatch, skillsMatch, skillsOverlap, missingSkills, seniorityMatch } = candidate;
     const quality = getMatchQuality(matchScore);
     
+    // Calculate synergy with hiring manager
+    const candidateForSynergy: UserWithGeneration = {
+      birthDate: profile.birthDate,
+      age: profile.age,
+      hardSkills: profile.hardSkills?.map(s => ({
+        name: s.skill?.name || s.customSkillName || 'Unknown',
+        proficiencyLevel: s.proficiencyLevel
+      }))
+    };
+    const synergyResult = hiringManager ? analyzeSynergy(candidateForSynergy, hiringManager) : null;
+    
     return (
       <Card 
         key={profile.id} 
@@ -462,6 +511,7 @@ export const PositionMatchingView: React.FC<PositionMatchingViewProps> = ({
                 <h3 className="font-bold text-gray-900 dark:text-white truncate">
                   {profile.firstName || 'Utente'} {profile.lastName || ''}
                 </h3>
+                <GenerationBadge birthDate={profile.birthDate} age={profile.age} size="sm" />
                 {profile.lookingForWork ? (
                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300 font-medium">
                     <Briefcase size={10} />
@@ -482,6 +532,11 @@ export const PositionMatchingView: React.FC<PositionMatchingViewProps> = ({
                   <MapPin size={12} />
                   {profile.location}
                 </p>
+              )}
+              {synergyResult && synergyResult.type !== 'None' && (
+                <div className="mt-1.5">
+                  <SynergyBadge synergyResult={synergyResult} size="sm" showReason />
+                </div>
               )}
             </div>
           </div>
