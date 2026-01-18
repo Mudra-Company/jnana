@@ -1,10 +1,11 @@
 import React, { useMemo, useState } from 'react';
-import { Fingerprint, FileSpreadsheet, CheckCircle, Database, AlertTriangle, Users, ThermometerSun, BarChart3, Lightbulb, TrendingUp, Handshake, ShieldAlert, Award, AlertCircle, Info, ChevronDown, ChevronRight, User as UserIcon } from 'lucide-react';
+import { Fingerprint, FileSpreadsheet, CheckCircle, Database, AlertTriangle, Users, ThermometerSun, BarChart3, Lightbulb, TrendingUp, Handshake, ShieldAlert, Award, AlertCircle, Info, ChevronDown, ChevronRight, User as UserIcon, Cake } from 'lucide-react';
 import { Card } from '../../components/Card';
 import { CompanyProfile, User } from '../../types';
 import { calculateCultureAnalysis, calculateClimateAnalytics, calculateTeamClimateStats, calculateLeadershipAnalytics, MemberBreakdown } from '../../services/riasecService';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, CartesianGrid, ReferenceLine, LabelList, PieChart, Pie } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, CartesianGrid, ReferenceLine, LabelList, PieChart, Pie, Legend } from 'recharts';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '../../src/components/ui/collapsible';
+import { generateGenerationalInsights, GENERATION_COLORS, GENERATION_LABELS, GenerationType, UserWithGeneration } from '../../services/generationService';
 
 interface AdminIdentityHubProps {
   company: CompanyProfile;
@@ -47,6 +48,42 @@ export const AdminIdentityHub: React.FC<AdminIdentityHubProps> = ({ company, use
 
     // Calculate Leadership stats
     const leadershipStats = useMemo(() => calculateLeadershipAnalytics(company, users), [company, users]);
+
+    // Calculate Generational stats
+    const generationStats = useMemo(() => {
+        // Map users to UserWithGeneration format
+        const usersWithGeneration: UserWithGeneration[] = users.map(u => ({
+            birthDate: u.birthDate,
+            age: u.age,
+            hardSkills: u.hardSkills?.map(s => ({
+                name: typeof s === 'string' ? s : s.name,
+                proficiencyLevel: typeof s === 'object' ? s.proficiencyLevel : undefined
+            }))
+        }));
+        return generateGenerationalInsights(usersWithGeneration);
+    }, [users]);
+
+    // Prepare generation pie chart data
+    const generationPieData = useMemo(() => {
+        const colorMap: Record<GenerationType, string> = {
+            'Builders': '#64748b',
+            'Baby Boomer': '#3b82f6',
+            'Gen X': '#a855f7',
+            'Millennial': '#ec4899',
+            'Gen Z': '#22c55e',
+            'Gen Alpha': '#f59e0b'
+        };
+        
+        return (Object.keys(generationStats.distribution) as GenerationType[])
+            .filter(gen => generationStats.distribution[gen] > 0)
+            .map(gen => ({
+                name: GENERATION_LABELS[gen].short,
+                fullName: GENERATION_LABELS[gen].full,
+                years: GENERATION_LABELS[gen].years,
+                value: generationStats.distribution[gen],
+                color: colorMap[gen]
+            }));
+    }, [generationStats]);
 
     // --- STRATEGIC INSIGHT GENERATION LOGIC ---
     
@@ -486,6 +523,170 @@ export const AdminIdentityHub: React.FC<AdminIdentityHubProps> = ({ company, use
                     </div>
                 )}
              </div>
+
+            {/* --- SECTION 4: GENERATIONAL DIVERSITY --- */}
+            <div>
+                <h2 className="text-xl font-bold text-gray-700 dark:text-gray-200 border-l-4 border-cyan-500 pl-3 mb-6">4. Diversità Generazionale</h2>
+                
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    {/* 1. KEY METRICS */}
+                    <Card className="border-t-4 border-t-cyan-500">
+                        <h3 className="text-sm font-bold uppercase text-gray-500 mb-4 flex items-center gap-2">
+                            <Cake size={16}/> Metriche Chiave
+                        </h3>
+                        
+                        <div className="space-y-4">
+                            {/* Diversity Score */}
+                            <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                                <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Indice Diversità</span>
+                                <div className={`text-2xl font-bold ${
+                                    generationStats.diversityScore >= 60 ? 'text-green-500' :
+                                    generationStats.diversityScore >= 35 ? 'text-yellow-500' : 'text-red-500'
+                                }`}>
+                                    {generationStats.diversityScore}%
+                                </div>
+                            </div>
+                            
+                            {/* Average Age */}
+                            <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                                <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Età Media</span>
+                                <div className="text-2xl font-bold text-gray-700 dark:text-gray-200">
+                                    {generationStats.avgAge !== null ? `${generationStats.avgAge} anni` : 'N/D'}
+                                </div>
+                            </div>
+                            
+                            {/* Dominant Generation */}
+                            <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                                <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Gen. Dominante</span>
+                                {generationStats.dominantGen ? (
+                                    <span className={`px-3 py-1 rounded-full text-sm font-bold ${
+                                        GENERATION_COLORS[generationStats.dominantGen].bg
+                                    } ${GENERATION_COLORS[generationStats.dominantGen].text}`}>
+                                        {GENERATION_LABELS[generationStats.dominantGen].short}
+                                    </span>
+                                ) : (
+                                    <span className="text-gray-400">N/D</span>
+                                )}
+                            </div>
+                            
+                            {/* Users with generation data */}
+                            <div className="pt-2 border-t border-gray-100 dark:border-gray-700">
+                                <p className="text-xs text-gray-400">
+                                    Profili con dati anagrafici: {(Object.values(generationStats.distribution) as number[]).reduce((a, b) => a + b, 0)} / {users.length}
+                                </p>
+                            </div>
+                        </div>
+                    </Card>
+
+                    {/* 2. PIE CHART */}
+                    <Card className="min-h-[350px] flex flex-col">
+                        <h3 className="text-sm font-bold uppercase text-gray-500 mb-2 flex items-center gap-2">
+                            <Users size={16}/> Distribuzione Generazionale
+                        </h3>
+                        <p className="text-xs text-gray-400 mb-4">Composizione del team per generazione</p>
+                        
+                        {generationPieData.length > 0 ? (
+                            <div className="flex-1 w-full min-h-[250px]">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <PieChart>
+                                        <Pie
+                                            data={generationPieData}
+                                            dataKey="value"
+                                            nameKey="name"
+                                            cx="50%"
+                                            cy="50%"
+                                            outerRadius={80}
+                                            innerRadius={40}
+                                            paddingAngle={2}
+                                            label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                                            labelLine={{ stroke: '#9CA3AF', strokeWidth: 1 }}
+                                        >
+                                            {generationPieData.map((entry, index) => (
+                                                <Cell key={`cell-${index}`} fill={entry.color} />
+                                            ))}
+                                        </Pie>
+                                        <Tooltip 
+                                            contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}
+                                            formatter={(value: number, name: string) => {
+                                                const item = generationPieData.find(d => d.name === name);
+                                                return [`${value} persone`, `${item?.fullName} (${item?.years})`];
+                                            }}
+                                        />
+                                        <Legend 
+                                            verticalAlign="bottom" 
+                                            height={36}
+                                            formatter={(value) => <span className="text-xs font-medium">{value}</span>}
+                                        />
+                                    </PieChart>
+                                </ResponsiveContainer>
+                            </div>
+                        ) : (
+                            <div className="flex-1 flex items-center justify-center">
+                                <div className="text-center">
+                                    <Cake size={48} className="mx-auto text-gray-300 mb-2"/>
+                                    <p className="text-gray-400 text-sm">Nessun dato anagrafico disponibile</p>
+                                    <p className="text-gray-300 text-xs mt-1">Aggiungi la data di nascita nei profili</p>
+                                </div>
+                            </div>
+                        )}
+                    </Card>
+
+                    {/* 3. INSIGHTS */}
+                    <Card className="flex flex-col">
+                        <h3 className="text-sm font-bold uppercase text-gray-500 mb-4 flex items-center gap-2">
+                            <Lightbulb size={16}/> Insights Automatici
+                        </h3>
+                        
+                        <div className="flex-1 space-y-3">
+                            {generationStats.insights.length > 0 ? (
+                                generationStats.insights.map((insight, idx) => (
+                                    <div 
+                                        key={idx} 
+                                        className="p-3 bg-cyan-50 dark:bg-cyan-900/20 rounded-lg border border-cyan-100 dark:border-cyan-800 text-sm text-cyan-900 dark:text-cyan-100"
+                                    >
+                                        <span className="flex items-start gap-2">
+                                            <Info size={14} className="shrink-0 mt-0.5 text-cyan-500"/>
+                                            <span>{insight}</span>
+                                        </span>
+                                    </div>
+                                ))
+                            ) : (
+                                <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg text-center">
+                                    <p className="text-gray-400 text-sm italic">
+                                        Aggiungi dati anagrafici per generare insights
+                                    </p>
+                                </div>
+                            )}
+                        </div>
+                        
+                        {/* Mentoring Opportunities Summary */}
+                        {generationPieData.length >= 2 && (
+                            <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-700">
+                                <p className="text-xs text-gray-500 font-bold uppercase mb-2">Opportunità di Mentoring</p>
+                                <div className="flex gap-2 flex-wrap">
+                                    {(generationStats.distribution['Builders'] > 0 || 
+                                      generationStats.distribution['Baby Boomer'] > 0 || 
+                                      generationStats.distribution['Gen X'] > 0) && 
+                                     (generationStats.distribution['Millennial'] > 0 || 
+                                      generationStats.distribution['Gen Z'] > 0) && (
+                                        <>
+                                            <span className="px-2 py-1 bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 rounded text-xs font-medium">
+                                                🎓 Mentoring Classico
+                                            </span>
+                                            <span className="px-2 py-1 bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300 rounded text-xs font-medium">
+                                                🔄 Reverse Mentoring
+                                            </span>
+                                        </>
+                                    )}
+                                    <span className="px-2 py-1 bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 rounded text-xs font-medium">
+                                        🤝 Peer Support
+                                    </span>
+                                </div>
+                            </div>
+                        )}
+                    </Card>
+                </div>
+            </div>
 
             {/* GAP ANALYSIS & STRATEGIC SYNTHESIS FOOTER */}
             <Card className="mt-8 bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 border border-gray-200 dark:border-gray-700 shadow-lg">
