@@ -15,7 +15,8 @@ import {
   Sparkles,
   BarChart3,
   User,
-  Bot
+  Bot,
+  ShieldCheck
 } from 'lucide-react';
 import { Button } from '../Button';
 import { ViewState, CompanyProfile } from '../../types';
@@ -29,6 +30,7 @@ interface HeaderProps {
   onOrgChart: () => void;
   onIdentityHub: () => void;
   onCompanyProfile: () => void;
+  onCompliance?: () => void;
   
   onSuperAdminHome: () => void;
   onJobDb: () => void;
@@ -48,7 +50,7 @@ interface HeaderProps {
 }
 
 export const Header: React.FC<HeaderProps> = ({ 
-  onLogout, view, onAdminHome, onOrgChart, onIdentityHub, onCompanyProfile,
+  onLogout, view, onAdminHome, onOrgChart, onIdentityHub, onCompanyProfile, onCompliance,
   onSuperAdminHome, onJobDb, onKarmaTalents, onKarmaAIConfig, onAnalytics, activeCompany, isSuperAdminMode, onExitImpersonation,
   isDark, toggleTheme, onBack, canGoBack, userRole, onMyProfile, hasCompanyMembership
 }) => {
@@ -204,6 +206,17 @@ export const Header: React.FC<HeaderProps> = ({
                 <Settings size={16} className="mr-2" />
                 Azienda
               </Button>
+              {onCompliance && (
+                <Button 
+                  variant={view.type === 'ADMIN_COMPLIANCE' ? 'primary' : 'ghost'} 
+                  size="sm"
+                  onClick={onCompliance}
+                  className={view.type === 'ADMIN_COMPLIANCE' ? '!bg-emerald-600' : ''}
+                >
+                  <ShieldCheck size={16} className="mr-2" />
+                  Compliance
+                </Button>
+              )}
               {/* My Profile button for admins who are also company members */}
               {onMyProfile && hasCompanyMembership && (
                 <Button 
