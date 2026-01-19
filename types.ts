@@ -109,7 +109,7 @@ export interface User {
   requiredProfile?: RequiredProfile; // Role-specific skill requirements
   isHiring?: boolean; // Indicates if this is an open hiring position
   memberId?: string; // ID del record in company_members (per operazioni CRUD)
-  role?: 'admin' | 'user' | 'super_admin'; // Role in the company
+  role?: 'admin' | 'user' | 'super_admin' | 'hr'; // Role in the company
   hardSkills?: UserHardSkillBasic[]; // Hard skills from Karma profile
 }
 

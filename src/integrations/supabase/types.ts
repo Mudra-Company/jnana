@@ -110,6 +110,165 @@ export type Database = {
         }
         Relationships: []
       }
+      company_ccnl_selections: {
+        Row: {
+          ccnl_code: string
+          ccnl_label: string
+          company_id: string
+          created_at: string | null
+          id: string
+          is_primary: boolean | null
+        }
+        Insert: {
+          ccnl_code: string
+          ccnl_label: string
+          company_id: string
+          created_at?: string | null
+          id?: string
+          is_primary?: boolean | null
+        }
+        Update: {
+          ccnl_code?: string
+          ccnl_label?: string
+          company_id?: string
+          created_at?: string | null
+          id?: string
+          is_primary?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_ccnl_selections_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      company_compliance_history: {
+        Row: {
+          action: string
+          compliance_status_id: string
+          created_at: string | null
+          document_url: string | null
+          id: string
+          new_status: string | null
+          notes: string | null
+          old_status: string | null
+          performed_by: string | null
+        }
+        Insert: {
+          action: string
+          compliance_status_id: string
+          created_at?: string | null
+          document_url?: string | null
+          id?: string
+          new_status?: string | null
+          notes?: string | null
+          old_status?: string | null
+          performed_by?: string | null
+        }
+        Update: {
+          action?: string
+          compliance_status_id?: string
+          created_at?: string | null
+          document_url?: string | null
+          id?: string
+          new_status?: string | null
+          notes?: string | null
+          old_status?: string | null
+          performed_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_compliance_history_compliance_status_id_fkey"
+            columns: ["compliance_status_id"]
+            isOneToOne: false
+            referencedRelation: "company_compliance_status"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "company_compliance_history_performed_by_fkey"
+            columns: ["performed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      company_compliance_status: {
+        Row: {
+          company_id: string
+          created_at: string | null
+          document_name: string | null
+          document_url: string | null
+          id: string
+          last_reminder_sent: string | null
+          notes: string | null
+          requirement_id: string
+          status: string
+          updated_at: string | null
+          uploaded_at: string | null
+          uploaded_by: string | null
+          valid_from: string | null
+          valid_until: string | null
+        }
+        Insert: {
+          company_id: string
+          created_at?: string | null
+          document_name?: string | null
+          document_url?: string | null
+          id?: string
+          last_reminder_sent?: string | null
+          notes?: string | null
+          requirement_id: string
+          status?: string
+          updated_at?: string | null
+          uploaded_at?: string | null
+          uploaded_by?: string | null
+          valid_from?: string | null
+          valid_until?: string | null
+        }
+        Update: {
+          company_id?: string
+          created_at?: string | null
+          document_name?: string | null
+          document_url?: string | null
+          id?: string
+          last_reminder_sent?: string | null
+          notes?: string | null
+          requirement_id?: string
+          status?: string
+          updated_at?: string | null
+          uploaded_at?: string | null
+          uploaded_by?: string | null
+          valid_from?: string | null
+          valid_until?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_compliance_status_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "company_compliance_status_requirement_id_fkey"
+            columns: ["requirement_id"]
+            isOneToOne: false
+            referencedRelation: "compliance_requirements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "company_compliance_status_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       company_members: {
         Row: {
           company_id: string
@@ -239,6 +398,57 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      compliance_requirements: {
+        Row: {
+          category: string
+          ccnl_scope: string
+          created_at: string | null
+          deadline_type: string | null
+          description: string
+          document_required: string
+          fixed_deadline_day: number | null
+          fixed_deadline_month: number | null
+          frequency: string
+          frequency_months: number | null
+          id: string
+          is_active: boolean | null
+          obligation_name: string
+          sort_order: number | null
+        }
+        Insert: {
+          category: string
+          ccnl_scope: string
+          created_at?: string | null
+          deadline_type?: string | null
+          description: string
+          document_required: string
+          fixed_deadline_day?: number | null
+          fixed_deadline_month?: number | null
+          frequency: string
+          frequency_months?: number | null
+          id?: string
+          is_active?: boolean | null
+          obligation_name: string
+          sort_order?: number | null
+        }
+        Update: {
+          category?: string
+          ccnl_scope?: string
+          created_at?: string | null
+          deadline_type?: string | null
+          description?: string
+          document_required?: string
+          fixed_deadline_day?: number | null
+          fixed_deadline_month?: number | null
+          frequency?: string
+          frequency_months?: number | null
+          id?: string
+          is_active?: boolean | null
+          obligation_name?: string
+          sort_order?: number | null
+        }
+        Relationships: []
       }
       hard_skills_catalog: {
         Row: {
@@ -1117,9 +1327,13 @@ export type Database = {
         Args: { _company_id: string; _user_id: string }
         Returns: boolean
       }
+      is_company_hr: {
+        Args: { _company_id: string; _user_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
-      app_role: "super_admin" | "admin" | "user"
+      app_role: "super_admin" | "admin" | "user" | "hr"
       gender_type: "M" | "F"
       member_status: "pending" | "invited" | "test_completed" | "completed"
       org_node_type: "root" | "department" | "team"
@@ -1251,7 +1465,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["super_admin", "admin", "user"],
+      app_role: ["super_admin", "admin", "user", "hr"],
       gender_type: ["M", "F"],
       member_status: ["pending", "invited", "test_completed", "completed"],
       org_node_type: ["root", "department", "team"],
