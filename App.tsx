@@ -25,6 +25,7 @@ import KarmaAIConfigView from './views/superadmin/KarmaAIConfigView';
 import { AdminDashboardView } from './views/admin/AdminDashboard';
 import { OpenPositionsView } from './views/admin/OpenPositionsView';
 import { PositionMatchingView } from './views/admin/PositionMatchingView';
+import { ComplianceDashboardView } from './views/admin/ComplianceDashboardView';
 
 import { CompanyOrgView } from './views/admin/CompanyOrgView';
 import { AdminIdentityHub } from './views/admin/AdminIdentityHub';
@@ -995,6 +996,7 @@ const AppContent: React.FC = () => {
             onOrgChart={() => navigate({ type: 'ADMIN_ORG_CHART' })}
             onIdentityHub={() => navigate({ type: 'ADMIN_IDENTITY_HUB' })}
             onCompanyProfile={() => navigate({ type: 'ADMIN_COMPANY_PROFILE' })}
+            onCompliance={() => navigate({ type: 'ADMIN_COMPLIANCE' })}
             onSuperAdminHome={() => navigate({ type: 'SUPER_ADMIN_DASHBOARD' })}
             onJobDb={() => navigate({ type: 'SUPER_ADMIN_JOBS' })}
             onKarmaTalents={() => navigate({ type: 'SUPER_ADMIN_KARMA_TALENTS' })}
@@ -1171,6 +1173,12 @@ const AppContent: React.FC = () => {
             />
           )}
 
+          {view.type === 'ADMIN_COMPLIANCE' && activeCompanyData && canAccessAdminViews && (
+            <ComplianceDashboardView
+              companyId={activeCompanyData.id}
+              companyName={activeCompanyData.name}
+            />
+          )}
 
           {view.type === 'USER_WELCOME' && currentUserData && (
             <UserWelcomeView
