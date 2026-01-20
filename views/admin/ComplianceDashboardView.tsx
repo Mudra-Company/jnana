@@ -44,12 +44,16 @@ export const ComplianceDashboardView: React.FC<ComplianceDashboardViewProps> = (
     });
   }, [activeTab, categoryFilter, searchQuery]);
 
-  const handleUpload = async (requirementId: string, file: File) => {
+  const handleUpload = async (
+    requirementId: string, 
+    file: File, 
+    options?: { validFrom?: string; validUntil?: string | null; notes?: string }
+  ) => {
     setUploadingId(requirementId);
     try {
-      await compliance.uploadDocument(requirementId, file);
+      await compliance.uploadDocument(requirementId, file, options);
       toast({
-        title: 'Documento caricato',
+        title: 'Documento caricato ✓',
         description: 'Il documento è stato caricato con successo.',
       });
     } catch (error) {
@@ -276,7 +280,7 @@ export const ComplianceDashboardView: React.FC<ComplianceDashboardViewProps> = (
               <ComplianceCard
                 key={item.requirement.id}
                 item={item}
-                onUpload={(file) => handleUpload(item.requirement.id, file)}
+                onUpload={(file, options) => handleUpload(item.requirement.id, file, options)}
                 onRenew={() => {/* TODO: Open renewal modal */}}
                 onViewDocument={() => item.documentUrl && window.open(item.documentUrl, '_blank')}
                 isUploading={uploadingId === item.requirement.id}

@@ -19,6 +19,12 @@ import {
 } from '../types/compliance';
 import { useCompanyCCNL } from './useCompanyCCNL';
 
+export interface UploadDocumentOptions {
+  validFrom?: string;
+  validUntil?: string | null;
+  notes?: string;
+}
+
 interface UseComplianceReturn {
   items: ComplianceItem[];
   filteredItems: ComplianceItem[];
@@ -27,7 +33,7 @@ interface UseComplianceReturn {
   error: string | null;
   filters: ComplianceFilters;
   setFilters: (filters: ComplianceFilters) => void;
-  uploadDocument: (requirementId: string, file: File) => Promise<void>;
+  uploadDocument: (requirementId: string, file: File, options?: UploadDocumentOptions) => Promise<void>;
   renewObligation: (statusId: string, newValidUntil: Date, file?: File, notes?: string) => Promise<void>;
   updateNotes: (statusId: string, notes: string) => Promise<void>;
   refetch: () => Promise<void>;
@@ -226,7 +232,11 @@ export function useCompliance(companyId: string | undefined): UseComplianceRetur
   }, [items]);
 
   // Upload document for a requirement
-  const uploadDocument = useCallback(async (requirementId: string, file: File) => {
+  const uploadDocument = useCallback(async (
+    requirementId: string, 
+    file: File, 
+    options?: UploadDocumentOptions
+  ) => {
     if (!companyId) throw new Error('Company ID is required');
 
     const user = (await supabase.auth.getUser()).data.user;
@@ -254,7 +264,12 @@ export function useCompliance(companyId: string | undefined): UseComplianceRetur
 
     const documentUrl = urlData.publicUrl;
     const now = new Date();
-    const validUntil = calculateExpiryDate(requirement.frequencyMonths);
+    
+    // Use provided dates or calculate defaults
+    const validFrom = options?.validFrom || now.toISOString().split('T')[0];
+    const validUntil = options?.validUntil !== undefined 
+      ? options.validUntil 
+      : calculateExpiryDate(requirement.frequencyMonths)?.toISOString().split('T')[0] ?? null;
 
     // Check if status record exists
     const existingStatus = statuses.find(s => s.requirementId === requirementId);
@@ -269,8 +284,9 @@ export function useCompliance(companyId: string | undefined): UseComplianceRetur
           document_name: file.name,
           uploaded_by: user.id,
           uploaded_at: now.toISOString(),
-          valid_from: now.toISOString().split('T')[0],
-          valid_until: validUntil?.toISOString().split('T')[0] ?? null,
+          valid_from: validFrom,
+          valid_until: validUntil,
+          notes: options?.notes || existingStatus.notes,
           updated_at: now.toISOString(),
         })
         .eq('id', existingStatus.id);
@@ -298,8 +314,9 @@ export function useCompliance(companyId: string | undefined): UseComplianceRetur
           document_name: file.name,
           uploaded_by: user.id,
           uploaded_at: now.toISOString(),
-          valid_from: now.toISOString().split('T')[0],
-          valid_until: validUntil?.toISOString().split('T')[0] ?? null,
+          valid_from: validFrom,
+          valid_until: validUntil,
+          notes: options?.notes || null,
         })
         .select()
         .single();

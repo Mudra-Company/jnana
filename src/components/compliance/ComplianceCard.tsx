@@ -1,15 +1,16 @@
 /**
  * Compliance Card - Premium styled obligation row with traffic light status
  */
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import { Upload, FileText, RefreshCw, Calendar, CheckCircle, Clock, AlertCircle, Loader2 } from 'lucide-react';
 import { Card } from '../../../components/Card';
 import { Button } from '../../../components/Button';
 import { ComplianceItem, formatExpiryStatus } from '../../types/compliance';
+import { DocumentUploadModal, UploadConfirmData } from './DocumentUploadModal';
 
 interface ComplianceCardProps {
   item: ComplianceItem;
-  onUpload: (file: File) => void;
+  onUpload: (file: File, options?: { validFrom?: string; validUntil?: string | null; notes?: string }) => Promise<void>;
   onRenew: () => void;
   onViewDocument?: () => void;
   isUploading?: boolean;
@@ -23,6 +24,8 @@ export const ComplianceCard: React.FC<ComplianceCardProps> = ({
   isUploading = false,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   
   const { requirement, trafficLight, status, documentUrl } = item;
 
@@ -61,8 +64,26 @@ export const ComplianceCard: React.FC<ComplianceCardProps> = ({
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      onUpload(file);
+      setPendingFile(file);
+      setIsModalOpen(true);
     }
+    // Reset input to allow selecting the same file again
+    e.target.value = '';
+  };
+
+  const handleConfirmUpload = async (data: UploadConfirmData) => {
+    await onUpload(data.file, {
+      validFrom: data.validFrom,
+      validUntil: data.validUntil,
+      notes: data.notes,
+    });
+    setPendingFile(null);
+    setIsModalOpen(false);
+  };
+
+  const handleModalClose = () => {
+    setPendingFile(null);
+    setIsModalOpen(false);
   };
 
   const expiryStatus = formatExpiryStatus(item.validUntil, status);
@@ -176,6 +197,17 @@ export const ComplianceCard: React.FC<ComplianceCardProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Upload Confirmation Modal */}
+      {pendingFile && (
+        <DocumentUploadModal
+          isOpen={isModalOpen}
+          onClose={handleModalClose}
+          onConfirm={handleConfirmUpload}
+          file={pendingFile}
+          requirement={requirement}
+        />
+      )}
     </Card>
   );
 };
