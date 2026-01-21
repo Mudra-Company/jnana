@@ -23,6 +23,7 @@ import { KarmaProfileDetailView } from './views/superadmin/KarmaProfileDetailVie
 import { SuperAdminAnalyticsView } from './views/superadmin/SuperAdminAnalyticsView';
 import KarmaAIConfigView from './views/superadmin/KarmaAIConfigView';
 import { QuestionnaireListView } from './views/superadmin/QuestionnaireListView';
+import { QuestionnaireEditorView } from './views/superadmin/QuestionnaireEditorView';
 import { AdminDashboardView } from './views/admin/AdminDashboard';
 import { OpenPositionsView } from './views/admin/OpenPositionsView';
 import { PositionMatchingView } from './views/admin/PositionMatchingView';
@@ -1003,6 +1004,7 @@ const AppContent: React.FC = () => {
             onKarmaTalents={() => navigate({ type: 'SUPER_ADMIN_KARMA_TALENTS' })}
             onAnalytics={() => navigate({ type: 'SUPER_ADMIN_ANALYTICS' })}
             onKarmaAIConfig={() => navigate({ type: 'SUPER_ADMIN_KARMA_AI_CONFIG' })}
+            onQuestionnaires={() => navigate({ type: 'SUPER_ADMIN_QUESTIONNAIRES' })}
             activeCompany={activeCompanyData || undefined}
             isSuperAdminMode={isSuperAdmin}
             onExitImpersonation={() => {
@@ -1101,6 +1103,13 @@ const AppContent: React.FC = () => {
             <QuestionnaireListView
               onBack={() => navigate({ type: 'SUPER_ADMIN_DASHBOARD' })}
               onEdit={(id) => navigate({ type: 'SUPER_ADMIN_QUESTIONNAIRE_EDIT', questionnaireId: id })}
+            />
+          )}
+
+          {view.type === 'SUPER_ADMIN_QUESTIONNAIRE_EDIT' && canAccessSuperAdminViews && (
+            <QuestionnaireEditorView
+              questionnaireId={view.questionnaireId}
+              onBack={() => navigate({ type: 'SUPER_ADMIN_QUESTIONNAIRES' })}
             />
           )}
 
