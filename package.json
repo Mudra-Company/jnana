@@ -12,6 +12,8 @@
   "dependencies": {
     "@radix-ui/react-collapsible": "^1.1.12",
     "@supabase/supabase-js": "^2.89.0",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
     "framer-motion": "^11.18.2",
     "lovable-tagger": "^1.1.13",
     "lucide-react": "0.344.0",
@@ -19,6 +21,7 @@
     "react-dom": "18.2.0",
     "react-organizational-chart": "^2.2.1",
     "recharts": "2.12.7",
+    "tailwind-merge": "^3.4.0",
     "xlsx": "latest"
   },
   "devDependencies": {
