@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  ArrowLeft, Save, Eye, EyeOff, Settings, Layers, HelpCircle, 
+  ArrowLeft, Save, Eye, EyeOff, Settings, Layers, BarChart3, 
   Plus, Trash2, GripVertical, ChevronDown, ChevronRight,
-  Edit2, Copy, Check, X, Palette
+  Edit2, Check, X, Palette, List, MessageSquare, Sparkles
 } from 'lucide-react';
 import { useQuestionnaires } from '../../src/hooks/useQuestionnaires';
 import { useToast } from '../../src/hooks/use-toast';
+import { Card } from '../../components/Card';
 import type {
   Questionnaire,
   QuestionnaireSection,
@@ -18,20 +19,17 @@ import type {
 } from '../../src/types/questionnaire';
 
 // =============================================
-// PROPS
+// PROPS & CONSTANTS
 // =============================================
 interface QuestionnaireEditorViewProps {
   questionnaireId: string;
   onBack: () => void;
 }
 
-// =============================================
-// CONSTANTS
-// =============================================
-const UI_STYLE_OPTIONS: { value: QuestionnaireUIStyle; label: string }[] = [
-  { value: 'step', label: 'Step Form' },
-  { value: 'chat', label: 'Chat Style' },
-  { value: 'swipe', label: 'Swipe Cards' },
+const UI_STYLE_OPTIONS: { value: QuestionnaireUIStyle; label: string; icon: React.ReactNode; color: string }[] = [
+  { value: 'step', label: 'Step Form', icon: <List size={20} />, color: 'blue' },
+  { value: 'chat', label: 'Chat Style', icon: <MessageSquare size={20} />, color: 'purple' },
+  { value: 'swipe', label: 'Swipe Cards', icon: <Layers size={20} />, color: 'pink' },
 ];
 
 const SECTION_TYPE_OPTIONS: { value: SectionType; label: string }[] = [
@@ -54,7 +52,7 @@ const DIMENSION_COLORS = [
   '#3b82f6', '#6366f1', '#8b5cf6', '#ec4899', '#64748b',
 ];
 
-type EditorTab = 'general' | 'sections' | 'scoring' | 'preview';
+type EditorTab = 'general' | 'sections' | 'scoring';
 
 // =============================================
 // MAIN COMPONENT
@@ -107,7 +105,6 @@ export const QuestionnaireEditorView: React.FC<QuestionnaireEditorViewProps> = (
       setEditSlug(data.slug);
       setEditDescription(data.description || '');
       setEditUiStyle(data.uiStyle);
-      // Expand first section by default
       if (data.sections && data.sections.length > 0) {
         setExpandedSections(new Set([data.sections[0].id]));
       }
@@ -155,9 +152,6 @@ export const QuestionnaireEditorView: React.FC<QuestionnaireEditorViewProps> = (
     }
   };
 
-  // =============================================
-  // SECTION HANDLERS
-  // =============================================
   const handleAddSection = async () => {
     if (!questionnaire) return;
     const id = await addSection(questionnaire.id, {
@@ -185,9 +179,6 @@ export const QuestionnaireEditorView: React.FC<QuestionnaireEditorViewProps> = (
     }
   };
 
-  // =============================================
-  // QUESTION HANDLERS
-  // =============================================
   const handleAddQuestion = async (sectionId: string) => {
     const id = await addQuestion(sectionId, {
       text: 'Nuova domanda',
@@ -215,14 +206,9 @@ export const QuestionnaireEditorView: React.FC<QuestionnaireEditorViewProps> = (
     }
   };
 
-  // =============================================
-  // OPTION HANDLERS
-  // =============================================
   const handleAddOption = async (questionId: string) => {
     const id = await addOption(questionId, { text: 'Nuova opzione' });
-    if (id) {
-      loadQuestionnaire();
-    }
+    if (id) loadQuestionnaire();
   };
 
   const handleUpdateOption = async (optionId: string, text: string) => {
@@ -235,9 +221,6 @@ export const QuestionnaireEditorView: React.FC<QuestionnaireEditorViewProps> = (
     if (success) loadQuestionnaire();
   };
 
-  // =============================================
-  // DIMENSION HANDLERS
-  // =============================================
   const handleAddDimension = async () => {
     if (!questionnaire) return;
     const id = await addDimension(questionnaire.id, {
@@ -265,17 +248,11 @@ export const QuestionnaireEditorView: React.FC<QuestionnaireEditorViewProps> = (
     }
   };
 
-  // =============================================
-  // WEIGHT HANDLERS
-  // =============================================
   const handleSetWeight = async (optionId: string, dimensionId: string, weight: number) => {
     await setOptionWeight(optionId, dimensionId, weight);
     loadQuestionnaire();
   };
 
-  // =============================================
-  // TOGGLE HELPERS
-  // =============================================
   const toggleSection = (id: string) => {
     setExpandedSections(prev => {
       const next = new Set(prev);
@@ -295,13 +272,13 @@ export const QuestionnaireEditorView: React.FC<QuestionnaireEditorViewProps> = (
   };
 
   // =============================================
-  // LOADING STATE
+  // LOADING / ERROR STATES
   // =============================================
   if (loading && !questionnaire) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin w-8 h-8 border-2 border-primary border-t-transparent rounded-full mx-auto" />
+          <div className="animate-spin w-10 h-10 border-3 border-indigo-500 border-t-transparent rounded-full mx-auto" />
           <p className="mt-4 text-muted-foreground">Caricamento...</p>
         </div>
       </div>
@@ -310,83 +287,90 @@ export const QuestionnaireEditorView: React.FC<QuestionnaireEditorViewProps> = (
 
   if (!questionnaire) {
     return (
-      <div className="min-h-screen bg-background p-8">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-gray-900 dark:to-gray-800 p-8">
         <button onClick={onBack} className="flex items-center gap-2 text-muted-foreground hover:text-foreground mb-4">
           <ArrowLeft size={20} />
           Torna alla lista
         </button>
-        <div className="text-center py-16">
+        <Card className="text-center py-16">
           <p className="text-destructive">Questionario non trovato</p>
-        </div>
+        </Card>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <div className="sticky top-0 z-20 bg-card border-b border-border px-6 py-4">
-        <div className="flex items-center justify-between max-w-7xl mx-auto">
-          <div className="flex items-center gap-4">
-            <button
-              onClick={onBack}
-              className="p-2 hover:bg-muted rounded-lg text-muted-foreground hover:text-foreground"
-            >
-              <ArrowLeft size={20} />
-            </button>
-            <div>
-              <h1 className="text-xl font-bold text-foreground">{questionnaire.title}</h1>
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <span>v{questionnaire.version}</span>
-                <span>•</span>
-                <span className={questionnaire.isPublished ? 'text-green-600' : 'text-yellow-600'}>
-                  {questionnaire.isPublished ? 'Pubblicato' : 'Bozza'}
-                </span>
-                {questionnaire.isSystem && (
-                  <>
-                    <span>•</span>
-                    <span className="text-blue-600">Sistema</span>
-                  </>
-                )}
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-gray-900 dark:to-gray-800">
+      {/* Header with gradient based on status */}
+      <div className={`sticky top-0 z-20 backdrop-blur-xl border-b ${
+        questionnaire.isPublished 
+          ? 'bg-gradient-to-r from-emerald-50/90 to-teal-50/90 dark:from-emerald-900/20 dark:to-teal-900/20 border-emerald-200/50 dark:border-emerald-800/30'
+          : 'bg-gradient-to-r from-amber-50/90 to-yellow-50/90 dark:from-amber-900/20 dark:to-yellow-900/20 border-amber-200/50 dark:border-amber-800/30'
+      }`}>
+        <div className="max-w-7xl mx-auto px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <button
+                onClick={onBack}
+                className="p-2.5 hover:bg-white/50 dark:hover:bg-white/10 rounded-xl text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <ArrowLeft size={20} />
+              </button>
+              <div>
+                <div className="flex items-center gap-3">
+                  <h1 className="text-xl font-bold text-foreground">{questionnaire.title}</h1>
+                  {questionnaire.isSystem && (
+                    <span className="text-xs px-2.5 py-1 bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 rounded-full font-medium">
+                      Sistema
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-3 mt-1 text-sm">
+                  <span className="text-muted-foreground font-mono">v{questionnaire.version}</span>
+                  <span className={`flex items-center gap-1.5 font-medium ${
+                    questionnaire.isPublished ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'
+                  }`}>
+                    {questionnaire.isPublished ? <Eye size={14} /> : <EyeOff size={14} />}
+                    {questionnaire.isPublished ? 'Pubblicato' : 'Bozza'}
+                  </span>
+                </div>
               </div>
             </div>
-          </div>
 
-          <div className="flex items-center gap-3">
             <button
               onClick={handleTogglePublish}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium ${
+              className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium transition-all shadow-sm hover:shadow-md ${
                 questionnaire.isPublished
-                  ? 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-400'
-                  : 'bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-400'
+                  ? 'bg-amber-500 hover:bg-amber-600 text-white'
+                  : 'bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white'
               }`}
             >
               {questionnaire.isPublished ? <EyeOff size={16} /> : <Eye size={16} />}
               {questionnaire.isPublished ? 'Disattiva' : 'Pubblica'}
             </button>
           </div>
-        </div>
 
-        {/* Tabs */}
-        <div className="flex items-center gap-1 mt-4 max-w-7xl mx-auto">
-          {[
-            { id: 'general' as EditorTab, label: 'Generale', icon: Settings },
-            { id: 'sections' as EditorTab, label: 'Sezioni e Domande', icon: Layers },
-            { id: 'scoring' as EditorTab, label: 'Scoring', icon: HelpCircle },
-          ].map(tab => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                activeTab === tab.id
-                  ? 'bg-primary text-primary-foreground'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-muted'
-              }`}
-            >
-              <tab.icon size={16} />
-              {tab.label}
-            </button>
-          ))}
+          {/* Tabs */}
+          <div className="flex items-center gap-2 mt-5">
+            {[
+              { id: 'general' as EditorTab, label: 'Generale', icon: Settings },
+              { id: 'sections' as EditorTab, label: 'Sezioni e Domande', icon: Layers },
+              { id: 'scoring' as EditorTab, label: 'Scoring', icon: BarChart3 },
+            ].map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                  activeTab === tab.id
+                    ? 'bg-white dark:bg-gray-800 text-indigo-600 dark:text-indigo-400 shadow-md'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-white/50 dark:hover:bg-white/10'
+                }`}
+              >
+                <tab.icon size={16} />
+                {tab.label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -394,55 +378,72 @@ export const QuestionnaireEditorView: React.FC<QuestionnaireEditorViewProps> = (
       <div className="max-w-7xl mx-auto p-6">
         {/* GENERAL TAB */}
         {activeTab === 'general' && (
-          <div className="max-w-2xl space-y-6">
-            <div className="bg-card border border-border rounded-xl p-6">
-              <h2 className="text-lg font-semibold text-foreground mb-4">Impostazioni Generali</h2>
-              
-              <div className="space-y-4">
+          <div className="max-w-2xl animate-fade-in">
+            <Card padding="lg">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="p-3 bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-indigo-900/30 dark:to-purple-900/30 rounded-xl">
+                  <Settings size={24} className="text-indigo-600 dark:text-indigo-400" />
+                </div>
                 <div>
-                  <label className="block text-sm font-medium text-foreground mb-1">Titolo</label>
+                  <h2 className="text-lg font-semibold text-foreground">Impostazioni Generali</h2>
+                  <p className="text-sm text-muted-foreground">Configura le proprietà base del questionario</p>
+                </div>
+              </div>
+              
+              <div className="space-y-5">
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-2">Titolo</label>
                   <input
                     type="text"
                     value={editTitle}
                     onChange={e => setEditTitle(e.target.value)}
-                    className="w-full px-3 py-2 border border-border rounded-lg bg-background text-foreground"
+                    className="w-full px-4 py-3 bg-slate-50 dark:bg-gray-800 border-0 rounded-xl text-foreground focus:ring-2 focus:ring-indigo-500/30 transition-all"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-foreground mb-1">Slug (URL)</label>
+                  <label className="block text-sm font-medium text-foreground mb-2">Slug (URL)</label>
                   <input
                     type="text"
                     value={editSlug}
                     onChange={e => setEditSlug(e.target.value.toLowerCase().replace(/\s+/g, '-'))}
-                    className="w-full px-3 py-2 border border-border rounded-lg bg-background text-foreground font-mono text-sm"
+                    className="w-full px-4 py-3 bg-slate-50 dark:bg-gray-800 border-0 rounded-xl text-foreground font-mono text-sm focus:ring-2 focus:ring-indigo-500/30 transition-all"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-foreground mb-1">Descrizione</label>
+                  <label className="block text-sm font-medium text-foreground mb-2">Descrizione</label>
                   <textarea
                     value={editDescription}
                     onChange={e => setEditDescription(e.target.value)}
                     rows={3}
-                    className="w-full px-3 py-2 border border-border rounded-lg bg-background text-foreground"
+                    className="w-full px-4 py-3 bg-slate-50 dark:bg-gray-800 border-0 rounded-xl text-foreground focus:ring-2 focus:ring-indigo-500/30 transition-all resize-none"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-foreground mb-2">Stile UI</label>
+                  <label className="block text-sm font-medium text-foreground mb-3">Stile UI</label>
                   <div className="grid grid-cols-3 gap-3">
                     {UI_STYLE_OPTIONS.map(opt => (
                       <button
                         key={opt.value}
                         onClick={() => setEditUiStyle(opt.value)}
-                        className={`p-3 rounded-lg border-2 text-center transition-colors ${
+                        className={`flex flex-col items-center gap-3 p-4 rounded-2xl border-2 transition-all ${
                           editUiStyle === opt.value
-                            ? 'border-primary bg-primary/5'
-                            : 'border-border hover:border-muted-foreground'
+                            ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20 shadow-lg'
+                            : 'border-slate-200 dark:border-gray-700 hover:border-indigo-300 hover:bg-slate-50 dark:hover:bg-gray-800'
                         }`}
                       >
-                        <span className="text-sm font-medium">{opt.label}</span>
+                        <div className={`p-3 rounded-xl ${
+                          editUiStyle === opt.value 
+                            ? 'bg-indigo-100 dark:bg-indigo-800/50 text-indigo-600 dark:text-indigo-400' 
+                            : 'bg-slate-100 dark:bg-gray-700 text-muted-foreground'
+                        }`}>
+                          {opt.icon}
+                        </div>
+                        <span className={`text-sm font-medium ${editUiStyle === opt.value ? 'text-indigo-600 dark:text-indigo-400' : 'text-muted-foreground'}`}>
+                          {opt.label}
+                        </span>
                       </button>
                     ))}
                   </div>
@@ -452,35 +453,43 @@ export const QuestionnaireEditorView: React.FC<QuestionnaireEditorViewProps> = (
                   <button
                     onClick={handleSaveGeneral}
                     disabled={saving}
-                    className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50"
+                    className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-indigo-500 to-purple-500 text-white rounded-xl font-medium hover:shadow-lg disabled:opacity-50 transition-all"
                   >
-                    <Save size={16} />
+                    <Save size={18} />
                     {saving ? 'Salvataggio...' : 'Salva Modifiche'}
                   </button>
                 </div>
               </div>
-            </div>
+            </Card>
           </div>
         )}
 
         {/* SECTIONS TAB */}
         {activeTab === 'sections' && (
-          <div className="space-y-4">
+          <div className="space-y-5 animate-fade-in">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-foreground">
-                Sezioni ({questionnaire.sections?.length || 0})
-              </h2>
+              <div className="flex items-center gap-3">
+                <div className="p-3 bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-indigo-900/30 dark:to-purple-900/30 rounded-xl">
+                  <Layers size={24} className="text-indigo-600 dark:text-indigo-400" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold text-foreground">
+                    Sezioni ({questionnaire.sections?.length || 0})
+                  </h2>
+                  <p className="text-sm text-muted-foreground">Organizza le domande in sezioni tematiche</p>
+                </div>
+              </div>
               <button
                 onClick={handleAddSection}
-                className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90"
+                className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-indigo-500 to-purple-500 text-white rounded-xl font-medium hover:shadow-lg transition-all"
               >
-                <Plus size={16} />
+                <Plus size={18} />
                 Aggiungi Sezione
               </button>
             </div>
 
             {/* Sections List */}
-            <div className="space-y-3">
+            <div className="space-y-4">
               {questionnaire.sections?.map((section, sIdx) => (
                 <SectionEditor
                   key={section.id}
@@ -504,17 +513,19 @@ export const QuestionnaireEditorView: React.FC<QuestionnaireEditorViewProps> = (
               ))}
 
               {(!questionnaire.sections || questionnaire.sections.length === 0) && (
-                <div className="text-center py-12 bg-muted/30 rounded-xl border border-dashed border-border">
-                  <Layers size={40} className="mx-auto text-muted-foreground mb-3" />
+                <Card padding="xl" className="text-center">
+                  <div className="p-6 bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-indigo-900/30 dark:to-purple-900/30 rounded-2xl w-20 h-20 mx-auto flex items-center justify-center mb-4">
+                    <Layers size={32} className="text-indigo-600 dark:text-indigo-400" />
+                  </div>
                   <p className="text-muted-foreground mb-4">Nessuna sezione ancora</p>
                   <button
                     onClick={handleAddSection}
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg"
+                    className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-indigo-500 to-purple-500 text-white rounded-xl font-medium"
                   >
-                    <Plus size={16} />
+                    <Plus size={18} />
                     Crea prima sezione
                   </button>
-                </div>
+                </Card>
               )}
             </div>
           </div>
@@ -522,21 +533,26 @@ export const QuestionnaireEditorView: React.FC<QuestionnaireEditorViewProps> = (
 
         {/* SCORING TAB */}
         {activeTab === 'scoring' && (
-          <div className="space-y-6">
+          <div className="space-y-6 animate-fade-in">
             <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-lg font-semibold text-foreground">
-                  Dimensioni di Scoring ({questionnaire.dimensions?.length || 0})
-                </h2>
-                <p className="text-sm text-muted-foreground">
-                  Definisci le dimensioni per calcolare i risultati del questionario
-                </p>
+              <div className="flex items-center gap-3">
+                <div className="p-3 bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-indigo-900/30 dark:to-purple-900/30 rounded-xl">
+                  <BarChart3 size={24} className="text-indigo-600 dark:text-indigo-400" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold text-foreground">
+                    Dimensioni di Scoring ({questionnaire.dimensions?.length || 0})
+                  </h2>
+                  <p className="text-sm text-muted-foreground">
+                    Definisci le dimensioni per calcolare i risultati
+                  </p>
+                </div>
               </div>
               <button
                 onClick={handleAddDimension}
-                className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90"
+                className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-indigo-500 to-purple-500 text-white rounded-xl font-medium hover:shadow-lg transition-all"
               >
-                <Plus size={16} />
+                <Plus size={18} />
                 Aggiungi Dimensione
               </button>
             </div>
@@ -553,23 +569,30 @@ export const QuestionnaireEditorView: React.FC<QuestionnaireEditorViewProps> = (
             </div>
 
             {(!questionnaire.dimensions || questionnaire.dimensions.length === 0) && (
-              <div className="text-center py-12 bg-muted/30 rounded-xl border border-dashed border-border">
-                <Palette size={40} className="mx-auto text-muted-foreground mb-3" />
+              <Card padding="xl" className="text-center">
+                <div className="p-6 bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-indigo-900/30 dark:to-purple-900/30 rounded-2xl w-20 h-20 mx-auto flex items-center justify-center mb-4">
+                  <Palette size={32} className="text-indigo-600 dark:text-indigo-400" />
+                </div>
                 <p className="text-muted-foreground mb-4">Nessuna dimensione di scoring</p>
                 <button
                   onClick={handleAddDimension}
-                  className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-indigo-500 to-purple-500 text-white rounded-xl font-medium"
                 >
-                  <Plus size={16} />
+                  <Plus size={18} />
                   Crea prima dimensione
                 </button>
-              </div>
+              </Card>
             )}
 
             {/* Weight Summary */}
             {questionnaire.dimensions && questionnaire.dimensions.length > 0 && (
-              <div className="bg-card border border-border rounded-xl p-6">
-                <h3 className="font-semibold text-foreground mb-4">Configurazione Pesi</h3>
+              <Card>
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-2 bg-amber-100 dark:bg-amber-900/30 rounded-lg">
+                    <Sparkles size={18} className="text-amber-600 dark:text-amber-400" />
+                  </div>
+                  <h3 className="font-semibold text-foreground">Configurazione Pesi</h3>
+                </div>
                 <p className="text-sm text-muted-foreground mb-4">
                   Assegna i pesi alle opzioni dalla tab "Sezioni e Domande". 
                   Espandi una domanda per vedere le opzioni e i pesi per ogni dimensione.
@@ -578,19 +601,19 @@ export const QuestionnaireEditorView: React.FC<QuestionnaireEditorViewProps> = (
                   {questionnaire.dimensions.map(dim => (
                     <span
                       key={dim.id}
-                      className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-sm"
+                      className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium"
                       style={{ 
-                        backgroundColor: `${dim.color}20`, 
+                        backgroundColor: `${dim.color}15`, 
                         color: dim.color,
-                        border: `1px solid ${dim.color}40`
+                        border: `1px solid ${dim.color}30`
                       }}
                     >
-                      <span className="w-2 h-2 rounded-full" style={{ backgroundColor: dim.color }} />
+                      <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: dim.color }} />
                       {dim.code}: {dim.label}
                     </span>
                   ))}
                 </div>
-              </div>
+              </Card>
             )}
           </div>
         )}
@@ -649,16 +672,24 @@ const SectionEditor: React.FC<SectionEditorProps> = ({
   };
 
   return (
-    <div className="bg-card border border-border rounded-xl overflow-hidden">
-      {/* Section Header */}
-      <div className="flex items-center gap-3 p-4 bg-muted/30">
-        <button className="text-muted-foreground cursor-grab">
+    <Card padding="none" className="overflow-hidden">
+      {/* Section Header with gradient */}
+      <div className="flex items-center gap-3 p-4 bg-gradient-to-r from-slate-50 to-slate-100 dark:from-gray-800/50 dark:to-gray-800/30 border-b border-slate-200/50 dark:border-gray-700/50">
+        <button className="text-slate-400 hover:text-slate-600 cursor-grab">
           <GripVertical size={18} />
         </button>
         
-        <button onClick={onToggle} className="text-muted-foreground hover:text-foreground">
-          {isExpanded ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
+        <button 
+          onClick={onToggle} 
+          className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-transform"
+          style={{ transform: isExpanded ? 'rotate(0deg)' : 'rotate(-90deg)' }}
+        >
+          <ChevronDown size={18} />
         </button>
+
+        <span className="flex items-center justify-center w-7 h-7 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 text-xs font-bold rounded-lg">
+          {index + 1}
+        </span>
 
         {editMode ? (
           <div className="flex-1 flex items-center gap-3">
@@ -666,45 +697,47 @@ const SectionEditor: React.FC<SectionEditorProps> = ({
               type="text"
               value={editTitle}
               onChange={e => setEditTitle(e.target.value)}
-              className="flex-1 px-2 py-1 border border-border rounded bg-background text-foreground"
+              className="flex-1 px-3 py-2 bg-white dark:bg-gray-800 border border-slate-200 dark:border-gray-600 rounded-lg text-foreground focus:ring-2 focus:ring-indigo-500/30"
               autoFocus
             />
             <select
               value={editType}
               onChange={e => setEditType(e.target.value as SectionType)}
-              className="px-2 py-1 border border-border rounded bg-background text-foreground text-sm"
+              className="px-3 py-2 bg-white dark:bg-gray-800 border border-slate-200 dark:border-gray-600 rounded-lg text-foreground text-sm"
             >
               {SECTION_TYPE_OPTIONS.map(opt => (
                 <option key={opt.value} value={opt.value}>{opt.label}</option>
               ))}
             </select>
-            <button onClick={handleSave} className="p-1 text-green-600 hover:bg-green-50 rounded">
+            <button onClick={handleSave} className="p-2 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-lg">
               <Check size={18} />
             </button>
-            <button onClick={() => setEditMode(false)} className="p-1 text-muted-foreground hover:bg-muted rounded">
+            <button onClick={() => setEditMode(false)} className="p-2 text-slate-400 hover:bg-slate-100 dark:hover:bg-gray-700 rounded-lg">
               <X size={18} />
             </button>
           </div>
         ) : (
           <>
             <div className="flex-1">
-              <span className="font-medium text-foreground">{section.title}</span>
-              <span className="ml-2 text-xs px-2 py-0.5 bg-muted rounded-full text-muted-foreground">
-                {SECTION_TYPE_OPTIONS.find(o => o.value === section.type)?.label}
-              </span>
-              <span className="ml-2 text-xs text-muted-foreground">
-                ({section.questions?.length || 0} domande)
-              </span>
+              <span className="font-semibold text-foreground">{section.title}</span>
+              <div className="flex items-center gap-2 mt-1">
+                <span className="text-xs px-2.5 py-1 bg-slate-100 dark:bg-gray-700 rounded-full text-slate-600 dark:text-slate-400 font-medium">
+                  {SECTION_TYPE_OPTIONS.find(o => o.value === section.type)?.label}
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  {section.questions?.length || 0} domande
+                </span>
+              </div>
             </div>
             <button
               onClick={() => setEditMode(true)}
-              className="p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted rounded"
+              className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-lg transition-colors"
             >
               <Edit2 size={16} />
             </button>
             <button
               onClick={onDelete}
-              className="p-1.5 text-destructive hover:bg-destructive/10 rounded"
+              className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
             >
               <Trash2 size={16} />
             </button>
@@ -714,7 +747,7 @@ const SectionEditor: React.FC<SectionEditorProps> = ({
 
       {/* Section Content (Questions) */}
       {isExpanded && (
-        <div className="p-4 border-t border-border space-y-3">
+        <div className="p-4 space-y-3 bg-white dark:bg-gray-900/50">
           {section.questions?.map((question, qIdx) => (
             <QuestionEditor
               key={question.id}
@@ -734,14 +767,14 @@ const SectionEditor: React.FC<SectionEditorProps> = ({
 
           <button
             onClick={onAddQuestion}
-            className="w-full py-2 border-2 border-dashed border-border rounded-lg text-muted-foreground hover:text-foreground hover:border-muted-foreground flex items-center justify-center gap-2"
+            className="w-full py-3 border-2 border-dashed border-slate-200 dark:border-gray-700 rounded-xl text-slate-400 hover:text-indigo-600 hover:border-indigo-300 dark:hover:border-indigo-700 flex items-center justify-center gap-2 transition-colors"
           >
-            <Plus size={16} />
+            <Plus size={18} />
             Aggiungi Domanda
           </button>
         </div>
       )}
-    </div>
+    </Card>
   );
 };
 
@@ -786,47 +819,53 @@ const QuestionEditor: React.FC<QuestionEditorProps> = ({
   };
 
   return (
-    <div className="bg-muted/20 border border-border rounded-lg overflow-hidden">
+    <div className="bg-slate-50 dark:bg-gray-800/50 border border-slate-200/50 dark:border-gray-700/50 rounded-xl overflow-hidden">
       {/* Question Header */}
-      <div className="flex items-start gap-3 p-3">
-        <span className="text-xs text-muted-foreground font-mono mt-1">Q{index + 1}</span>
+      <div className="flex items-start gap-3 p-4">
+        <span className="flex items-center justify-center w-6 h-6 bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 text-xs font-bold rounded-md mt-0.5">
+          {index + 1}
+        </span>
         
-        <button onClick={onToggle} className="text-muted-foreground hover:text-foreground mt-0.5">
-          {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+        <button 
+          onClick={onToggle} 
+          className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-transform mt-0.5"
+          style={{ transform: isExpanded ? 'rotate(0deg)' : 'rotate(-90deg)' }}
+        >
+          <ChevronDown size={16} />
         </button>
 
         {editMode ? (
-          <div className="flex-1 space-y-2">
+          <div className="flex-1 space-y-3">
             <textarea
               value={editText}
               onChange={e => setEditText(e.target.value)}
               rows={2}
-              className="w-full px-2 py-1 border border-border rounded bg-background text-foreground text-sm"
+              className="w-full px-3 py-2 bg-white dark:bg-gray-800 border border-slate-200 dark:border-gray-600 rounded-lg text-foreground text-sm focus:ring-2 focus:ring-indigo-500/30 resize-none"
               autoFocus
             />
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 flex-wrap">
               <select
                 value={editType}
                 onChange={e => setEditType(e.target.value as QuestionType)}
-                className="px-2 py-1 border border-border rounded bg-background text-foreground text-xs"
+                className="px-3 py-2 bg-white dark:bg-gray-800 border border-slate-200 dark:border-gray-600 rounded-lg text-foreground text-xs"
               >
                 {QUESTION_TYPE_OPTIONS.map(opt => (
                   <option key={opt.value} value={opt.value}>{opt.label}</option>
                 ))}
               </select>
-              <label className="flex items-center gap-1 text-xs text-muted-foreground">
+              <label className="flex items-center gap-2 text-xs text-muted-foreground">
                 <input
                   type="checkbox"
                   checked={editRequired}
                   onChange={e => setEditRequired(e.target.checked)}
-                  className="rounded"
+                  className="rounded border-slate-300 dark:border-gray-600 text-indigo-600 focus:ring-indigo-500"
                 />
                 Obbligatoria
               </label>
-              <button onClick={handleSave} className="p-1 text-green-600 hover:bg-green-50 rounded">
+              <button onClick={handleSave} className="p-2 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-lg">
                 <Check size={16} />
               </button>
-              <button onClick={() => setEditMode(false)} className="p-1 text-muted-foreground hover:bg-muted rounded">
+              <button onClick={() => setEditMode(false)} className="p-2 text-slate-400 hover:bg-slate-100 dark:hover:bg-gray-700 rounded-lg">
                 <X size={16} />
               </button>
             </div>
@@ -834,28 +873,30 @@ const QuestionEditor: React.FC<QuestionEditorProps> = ({
         ) : (
           <>
             <div className="flex-1">
-              <p className="text-sm text-foreground">{question.text}</p>
-              <div className="flex items-center gap-2 mt-1">
-                <span className="text-xs px-2 py-0.5 bg-muted rounded-full text-muted-foreground">
+              <p className="text-sm text-foreground leading-relaxed">{question.text}</p>
+              <div className="flex items-center gap-2 mt-2 flex-wrap">
+                <span className="text-xs px-2.5 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 rounded-full font-medium">
                   {QUESTION_TYPE_OPTIONS.find(o => o.value === question.type)?.label}
                 </span>
                 {question.isRequired && (
-                  <span className="text-xs text-amber-600">* Obbligatoria</span>
+                  <span className="text-xs px-2.5 py-1 bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 rounded-full font-medium">
+                    * Obbligatoria
+                  </span>
                 )}
                 <span className="text-xs text-muted-foreground">
-                  ({question.options?.length || 0} opzioni)
+                  {question.options?.length || 0} opzioni
                 </span>
               </div>
             </div>
             <button
               onClick={() => setEditMode(true)}
-              className="p-1 text-muted-foreground hover:text-foreground hover:bg-muted rounded"
+              className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-lg transition-colors"
             >
               <Edit2 size={14} />
             </button>
             <button
               onClick={onDelete}
-              className="p-1 text-destructive hover:bg-destructive/10 rounded"
+              className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
             >
               <Trash2 size={14} />
             </button>
@@ -865,7 +906,7 @@ const QuestionEditor: React.FC<QuestionEditorProps> = ({
 
       {/* Options */}
       {isExpanded && (
-        <div className="px-3 pb-3 pt-0 ml-8 space-y-2">
+        <div className="px-4 pb-4 pt-0 ml-10 space-y-2">
           {question.options?.map((option, oIdx) => (
             <OptionEditor
               key={option.id}
@@ -881,7 +922,7 @@ const QuestionEditor: React.FC<QuestionEditorProps> = ({
           {(question.type === 'single_choice' || question.type === 'multiple_choice' || question.type === 'binary') && (
             <button
               onClick={onAddOption}
-              className="w-full py-1.5 text-xs border border-dashed border-border rounded text-muted-foreground hover:text-foreground hover:border-muted-foreground flex items-center justify-center gap-1"
+              className="w-full py-2 text-xs border border-dashed border-slate-200 dark:border-gray-700 rounded-lg text-slate-400 hover:text-indigo-600 hover:border-indigo-300 dark:hover:border-indigo-700 flex items-center justify-center gap-1 transition-colors"
             >
               <Plus size={14} />
               Aggiungi Opzione
@@ -927,9 +968,11 @@ const OptionEditor: React.FC<OptionEditorProps> = ({
   };
 
   return (
-    <div className="bg-background border border-border rounded-md p-2">
-      <div className="flex items-center gap-2">
-        <span className="text-[10px] text-muted-foreground font-mono w-4">{String.fromCharCode(65 + index)}</span>
+    <div className="bg-white dark:bg-gray-800 border border-slate-200/50 dark:border-gray-700/50 rounded-lg p-3">
+      <div className="flex items-center gap-3">
+        <span className="flex items-center justify-center w-5 h-5 bg-teal-100 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400 text-[10px] font-bold rounded">
+          {String.fromCharCode(65 + index)}
+        </span>
         
         {editMode ? (
           <div className="flex-1 flex items-center gap-2">
@@ -937,40 +980,44 @@ const OptionEditor: React.FC<OptionEditorProps> = ({
               type="text"
               value={editText}
               onChange={e => setEditText(e.target.value)}
-              className="flex-1 px-2 py-1 border border-border rounded bg-background text-foreground text-xs"
+              className="flex-1 px-3 py-1.5 bg-slate-50 dark:bg-gray-900 border border-slate-200 dark:border-gray-600 rounded-lg text-foreground text-sm focus:ring-2 focus:ring-indigo-500/30"
               autoFocus
               onKeyDown={e => e.key === 'Enter' && handleSave()}
             />
-            <button onClick={handleSave} className="p-0.5 text-green-600 hover:bg-green-50 rounded">
+            <button onClick={handleSave} className="p-1.5 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-lg">
               <Check size={14} />
             </button>
-            <button onClick={() => setEditMode(false)} className="p-0.5 text-muted-foreground hover:bg-muted rounded">
+            <button onClick={() => setEditMode(false)} className="p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-gray-700 rounded-lg">
               <X size={14} />
             </button>
           </div>
         ) : (
           <>
-            <span className="flex-1 text-xs text-foreground">{option.text}</span>
+            <span className="flex-1 text-sm text-foreground">{option.text}</span>
             {dimensions.length > 0 && (
               <button
                 onClick={() => setShowWeights(!showWeights)}
-                className={`p-1 rounded text-xs ${showWeights ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted'}`}
+                className={`p-1.5 rounded-lg text-xs transition-colors ${
+                  showWeights 
+                    ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400' 
+                    : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-gray-700'
+                }`}
                 title="Gestisci pesi scoring"
               >
-                <Palette size={12} />
+                <Palette size={14} />
               </button>
             )}
             <button
               onClick={() => setEditMode(true)}
-              className="p-1 text-muted-foreground hover:text-foreground hover:bg-muted rounded"
+              className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-lg transition-colors"
             >
-              <Edit2 size={12} />
+              <Edit2 size={14} />
             </button>
             <button
               onClick={onDelete}
-              className="p-1 text-destructive hover:bg-destructive/10 rounded"
+              className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
             >
-              <Trash2 size={12} />
+              <Trash2 size={14} />
             </button>
           </>
         )}
@@ -978,19 +1025,19 @@ const OptionEditor: React.FC<OptionEditorProps> = ({
 
       {/* Weight inputs */}
       {showWeights && dimensions.length > 0 && (
-        <div className="mt-2 pt-2 border-t border-border grid grid-cols-2 sm:grid-cols-3 gap-2">
+        <div className="mt-3 pt-3 border-t border-slate-200/50 dark:border-gray-700/50 grid grid-cols-2 sm:grid-cols-3 gap-2">
           {dimensions.map(dim => (
-            <div key={dim.id} className="flex items-center gap-1">
+            <div key={dim.id} className="flex items-center gap-2 bg-slate-50 dark:bg-gray-900/50 rounded-lg px-2 py-1.5">
               <span
-                className="w-2 h-2 rounded-full shrink-0"
+                className="w-3 h-3 rounded-full shrink-0 ring-2 ring-white dark:ring-gray-800"
                 style={{ backgroundColor: dim.color }}
               />
-              <span className="text-[10px] text-muted-foreground truncate">{dim.code}</span>
+              <span className="text-xs text-muted-foreground truncate flex-1">{dim.code}</span>
               <input
                 type="number"
                 value={getWeightForDimension(dim.id)}
                 onChange={e => onSetWeight(dim.id, Number(e.target.value))}
-                className="w-12 px-1 py-0.5 text-xs border border-border rounded bg-background text-foreground text-center"
+                className="w-14 px-2 py-1 text-xs bg-white dark:bg-gray-800 border border-slate-200 dark:border-gray-600 rounded-md text-foreground text-center focus:ring-2 focus:ring-indigo-500/30"
                 step="0.1"
               />
             </div>
@@ -1026,42 +1073,46 @@ const DimensionEditor: React.FC<DimensionEditorProps> = ({
   };
 
   return (
-    <div className="bg-card border border-border rounded-xl p-4">
+    <Card 
+      padding="md" 
+      className="relative overflow-hidden"
+      style={{ borderTop: `3px solid ${dimension.color}` }}
+    >
       {editMode ? (
-        <div className="space-y-3">
+        <div className="space-y-4">
           <div>
-            <label className="text-xs text-muted-foreground">Codice</label>
+            <label className="text-xs text-muted-foreground font-medium">Codice</label>
             <input
               type="text"
               value={editCode}
               onChange={e => setEditCode(e.target.value.toUpperCase().replace(/\s/g, '_'))}
-              className="w-full px-2 py-1 border border-border rounded bg-background text-foreground font-mono text-sm"
+              className="w-full mt-1 px-3 py-2 bg-slate-50 dark:bg-gray-800 border-0 rounded-lg text-foreground font-mono text-sm focus:ring-2 focus:ring-indigo-500/30"
             />
           </div>
           <div>
-            <label className="text-xs text-muted-foreground">Etichetta</label>
+            <label className="text-xs text-muted-foreground font-medium">Etichetta</label>
             <input
               type="text"
               value={editLabel}
               onChange={e => setEditLabel(e.target.value)}
-              className="w-full px-2 py-1 border border-border rounded bg-background text-foreground text-sm"
+              className="w-full mt-1 px-3 py-2 bg-slate-50 dark:bg-gray-800 border-0 rounded-lg text-foreground text-sm focus:ring-2 focus:ring-indigo-500/30"
             />
           </div>
           <div>
-            <label className="text-xs text-muted-foreground">Colore</label>
-            <div className="flex items-center gap-2">
+            <label className="text-xs text-muted-foreground font-medium">Colore</label>
+            <div className="flex items-center gap-3 mt-2">
               <input
                 type="color"
                 value={editColor}
                 onChange={e => setEditColor(e.target.value)}
-                className="w-8 h-8 rounded cursor-pointer"
+                className="w-10 h-10 rounded-lg cursor-pointer border-0"
               />
-              <div className="flex gap-1">
+              <div className="flex gap-1.5 flex-wrap">
                 {DIMENSION_COLORS.map(c => (
                   <button
                     key={c}
                     onClick={() => setEditColor(c)}
-                    className={`w-5 h-5 rounded ${editColor === c ? 'ring-2 ring-offset-1 ring-primary' : ''}`}
+                    className={`w-6 h-6 rounded-lg transition-transform ${editColor === c ? 'ring-2 ring-offset-2 ring-indigo-500 scale-110' : 'hover:scale-110'}`}
                     style={{ backgroundColor: c }}
                   />
                 ))}
@@ -1071,13 +1122,13 @@ const DimensionEditor: React.FC<DimensionEditorProps> = ({
           <div className="flex items-center gap-2 pt-2">
             <button
               onClick={handleSave}
-              className="flex-1 px-3 py-1.5 bg-primary text-primary-foreground rounded text-sm"
+              className="flex-1 px-4 py-2 bg-gradient-to-r from-indigo-500 to-purple-500 text-white rounded-lg text-sm font-medium"
             >
               Salva
             </button>
             <button
               onClick={() => setEditMode(false)}
-              className="px-3 py-1.5 border border-border rounded text-sm text-muted-foreground"
+              className="flex-1 px-4 py-2 bg-slate-100 dark:bg-gray-700 rounded-lg text-sm text-muted-foreground hover:text-foreground"
             >
               Annulla
             </button>
@@ -1085,30 +1136,30 @@ const DimensionEditor: React.FC<DimensionEditorProps> = ({
         </div>
       ) : (
         <div>
-          <div className="flex items-center gap-3 mb-2">
+          <div className="flex items-center gap-3 mb-3">
             <span
-              className="w-4 h-4 rounded-full shrink-0"
+              className="w-5 h-5 rounded-lg shrink-0 ring-2 ring-white dark:ring-gray-800 shadow-md"
               style={{ backgroundColor: dimension.color }}
             />
-            <span className="font-mono text-sm font-semibold text-foreground">{dimension.code}</span>
+            <span className="font-mono text-sm font-bold text-foreground">{dimension.code}</span>
           </div>
-          <p className="text-sm text-muted-foreground mb-3">{dimension.label}</p>
+          <p className="text-sm text-muted-foreground mb-4">{dimension.label}</p>
           <div className="flex items-center gap-2">
             <button
               onClick={() => setEditMode(true)}
-              className="flex-1 px-3 py-1.5 text-xs border border-border rounded hover:bg-muted"
+              className="flex-1 px-4 py-2 text-sm bg-slate-50 dark:bg-gray-800 rounded-lg hover:bg-slate-100 dark:hover:bg-gray-700 font-medium transition-colors"
             >
               Modifica
             </button>
             <button
               onClick={onDelete}
-              className="px-3 py-1.5 text-xs text-destructive border border-destructive/30 rounded hover:bg-destructive/10"
+              className="px-4 py-2 text-sm text-red-600 bg-red-50 dark:bg-red-900/20 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/30 font-medium transition-colors"
             >
               Elimina
             </button>
           </div>
         </div>
       )}
-    </div>
+    </Card>
   );
 };
