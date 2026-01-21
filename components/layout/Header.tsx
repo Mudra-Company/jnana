@@ -37,6 +37,7 @@ interface HeaderProps {
   onKarmaTalents?: () => void;
   onKarmaAIConfig?: () => void;
   onAnalytics?: () => void;
+  onQuestionnaires?: () => void;
   activeCompany?: CompanyProfile;
   isSuperAdminMode: boolean;
   onExitImpersonation: () => void;
@@ -51,7 +52,7 @@ interface HeaderProps {
 
 export const Header: React.FC<HeaderProps> = ({ 
   onLogout, view, onAdminHome, onOrgChart, onIdentityHub, onCompanyProfile, onCompliance,
-  onSuperAdminHome, onJobDb, onKarmaTalents, onKarmaAIConfig, onAnalytics, activeCompany, isSuperAdminMode, onExitImpersonation,
+  onSuperAdminHome, onJobDb, onKarmaTalents, onKarmaAIConfig, onAnalytics, onQuestionnaires, activeCompany, isSuperAdminMode, onExitImpersonation,
   isDark, toggleTheme, onBack, canGoBack, userRole, onMyProfile, hasCompanyMembership
 }) => {
   // Determine what navigation to show based on role
@@ -165,6 +166,17 @@ export const Header: React.FC<HeaderProps> = ({
               >
                 <BarChart3 size={16} className="mr-2" />
                 Analytics
+              </Button>
+            )}
+            {onQuestionnaires && (
+              <Button 
+                variant={view.type === 'SUPER_ADMIN_QUESTIONNAIRES' || view.type === 'SUPER_ADMIN_QUESTIONNAIRE_EDIT' ? 'primary' : 'ghost'} 
+                size="sm"
+                onClick={onQuestionnaires}
+                className={view.type === 'SUPER_ADMIN_QUESTIONNAIRES' || view.type === 'SUPER_ADMIN_QUESTIONNAIRE_EDIT' ? '!bg-teal-600' : ''}
+              >
+                <Settings size={16} className="mr-2" />
+                Questionari
               </Button>
             )}
           </div>
