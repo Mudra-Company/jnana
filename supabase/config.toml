@@ -17,3 +17,6 @@ verify_jwt = false
 
 [functions.extract-document-text]
 verify_jwt = false
+
+[functions.migrate-legacy-tests]
+verify_jwt = false
