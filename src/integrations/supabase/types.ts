@@ -869,6 +869,238 @@ export type Database = {
         }
         Relationships: []
       }
+      question_options: {
+        Row: {
+          created_at: string
+          icon: string | null
+          id: string
+          image_url: string | null
+          metadata: Json | null
+          option_text: string
+          question_id: string
+          sort_order: number
+        }
+        Insert: {
+          created_at?: string
+          icon?: string | null
+          id?: string
+          image_url?: string | null
+          metadata?: Json | null
+          option_text: string
+          question_id: string
+          sort_order?: number
+        }
+        Update: {
+          created_at?: string
+          icon?: string | null
+          id?: string
+          image_url?: string | null
+          metadata?: Json | null
+          option_text?: string
+          question_id?: string
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "question_options_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "questions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      questionnaire_sections: {
+        Row: {
+          config: Json | null
+          created_at: string
+          description: string | null
+          id: string
+          questionnaire_id: string
+          section_type: string
+          sort_order: number
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          config?: Json | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          questionnaire_id: string
+          section_type?: string
+          sort_order?: number
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          config?: Json | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          questionnaire_id?: string
+          section_type?: string
+          sort_order?: number
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "questionnaire_sections_questionnaire_id_fkey"
+            columns: ["questionnaire_id"]
+            isOneToOne: false
+            referencedRelation: "questionnaires"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      questionnaires: {
+        Row: {
+          config: Json | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          is_published: boolean
+          is_system: boolean
+          slug: string
+          title: string
+          ui_style: string
+          updated_at: string
+          version: number
+        }
+        Insert: {
+          config?: Json | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_published?: boolean
+          is_system?: boolean
+          slug: string
+          title: string
+          ui_style?: string
+          updated_at?: string
+          version?: number
+        }
+        Update: {
+          config?: Json | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_published?: boolean
+          is_system?: boolean
+          slug?: string
+          title?: string
+          ui_style?: string
+          updated_at?: string
+          version?: number
+        }
+        Relationships: []
+      }
+      questions: {
+        Row: {
+          config: Json | null
+          created_at: string
+          icon: string | null
+          id: string
+          image_url: string | null
+          is_required: boolean
+          question_text: string
+          question_type: string
+          section_id: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          config?: Json | null
+          created_at?: string
+          icon?: string | null
+          id?: string
+          image_url?: string | null
+          is_required?: boolean
+          question_text: string
+          question_type?: string
+          section_id: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          config?: Json | null
+          created_at?: string
+          icon?: string | null
+          id?: string
+          image_url?: string | null
+          is_required?: boolean
+          question_text?: string
+          question_type?: string
+          section_id?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "questions_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "questionnaire_sections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      response_answers: {
+        Row: {
+          answered_at: string
+          id: string
+          likert_value: number | null
+          question_id: string
+          response_id: string
+          selected_option_id: string | null
+          text_answer: string | null
+        }
+        Insert: {
+          answered_at?: string
+          id?: string
+          likert_value?: number | null
+          question_id: string
+          response_id: string
+          selected_option_id?: string | null
+          text_answer?: string | null
+        }
+        Update: {
+          answered_at?: string
+          id?: string
+          likert_value?: number | null
+          question_id?: string
+          response_id?: string
+          selected_option_id?: string | null
+          text_answer?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "response_answers_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "questions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "response_answers_response_id_fkey"
+            columns: ["response_id"]
+            isOneToOne: false
+            referencedRelation: "user_questionnaire_responses"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "response_answers_selected_option_id_fkey"
+            columns: ["selected_option_id"]
+            isOneToOne: false
+            referencedRelation: "question_options"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       riasec_results: {
         Row: {
           company_id: string | null
@@ -925,6 +1157,86 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      scoring_dimension_weights: {
+        Row: {
+          created_at: string
+          dimension_id: string
+          id: string
+          option_id: string
+          weight: number
+        }
+        Insert: {
+          created_at?: string
+          dimension_id: string
+          id?: string
+          option_id: string
+          weight?: number
+        }
+        Update: {
+          created_at?: string
+          dimension_id?: string
+          id?: string
+          option_id?: string
+          weight?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scoring_dimension_weights_dimension_id_fkey"
+            columns: ["dimension_id"]
+            isOneToOne: false
+            referencedRelation: "scoring_dimensions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "scoring_dimension_weights_option_id_fkey"
+            columns: ["option_id"]
+            isOneToOne: false
+            referencedRelation: "question_options"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      scoring_dimensions: {
+        Row: {
+          code: string
+          color: string | null
+          created_at: string
+          description: string | null
+          id: string
+          label: string
+          questionnaire_id: string
+          sort_order: number
+        }
+        Insert: {
+          code: string
+          color?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          label: string
+          questionnaire_id: string
+          sort_order?: number
+        }
+        Update: {
+          code?: string
+          color?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          label?: string
+          questionnaire_id?: string
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scoring_dimensions_questionnaire_id_fkey"
+            columns: ["questionnaire_id"]
+            isOneToOne: false
+            referencedRelation: "questionnaires"
             referencedColumns: ["id"]
           },
         ]
@@ -1253,6 +1565,57 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_questionnaire_responses: {
+        Row: {
+          company_id: string | null
+          completed_at: string | null
+          computed_scores: Json | null
+          id: string
+          questionnaire_id: string
+          raw_answers: Json | null
+          started_at: string
+          user_id: string
+          version_completed: number
+        }
+        Insert: {
+          company_id?: string | null
+          completed_at?: string | null
+          computed_scores?: Json | null
+          id?: string
+          questionnaire_id: string
+          raw_answers?: Json | null
+          started_at?: string
+          user_id: string
+          version_completed: number
+        }
+        Update: {
+          company_id?: string | null
+          completed_at?: string | null
+          computed_scores?: Json | null
+          id?: string
+          questionnaire_id?: string
+          raw_answers?: Json | null
+          started_at?: string
+          user_id?: string
+          version_completed?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_questionnaire_responses_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_questionnaire_responses_questionnaire_id_fkey"
+            columns: ["questionnaire_id"]
+            isOneToOne: false
+            referencedRelation: "questionnaires"
             referencedColumns: ["id"]
           },
         ]

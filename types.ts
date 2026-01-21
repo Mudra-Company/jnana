@@ -221,6 +221,8 @@ export type ViewState =
   | { type: 'SUPER_ADMIN_KARMA_PROFILE'; userId: string }
   | { type: 'SUPER_ADMIN_ANALYTICS' }
   | { type: 'SUPER_ADMIN_KARMA_AI_CONFIG' }
+  | { type: 'SUPER_ADMIN_QUESTIONNAIRES' }
+  | { type: 'SUPER_ADMIN_QUESTIONNAIRE_EDIT'; questionnaireId: string }
   | { type: 'ADMIN_DASHBOARD' }
   | { type: 'ADMIN_ORG_CHART' }
   | { type: 'ADMIN_IDENTITY_HUB' } 
