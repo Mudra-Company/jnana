@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { 
   ArrowLeft, Save, Eye, EyeOff, Settings, Layers, BarChart3, 
   Plus, Trash2, GripVertical, ChevronDown, ChevronRight,
-  Edit2, Check, X, Palette, List, MessageSquare, Sparkles
+  Edit2, Check, X, Palette, List, MessageSquare, Sparkles, Play
 } from 'lucide-react';
+import { SimulationModal } from '../../components/questionnaire/SimulationModal';
 import { useQuestionnaires } from '../../src/hooks/useQuestionnaires';
 import { useToast } from '../../src/hooks/use-toast';
 import { Card } from '../../components/Card';
@@ -87,6 +88,7 @@ export const QuestionnaireEditorView: React.FC<QuestionnaireEditorViewProps> = (
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
   const [expandedQuestions, setExpandedQuestions] = useState<Set<string>>(new Set());
   const [saving, setSaving] = useState(false);
+  const [showSimulation, setShowSimulation] = useState(false);
 
   // Form states
   const [editTitle, setEditTitle] = useState('');
@@ -271,6 +273,18 @@ export const QuestionnaireEditorView: React.FC<QuestionnaireEditorViewProps> = (
     });
   };
 
+  const handlePreview = () => {
+    if (!questionnaire?.sections?.length) {
+      toast({ 
+        title: 'Nessuna domanda', 
+        description: 'Aggiungi almeno una sezione con domande',
+        variant: 'destructive'
+      });
+      return;
+    }
+    setShowSimulation(true);
+  };
+
   // =============================================
   // LOADING / ERROR STATES
   // =============================================
@@ -337,17 +351,29 @@ export const QuestionnaireEditorView: React.FC<QuestionnaireEditorViewProps> = (
               </div>
             </div>
 
-            <button
-              onClick={handleTogglePublish}
-              className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium transition-all shadow-sm hover:shadow-md ${
-                questionnaire.isPublished
-                  ? 'bg-amber-500 hover:bg-amber-600 text-white'
-                  : 'bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white'
-              }`}
-            >
-              {questionnaire.isPublished ? <EyeOff size={16} /> : <Eye size={16} />}
-              {questionnaire.isPublished ? 'Disattiva' : 'Pubblica'}
-            </button>
+            <div className="flex items-center gap-3">
+              {/* Preview Button */}
+              <button
+                onClick={handlePreview}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-indigo-100 hover:bg-indigo-200 text-indigo-700 dark:bg-indigo-900/30 dark:hover:bg-indigo-900/50 dark:text-indigo-400 text-sm font-medium transition-all"
+              >
+                <Play size={16} />
+                Anteprima
+              </button>
+
+              {/* Publish Button */}
+              <button
+                onClick={handleTogglePublish}
+                className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium transition-all shadow-sm hover:shadow-md ${
+                  questionnaire.isPublished
+                    ? 'bg-amber-500 hover:bg-amber-600 text-white'
+                    : 'bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white'
+                }`}
+              >
+                {questionnaire.isPublished ? <EyeOff size={16} /> : <Eye size={16} />}
+                {questionnaire.isPublished ? 'Disattiva' : 'Pubblica'}
+              </button>
+            </div>
           </div>
 
           {/* Tabs */}
@@ -618,6 +644,15 @@ export const QuestionnaireEditorView: React.FC<QuestionnaireEditorViewProps> = (
           </div>
         )}
       </div>
+
+      {/* Simulation Modal */}
+      {showSimulation && questionnaire && (
+        <SimulationModal
+          questionnaire={questionnaire}
+          isOpen={showSimulation}
+          onClose={() => setShowSimulation(false)}
+        />
+      )}
     </div>
   );
 };
@@ -993,7 +1028,46 @@ const OptionEditor: React.FC<OptionEditorProps> = ({
           </div>
         ) : (
           <>
-            <span className="flex-1 text-sm text-foreground">{option.text}</span>
+            <div className="flex-1 min-w-0">
+              <span className="text-sm text-foreground">{option.text}</span>
+              {/* Inline weight preview badges when not in edit mode and has weights */}
+              {!showWeights && option.weights && option.weights.filter(w => w.weight !== 0).length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-1">
+                  {option.weights.filter(w => w.weight !== 0).slice(0, 4).map(w => {
+                    const dim = dimensions.find(d => d.id === w.dimensionId);
+                    return (
+                      <span 
+                        key={w.id}
+                        className="text-[9px] px-1.5 py-0.5 rounded font-medium"
+                        style={{ 
+                          backgroundColor: `${dim?.color}15`, 
+                          color: dim?.color 
+                        }}
+                      >
+                        {dim?.code}: {w.weight > 0 ? '+' : ''}{w.weight}
+                      </span>
+                    );
+                  })}
+                  {option.weights.filter(w => w.weight !== 0).length > 4 && (
+                    <span className="text-[9px] text-muted-foreground">
+                      +{option.weights.filter(w => w.weight !== 0).length - 4}
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Weight Count Badge */}
+            {option.weights && option.weights.filter(w => w.weight !== 0).length > 0 && (
+              <span 
+                className="px-2 py-0.5 bg-gradient-to-r from-indigo-100 to-purple-100 dark:from-indigo-900/30 dark:to-purple-900/30 text-indigo-600 dark:text-indigo-400 text-[10px] font-bold rounded-full flex items-center gap-1"
+                title={`${option.weights.filter(w => w.weight !== 0).length} dimensioni impattate`}
+              >
+                <BarChart3 size={10} />
+                {option.weights.filter(w => w.weight !== 0).length}
+              </span>
+            )}
+
             {dimensions.length > 0 && (
               <button
                 onClick={() => setShowWeights(!showWeights)}

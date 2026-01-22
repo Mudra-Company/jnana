@@ -10,13 +10,9 @@ import { cn } from '@/lib/utils';
 // TYPES
 // =============================================
 
-interface SwipeAnswer {
-  questionId: string;
-  selectedOptionId?: string;
-  textAnswer?: string;
-  likertValue?: number;
-  swipeDirection?: 'left' | 'right';
-}
+// Re-export SwipeAnswer from scoringEngine for consistency
+export type { SwipeAnswer } from '@/src/services/scoringEngine';
+import type { SwipeAnswer } from '@/src/services/scoringEngine';
 
 interface QuestionnaireSwipeRendererProps {
   sections: QuestionnaireSection[];
