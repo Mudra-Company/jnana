@@ -4,7 +4,7 @@ import {
   Plus, Trash2, GripVertical, ChevronDown, ChevronRight,
   Edit2, Check, X, Palette, List, MessageSquare, Sparkles, Play
 } from 'lucide-react';
-import { SimulationModal } from '../../components/questionnaire/SimulationModal';
+import { SimulationModal } from '../../src/components/questionnaire/SimulationModal';
 import { useQuestionnaires } from '../../src/hooks/useQuestionnaires';
 import { useToast } from '../../src/hooks/use-toast';
 import { Card } from '../../components/Card';

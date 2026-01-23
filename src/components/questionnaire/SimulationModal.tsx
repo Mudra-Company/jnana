@@ -7,11 +7,11 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Play, RotateCcw, CheckCircle2, BarChart3, FileText, Target } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/Card';
+import { Card } from '../../../components/Card';
 import { Progress } from '@/components/ui/progress';
-import { QuestionnaireSwipeRenderer } from './QuestionnaireSwipeRenderer';
-import { calculateScores, type SwipeAnswer, type ScoringOutput } from '@/src/services/scoringEngine';
-import type { Questionnaire } from '@/src/types/questionnaire';
+import { QuestionnaireSwipeRenderer } from '../../../components/questionnaire/QuestionnaireSwipeRenderer';
+import { calculateScores, type SwipeAnswer, type ScoringOutput } from '../../services/scoringEngine';
+import type { Questionnaire } from '../../types/questionnaire';
 
 // =============================================
 // TYPES
