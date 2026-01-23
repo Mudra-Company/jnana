@@ -144,55 +144,85 @@ const SwipeCard: React.FC<SwipeCardProps> = ({
         )}
 
         {/* Card Content */}
-        <div className="p-8 md:p-10 min-h-[380px] flex flex-col justify-center bg-gradient-to-b from-white to-slate-50 dark:from-gray-900 dark:to-gray-800">
-          {/* Question Image */}
-          {question.imageUrl && (
-            <div className="mb-8 flex justify-center">
-              <img
-                src={question.imageUrl}
-                alt=""
-                className="w-36 h-36 object-cover rounded-2xl shadow-md"
-              />
+        <div className="p-6 md:p-8 min-h-[400px] flex flex-col justify-between bg-gradient-to-b from-white to-slate-50 dark:from-gray-900 dark:to-gray-800">
+          {/* Top Section: Image/Icon and Question */}
+          <div className="flex-1 flex flex-col justify-center">
+            {/* Question Image */}
+            {question.imageUrl && (
+              <div className="mb-6 flex justify-center">
+                <img
+                  src={question.imageUrl}
+                  alt=""
+                  className="w-32 h-32 object-cover rounded-2xl shadow-md"
+                />
+              </div>
+            )}
+
+            {/* Question Icon */}
+            {question.icon && (
+              <div className="mb-6 flex justify-center">
+                <span className="text-6xl drop-shadow-md">{question.icon}</span>
+              </div>
+            )}
+
+            {/* Question Text - Always visible */}
+            <h2 className="text-xl md:text-2xl font-bold text-center text-slate-800 dark:text-slate-100 leading-relaxed px-2">
+              {question.text || '⚠️ Domanda senza testo'}
+            </h2>
+
+            {/* Help Text */}
+            {question.config?.helpText && (
+              <p className="mt-4 text-sm text-slate-500 dark:text-slate-400 text-center">
+                {question.config.helpText}
+              </p>
+            )}
+          </div>
+
+          {/* Binary Options - Prominent Display */}
+          {(question.type === 'binary' || question.type === 'single_choice') && question.options && question.options.length >= 2 && (
+            <div className="mt-8 space-y-4">
+              {/* Options Display */}
+              <div className="flex items-stretch justify-between gap-3">
+                {/* Left Option (Swipe Left) */}
+                <div className="flex-1 p-4 bg-red-50 dark:bg-red-900/20 rounded-2xl border-2 border-red-200 dark:border-red-800/50 text-center">
+                  <div className="w-10 h-10 mx-auto mb-2 rounded-full bg-red-100 dark:bg-red-800/40 flex items-center justify-center">
+                    <X className="w-5 h-5 text-red-500" />
+                  </div>
+                  <span className="text-sm font-semibold text-red-700 dark:text-red-300 line-clamp-2">
+                    {question.options[1]?.text || 'Opzione 2'}
+                  </span>
+                </div>
+                
+                {/* Swipe Indicator */}
+                <div className="flex flex-col items-center justify-center">
+                  <span className="text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+                    swipe
+                  </span>
+                  <div className="flex items-center gap-1 mt-1">
+                    <span className="text-slate-300 dark:text-slate-600">←</span>
+                    <span className="text-slate-300 dark:text-slate-600">→</span>
+                  </div>
+                </div>
+                
+                {/* Right Option (Swipe Right) */}
+                <div className="flex-1 p-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-2xl border-2 border-emerald-200 dark:border-emerald-800/50 text-center">
+                  <div className="w-10 h-10 mx-auto mb-2 rounded-full bg-emerald-100 dark:bg-emerald-800/40 flex items-center justify-center">
+                    <Check className="w-5 h-5 text-emerald-500" />
+                  </div>
+                  <span className="text-sm font-semibold text-emerald-700 dark:text-emerald-300 line-clamp-2">
+                    {question.options[0]?.text || 'Opzione 1'}
+                  </span>
+                </div>
+              </div>
             </div>
           )}
 
-          {/* Question Icon */}
-          {question.icon && (
-            <div className="mb-8 flex justify-center">
-              <span className="text-7xl drop-shadow-md">{question.icon}</span>
-            </div>
-          )}
-
-          {/* Question Text */}
-          <h2 className="text-xl md:text-2xl font-bold text-center text-slate-800 dark:text-slate-100 leading-relaxed">
-            {question.text}
-          </h2>
-
-          {/* Help Text */}
-          {question.config?.helpText && (
-            <p className="mt-5 text-sm text-slate-500 dark:text-slate-400 text-center">
-              {question.config.helpText}
-            </p>
-          )}
-
-          {/* Swipe hint for binary */}
-          {question.type === 'binary' && question.options && (
-            <div className="mt-10 flex justify-between items-center px-2">
-              <div className="flex items-center gap-2 text-red-500">
-                <div className="w-10 h-10 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
-                  <X className="w-5 h-5" />
-                </div>
-                <span className="text-sm font-semibold">{question.options[1]?.text || 'No'}</span>
-              </div>
-              <div className="text-xs text-slate-400 dark:text-slate-500 uppercase tracking-wide">
-                swipe
-              </div>
-              <div className="flex items-center gap-2 text-emerald-500">
-                <span className="text-sm font-semibold">{question.options[0]?.text || 'Sì'}</span>
-                <div className="w-10 h-10 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
-                  <Check className="w-5 h-5" />
-                </div>
-              </div>
+          {/* Warning for questions without options */}
+          {(!question.options || question.options.length === 0) && question.type !== 'likert' && (
+            <div className="mt-6 p-3 bg-amber-50 dark:bg-amber-900/20 rounded-xl text-center">
+              <span className="text-amber-600 dark:text-amber-400 text-sm">
+                ⚠️ Nessuna opzione configurata per questa domanda
+              </span>
             </div>
           )}
         </div>
@@ -481,25 +511,38 @@ export const QuestionnaireSwipeRenderer: React.FC<QuestionnaireSwipeRendererProp
       </div>
 
       {/* Bottom Action Buttons for Binary Questions */}
-      {isBinaryOrSingleChoice && (
-        <div className="flex-shrink-0 px-6 pb-6 pt-4 bg-gradient-to-t from-white via-white to-transparent dark:from-gray-900 dark:via-gray-900">
-          <div className="flex justify-center gap-10">
-            <motion.button
-              className="w-18 h-18 md:w-20 md:h-20 rounded-full bg-gradient-to-br from-red-400 to-red-600 flex items-center justify-center shadow-[0_8px_30px_-5px_rgba(239,68,68,0.5)] hover:shadow-[0_12px_35px_-5px_rgba(239,68,68,0.6)] transition-shadow"
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.9 }}
-              onClick={() => handleSwipe('left', currentQuestion.options?.[1]?.id)}
-            >
-              <X className="w-9 h-9 md:w-10 md:h-10 text-white" strokeWidth={3} />
-            </motion.button>
-            <motion.button
-              className="w-18 h-18 md:w-20 md:h-20 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center shadow-[0_8px_30px_-5px_rgba(16,185,129,0.5)] hover:shadow-[0_12px_35px_-5px_rgba(16,185,129,0.6)] transition-shadow"
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.9 }}
-              onClick={() => handleSwipe('right', currentQuestion.options?.[0]?.id)}
-            >
-              <Check className="w-9 h-9 md:w-10 md:h-10 text-white" strokeWidth={3} />
-            </motion.button>
+      {isBinaryOrSingleChoice && currentQuestion.options && currentQuestion.options.length >= 2 && (
+        <div className="flex-shrink-0 px-4 pb-6 pt-4 bg-gradient-to-t from-white via-white to-transparent dark:from-gray-900 dark:via-gray-900">
+          <div className="flex justify-center items-end gap-6">
+            {/* Left Option Button */}
+            <div className="flex flex-col items-center gap-2">
+              <motion.button
+                className="w-16 h-16 md:w-18 md:h-18 rounded-full bg-gradient-to-br from-red-400 to-red-600 flex items-center justify-center shadow-[0_8px_25px_-5px_rgba(239,68,68,0.5)] hover:shadow-[0_12px_30px_-5px_rgba(239,68,68,0.6)] transition-shadow"
+                whileHover={{ scale: 1.08 }}
+                whileTap={{ scale: 0.9 }}
+                onClick={() => handleSwipe('left', currentQuestion.options?.[1]?.id)}
+              >
+                <X className="w-7 h-7 md:w-8 md:h-8 text-white" strokeWidth={3} />
+              </motion.button>
+              <span className="text-xs font-medium text-red-600 dark:text-red-400 max-w-[90px] text-center line-clamp-2">
+                {currentQuestion.options[1]?.text || 'No'}
+              </span>
+            </div>
+            
+            {/* Right Option Button */}
+            <div className="flex flex-col items-center gap-2">
+              <motion.button
+                className="w-16 h-16 md:w-18 md:h-18 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center shadow-[0_8px_25px_-5px_rgba(16,185,129,0.5)] hover:shadow-[0_12px_30px_-5px_rgba(16,185,129,0.6)] transition-shadow"
+                whileHover={{ scale: 1.08 }}
+                whileTap={{ scale: 0.9 }}
+                onClick={() => handleSwipe('right', currentQuestion.options?.[0]?.id)}
+              >
+                <Check className="w-7 h-7 md:w-8 md:h-8 text-white" strokeWidth={3} />
+              </motion.button>
+              <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400 max-w-[90px] text-center line-clamp-2">
+                {currentQuestion.options[0]?.text || 'Sì'}
+              </span>
+            </div>
           </div>
         </div>
       )}
