@@ -96,7 +96,7 @@ const SwipeCard: React.FC<SwipeCardProps> = ({
   return (
     <motion.div
       className={cn(
-        "absolute inset-0 flex items-center justify-center",
+        "absolute inset-4 md:inset-8 flex items-center justify-center",
         !isActive && "pointer-events-none"
       )}
       style={{
@@ -105,14 +105,15 @@ const SwipeCard: React.FC<SwipeCardProps> = ({
     >
       <motion.div
         className={cn(
-          "relative w-full max-w-sm mx-4 bg-card rounded-3xl shadow-2xl overflow-hidden",
-          "border border-border/50",
+          "relative w-full max-w-md bg-white dark:bg-gray-900 rounded-3xl overflow-hidden",
+          "shadow-[0_25px_60px_-15px_rgba(0,0,0,0.25)] dark:shadow-[0_25px_60px_-15px_rgba(0,0,0,0.5)]",
+          "border border-slate-200/80 dark:border-gray-700/50",
           isActive ? "cursor-grab active:cursor-grabbing" : ""
         )}
         style={{
           x: isActive ? x : 0,
           rotate: isActive ? rotate : 0,
-          opacity: isActive ? opacity : 0.7,
+          opacity: isActive ? opacity : 0.6,
           y: isActive ? 0 : stackOffset,
           scale: isActive ? 1 : stackScale,
         }}
@@ -120,21 +121,21 @@ const SwipeCard: React.FC<SwipeCardProps> = ({
         dragConstraints={{ left: 0, right: 0 }}
         dragElastic={0.9}
         onDragEnd={isActive ? handleDragEnd : undefined}
-        initial={isActive ? { scale: 0.95, opacity: 0 } : {}}
-        animate={isActive ? { scale: 1, opacity: 1 } : {}}
-        transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+        initial={isActive ? { scale: 0.9, opacity: 0, y: 30 } : {}}
+        animate={isActive ? { scale: 1, opacity: 1, y: 0 } : {}}
+        transition={{ type: 'spring', stiffness: 400, damping: 30 }}
       >
-        {/* Swipe Indicators */}
+        {/* Swipe Indicators - More visible */}
         {isActive && (
           <>
             <motion.div
-              className="absolute top-6 left-6 z-10 px-4 py-2 rounded-xl bg-destructive text-destructive-foreground font-bold text-lg rotate-[-15deg] border-4 border-destructive-foreground"
+              className="absolute top-8 left-6 z-20 px-5 py-2.5 rounded-xl bg-red-500 text-white font-bold text-lg uppercase tracking-wide rotate-[-12deg] shadow-lg"
               style={{ opacity: leftIndicatorOpacity }}
             >
               {question.options?.[1]?.text || 'NO'}
             </motion.div>
             <motion.div
-              className="absolute top-6 right-6 z-10 px-4 py-2 rounded-xl bg-primary text-primary-foreground font-bold text-lg rotate-[15deg] border-4 border-primary-foreground"
+              className="absolute top-8 right-6 z-20 px-5 py-2.5 rounded-xl bg-emerald-500 text-white font-bold text-lg uppercase tracking-wide rotate-[12deg] shadow-lg"
               style={{ opacity: rightIndicatorOpacity }}
             >
               {question.options?.[0]?.text || 'SÌ'}
@@ -143,47 +144,54 @@ const SwipeCard: React.FC<SwipeCardProps> = ({
         )}
 
         {/* Card Content */}
-        <div className="p-8 min-h-[400px] flex flex-col justify-center">
+        <div className="p-8 md:p-10 min-h-[380px] flex flex-col justify-center bg-gradient-to-b from-white to-slate-50 dark:from-gray-900 dark:to-gray-800">
           {/* Question Image */}
           {question.imageUrl && (
-            <div className="mb-6 flex justify-center">
+            <div className="mb-8 flex justify-center">
               <img
                 src={question.imageUrl}
                 alt=""
-                className="w-32 h-32 object-cover rounded-2xl"
+                className="w-36 h-36 object-cover rounded-2xl shadow-md"
               />
             </div>
           )}
 
           {/* Question Icon */}
           {question.icon && (
-            <div className="mb-6 flex justify-center">
-              <span className="text-6xl">{question.icon}</span>
+            <div className="mb-8 flex justify-center">
+              <span className="text-7xl drop-shadow-md">{question.icon}</span>
             </div>
           )}
 
           {/* Question Text */}
-          <h2 className="text-xl md:text-2xl font-semibold text-center text-foreground leading-relaxed">
+          <h2 className="text-xl md:text-2xl font-bold text-center text-slate-800 dark:text-slate-100 leading-relaxed">
             {question.text}
           </h2>
 
           {/* Help Text */}
           {question.config?.helpText && (
-            <p className="mt-4 text-sm text-muted-foreground text-center">
+            <p className="mt-5 text-sm text-slate-500 dark:text-slate-400 text-center">
               {question.config.helpText}
             </p>
           )}
 
-          {/* Binary Options Labels */}
+          {/* Swipe hint for binary */}
           {question.type === 'binary' && question.options && (
-            <div className="mt-8 flex justify-between px-4">
-              <div className="flex items-center gap-2 text-destructive">
-                <X className="w-5 h-5" />
-                <span className="text-sm font-medium">{question.options[1]?.text || 'No'}</span>
+            <div className="mt-10 flex justify-between items-center px-2">
+              <div className="flex items-center gap-2 text-red-500">
+                <div className="w-10 h-10 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+                  <X className="w-5 h-5" />
+                </div>
+                <span className="text-sm font-semibold">{question.options[1]?.text || 'No'}</span>
               </div>
-              <div className="flex items-center gap-2 text-primary">
-                <span className="text-sm font-medium">{question.options[0]?.text || 'Sì'}</span>
-                <Check className="w-5 h-5" />
+              <div className="text-xs text-slate-400 dark:text-slate-500 uppercase tracking-wide">
+                swipe
+              </div>
+              <div className="flex items-center gap-2 text-emerald-500">
+                <span className="text-sm font-semibold">{question.options[0]?.text || 'Sì'}</span>
+                <div className="w-10 h-10 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
+                  <Check className="w-5 h-5" />
+                </div>
               </div>
             </div>
           )}
@@ -226,47 +234,49 @@ const LikertSwipeCard: React.FC<LikertSwipeCardProps> = ({
 
   return (
     <motion.div
-      className="absolute inset-0 flex items-center justify-center"
-      initial={{ scale: 0.95, opacity: 0 }}
-      animate={{ scale: 1, opacity: 1 }}
-      exit={{ scale: 0.95, opacity: 0, x: 300 }}
-      transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+      className="absolute inset-4 md:inset-8 flex items-center justify-center"
+      initial={{ scale: 0.9, opacity: 0, y: 20 }}
+      animate={{ scale: 1, opacity: 1, y: 0 }}
+      exit={{ scale: 0.9, opacity: 0, x: 300 }}
+      transition={{ type: 'spring', stiffness: 400, damping: 30 }}
     >
-      <div className="w-full max-w-sm mx-4 bg-card rounded-3xl shadow-2xl overflow-hidden border border-border/50 p-8">
-        {/* Question */}
-        <h2 className="text-xl font-semibold text-center text-foreground mb-8 leading-relaxed">
-          {question.text}
-        </h2>
+      <div className="w-full max-w-md bg-white dark:bg-gray-900 rounded-3xl shadow-[0_25px_60px_-15px_rgba(0,0,0,0.25)] dark:shadow-[0_25px_60px_-15px_rgba(0,0,0,0.5)] overflow-hidden border border-slate-200/80 dark:border-gray-700/50">
+        <div className="p-8 md:p-10 bg-gradient-to-b from-white to-slate-50 dark:from-gray-900 dark:to-gray-800">
+          {/* Question */}
+          <h2 className="text-xl md:text-2xl font-bold text-center text-slate-800 dark:text-slate-100 mb-8 leading-relaxed">
+            {question.text}
+          </h2>
 
-        {/* Likert Scale */}
-        <div className="space-y-3">
-          {likertOptions.map((option) => (
-            <motion.button
-              key={option.value}
-              className={cn(
-                "w-full p-4 rounded-2xl border-2 transition-all",
-                "flex items-center gap-4",
-                selectedValue === option.value
-                  ? "border-primary bg-primary/10"
-                  : "border-border hover:border-primary/50 hover:bg-muted/50"
-              )}
-              onClick={() => handleSelect(option.value)}
-              whileTap={{ scale: 0.98 }}
-              disabled={!isActive}
-            >
-              <span className="text-2xl">{option.emoji}</span>
-              <span className="text-foreground font-medium">{option.label}</span>
-              {selectedValue === option.value && (
-                <motion.div
-                  className="ml-auto"
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                >
-                  <Check className="w-5 h-5 text-primary" />
-                </motion.div>
-              )}
-            </motion.button>
-          ))}
+          {/* Likert Scale */}
+          <div className="space-y-3">
+            {likertOptions.map((option) => (
+              <motion.button
+                key={option.value}
+                className={cn(
+                  "w-full p-4 rounded-2xl border-2 transition-all",
+                  "flex items-center gap-4",
+                  selectedValue === option.value
+                    ? "border-indigo-500 bg-indigo-50 dark:bg-indigo-900/30"
+                    : "border-slate-200 dark:border-gray-700 hover:border-indigo-300 dark:hover:border-indigo-700 hover:bg-slate-50 dark:hover:bg-gray-800"
+                )}
+                onClick={() => handleSelect(option.value)}
+                whileTap={{ scale: 0.98 }}
+                disabled={!isActive}
+              >
+                <span className="text-3xl">{option.emoji}</span>
+                <span className="text-slate-700 dark:text-slate-200 font-medium">{option.label}</span>
+                {selectedValue === option.value && (
+                  <motion.div
+                    className="ml-auto"
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                  >
+                    <Check className="w-6 h-6 text-indigo-500" />
+                  </motion.div>
+                )}
+              </motion.button>
+            ))}
+          </div>
         </div>
       </div>
     </motion.div>
@@ -370,15 +380,15 @@ export const QuestionnaireSwipeRenderer: React.FC<QuestionnaireSwipeRendererProp
   const isBinaryOrSingleChoice = currentQuestion.type === 'binary' || currentQuestion.type === 'single_choice';
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background to-muted/30 flex flex-col">
-      {/* Header */}
-      <div className="safe-area-top px-4 pt-4 pb-2">
-        <div className="flex items-center justify-between mb-4">
+    <div className="h-full min-h-[500px] flex flex-col bg-gradient-to-b from-slate-50 via-white to-slate-100 dark:from-gray-900 dark:via-gray-900 dark:to-gray-950">
+      {/* Header with progress */}
+      <div className="flex-shrink-0 px-4 pt-4 pb-3 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border-b border-slate-200/50 dark:border-gray-800/50">
+        <div className="flex items-center justify-between mb-3">
           <Button
             variant="ghost"
             size="sm"
             onClick={handleBack}
-            className="text-muted-foreground"
+            className="text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
           >
             <ChevronLeft className="w-5 h-5 mr-1" />
             Indietro
@@ -389,7 +399,7 @@ export const QuestionnaireSwipeRenderer: React.FC<QuestionnaireSwipeRendererProp
               variant="ghost"
               size="sm"
               onClick={handleSkip}
-              className="text-muted-foreground"
+              className="text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
             >
               Salta
               <SkipForward className="w-4 h-4 ml-1" />
@@ -400,17 +410,28 @@ export const QuestionnaireSwipeRenderer: React.FC<QuestionnaireSwipeRendererProp
         {/* Progress */}
         {showProgress && (
           <div className="space-y-2">
-            <div className="flex justify-between text-sm text-muted-foreground">
-              <span>Domanda {currentIndex + 1} di {allQuestions.length}</span>
-              <span>{Math.round(progress)}%</span>
+            <div className="flex justify-between text-sm">
+              <span className="text-slate-600 dark:text-slate-400 font-medium">
+                Domanda {currentIndex + 1} di {allQuestions.length}
+              </span>
+              <span className="text-indigo-600 dark:text-indigo-400 font-semibold">
+                {Math.round(progress)}%
+              </span>
             </div>
-            <Progress value={progress} className="h-2" />
+            <div className="h-2.5 bg-slate-200 dark:bg-gray-700 rounded-full overflow-hidden">
+              <motion.div 
+                className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full"
+                initial={{ width: 0 }}
+                animate={{ width: `${progress}%` }}
+                transition={{ type: 'spring', stiffness: 100, damping: 20 }}
+              />
+            </div>
           </div>
         )}
       </div>
 
-      {/* Cards Container */}
-      <div className="flex-1 relative overflow-hidden">
+      {/* Cards Container - takes remaining space */}
+      <div className="flex-1 relative overflow-hidden min-h-[400px]">
         {isLikert ? (
           <LikertSwipeCard
             key={currentQuestion.id}
@@ -436,9 +457,9 @@ export const QuestionnaireSwipeRenderer: React.FC<QuestionnaireSwipeRendererProp
           </>
         ) : (
           // Fallback for other question types
-          <div className="absolute inset-0 flex items-center justify-center p-4">
-            <div className="w-full max-w-sm bg-card rounded-3xl shadow-2xl p-8 border border-border/50">
-              <h2 className="text-xl font-semibold text-center mb-6">
+          <div className="absolute inset-4 md:inset-8 flex items-center justify-center">
+            <div className="w-full max-w-md bg-white dark:bg-gray-900 rounded-3xl shadow-[0_25px_60px_-15px_rgba(0,0,0,0.25)] p-8 border border-slate-200/80 dark:border-gray-700/50">
+              <h2 className="text-xl font-bold text-center text-slate-800 dark:text-slate-100 mb-6">
                 {currentQuestion.text}
               </h2>
               <div className="space-y-3">
@@ -446,11 +467,11 @@ export const QuestionnaireSwipeRenderer: React.FC<QuestionnaireSwipeRendererProp
                   <Button
                     key={option.id}
                     variant="outline"
-                    className="w-full justify-start text-left h-auto py-4 px-6"
+                    className="w-full justify-start text-left h-auto py-4 px-6 rounded-xl border-2 hover:border-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20"
                     onClick={() => handleSwipe('right', option.id)}
                   >
-                    {option.icon && <span className="mr-3">{option.icon}</span>}
-                    {option.text}
+                    {option.icon && <span className="mr-3 text-xl">{option.icon}</span>}
+                    <span className="font-medium">{option.text}</span>
                   </Button>
                 ))}
               </div>
@@ -461,21 +482,23 @@ export const QuestionnaireSwipeRenderer: React.FC<QuestionnaireSwipeRendererProp
 
       {/* Bottom Action Buttons for Binary Questions */}
       {isBinaryOrSingleChoice && (
-        <div className="safe-area-bottom px-8 pb-8">
-          <div className="flex justify-center gap-8">
+        <div className="flex-shrink-0 px-6 pb-6 pt-4 bg-gradient-to-t from-white via-white to-transparent dark:from-gray-900 dark:via-gray-900">
+          <div className="flex justify-center gap-10">
             <motion.button
-              className="w-16 h-16 rounded-full bg-destructive/10 border-2 border-destructive flex items-center justify-center"
+              className="w-18 h-18 md:w-20 md:h-20 rounded-full bg-gradient-to-br from-red-400 to-red-600 flex items-center justify-center shadow-[0_8px_30px_-5px_rgba(239,68,68,0.5)] hover:shadow-[0_12px_35px_-5px_rgba(239,68,68,0.6)] transition-shadow"
+              whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.9 }}
               onClick={() => handleSwipe('left', currentQuestion.options?.[1]?.id)}
             >
-              <X className="w-8 h-8 text-destructive" />
+              <X className="w-9 h-9 md:w-10 md:h-10 text-white" strokeWidth={3} />
             </motion.button>
             <motion.button
-              className="w-16 h-16 rounded-full bg-primary/10 border-2 border-primary flex items-center justify-center"
+              className="w-18 h-18 md:w-20 md:h-20 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center shadow-[0_8px_30px_-5px_rgba(16,185,129,0.5)] hover:shadow-[0_12px_35px_-5px_rgba(16,185,129,0.6)] transition-shadow"
+              whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.9 }}
               onClick={() => handleSwipe('right', currentQuestion.options?.[0]?.id)}
             >
-              <Check className="w-8 h-8 text-primary" />
+              <Check className="w-9 h-9 md:w-10 md:h-10 text-white" strokeWidth={3} />
             </motion.button>
           </div>
         </div>

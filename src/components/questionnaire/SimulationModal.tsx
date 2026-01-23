@@ -65,14 +65,14 @@ export const SimulationModal: React.FC<SimulationModalProps> = ({
   return (
     <AnimatePresence>
       <motion.div
-        className="fixed inset-0 z-50 bg-background"
+        className="fixed inset-0 z-[9999] flex flex-col bg-white dark:bg-gray-950 overflow-hidden"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
       >
-        {/* Header */}
-        <div className="sticky top-0 z-10 bg-gradient-to-r from-indigo-600 via-purple-600 to-violet-600 text-white">
-          <div className="flex items-center justify-between px-4 py-3">
+        {/* Header - Gradient sticky */}
+        <div className="flex-shrink-0 bg-gradient-to-r from-indigo-600 via-purple-600 to-violet-600 text-white shadow-lg">
+          <div className="flex items-center justify-between px-4 py-3 safe-area-top">
             <button
               onClick={handleClose}
               className="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-white/10 transition-colors"
@@ -83,8 +83,7 @@ export const SimulationModal: React.FC<SimulationModalProps> = ({
 
             <div className="flex items-center gap-2">
               <Play size={18} />
-              <span className="text-sm font-medium">ANTEPRIMA</span>
-              <span className="text-xs opacity-75">- {questionnaire.title}</span>
+              <span className="text-sm font-medium uppercase tracking-wide">Anteprima</span>
             </div>
 
             {phase === 'results' && (
@@ -101,8 +100,8 @@ export const SimulationModal: React.FC<SimulationModalProps> = ({
           </div>
         </div>
 
-        {/* Content */}
-        <div className="h-[calc(100vh-56px)] overflow-auto">
+        {/* Content - Flex grow */}
+        <div className="flex-1 overflow-auto bg-gradient-to-b from-slate-50 to-slate-100 dark:from-gray-900 dark:to-gray-950">
           {phase === 'simulate' ? (
             <SimulationRenderer
               questionnaire={questionnaire}
