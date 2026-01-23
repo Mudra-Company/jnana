@@ -6,9 +6,9 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Play, RotateCcw, CheckCircle2, BarChart3, FileText, Target } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Button } from '../../../components/ui/button';
 import { Card } from '../../../components/Card';
-import { Progress } from '@/components/ui/progress';
+import { Progress } from '../../../components/ui/progress';
 import { QuestionnaireSwipeRenderer } from '../../../components/questionnaire/QuestionnaireSwipeRenderer';
 import { calculateScores, type SwipeAnswer, type ScoringOutput } from '../../services/scoringEngine';
 import type { Questionnaire } from '../../types/questionnaire';
