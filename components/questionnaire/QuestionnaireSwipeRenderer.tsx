@@ -1,18 +1,18 @@
 import React, { useState, useCallback } from 'react';
 import { motion, useMotionValue, useTransform, animate, PanInfo } from 'framer-motion';
 import { Check, X, ChevronLeft, SkipForward } from 'lucide-react';
-import { Question, QuestionOption, QuestionnaireSection } from '@/src/types/questionnaire';
-import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/progress';
-import { cn } from '@/lib/utils';
+import { Question, QuestionOption, QuestionnaireSection } from '../../src/types/questionnaire';
+import { Button } from '../ui/button';
+import { Progress } from '../ui/progress';
+import { cn } from '../../lib/utils';
 
 // =============================================
 // TYPES
 // =============================================
 
 // Re-export SwipeAnswer from scoringEngine for consistency
-export type { SwipeAnswer } from '@/src/services/scoringEngine';
-import type { SwipeAnswer } from '@/src/services/scoringEngine';
+export type { SwipeAnswer } from '../../src/services/scoringEngine';
+import type { SwipeAnswer } from '../../src/services/scoringEngine';
 
 interface QuestionnaireSwipeRendererProps {
   sections: QuestionnaireSection[];
