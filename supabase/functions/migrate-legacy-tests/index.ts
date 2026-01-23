@@ -1,4 +1,11 @@
+// @ts-ignore - Deno edge function imports
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+// @ts-ignore - Deno global
+declare const Deno: {
+  env: { get(key: string): string | undefined };
+  serve(handler: (req: Request) => Promise<Response> | Response): void;
+};
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
