@@ -10,7 +10,7 @@ import type {
   QuestionOption,
   ScoringDimension,
   DimensionScore,
-} from '@/src/types/questionnaire';
+} from '../types/questionnaire';
 
 // =============================================
 // TYPES
