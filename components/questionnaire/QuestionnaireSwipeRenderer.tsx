@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { motion, useMotionValue, useTransform, animate, PanInfo } from 'framer-motion';
 import { Check, X, ChevronLeft, SkipForward } from 'lucide-react';
 import { Question, QuestionOption, QuestionnaireSection } from '../../src/types/questionnaire';
@@ -178,42 +178,12 @@ const SwipeCard: React.FC<SwipeCardProps> = ({
             )}
           </div>
 
-          {/* Binary Options - Prominent Display */}
+          {/* Swipe instruction hint */}
           {(question.type === 'binary' || question.type === 'single_choice') && question.options && question.options.length >= 2 && (
-            <div className="mt-8 space-y-4">
-              {/* Options Display */}
-              <div className="flex items-stretch justify-between gap-3">
-                {/* Left Option (Swipe Left) */}
-                <div className="flex-1 p-4 bg-red-50 dark:bg-red-900/20 rounded-2xl border-2 border-red-200 dark:border-red-800/50 text-center">
-                  <div className="w-10 h-10 mx-auto mb-2 rounded-full bg-red-100 dark:bg-red-800/40 flex items-center justify-center">
-                    <X className="w-5 h-5 text-red-500" />
-                  </div>
-                  <span className="text-sm font-semibold text-red-700 dark:text-red-300 line-clamp-2">
-                    {question.options[1]?.text || 'Opzione 2'}
-                  </span>
-                </div>
-                
-                {/* Swipe Indicator */}
-                <div className="flex flex-col items-center justify-center">
-                  <span className="text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-widest">
-                    swipe
-                  </span>
-                  <div className="flex items-center gap-1 mt-1">
-                    <span className="text-slate-300 dark:text-slate-600">←</span>
-                    <span className="text-slate-300 dark:text-slate-600">→</span>
-                  </div>
-                </div>
-                
-                {/* Right Option (Swipe Right) */}
-                <div className="flex-1 p-4 bg-emerald-50 dark:bg-emerald-900/20 rounded-2xl border-2 border-emerald-200 dark:border-emerald-800/50 text-center">
-                  <div className="w-10 h-10 mx-auto mb-2 rounded-full bg-emerald-100 dark:bg-emerald-800/40 flex items-center justify-center">
-                    <Check className="w-5 h-5 text-emerald-500" />
-                  </div>
-                  <span className="text-sm font-semibold text-emerald-700 dark:text-emerald-300 line-clamp-2">
-                    {question.options[0]?.text || 'Opzione 1'}
-                  </span>
-                </div>
-              </div>
+            <div className="mt-8 text-center">
+              <span className="text-xs text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+                Swippa o usa i bottoni
+              </span>
             </div>
           )}
 
@@ -328,13 +298,17 @@ export const QuestionnaireSwipeRenderer: React.FC<QuestionnaireSwipeRendererProp
   const allQuestions = sections.flatMap((section) => section.questions || []);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answers, setAnswers] = useState<SwipeAnswer[]>([]);
+  const [keyPressed, setKeyPressed] = useState<'left' | 'right' | null>(null);
 
   const currentQuestion = allQuestions[currentIndex];
   const progress = ((currentIndex) / allQuestions.length) * 100;
   const isLastQuestion = currentIndex === allQuestions.length - 1;
+  const isLikert = currentQuestion?.type === 'likert';
+  const isBinaryOrSingleChoice = currentQuestion?.type === 'binary' || currentQuestion?.type === 'single_choice';
 
   const handleSwipe = useCallback(
     (direction: 'left' | 'right', optionId?: string) => {
+      if (!currentQuestion) return;
       const answer: SwipeAnswer = {
         questionId: currentQuestion.id,
         selectedOptionId: optionId,
@@ -355,6 +329,7 @@ export const QuestionnaireSwipeRenderer: React.FC<QuestionnaireSwipeRendererProp
 
   const handleLikertAnswer = useCallback(
     (value: number) => {
+      if (!currentQuestion) return;
       const answer: SwipeAnswer = {
         questionId: currentQuestion.id,
         likertValue: value,
@@ -373,7 +348,7 @@ export const QuestionnaireSwipeRenderer: React.FC<QuestionnaireSwipeRendererProp
   );
 
   const handleSkip = useCallback(() => {
-    if (!allowSkip) return;
+    if (!allowSkip || !currentQuestion) return;
     
     const answer: SwipeAnswer = {
       questionId: currentQuestion.id,
@@ -398,6 +373,34 @@ export const QuestionnaireSwipeRenderer: React.FC<QuestionnaireSwipeRendererProp
     }
   }, [currentIndex, onBack]);
 
+  // Keyboard navigation (Arrow keys)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (!isBinaryOrSingleChoice || !currentQuestion?.options || currentQuestion.options.length < 2) return;
+      
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        setKeyPressed('left');
+        handleSwipe('left', currentQuestion.options[1]?.id);
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        setKeyPressed('right');
+        handleSwipe('right', currentQuestion.options[0]?.id);
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [currentQuestion, isBinaryOrSingleChoice, handleSwipe]);
+
+  // Reset keyPressed after animation
+  useEffect(() => {
+    if (keyPressed) {
+      const timer = setTimeout(() => setKeyPressed(null), 200);
+      return () => clearTimeout(timer);
+    }
+  }, [keyPressed]);
+
   if (!currentQuestion) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -405,9 +408,6 @@ export const QuestionnaireSwipeRenderer: React.FC<QuestionnaireSwipeRendererProp
       </div>
     );
   }
-
-  const isLikert = currentQuestion.type === 'likert';
-  const isBinaryOrSingleChoice = currentQuestion.type === 'binary' || currentQuestion.type === 'single_choice';
 
   return (
     <div className="h-full min-h-[500px] flex flex-col bg-gradient-to-b from-slate-50 via-white to-slate-100 dark:from-gray-900 dark:via-gray-900 dark:to-gray-950">
@@ -513,35 +513,49 @@ export const QuestionnaireSwipeRenderer: React.FC<QuestionnaireSwipeRendererProp
       {/* Bottom Action Buttons for Binary Questions */}
       {isBinaryOrSingleChoice && currentQuestion.options && currentQuestion.options.length >= 2 && (
         <div className="flex-shrink-0 px-4 pb-6 pt-4 bg-gradient-to-t from-white via-white to-transparent dark:from-gray-900 dark:via-gray-900">
-          <div className="flex justify-center items-end gap-6">
-            {/* Left Option Button */}
-            <div className="flex flex-col items-center gap-2">
-              <motion.button
-                className="w-16 h-16 md:w-18 md:h-18 rounded-full bg-gradient-to-br from-red-400 to-red-600 flex items-center justify-center shadow-[0_8px_25px_-5px_rgba(239,68,68,0.5)] hover:shadow-[0_12px_30px_-5px_rgba(239,68,68,0.6)] transition-shadow"
-                whileHover={{ scale: 1.08 }}
-                whileTap={{ scale: 0.9 }}
-                onClick={() => handleSwipe('left', currentQuestion.options?.[1]?.id)}
-              >
-                <X className="w-7 h-7 md:w-8 md:h-8 text-white" strokeWidth={3} />
-              </motion.button>
-              <span className="text-xs font-medium text-red-600 dark:text-red-400 max-w-[90px] text-center line-clamp-2">
-                {currentQuestion.options[1]?.text || 'No'}
-              </span>
+          <div className="flex flex-col items-center gap-3">
+            <div className="flex justify-center items-end gap-6">
+              {/* Left Option Button */}
+              <div className="flex flex-col items-center gap-2">
+                <motion.button
+                  className={cn(
+                    "w-16 h-16 md:w-18 md:h-18 rounded-full bg-gradient-to-br from-red-400 to-red-600 flex items-center justify-center shadow-[0_8px_25px_-5px_rgba(239,68,68,0.5)] hover:shadow-[0_12px_30px_-5px_rgba(239,68,68,0.6)] transition-all",
+                    keyPressed === 'left' && "ring-4 ring-red-300 scale-110"
+                  )}
+                  whileHover={{ scale: 1.08 }}
+                  whileTap={{ scale: 0.9 }}
+                  onClick={() => handleSwipe('left', currentQuestion.options?.[1]?.id)}
+                >
+                  <X className="w-7 h-7 md:w-8 md:h-8 text-white" strokeWidth={3} />
+                </motion.button>
+                <span className="text-xs font-medium text-red-600 dark:text-red-400 max-w-[90px] text-center line-clamp-2">
+                  {currentQuestion.options[1]?.text || 'No'}
+                </span>
+              </div>
+              
+              {/* Right Option Button */}
+              <div className="flex flex-col items-center gap-2">
+                <motion.button
+                  className={cn(
+                    "w-16 h-16 md:w-18 md:h-18 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center shadow-[0_8px_25px_-5px_rgba(16,185,129,0.5)] hover:shadow-[0_12px_30px_-5px_rgba(16,185,129,0.6)] transition-all",
+                    keyPressed === 'right' && "ring-4 ring-emerald-300 scale-110"
+                  )}
+                  whileHover={{ scale: 1.08 }}
+                  whileTap={{ scale: 0.9 }}
+                  onClick={() => handleSwipe('right', currentQuestion.options?.[0]?.id)}
+                >
+                  <Check className="w-7 h-7 md:w-8 md:h-8 text-white" strokeWidth={3} />
+                </motion.button>
+                <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400 max-w-[90px] text-center line-clamp-2">
+                  {currentQuestion.options[0]?.text || 'Sì'}
+                </span>
+              </div>
             </div>
             
-            {/* Right Option Button */}
-            <div className="flex flex-col items-center gap-2">
-              <motion.button
-                className="w-16 h-16 md:w-18 md:h-18 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center shadow-[0_8px_25px_-5px_rgba(16,185,129,0.5)] hover:shadow-[0_12px_30px_-5px_rgba(16,185,129,0.6)] transition-shadow"
-                whileHover={{ scale: 1.08 }}
-                whileTap={{ scale: 0.9 }}
-                onClick={() => handleSwipe('right', currentQuestion.options?.[0]?.id)}
-              >
-                <Check className="w-7 h-7 md:w-8 md:h-8 text-white" strokeWidth={3} />
-              </motion.button>
-              <span className="text-xs font-medium text-emerald-600 dark:text-emerald-400 max-w-[90px] text-center line-clamp-2">
-                {currentQuestion.options[0]?.text || 'Sì'}
-              </span>
+            {/* Keyboard hints - visible only on desktop */}
+            <div className="hidden md:flex justify-center gap-8 text-xs text-slate-400 dark:text-slate-500">
+              <span>← Freccia sinistra</span>
+              <span>Freccia destra →</span>
             </div>
           </div>
         </div>
