@@ -1,9 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   ArrowLeft, Save, Eye, EyeOff, Settings, Layers, BarChart3, 
   Plus, Trash2, GripVertical, ChevronDown, ChevronRight,
-  Edit2, Check, X, Palette, List, MessageSquare, Sparkles, Play
+  Edit2, Check, X, Palette, List, MessageSquare, Sparkles, Play,
+  Download, Upload, FileSpreadsheet
 } from 'lucide-react';
+import { exportQuestionnaireTemplate, importQuestionnaireData, type ImportHooks } from '../../src/services/questionnaireImportExport';
 import { SimulationModal } from '../../src/components/questionnaire/SimulationModal';
 import { useQuestionnaires } from '../../src/hooks/useQuestionnaires';
 import { useToast } from '../../src/hooks/use-toast';
@@ -89,6 +91,9 @@ export const QuestionnaireEditorView: React.FC<QuestionnaireEditorViewProps> = (
   const [expandedQuestions, setExpandedQuestions] = useState<Set<string>>(new Set());
   const [saving, setSaving] = useState(false);
   const [showSimulation, setShowSimulation] = useState(false);
+  const [showExportDialog, setShowExportDialog] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Form states
   const [editTitle, setEditTitle] = useState('');
@@ -116,6 +121,19 @@ export const QuestionnaireEditorView: React.FC<QuestionnaireEditorViewProps> = (
   useEffect(() => {
     loadQuestionnaire();
   }, [questionnaireId]);
+
+  // Close export dialog when clicking outside
+  useEffect(() => {
+    if (!showExportDialog) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest('[data-export-dialog]')) {
+        setShowExportDialog(false);
+      }
+    };
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, [showExportDialog]);
 
   // =============================================
   // SAVE HANDLERS
@@ -286,6 +304,65 @@ export const QuestionnaireEditorView: React.FC<QuestionnaireEditorViewProps> = (
   };
 
   // =============================================
+  // IMPORT/EXPORT HANDLERS
+  // =============================================
+  const handleExportTemplate = (includeData: boolean) => {
+    if (!questionnaire) return;
+    exportQuestionnaireTemplate(questionnaire, includeData);
+    setShowExportDialog(false);
+    toast({ 
+      title: 'Download avviato', 
+      description: includeData ? 'Export completo del questionario' : 'Template vuoto scaricato'
+    });
+  };
+
+  const handleImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !questionnaire) return;
+
+    setImporting(true);
+    
+    const hooks: ImportHooks = {
+      addSection: (qId, data) => addSection(qId, data),
+      addQuestion: (sId, data) => addQuestion(sId, data),
+      addOption: (qId, data) => addOption(qId, data),
+      setOptionWeight: (oId, dId, w) => setOptionWeight(oId, dId, w),
+    };
+
+    const result = await importQuestionnaireData(
+      file,
+      questionnaire.id,
+      questionnaire.dimensions || [],
+      hooks
+    );
+
+    setImporting(false);
+    
+    // Reset file input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+
+    if (result.success) {
+      toast({
+        title: 'Import completato',
+        description: `${result.sectionsCreated} sezioni, ${result.questionsCreated} domande, ${result.optionsCreated} opzioni, ${result.weightsCreated} pesi`,
+      });
+      loadQuestionnaire();
+    } else {
+      toast({
+        title: 'Errori durante import',
+        description: result.errors.slice(0, 3).join('; ') + (result.errors.length > 3 ? ` (+${result.errors.length - 3} altri)` : ''),
+        variant: 'destructive',
+      });
+      // Still refresh if some items were created
+      if (result.sectionsCreated > 0 || result.questionsCreated > 0) {
+        loadQuestionnaire();
+      }
+    }
+  };
+
+  // =============================================
   // LOADING / ERROR STATES
   // =============================================
   if (loading && !questionnaire) {
@@ -351,7 +428,65 @@ export const QuestionnaireEditorView: React.FC<QuestionnaireEditorViewProps> = (
               </div>
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              {/* Import/Export Section */}
+              <div className="relative" data-export-dialog>
+                <button
+                  onClick={() => setShowExportDialog(!showExportDialog)}
+                  className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-300 text-sm font-medium transition-all"
+                >
+                  <Download size={16} />
+                  Esporta
+                </button>
+                
+                {/* Export Dialog Dropdown */}
+                {showExportDialog && (
+                  <div className="absolute right-0 mt-2 w-64 bg-card rounded-xl shadow-xl border border-border p-3 z-30">
+                    <p className="text-xs text-muted-foreground mb-3">Scegli tipo di export:</p>
+                    <button
+                      onClick={() => handleExportTemplate(false)}
+                      className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors text-left mb-2"
+                    >
+                      <FileSpreadsheet size={20} className="text-blue-500" />
+                      <div>
+                        <p className="text-sm font-medium text-foreground">Template Vuoto</p>
+                        <p className="text-xs text-muted-foreground">Solo struttura + esempio</p>
+                      </div>
+                    </button>
+                    <button
+                      onClick={() => handleExportTemplate(true)}
+                      className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors text-left"
+                    >
+                      <FileSpreadsheet size={20} className="text-emerald-500" />
+                      <div>
+                        <p className="text-sm font-medium text-foreground">Export Completo</p>
+                        <p className="text-xs text-muted-foreground">Include tutti i dati esistenti</p>
+                      </div>
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={importing}
+                className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 dark:bg-slate-800 dark:hover:bg-slate-700 dark:text-slate-300 text-sm font-medium transition-all disabled:opacity-50"
+              >
+                {importing ? (
+                  <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <Upload size={16} />
+                )}
+                Importa
+              </button>
+              <input
+                type="file"
+                ref={fileInputRef}
+                accept=".xlsx,.xls"
+                onChange={handleImport}
+                className="hidden"
+              />
+
               {/* Preview Button */}
               <button
                 onClick={handlePreview}
