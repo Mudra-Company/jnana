@@ -333,7 +333,8 @@ export const QuestionnaireEditorView: React.FC<QuestionnaireEditorViewProps> = (
       file,
       questionnaire.id,
       questionnaire.dimensions || [],
-      hooks
+      hooks,
+      questionnaire.uiStyle === 'swipe'
     );
 
     setImporting(false);

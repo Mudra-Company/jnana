@@ -1,9 +1,6 @@
 import * as XLSX from 'xlsx';
 import type {
   Questionnaire,
-  QuestionnaireSection,
-  Question,
-  QuestionOption,
   ScoringDimension,
   SectionType,
   QuestionType,
@@ -13,36 +10,35 @@ import type {
 // TYPES
 // =============================================
 
-interface SectionRow {
-  SECTION_ID: string;
-  SECTION_TITLE: string;
-  SECTION_TYPE: string;
-  SECTION_DESCRIPTION?: string;
-  SORT_ORDER: number;
+// New flat format for swipe questionnaires
+interface SwipeRow {
+  '#': number;
+  SEZIONE: string;
+  DOMANDA: string;
+  'OPZIONE SINISTRA (←)': string;
+  'OPZIONE DESTRA (→)': string;
+  'PESI SINISTRA'?: string;
+  'PESI DESTRA'?: string;
 }
 
-interface QuestionRow {
-  SECTION_ID: string;
-  QUESTION_ID: string;
-  QUESTION_TEXT: string;
-  QUESTION_TYPE: string;
-  IS_REQUIRED: string;
-  ICON?: string;
-  SORT_ORDER: number;
-}
-
-interface OptionRow {
-  QUESTION_ID: string;
-  OPTION_ID: string;
-  OPTION_TEXT: string;
-  ICON?: string;
-  SORT_ORDER: number;
-}
-
-interface WeightRow {
-  OPTION_ID: string;
-  DIMENSION_CODE: string;
-  WEIGHT: number;
+// New flat format for step/chat questionnaires
+interface FlatRow {
+  '#': number;
+  SEZIONE: string;
+  TIPO_SEZIONE: string;
+  DOMANDA: string;
+  TIPO_DOMANDA: string;
+  OBBLIGATORIA: string;
+  OPZIONE_1: string;
+  OPZIONE_2?: string;
+  OPZIONE_3?: string;
+  OPZIONE_4?: string;
+  OPZIONE_5?: string;
+  PESI_1?: string;
+  PESI_2?: string;
+  PESI_3?: string;
+  PESI_4?: string;
+  PESI_5?: string;
 }
 
 export interface ImportResult {
@@ -69,144 +65,309 @@ const VALID_SECTION_TYPES: SectionType[] = ['forced_choice', 'checklist', 'liker
 const VALID_QUESTION_TYPES: QuestionType[] = ['single_choice', 'multiple_choice', 'likert', 'open_text', 'binary'];
 
 // =============================================
+// HELPER FUNCTIONS
+// =============================================
+
+/**
+ * Parse weight string like "R:+2, I:+1, S:-1" into array of weights
+ */
+function parseWeightString(weightStr: string | undefined): { code: string; weight: number }[] {
+  if (!weightStr || weightStr.trim() === '') return [];
+  
+  const weights: { code: string; weight: number }[] = [];
+  const parts = weightStr.split(',').map(s => s.trim());
+  
+  for (const part of parts) {
+    const match = part.match(/^([A-Za-z]+):([+-]?\d+)$/);
+    if (match) {
+      weights.push({
+        code: match[1].toUpperCase(),
+        weight: parseInt(match[2], 10)
+      });
+    }
+  }
+  
+  return weights;
+}
+
+/**
+ * Format weights array into readable string like "R:+2, I:+1"
+ */
+function formatWeightString(weights: { dimensionId: string; weight: number }[], dimensionMap: Map<string, string>): string {
+  if (!weights || weights.length === 0) return '';
+  
+  return weights
+    .filter(w => w.weight !== 0)
+    .map(w => {
+      const code = dimensionMap.get(w.dimensionId) || '?';
+      const sign = w.weight > 0 ? '+' : '';
+      return `${code}:${sign}${w.weight}`;
+    })
+    .join(', ');
+}
+
+/**
+ * Create instructions sheet content
+ */
+function createInstructionsSheet(questionnaire: Questionnaire, isSwipe: boolean): string[][] {
+  const dimensionsList = questionnaire.dimensions?.map(d => `${d.code} = ${d.label}`).join('\n') || 'Nessuna dimensione configurata';
+  
+  if (isSwipe) {
+    return [
+      ['📋 ISTRUZIONI - Template Questionario Swipe (Tinder-like)'],
+      [''],
+      ['STRUTTURA DEL FILE'],
+      ['Questo template è ottimizzato per questionari con interazione "swipe" (scelta binaria).'],
+      ['Ogni riga rappresenta una domanda completa con le due opzioni (sinistra e destra).'],
+      [''],
+      ['COLONNE:'],
+      ['# = Numero progressivo della domanda'],
+      ['SEZIONE = Nome della sezione (le domande con la stessa sezione vengono raggruppate)'],
+      ['DOMANDA = Testo della domanda mostrata all\'utente'],
+      ['OPZIONE SINISTRA (←) = Testo dell\'opzione per swipe a sinistra'],
+      ['OPZIONE DESTRA (→) = Testo dell\'opzione per swipe a destra'],
+      ['PESI SINISTRA = Pesi scoring per l\'opzione sinistra (opzionale)'],
+      ['PESI DESTRA = Pesi scoring per l\'opzione destra (opzionale)'],
+      [''],
+      ['FORMATO PESI:'],
+      ['I pesi si scrivono nel formato: CODICE:+/-VALORE'],
+      ['Esempi: "R:+2" oppure "S:+1, I:-1" oppure "A:+2, C:+1, E:-1"'],
+      [''],
+      ['DIMENSIONI DISPONIBILI:'],
+      [dimensionsList],
+      [''],
+      ['ESEMPIO:'],
+      ['# | SEZIONE | DOMANDA | OPZIONE SINISTRA | OPZIONE DESTRA | PESI SX | PESI DX'],
+      ['1 | Preferenze | Preferisci lavorare... | In team | Da solo | S:+2 | I:+2'],
+      ['2 | Preferenze | Ti piace di più... | Seguire regole | Inventare regole | C:+2 | A:+2'],
+    ];
+  } else {
+    return [
+      ['📋 ISTRUZIONI - Template Questionario'],
+      [''],
+      ['STRUTTURA DEL FILE'],
+      ['Ogni riga rappresenta una domanda con le sue opzioni.'],
+      ['Le domande con la stessa sezione vengono automaticamente raggruppate.'],
+      [''],
+      ['COLONNE:'],
+      ['# = Numero progressivo'],
+      ['SEZIONE = Nome della sezione'],
+      ['TIPO_SEZIONE = Tipo di sezione (vedi sotto)'],
+      ['DOMANDA = Testo della domanda'],
+      ['TIPO_DOMANDA = Tipo di domanda (vedi sotto)'],
+      ['OBBLIGATORIA = TRUE/FALSE'],
+      ['OPZIONE_1...5 = Testo delle opzioni di risposta'],
+      ['PESI_1...5 = Pesi scoring per ogni opzione (opzionale)'],
+      [''],
+      ['TIPI DI SEZIONE VALIDI:'],
+      ['forced_choice = Scelta forzata (una sola risposta)'],
+      ['checklist = Checklist (risposte multiple)'],
+      ['likert = Scala Likert (1-5 o 1-7)'],
+      ['open_text = Risposta aperta testuale'],
+      [''],
+      ['TIPI DI DOMANDA VALIDI:'],
+      ['single_choice = Scelta singola'],
+      ['multiple_choice = Scelta multipla'],
+      ['likert = Scala Likert'],
+      ['open_text = Testo libero'],
+      ['binary = Scelta binaria (sì/no, vero/falso)'],
+      [''],
+      ['FORMATO PESI:'],
+      ['I pesi si scrivono nel formato: CODICE:+/-VALORE'],
+      ['Esempi: "R:+2" oppure "S:+1, I:-1"'],
+      [''],
+      ['DIMENSIONI DISPONIBILI:'],
+      [dimensionsList],
+    ];
+  }
+}
+
+// =============================================
 // EXPORT FUNCTIONS
 // =============================================
 
 /**
- * Export questionnaire as Excel template
- * @param questionnaire - The questionnaire to export
- * @param includeData - If true, includes existing data; otherwise just headers and examples
+ * Export questionnaire as Excel template with flat, readable structure
  */
 export function exportQuestionnaireTemplate(
   questionnaire: Questionnaire,
   includeData: boolean = false
 ): void {
   const workbook = XLSX.utils.book_new();
-
-  // Sheet 1: Sezioni
-  const sectionsData: SectionRow[] = includeData && questionnaire.sections
-    ? questionnaire.sections.map((s, idx) => ({
-        SECTION_ID: `S${idx + 1}`,
-        SECTION_TITLE: s.title,
-        SECTION_TYPE: s.type,
-        SECTION_DESCRIPTION: s.description || '',
-        SORT_ORDER: s.sortOrder,
-      }))
-    : [{
-        SECTION_ID: 'S1',
-        SECTION_TITLE: 'Esempio Sezione',
-        SECTION_TYPE: 'forced_choice',
-        SECTION_DESCRIPTION: 'Descrizione opzionale',
-        SORT_ORDER: 1,
-      }];
-
-  const sectionsSheet = XLSX.utils.json_to_sheet(sectionsData);
-  XLSX.utils.book_append_sheet(workbook, sectionsSheet, 'Sezioni');
-
-  // Sheet 2: Domande
-  let questionsData: QuestionRow[] = [];
+  const isSwipe = questionnaire.uiStyle === 'swipe';
   
-  if (includeData && questionnaire.sections) {
-    let qIdx = 1;
-    questionnaire.sections.forEach((section, sIdx) => {
-      (section.questions || []).forEach((q) => {
-        questionsData.push({
-          SECTION_ID: `S${sIdx + 1}`,
-          QUESTION_ID: `Q${qIdx}`,
-          QUESTION_TEXT: q.text,
-          QUESTION_TYPE: q.type,
-          IS_REQUIRED: q.isRequired ? 'TRUE' : 'FALSE',
-          ICON: q.icon || '',
-          SORT_ORDER: q.sortOrder,
-        });
-        qIdx++;
-      });
-    });
-  }
-  
-  if (questionsData.length === 0) {
-    questionsData = [{
-      SECTION_ID: 'S1',
-      QUESTION_ID: 'Q1',
-      QUESTION_TEXT: 'Esempio domanda',
-      QUESTION_TYPE: 'single_choice',
-      IS_REQUIRED: 'TRUE',
-      ICON: '',
-      SORT_ORDER: 1,
-    }];
-  }
+  // Create dimension ID -> Code map
+  const dimensionMap = new Map(questionnaire.dimensions?.map(d => [d.id, d.code]) || []);
 
-  const questionsSheet = XLSX.utils.json_to_sheet(questionsData);
-  XLSX.utils.book_append_sheet(workbook, questionsSheet, 'Domande');
-
-  // Sheet 3: Opzioni
-  let optionsData: OptionRow[] = [];
+  // Sheet 1: Instructions
+  const instructionsData = createInstructionsSheet(questionnaire, isSwipe);
+  const instructionsSheet = XLSX.utils.aoa_to_sheet(instructionsData);
   
-  if (includeData && questionnaire.sections) {
-    let qIdx = 1;
-    questionnaire.sections.forEach((section) => {
-      (section.questions || []).forEach((q) => {
-        (q.options || []).forEach((o, oIdx) => {
-          optionsData.push({
-            QUESTION_ID: `Q${qIdx}`,
-            OPTION_ID: `Q${qIdx}_O${oIdx + 1}`,
-            OPTION_TEXT: o.text,
-            ICON: o.icon || '',
-            SORT_ORDER: o.sortOrder,
-          });
-        });
-        qIdx++;
-      });
-    });
-  }
-  
-  if (optionsData.length === 0) {
-    optionsData = [
-      { QUESTION_ID: 'Q1', OPTION_ID: 'Q1_O1', OPTION_TEXT: 'Opzione A', ICON: '', SORT_ORDER: 1 },
-      { QUESTION_ID: 'Q1', OPTION_ID: 'Q1_O2', OPTION_TEXT: 'Opzione B', ICON: '', SORT_ORDER: 2 },
-    ];
-  }
+  // Set column width for instructions
+  instructionsSheet['!cols'] = [{ wch: 100 }];
+  XLSX.utils.book_append_sheet(workbook, instructionsSheet, 'Istruzioni');
 
-  const optionsSheet = XLSX.utils.json_to_sheet(optionsData);
-  XLSX.utils.book_append_sheet(workbook, optionsSheet, 'Opzioni');
-
-  // Sheet 4: Pesi
-  let weightsData: WeightRow[] = [];
-  
-  if (includeData && questionnaire.sections && questionnaire.dimensions) {
-    const dimensionMap = new Map(questionnaire.dimensions.map(d => [d.id, d.code]));
-    let qIdx = 1;
+  if (isSwipe) {
+    // SWIPE FORMAT - Optimized for binary questions
+    const swipeData: SwipeRow[] = [];
     
-    questionnaire.sections.forEach((section) => {
-      (section.questions || []).forEach((q) => {
-        (q.options || []).forEach((o, oIdx) => {
-          (o.weights || []).forEach((w) => {
-            const dimCode = dimensionMap.get(w.dimensionId);
-            if (dimCode && w.weight !== 0) {
-              weightsData.push({
-                OPTION_ID: `Q${qIdx}_O${oIdx + 1}`,
-                DIMENSION_CODE: dimCode,
-                WEIGHT: w.weight,
-              });
-            }
+    if (includeData && questionnaire.sections) {
+      let rowNum = 1;
+      
+      for (const section of questionnaire.sections) {
+        for (const question of section.questions || []) {
+          const options = question.options || [];
+          const leftOption = options[0];
+          const rightOption = options[1];
+          
+          const leftWeights = leftOption?.weights 
+            ? formatWeightString(leftOption.weights.map(w => ({ dimensionId: w.dimensionId, weight: w.weight })), dimensionMap)
+            : '';
+          const rightWeights = rightOption?.weights
+            ? formatWeightString(rightOption.weights.map(w => ({ dimensionId: w.dimensionId, weight: w.weight })), dimensionMap)
+            : '';
+          
+          swipeData.push({
+            '#': rowNum++,
+            'SEZIONE': section.title,
+            'DOMANDA': question.text,
+            'OPZIONE SINISTRA (←)': leftOption?.text || '',
+            'OPZIONE DESTRA (→)': rightOption?.text || '',
+            'PESI SINISTRA': leftWeights,
+            'PESI DESTRA': rightWeights,
           });
-        });
-        qIdx++;
+        }
+      }
+    }
+    
+    // Add example row if empty
+    if (swipeData.length === 0) {
+      const dimCodes = questionnaire.dimensions?.slice(0, 2).map(d => d.code) || ['R', 'I'];
+      swipeData.push({
+        '#': 1,
+        'SEZIONE': 'Preferenze Lavorative',
+        'DOMANDA': 'Preferisci lavorare...',
+        'OPZIONE SINISTRA (←)': 'In team con altri',
+        'OPZIONE DESTRA (→)': 'Da solo in autonomia',
+        'PESI SINISTRA': `${dimCodes[0] || 'S'}:+2`,
+        'PESI DESTRA': `${dimCodes[1] || 'I'}:+2`,
       });
-    });
-  }
-  
-  if (weightsData.length === 0) {
-    // Include example with available dimensions
-    const dimCodes = questionnaire.dimensions?.map(d => d.code) || ['DIM1', 'DIM2'];
-    weightsData = [
-      { OPTION_ID: 'Q1_O1', DIMENSION_CODE: dimCodes[0] || 'R', WEIGHT: 2 },
-      { OPTION_ID: 'Q1_O2', DIMENSION_CODE: dimCodes[1] || 'I', WEIGHT: 1 },
-    ];
-  }
+      swipeData.push({
+        '#': 2,
+        'SEZIONE': 'Preferenze Lavorative',
+        'DOMANDA': 'Ti piace di più...',
+        'OPZIONE SINISTRA (←)': 'Seguire regole precise',
+        'OPZIONE DESTRA (→)': 'Inventare nuove soluzioni',
+        'PESI SINISTRA': 'C:+2',
+        'PESI DESTRA': 'A:+2',
+      });
+    }
 
-  const weightsSheet = XLSX.utils.json_to_sheet(weightsData);
-  XLSX.utils.book_append_sheet(workbook, weightsSheet, 'Pesi');
+    const contentSheet = XLSX.utils.json_to_sheet(swipeData);
+    contentSheet['!cols'] = [
+      { wch: 5 },  // #
+      { wch: 25 }, // SEZIONE
+      { wch: 40 }, // DOMANDA
+      { wch: 30 }, // OPZIONE SINISTRA
+      { wch: 30 }, // OPZIONE DESTRA
+      { wch: 20 }, // PESI SINISTRA
+      { wch: 20 }, // PESI DESTRA
+    ];
+    XLSX.utils.book_append_sheet(workbook, contentSheet, 'Contenuti');
+    
+  } else {
+    // FLAT FORMAT - For step/chat questionnaires
+    const flatData: FlatRow[] = [];
+    
+    if (includeData && questionnaire.sections) {
+      let rowNum = 1;
+      
+      for (const section of questionnaire.sections) {
+        for (const question of section.questions || []) {
+          const options = question.options || [];
+          
+          const row: FlatRow = {
+            '#': rowNum++,
+            'SEZIONE': section.title,
+            'TIPO_SEZIONE': section.type,
+            'DOMANDA': question.text,
+            'TIPO_DOMANDA': question.type,
+            'OBBLIGATORIA': question.isRequired ? 'TRUE' : 'FALSE',
+            'OPZIONE_1': options[0]?.text || '',
+            'OPZIONE_2': options[1]?.text || '',
+            'OPZIONE_3': options[2]?.text || '',
+            'OPZIONE_4': options[3]?.text || '',
+            'OPZIONE_5': options[4]?.text || '',
+          };
+          
+          // Add weights
+          for (let i = 0; i < 5; i++) {
+            const opt = options[i];
+            if (opt?.weights) {
+              const weightStr = formatWeightString(
+                opt.weights.map(w => ({ dimensionId: w.dimensionId, weight: w.weight })),
+                dimensionMap
+              );
+              (row as any)[`PESI_${i + 1}`] = weightStr;
+            }
+          }
+          
+          flatData.push(row);
+        }
+      }
+    }
+    
+    // Add example rows if empty
+    if (flatData.length === 0) {
+      flatData.push({
+        '#': 1,
+        'SEZIONE': 'Preferenze Lavorative',
+        'TIPO_SEZIONE': 'forced_choice',
+        'DOMANDA': 'Quale ambiente di lavoro preferisci?',
+        'TIPO_DOMANDA': 'single_choice',
+        'OBBLIGATORIA': 'TRUE',
+        'OPZIONE_1': 'Ufficio tradizionale',
+        'OPZIONE_2': 'Smart working da casa',
+        'OPZIONE_3': 'Modalità ibrida',
+        'PESI_1': 'C:+2',
+        'PESI_2': 'I:+2',
+        'PESI_3': 'S:+1, A:+1',
+      });
+      flatData.push({
+        '#': 2,
+        'SEZIONE': 'Preferenze Lavorative',
+        'TIPO_SEZIONE': 'forced_choice',
+        'DOMANDA': 'Come preferisci ricevere feedback?',
+        'TIPO_DOMANDA': 'single_choice',
+        'OBBLIGATORIA': 'TRUE',
+        'OPZIONE_1': 'Subito e diretto',
+        'OPZIONE_2': 'Con calma e diplomazia',
+        'PESI_1': 'E:+2',
+        'PESI_2': 'S:+2',
+      });
+    }
+
+    const contentSheet = XLSX.utils.json_to_sheet(flatData);
+    contentSheet['!cols'] = [
+      { wch: 5 },  // #
+      { wch: 25 }, // SEZIONE
+      { wch: 15 }, // TIPO_SEZIONE
+      { wch: 40 }, // DOMANDA
+      { wch: 15 }, // TIPO_DOMANDA
+      { wch: 12 }, // OBBLIGATORIA
+      { wch: 25 }, // OPZIONE_1
+      { wch: 25 }, // OPZIONE_2
+      { wch: 25 }, // OPZIONE_3
+      { wch: 25 }, // OPZIONE_4
+      { wch: 25 }, // OPZIONE_5
+      { wch: 15 }, // PESI_1
+      { wch: 15 }, // PESI_2
+      { wch: 15 }, // PESI_3
+      { wch: 15 }, // PESI_4
+      { wch: 15 }, // PESI_5
+    ];
+    XLSX.utils.book_append_sheet(workbook, contentSheet, 'Contenuti');
+  }
 
   // Download file
   const fileName = includeData 
@@ -221,13 +382,14 @@ export function exportQuestionnaireTemplate(
 // =============================================
 
 /**
- * Import questionnaire data from Excel file
+ * Import questionnaire data from Excel file (new flat format)
  */
 export async function importQuestionnaireData(
   file: File,
   questionnaireId: string,
   dimensions: ScoringDimension[],
-  hooks: ImportHooks
+  hooks: ImportHooks,
+  isSwipe: boolean = false
 ): Promise<ImportResult> {
   const result: ImportResult = {
     success: false,
@@ -243,114 +405,208 @@ export async function importQuestionnaireData(
     const arrayBuffer = await file.arrayBuffer();
     const workbook = XLSX.read(arrayBuffer, { type: 'array' });
 
-    // Parse sheets
-    const sectionsSheet = workbook.Sheets['Sezioni'];
-    const questionsSheet = workbook.Sheets['Domande'];
-    const optionsSheet = workbook.Sheets['Opzioni'];
-    const weightsSheet = workbook.Sheets['Pesi'];
-
-    if (!sectionsSheet || !questionsSheet || !optionsSheet) {
-      result.errors.push('File mancante dei fogli richiesti: Sezioni, Domande, Opzioni');
-      return result;
-    }
-
-    const sections: SectionRow[] = XLSX.utils.sheet_to_json(sectionsSheet);
-    const questions: QuestionRow[] = XLSX.utils.sheet_to_json(questionsSheet);
-    const options: OptionRow[] = XLSX.utils.sheet_to_json(optionsSheet);
-    const weights: WeightRow[] = weightsSheet ? XLSX.utils.sheet_to_json(weightsSheet) : [];
-
-    // Validate data
-    const validationErrors = validateImportData(sections, questions, options, weights, dimensions);
-    if (validationErrors.length > 0) {
-      result.errors = validationErrors;
+    // Find content sheet
+    const contentSheet = workbook.Sheets['Contenuti'];
+    if (!contentSheet) {
+      result.errors.push('Foglio "Contenuti" non trovato. Assicurati di usare il template corretto.');
       return result;
     }
 
     // Create dimension code to ID map
-    const dimensionCodeToId = new Map(dimensions.map(d => [d.code, d.id]));
+    const dimensionCodeToId = new Map(dimensions.map(d => [d.code.toUpperCase(), d.id]));
 
-    // Maps for ID tracking
-    const sectionIdMap = new Map<string, string>(); // Excel ID -> DB ID
-    const questionIdMap = new Map<string, string>(); // Excel ID -> DB ID
-    const optionIdMap = new Map<string, string>(); // Excel ID -> DB ID
-
-    // Create sections
-    for (const sectionRow of sections) {
-      const sectionId = await hooks.addSection(questionnaireId, {
-        title: sectionRow.SECTION_TITLE,
-        type: sectionRow.SECTION_TYPE as SectionType,
-        description: sectionRow.SECTION_DESCRIPTION,
-      });
-
-      if (sectionId) {
-        sectionIdMap.set(sectionRow.SECTION_ID, sectionId);
-        result.sectionsCreated++;
-      } else {
-        result.errors.push(`Errore creazione sezione: ${sectionRow.SECTION_ID}`);
-      }
+    // Detect format and parse
+    const rawData: any[] = XLSX.utils.sheet_to_json(contentSheet);
+    
+    if (rawData.length === 0) {
+      result.errors.push('Il foglio "Contenuti" è vuoto.');
+      return result;
     }
 
-    // Create questions
-    for (const questionRow of questions) {
-      const dbSectionId = sectionIdMap.get(questionRow.SECTION_ID);
-      if (!dbSectionId) {
-        result.errors.push(`Sezione non trovata per domanda: ${questionRow.QUESTION_ID}`);
-        continue;
-      }
+    // Check if it's swipe format
+    const firstRow = rawData[0];
+    const isSwipeFormat = 'OPZIONE SINISTRA (←)' in firstRow || 'OPZIONE DESTRA (→)' in firstRow;
 
-      const questionId = await hooks.addQuestion(dbSectionId, {
-        text: questionRow.QUESTION_TEXT,
-        type: questionRow.QUESTION_TYPE as QuestionType,
-        isRequired: questionRow.IS_REQUIRED?.toUpperCase() === 'TRUE',
-        icon: questionRow.ICON || undefined,
-      });
+    // Track created entities
+    const sectionIdMap = new Map<string, string>(); // Section name -> DB ID
+    
+    if (isSwipeFormat) {
+      // SWIPE FORMAT IMPORT
+      for (let i = 0; i < rawData.length; i++) {
+        const row = rawData[i] as SwipeRow;
+        const rowNum = i + 2; // Excel row number (1-indexed + header)
+        
+        const sectionName = row['SEZIONE']?.toString().trim();
+        const questionText = row['DOMANDA']?.toString().trim();
+        const leftOption = row['OPZIONE SINISTRA (←)']?.toString().trim();
+        const rightOption = row['OPZIONE DESTRA (→)']?.toString().trim();
+        const leftWeights = row['PESI SINISTRA']?.toString().trim();
+        const rightWeights = row['PESI DESTRA']?.toString().trim();
 
-      if (questionId) {
-        questionIdMap.set(questionRow.QUESTION_ID, questionId);
+        // Validate required fields
+        if (!sectionName) {
+          result.errors.push(`Riga ${rowNum}: SEZIONE mancante`);
+          continue;
+        }
+        if (!questionText) {
+          result.errors.push(`Riga ${rowNum}: DOMANDA mancante`);
+          continue;
+        }
+        if (!leftOption || !rightOption) {
+          result.errors.push(`Riga ${rowNum}: Entrambe le opzioni (sinistra e destra) sono obbligatorie`);
+          continue;
+        }
+
+        // Get or create section
+        let sectionId = sectionIdMap.get(sectionName);
+        if (!sectionId) {
+          sectionId = await hooks.addSection(questionnaireId, {
+            title: sectionName,
+            type: 'forced_choice',
+          });
+          if (sectionId) {
+            sectionIdMap.set(sectionName, sectionId);
+            result.sectionsCreated++;
+          } else {
+            result.errors.push(`Riga ${rowNum}: Errore creazione sezione "${sectionName}"`);
+            continue;
+          }
+        }
+
+        // Create question
+        const questionId = await hooks.addQuestion(sectionId, {
+          text: questionText,
+          type: 'binary',
+          isRequired: true,
+        });
+
+        if (!questionId) {
+          result.errors.push(`Riga ${rowNum}: Errore creazione domanda "${questionText.substring(0, 30)}..."`);
+          continue;
+        }
         result.questionsCreated++;
-      } else {
-        result.errors.push(`Errore creazione domanda: ${questionRow.QUESTION_ID}`);
+
+        // Create options
+        const leftOptionId = await hooks.addOption(questionId, { text: leftOption });
+        const rightOptionId = await hooks.addOption(questionId, { text: rightOption });
+
+        if (leftOptionId) result.optionsCreated++;
+        if (rightOptionId) result.optionsCreated++;
+
+        // Parse and create weights
+        if (leftOptionId && leftWeights) {
+          const parsedWeights = parseWeightString(leftWeights);
+          for (const w of parsedWeights) {
+            const dimId = dimensionCodeToId.get(w.code);
+            if (dimId) {
+              await hooks.setOptionWeight(leftOptionId, dimId, w.weight);
+              result.weightsCreated++;
+            } else {
+              result.errors.push(`Riga ${rowNum}: Dimensione "${w.code}" non trovata nei pesi sinistra`);
+            }
+          }
+        }
+
+        if (rightOptionId && rightWeights) {
+          const parsedWeights = parseWeightString(rightWeights);
+          for (const w of parsedWeights) {
+            const dimId = dimensionCodeToId.get(w.code);
+            if (dimId) {
+              await hooks.setOptionWeight(rightOptionId, dimId, w.weight);
+              result.weightsCreated++;
+            } else {
+              result.errors.push(`Riga ${rowNum}: Dimensione "${w.code}" non trovata nei pesi destra`);
+            }
+          }
+        }
       }
-    }
+    } else {
+      // FLAT FORMAT IMPORT
+      for (let i = 0; i < rawData.length; i++) {
+        const row = rawData[i] as FlatRow;
+        const rowNum = i + 2;
+        
+        const sectionName = row['SEZIONE']?.toString().trim();
+        const sectionType = (row['TIPO_SEZIONE']?.toString().trim() || 'forced_choice') as SectionType;
+        const questionText = row['DOMANDA']?.toString().trim();
+        const questionType = (row['TIPO_DOMANDA']?.toString().trim() || 'single_choice') as QuestionType;
+        const isRequired = row['OBBLIGATORIA']?.toString().toUpperCase() === 'TRUE';
 
-    // Create options
-    for (const optionRow of options) {
-      const dbQuestionId = questionIdMap.get(optionRow.QUESTION_ID);
-      if (!dbQuestionId) {
-        result.errors.push(`Domanda non trovata per opzione: ${optionRow.OPTION_ID}`);
-        continue;
+        // Validate required fields
+        if (!sectionName) {
+          result.errors.push(`Riga ${rowNum}: SEZIONE mancante`);
+          continue;
+        }
+        if (!questionText) {
+          result.errors.push(`Riga ${rowNum}: DOMANDA mancante`);
+          continue;
+        }
+
+        // Validate types
+        if (!VALID_SECTION_TYPES.includes(sectionType)) {
+          result.errors.push(`Riga ${rowNum}: TIPO_SEZIONE "${sectionType}" non valido. Validi: ${VALID_SECTION_TYPES.join(', ')}`);
+          continue;
+        }
+        if (!VALID_QUESTION_TYPES.includes(questionType)) {
+          result.errors.push(`Riga ${rowNum}: TIPO_DOMANDA "${questionType}" non valido. Validi: ${VALID_QUESTION_TYPES.join(', ')}`);
+          continue;
+        }
+
+        // Get or create section
+        let sectionId = sectionIdMap.get(sectionName);
+        if (!sectionId) {
+          sectionId = await hooks.addSection(questionnaireId, {
+            title: sectionName,
+            type: sectionType,
+          });
+          if (sectionId) {
+            sectionIdMap.set(sectionName, sectionId);
+            result.sectionsCreated++;
+          } else {
+            result.errors.push(`Riga ${rowNum}: Errore creazione sezione "${sectionName}"`);
+            continue;
+          }
+        }
+
+        // Create question
+        const questionId = await hooks.addQuestion(sectionId, {
+          text: questionText,
+          type: questionType,
+          isRequired,
+        });
+
+        if (!questionId) {
+          result.errors.push(`Riga ${rowNum}: Errore creazione domanda "${questionText.substring(0, 30)}..."`);
+          continue;
+        }
+        result.questionsCreated++;
+
+        // Create options and weights
+        for (let optIdx = 1; optIdx <= 5; optIdx++) {
+          const optionText = (row as any)[`OPZIONE_${optIdx}`]?.toString().trim();
+          if (!optionText) continue;
+
+          const optionId = await hooks.addOption(questionId, { text: optionText });
+          if (optionId) {
+            result.optionsCreated++;
+
+            // Parse weights for this option
+            const weightsStr = (row as any)[`PESI_${optIdx}`]?.toString().trim();
+            if (weightsStr) {
+              const parsedWeights = parseWeightString(weightsStr);
+              for (const w of parsedWeights) {
+                const dimId = dimensionCodeToId.get(w.code);
+                if (dimId) {
+                  await hooks.setOptionWeight(optionId, dimId, w.weight);
+                  result.weightsCreated++;
+                } else {
+                  result.errors.push(`Riga ${rowNum}, Opzione ${optIdx}: Dimensione "${w.code}" non trovata`);
+                }
+              }
+            }
+          }
+        }
       }
-
-      const optionId = await hooks.addOption(dbQuestionId, {
-        text: optionRow.OPTION_TEXT,
-        icon: optionRow.ICON || undefined,
-      });
-
-      if (optionId) {
-        optionIdMap.set(optionRow.OPTION_ID, optionId);
-        result.optionsCreated++;
-      } else {
-        result.errors.push(`Errore creazione opzione: ${optionRow.OPTION_ID}`);
-      }
-    }
-
-    // Create weights
-    for (const weightRow of weights) {
-      const dbOptionId = optionIdMap.get(weightRow.OPTION_ID);
-      const dimensionId = dimensionCodeToId.get(weightRow.DIMENSION_CODE);
-
-      if (!dbOptionId) {
-        result.errors.push(`Opzione non trovata per peso: ${weightRow.OPTION_ID}`);
-        continue;
-      }
-
-      if (!dimensionId) {
-        result.errors.push(`Dimensione non trovata: ${weightRow.DIMENSION_CODE}`);
-        continue;
-      }
-
-      await hooks.setOptionWeight(dbOptionId, dimensionId, weightRow.WEIGHT);
-      result.weightsCreated++;
     }
 
     result.success = result.errors.length === 0;
@@ -360,79 +616,4 @@ export async function importQuestionnaireData(
     result.errors.push(`Errore lettura file: ${err.message}`);
     return result;
   }
-}
-
-// =============================================
-// VALIDATION
-// =============================================
-
-function validateImportData(
-  sections: SectionRow[],
-  questions: QuestionRow[],
-  options: OptionRow[],
-  weights: WeightRow[],
-  dimensions: ScoringDimension[]
-): string[] {
-  const errors: string[] = [];
-  const sectionIds = new Set(sections.map(s => s.SECTION_ID));
-  const questionIds = new Set(questions.map(q => q.QUESTION_ID));
-  const optionIds = new Set(options.map(o => o.OPTION_ID));
-  const dimensionCodes = new Set(dimensions.map(d => d.code));
-
-  // Validate sections
-  sections.forEach((s, idx) => {
-    if (!s.SECTION_ID) {
-      errors.push(`Riga ${idx + 2} Sezioni: SECTION_ID mancante`);
-    }
-    if (!s.SECTION_TITLE) {
-      errors.push(`Riga ${idx + 2} Sezioni: SECTION_TITLE mancante`);
-    }
-    if (s.SECTION_TYPE && !VALID_SECTION_TYPES.includes(s.SECTION_TYPE as SectionType)) {
-      errors.push(`Riga ${idx + 2} Sezioni: SECTION_TYPE non valido "${s.SECTION_TYPE}". Validi: ${VALID_SECTION_TYPES.join(', ')}`);
-    }
-  });
-
-  // Validate questions
-  questions.forEach((q, idx) => {
-    if (!q.QUESTION_ID) {
-      errors.push(`Riga ${idx + 2} Domande: QUESTION_ID mancante`);
-    }
-    if (!q.SECTION_ID || !sectionIds.has(q.SECTION_ID)) {
-      errors.push(`Riga ${idx + 2} Domande: SECTION_ID "${q.SECTION_ID}" non esiste in Sezioni`);
-    }
-    if (!q.QUESTION_TEXT) {
-      errors.push(`Riga ${idx + 2} Domande: QUESTION_TEXT mancante`);
-    }
-    if (q.QUESTION_TYPE && !VALID_QUESTION_TYPES.includes(q.QUESTION_TYPE as QuestionType)) {
-      errors.push(`Riga ${idx + 2} Domande: QUESTION_TYPE non valido "${q.QUESTION_TYPE}". Validi: ${VALID_QUESTION_TYPES.join(', ')}`);
-    }
-  });
-
-  // Validate options
-  options.forEach((o, idx) => {
-    if (!o.OPTION_ID) {
-      errors.push(`Riga ${idx + 2} Opzioni: OPTION_ID mancante`);
-    }
-    if (!o.QUESTION_ID || !questionIds.has(o.QUESTION_ID)) {
-      errors.push(`Riga ${idx + 2} Opzioni: QUESTION_ID "${o.QUESTION_ID}" non esiste in Domande`);
-    }
-    if (!o.OPTION_TEXT) {
-      errors.push(`Riga ${idx + 2} Opzioni: OPTION_TEXT mancante`);
-    }
-  });
-
-  // Validate weights
-  weights.forEach((w, idx) => {
-    if (!w.OPTION_ID || !optionIds.has(w.OPTION_ID)) {
-      errors.push(`Riga ${idx + 2} Pesi: OPTION_ID "${w.OPTION_ID}" non esiste in Opzioni`);
-    }
-    if (!w.DIMENSION_CODE || !dimensionCodes.has(w.DIMENSION_CODE)) {
-      errors.push(`Riga ${idx + 2} Pesi: DIMENSION_CODE "${w.DIMENSION_CODE}" non esiste tra le dimensioni configurate`);
-    }
-    if (w.WEIGHT === undefined || isNaN(Number(w.WEIGHT))) {
-      errors.push(`Riga ${idx + 2} Pesi: WEIGHT deve essere un numero`);
-    }
-  });
-
-  return errors;
 }
