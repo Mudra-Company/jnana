@@ -28,8 +28,10 @@ import {
   Save,
   MapPin,
   Loader2,
-  Award
+  Award,
+  Download
 } from 'lucide-react';
+import { OrgChartExportModal } from '../../src/components/admin/OrgChartExportModal';
 import { Card } from '../../components/Card';
 import { Button } from '../../components/Button';
 import { OrgNode, CompanyProfile, User, RequiredProfile, SeniorityLevel } from '../../types';
@@ -1572,6 +1574,9 @@ export const CompanyOrgView: React.FC<{
     const [newSoftSkill, setNewSoftSkill] = useState('');
     const [isHiring, setIsHiring] = useState(false);
     
+    // State for Export Modal
+    const [showExportModal, setShowExportModal] = useState(false);
+    
     // Use the company members hook for DB persistence
     const { createCompanyMember, updateCompanyMember, assignUserToSlot, deleteCompanyMember, isLoading: isSaving } = useCompanyMembers();
     
@@ -1918,13 +1923,22 @@ export const CompanyOrgView: React.FC<{
             )}
 
             <div className="mb-8 text-center">
-                 <h2 className="text-3xl font-brand font-bold dark:text-gray-100">Organigramma Aziendale</h2>
-                 <p className="text-gray-500">Struttura gerarchica e funzionale di {company.name}</p>
-                 <div className="flex justify-center gap-6 mt-4 text-xs font-bold text-gray-500">
-                     <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-red-500"></div> Clima Critico (&lt;3)</div>
+                 <div className="flex justify-center items-center gap-4 mb-2">
+                     <h2 className="text-3xl font-brand font-bold dark:text-gray-100">Organigramma Aziendale</h2>
+                     <button 
+                         onClick={() => setShowExportModal(true)}
+                         className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-xl hover:bg-primary/90 transition-colors text-sm font-medium"
+                     >
+                         <Download size={16} />
+                         Esporta PDF
+                     </button>
+                 </div>
+                 <p className="text-muted-foreground">Struttura gerarchica e funzionale di {company.name}</p>
+                 <div className="flex justify-center gap-6 mt-4 text-xs font-bold text-muted-foreground">
+                     <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-destructive"></div> Clima Critico (&lt;3)</div>
                      <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-yellow-400"></div> Clima Neutro (3-4)</div>
                      <div className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-green-500"></div> Clima Ottimo (&gt;4)</div>
-                     <div className="w-px h-4 bg-gray-300 mx-2"></div>
+                     <div className="w-px h-4 bg-border mx-2"></div>
                      <div className="flex items-center gap-1 text-blue-500"><Building size={12}/> Fit Culturale</div>
                      <div className="flex items-center gap-1 text-green-600"><Handshake size={12}/> Fit Manager (Liv. Superiore)</div>
                  </div>
@@ -2167,6 +2181,13 @@ export const CompanyOrgView: React.FC<{
                         setSelectedUserForComparison(employeeProfilePopover.user);
                         setEmployeeProfilePopover(null);
                     } : undefined}
+                />
+            )}
+            {showExportModal && (
+                <OrgChartExportModal
+                    company={company}
+                    users={users}
+                    onClose={() => setShowExportModal(false)}
                 />
             )}
         </div>
