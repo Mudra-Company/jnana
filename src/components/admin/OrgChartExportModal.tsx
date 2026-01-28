@@ -61,8 +61,8 @@ export const OrgChartExportModal: React.FC<OrgChartExportModalProps> = ({
         );
       });
 
-      // Wait for fonts and images to load
-      await new Promise(r => setTimeout(r, 800));
+      // Wait for fonts, images, and Tree component to fully render
+      await new Promise(r => setTimeout(r, 1500));
 
       // Generate PDF
       await exportOrgChartToPdf(container, company, options);
