@@ -1,295 +1,219 @@
 
-# Piano: Esporta Organigramma in PDF
+# Piano: Miglioramento Radicale Export PDF Organigramma
 
-## Obiettivo
-Aggiungere un bottone "Esporta PDF" alla vista Organigramma che permetta all'utente di:
-1. Selezionare quali informazioni includere nel PDF
-2. Generare un documento PDF con l'intera struttura organizzativa
+## Problema Attuale
 
----
+L'export PDF genera un risultato di qualità inaccettabile perché:
 
-## Approccio Tecnico
-
-### Libreria da Installare
-Utilizzeremo **jsPDF** + **html2canvas** per catturare l'organigramma come immagine e inserirlo in un PDF. Questa combinazione è la più affidabile per esportare componenti React complessi.
-
-```
-npm install jspdf html2canvas
-```
+1. **Componente PrintView separato e semplificato** - Non replica l'aspetto reale dell'organigramma
+2. **Emoji corrotti nel PDF** - html2canvas non gestisce bene gli emoji Unicode
+3. **Layout diverso** - Non usa `react-organizational-chart` come la UI reale
+4. **Stili persi** - Card con styling inline molto basico invece dei componenti Tailwind ricchi
+5. **Mancano elementi visivi** - Progress bar, badge colorati, icone Lucide, gradienti, ombre
 
 ---
 
-## Flusso Utente
+## Strategia di Risoluzione
 
-```text
-┌─────────────────────────────────────────────────────────┐
-│  Bottone "Esporta PDF" nell'header organigramma        │
-└────────────────────────┬────────────────────────────────┘
-                         │
-                         ▼
-┌─────────────────────────────────────────────────────────┐
-│  Modal "Configura Export"                               │
-│  ┌───────────────────────────────────────────────────┐ │
-│  │ ☑ Tipo nodo (ROOT, DEPARTMENT, TEAM)              │ │
-│  │ ☑ Clima medio del nodo                            │ │
-│  │ ☑ Gap competenze (%)                              │ │
-│  │ ☑ Posizioni aperte                                │ │
-│  │ ☐ Nomi dipendenti                                 │ │
-│  │ ☐ Job Title                                       │ │
-│  │ ☐ Codice RIASEC                                   │ │
-│  │ ☐ Score fit culturale                             │ │
-│  │ ☐ Score fit manager                               │ │
-│  │ ☐ Badge Leader                                    │ │
-│  └───────────────────────────────────────────────────┘ │
-│                                                         │
-│  [ Annulla ]                    [ Genera PDF ]          │
-└─────────────────────────────────────────────────────────┘
-                         │
-                         ▼
-┌─────────────────────────────────────────────────────────┐
-│  Rendering nascosto con solo le info selezionate       │
-│  → Cattura con html2canvas                              │
-│  → Inserimento in jsPDF                                 │
-│  → Download automatico                                  │
-└─────────────────────────────────────────────────────────┘
-```
+### Approccio 1: Catturare l'Organigramma Reale
+
+Invece di renderizzare un componente separato semplificato, **cattureremo direttamente l'organigramma visibile a schermo** con alcune modifiche:
+
+1. Clonare il container dell'organigramma reale
+2. Applicare modifiche per la stampa (rimuovere bottoni azione, etc.)
+3. Catturare con html2canvas con impostazioni ottimizzate
+4. Generare PDF multi-pagina se necessario
+
+### Approccio 2: Ricreare PrintView con Fidelità Alta
+
+Ricostruire `OrgChartPrintView` per essere una replica quasi esatta di `OrgNodeCard`, usando:
+
+1. Lo stesso componente `Tree`/`TreeNode` di react-organizational-chart
+2. Le stesse classi Tailwind (convertite in stili inline per html2canvas)
+3. Icone Lucide SVG invece di emoji
+4. Sostituire emoji con testo/simboli compatibili con i font PDF
+
+**Scelta: Approccio 2** - Più controllo, più affidabile, permette personalizzazione via opzioni
 
 ---
 
-## Opzioni di Export Disponibili
+## Modifiche Tecniche
 
-### Livello Nodo (Department/Team)
-| Opzione | Descrizione | Default |
-|---------|-------------|---------|
-| `showNodeType` | Mostra badge ROOT/DEPARTMENT/TEAM | ☑ ON |
-| `showClimateScore` | Mostra punteggio clima (es. 4.5/5) | ☑ ON |
-| `showSkillGap` | Mostra percentuale gap competenze | ☑ ON |
-| `showHiringCount` | Mostra numero posizioni aperte | ☑ ON |
+### 1. Sostituire Emoji con Icone/Testo
 
-### Livello Dipendente
-| Opzione | Descrizione | Default |
-|---------|-------------|---------|
-| `showEmployeeNames` | Mostra nomi dipendenti | ☐ OFF |
-| `showJobTitles` | Mostra ruolo/job title | ☐ OFF |
-| `showRiasecCode` | Mostra codice RIASEC (es. I-A-R) | ☐ OFF |
-| `showCultureFit` | Mostra % fit culturale | ☐ OFF |
-| `showManagerFit` | Mostra % fit manager | ☐ OFF |
-| `showLeaderBadge` | Mostra badge LEADER | ☐ OFF |
+| Prima (emoji) | Dopo (compatibile) |
+|---------------|-------------------|
+| 🌡️ | Icona `ThermometerSun` o testo "Clima:" |
+| ⚠️ | Icona `AlertTriangle` o testo "Gap:" |
+| 🔍 | Icona `Search` o testo "Hiring:" |
+| 👑 | Icona `Crown` o testo "★ LEADER" |
+| 🏢 | Testo "Fit:" |
+| 🤝 | Testo "Mgr:" |
 
----
+### 2. Usare react-organizational-chart nel PrintView
 
-## Struttura File
+Modificare `OrgChartPrintView.tsx` per usare lo stesso sistema Tree/TreeNode della UI reale.
 
-### 1. Nuovo Componente Modal
-**File**: `src/components/admin/OrgChartExportModal.tsx`
+### 3. Replicare lo Stile delle Card
 
-Responsabilità:
-- Mostrare checkbox per ogni opzione
-- Gestire stato delle selezioni
-- Chiamare la funzione di export al click su "Genera PDF"
+Creare un componente `PrintNodeCardEnhanced` che replica visivamente `OrgNodeCard`:
+- Bordo colorato a sinistra (purple/blue/green per root/department/team)
+- Stesse ombre e gradienti sottili
+- Badge con stili identici
+- Avatar circolari con iniziali
+- Progress bar per i punteggi (se mostrati)
 
-### 2. Nuovo Servizio Export
-**File**: `src/services/orgChartExportService.ts`
-
-Responsabilità:
-- Creare un elemento DOM temporaneo con l'organigramma renderizzato
-- Applicare stili ottimizzati per la stampa
-- Usare html2canvas per catturare l'immagine
-- Usare jsPDF per creare il PDF multi-pagina se necessario
-- Gestire la paginazione per organigrammi molto grandi
-
-### 3. Componente Rendering per Export
-**File**: `src/components/admin/OrgChartPrintView.tsx`
-
-Versione semplificata dell'organigramma ottimizzata per PDF:
-- Colori pieni (no trasparenze)
-- Font system-ui per compatibilità
-- Layout orizzontale per sfruttare meglio lo spazio
-- Accetta le opzioni di visibilità come props
-
----
-
-## Modifiche a File Esistenti
-
-### `views/admin/CompanyOrgView.tsx`
-
-1. Aggiungere import del modal e della funzione export
-2. Aggiungere state per controllare apertura modal
-3. Aggiungere bottone "Esporta PDF" nell'header (accanto alla legenda)
-
-```tsx
-// Nuovo state
-const [showExportModal, setShowExportModal] = useState(false);
-
-// Nell'header, dopo la legenda colori:
-<button 
-  onClick={() => setShowExportModal(true)}
-  className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700"
->
-  <Download size={16} />
-  Esporta PDF
-</button>
-
-// Prima del return finale:
-{showExportModal && (
-  <OrgChartExportModal
-    company={company}
-    users={users}
-    onClose={() => setShowExportModal(false)}
-  />
-)}
-```
-
----
-
-## Logica di Generazione PDF
+### 4. Aumentare Qualità Cattura html2canvas
 
 ```typescript
-// src/services/orgChartExportService.ts
-
-interface ExportOptions {
-  // Node level
-  showNodeType: boolean;
-  showClimateScore: boolean;
-  showSkillGap: boolean;
-  showHiringCount: boolean;
-  // Employee level
-  showEmployeeNames: boolean;
-  showJobTitles: boolean;
-  showRiasecCode: boolean;
-  showCultureFit: boolean;
-  showManagerFit: boolean;
-  showLeaderBadge: boolean;
-}
-
-export async function exportOrgChartToPdf(
-  company: CompanyProfile,
-  users: User[],
-  options: ExportOptions
-): Promise<void> {
-  // 1. Creare container temporaneo
-  const container = document.createElement('div');
-  container.style.position = 'absolute';
-  container.style.left = '-9999px';
-  container.style.width = '1600px'; // Larghezza fissa per consistenza
-  document.body.appendChild(container);
-  
-  // 2. Renderizzare l'organigramma con ReactDOM
-  const root = createRoot(container);
-  root.render(
-    <OrgChartPrintView
-      company={company}
-      users={users}
-      options={options}
-    />
-  );
-  
-  // 3. Attendere rendering
-  await new Promise(r => setTimeout(r, 500));
-  
-  // 4. Catturare con html2canvas
-  const canvas = await html2canvas(container, {
-    scale: 2,
-    useCORS: true,
-    backgroundColor: '#ffffff'
-  });
-  
-  // 5. Creare PDF
-  const pdf = new jsPDF({
-    orientation: 'landscape',
-    unit: 'mm',
-    format: 'a4'
-  });
-  
-  // 6. Calcolare dimensioni per fit
-  const imgWidth = 297; // A4 landscape width in mm
-  const imgHeight = (canvas.height * imgWidth) / canvas.width;
-  
-  pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, imgWidth, imgHeight);
-  
-  // 7. Download
-  pdf.save(`Organigramma_${company.name}_${new Date().toISOString().split('T')[0]}.pdf`);
-  
-  // 8. Cleanup
-  root.unmount();
-  document.body.removeChild(container);
-}
+const canvas = await html2canvas(container, {
+  scale: 3, // Aumentare da 2 a 3
+  useCORS: true,
+  backgroundColor: '#ffffff',
+  logging: false,
+  allowTaint: true,
+  windowWidth: 2400, // Forzare viewport largo
+  windowHeight: 1600,
+  foreignObjectRendering: true, // Migliore rendering testo
+});
 ```
 
----
+### 5. Supporto Multi-Pagina per Organigrammi Grandi
 
-## Design del PDF
-
-Il PDF generato includerà:
-
-1. **Header**
-   - Logo azienda (se disponibile)
-   - Nome azienda
-   - Data di generazione
-   - Titolo "Organigramma Aziendale"
-
-2. **Legenda** (opzionale, basata sulle selezioni)
-   - Significato colori clima
-   - Significato badge
-
-3. **Organigramma**
-   - Struttura gerarchica con linee di connessione
-   - Card dei nodi con le informazioni selezionate
-   - Ottimizzato per stampa (colori pieni, contrasto alto)
+Se l'organigramma è più grande di una pagina A4:
+- Calcolare se serve paginazione
+- Dividere l'immagine in sezioni
+- Generare più pagine PDF
 
 ---
 
-## File da Creare/Modificare
+## File da Modificare
 
-| File | Azione | Descrizione |
-|------|--------|-------------|
-| `src/components/admin/OrgChartExportModal.tsx` | **NUOVO** | Modal con checkbox per selezione opzioni |
-| `src/components/admin/OrgChartPrintView.tsx` | **NUOVO** | Versione organigramma per stampa |
-| `src/services/orgChartExportService.ts` | **NUOVO** | Logica generazione PDF |
-| `views/admin/CompanyOrgView.tsx` | Modifica | Aggiungere bottone e modal |
-| `package.json` | Modifica | Aggiungere dipendenze jspdf e html2canvas |
+| File | Modifica |
+|------|----------|
+| `src/components/admin/OrgChartPrintView.tsx` | Riscrittura completa con Tree/TreeNode e stili fedeli |
+| `src/services/orgChartExportService.ts` | Aumentare qualità, gestire multi-pagina |
+| `src/components/admin/OrgChartExportModal.tsx` | Aumentare timeout rendering, migliorare feedback |
 
 ---
 
-## Dettagli Implementativi
+## Nuovo OrgChartPrintView - Struttura
 
-### Modal Checkbox UI
 ```tsx
-// Struttura checkbox nel modal
-<div className="space-y-4">
-  <div>
-    <h4 className="font-bold mb-2">Informazioni Nodo</h4>
-    <label className="flex items-center gap-2">
-      <input type="checkbox" checked={options.showNodeType} onChange={...} />
-      Tipo nodo (ROOT, DEPARTMENT, TEAM)
-    </label>
-    // ... altri checkbox
-  </div>
+// Usa lo stesso Tree component della UI reale
+import { Tree, TreeNode } from 'react-organizational-chart';
+
+const PrintNodeCard = ({ node, users, options, ... }) => {
+  // Stessi calcoli di OrgNodeCard per clima, gap, etc.
   
-  <div>
-    <h4 className="font-bold mb-2">Informazioni Dipendenti</h4>
-    <label className="flex items-center gap-2">
-      <input type="checkbox" checked={options.showEmployeeNames} onChange={...} />
-      Nomi dipendenti
-    </label>
-    // ... altri checkbox
+  return (
+    <div style={{
+      // Bordo colorato a sinistra
+      borderLeft: `4px solid ${nodeColor}`,
+      // Sfondo con gradiente sottile
+      background: 'linear-gradient(135deg, #faf5ff 0%, #ffffff 100%)',
+      // Ombra
+      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+      // Altre proprietà...
+    }}>
+      {/* Header con nome e badge */}
+      {/* Lista utenti con avatar, nomi, titoli, metriche */}
+    </div>
+  );
+};
+
+const renderTree = (node: OrgNode) => (
+  <TreeNode label={<PrintNodeCard node={node} ... />}>
+    {node.children.map(child => renderTree(child))}
+  </TreeNode>
+);
+
+export const OrgChartPrintView = ({ company, users, options }) => (
+  <div style={{ padding: '40px', background: '#fff', minWidth: '1600px' }}>
+    <Tree
+      lineWidth="2px"
+      lineColor="#6366f1"
+      lineBorderRadius="8px"
+      label={<PrintNodeCard node={company.structure} ... />}
+    >
+      {company.structure.children.map(child => renderTree(child))}
+    </Tree>
   </div>
-</div>
+);
 ```
 
-### PrintView Component
-Versione semplificata di OrgNodeCard con:
-- Rendering condizionale basato su `options`
-- Stili inline per garantire consistenza nel PDF
-- Colori solidi invece di gradienti/trasparenze
-- Font più grandi per leggibilità
+---
+
+## Dettagli Stile per Fedeltà Visiva
+
+### Card Container
+```css
+border-radius: 12px;
+border-left: 4px solid [purple|blue|green];
+box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+background: linear-gradient(to-br, rgba(147,51,234,0.05) 0%, white 100%);
+padding: 12px;
+min-width: 280px;
+max-width: 380px;
+```
+
+### Badge Tipo Nodo
+```css
+font-size: 10px;
+font-weight: 700;
+text-transform: uppercase;
+padding: 2px 8px;
+border-radius: 4px;
+background-color: [purple|blue|green];
+color: white;
+```
+
+### Badge Clima/Gap
+```css
+font-size: 10px;
+font-weight: 700;
+padding: 2px 8px;
+border-radius: 4px;
+border: 1px solid [color];
+background-color: [color-light];
+color: [color-dark];
+display: flex;
+align-items: center;
+gap: 4px;
+```
+
+### Avatar Utente
+```css
+width: 36px;
+height: 36px;
+border-radius: 50%;
+background-color: #6366f1;
+color: white;
+display: flex;
+align-items: center;
+justify-content: center;
+font-size: 12px;
+font-weight: 700;
+```
+
+### Progress Bar (per Culture/Manager Fit)
+```css
+width: 60px;
+height: 6px;
+background: #e5e7eb;
+border-radius: 3px;
+overflow: hidden;
+/* Inner fill: width basata su percentuale */
+```
 
 ---
 
 ## Risultato Atteso
 
-1. Bottone "Esporta PDF" visibile nell'header dell'organigramma
-2. Modal con tutte le opzioni di personalizzazione
-3. PDF generato con le sole informazioni selezionate
-4. File scaricato automaticamente con nome descrittivo
-5. Layout professionale ottimizzato per stampa A4 landscape
+Dopo le modifiche, il PDF esportato sarà:
+
+1. **Visivamente identico** all'organigramma a schermo
+2. **Senza caratteri corrotti** (emoji sostituiti con icone/testo)
+3. **Con qualità superiore** (scale 3x, viewport largo)
+4. **Con linee di connessione** come nella UI (via react-organizational-chart)
+5. **Con tutti i dettagli selezionati** visibili e leggibili
