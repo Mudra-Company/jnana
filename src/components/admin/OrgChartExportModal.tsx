@@ -38,13 +38,16 @@ export const OrgChartExportModal: React.FC<OrgChartExportModalProps> = ({
     setIsExporting(true);
     
     try {
-      // Create a hidden container for rendering
+      // Create container VISIBLE on-screen but visually hidden (fixes html2canvas issues)
       const container = document.createElement('div');
-      container.style.position = 'absolute';
-      container.style.left = '-9999px';
+      container.style.position = 'fixed';
       container.style.top = '0';
-      container.style.width = '1600px';
+      container.style.left = '0';
+      container.style.width = '2400px';
       container.style.backgroundColor = '#ffffff';
+      container.style.zIndex = '-9999';
+      container.style.opacity = '0.001';
+      container.style.pointerEvents = 'none';
       document.body.appendChild(container);
 
       // Render the print view
@@ -61,8 +64,19 @@ export const OrgChartExportModal: React.FC<OrgChartExportModalProps> = ({
         );
       });
 
+      // Force layout reflow computation
+      void container.offsetHeight;
+      void container.getBoundingClientRect();
+
       // Wait for fonts, images, and Tree component to fully render
-      await new Promise(r => setTimeout(r, 1500));
+      await new Promise(r => setTimeout(r, 2000));
+
+      // Make visible for capture (html2canvas needs visible content)
+      container.style.opacity = '1';
+      container.style.zIndex = '99999';
+
+      // Brief pause for final paint
+      await new Promise(r => setTimeout(r, 200));
 
       // Generate PDF
       await exportOrgChartToPdf(container, company, options);

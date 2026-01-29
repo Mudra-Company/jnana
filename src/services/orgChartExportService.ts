@@ -16,14 +16,19 @@ export async function exportOrgChartToPdf(
       backgroundColor: '#ffffff',
       logging: false,
       allowTaint: true,
-      windowWidth: 2400, // Force wide viewport
-      windowHeight: 1600,
+      windowWidth: Math.max(container.scrollWidth, 2400),
+      windowHeight: Math.max(container.scrollHeight, 1600),
+      scrollX: 0,
+      scrollY: 0,
+      x: 0,
+      y: 0,
       imageTimeout: 15000,
+      removeContainer: false,
       onclone: (clonedDoc) => {
         // Ensure all fonts are loaded in the cloned document
         const clonedContainer = clonedDoc.body.querySelector('div');
         if (clonedContainer) {
-          clonedContainer.style.fontFamily = 'system-ui, -apple-system, BlinkMacSystemFont, sans-serif';
+          clonedContainer.style.fontFamily = 'Arial, Helvetica, sans-serif';
         }
       }
     });
