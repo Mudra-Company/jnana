@@ -40,12 +40,14 @@ const cardStyle = (nodeType: string): React.CSSProperties => ({
   borderLeft: `4px solid ${nodeType === 'root' ? COLORS.root.border : nodeType === 'department' ? COLORS.department.border : COLORS.team.border}`,
   boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
   background: nodeType === 'root' ? COLORS.root.bg : '#ffffff',
+  backgroundColor: '#ffffff', // Explicit for html2canvas
   padding: '16px',
   minWidth: '280px',
   maxWidth: '380px',
   display: 'inline-block',
   textAlign: 'left' as const,
-  fontFamily: 'system-ui, -apple-system, sans-serif',
+  fontFamily: 'Arial, Helvetica, sans-serif', // Standard PDF-safe font
+  color: '#1f2937', // Explicit text color for html2canvas
 });
 
 const typeBadgeStyle = (nodeType: string): React.CSSProperties => ({
@@ -541,7 +543,8 @@ export const OrgChartPrintView: React.FC<OrgChartPrintViewProps> = ({
         padding: '40px', 
         backgroundColor: '#ffffff', 
         minWidth: '1800px',
-        fontFamily: 'system-ui, -apple-system, sans-serif',
+        fontFamily: 'Arial, Helvetica, sans-serif',
+        color: '#1f2937', // Explicit text color
       }}
     >
       <Tree
