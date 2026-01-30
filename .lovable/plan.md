@@ -1,165 +1,74 @@
 
 
-# Piano: Fix Export PDF Organigramma - Contenuto Cards Bianco
+# Piano: Fix Definitivo Export PDF - Contenuto Bianco/Invisibile
 
-## Problema Identificato
+## Problema Radice Identificato
 
-Il PDF esportato mostra:
-- ✅ La struttura ad albero con le linee di connessione
-- ✅ I bordi colorati delle cards (purple/blue/green)
-- ❌ **Tutto il contenuto interno delle cards è BIANCO/invisibile**
+Dopo un'analisi approfondita, ho identificato **due problemi principali**:
 
-## Analisi Tecnica del Bug
+### 1. Icone SVG di Lucide React non renderizzate
+`html2canvas` ha un problema noto con le icone SVG: non vengono catturate correttamente a meno che non abbiano attributi `width` e `height` espliciti. Le icone Lucide React usano CSS per le dimensioni, che html2canvas non interpreta correttamente.
 
-Il problema è causato da una combinazione di fattori legati a `html2canvas`:
-
-### 1. Posizionamento Off-Screen
-```javascript
-container.style.left = '-9999px'; // ❌ Problematico
-```
-Quando un elemento è posizionato fuori dallo schermo visibile, `html2canvas` può avere problemi a catturare correttamente il contenuto renderizzato.
-
-### 2. Rendering React Non Completo
-Il componente `OrgChartPrintView` viene montato in un container nascosto, ma il rendering React + layout CSS potrebbero non essere completamente calcolati prima della cattura.
-
-### 3. Stili Inline e Colori
-Gli stili inline potrebbero non essere applicati correttamente quando il container non è visibile nel DOM normale.
+### 2. Container interno di html2canvas
+Dalla session replay: html2canvas crea internamente il suo container con `left: -10000px` e `visibility: hidden`. Le nostre modifiche al container principale vengono ignorate perché la libreria clona il DOM in un container nascosto.
 
 ---
 
 ## Soluzione Proposta
 
-### Approccio 1: Rendering Visibile ma Trasparente
+### Approccio Multi-Layer
 
-Invece di nascondere il container off-screen, lo renderizziamo **on-screen ma coperto** da un overlay:
+#### 1. Convertire icone SVG in elementi compatibili
 
-```typescript
-// Invece di:
-container.style.left = '-9999px';
-
-// Usare:
-container.style.position = 'fixed';
-container.style.top = '0';
-container.style.left = '0';
-container.style.zIndex = '-1'; // Dietro tutto
-container.style.opacity = '0.01'; // Quasi invisibile ma renderizzato
-container.style.pointerEvents = 'none';
-```
-
-### Approccio 2: Forzare il Layout Computation
-
-Aggiungere un passaggio che forza il browser a calcolare il layout prima della cattura:
+Prima della cattura, processare tutti gli elementi SVG per:
+- Forzare attributi `width` e `height` espliciti
+- Oppure sostituire le icone SVG con versioni PNG/base64
 
 ```typescript
-// Dopo il rendering React
-await new Promise(r => setTimeout(r, 500));
-
-// Forzare reflow
-container.offsetHeight; // Trigger layout calculation
-container.getBoundingClientRect(); // Calcola posizioni
-
-// Attendere ancora per font/immagini
-await new Promise(r => setTimeout(r, 1000));
-```
-
-### Approccio 3: Usare `foreignObjectRendering`
-
-Configurare html2canvas per usare il rendering alternativo che è più affidabile per contenuti complessi:
-
-```typescript
-const canvas = await html2canvas(container, {
-  scale: 3,
-  useCORS: true,
-  backgroundColor: '#ffffff',
-  logging: true, // Per debug
-  allowTaint: true,
-  foreignObjectRendering: false, // Disabilitare se causa problemi
-  windowWidth: container.scrollWidth,
-  windowHeight: container.scrollHeight,
-  scrollX: 0,
-  scrollY: 0,
-  x: 0,
-  y: 0,
+// Prima di chiamare html2canvas
+const svgElements = container.querySelectorAll('svg');
+svgElements.forEach((svg) => {
+  const bbox = svg.getBoundingClientRect();
+  svg.setAttribute('width', String(bbox.width));
+  svg.setAttribute('height', String(bbox.height));
 });
 ```
 
----
+#### 2. Usare approccio alternativo: Rendering senza Lucide
 
-## Modifiche ai File
+Creare una versione del `PrintNodeCard` che usa **testo/emoji/simboli** invece delle icone Lucide per i badge:
 
-### File 1: `src/components/admin/OrgChartExportModal.tsx`
+| Icona | Sostituzione |
+|-------|--------------|
+| ThermometerSun | Simbolo `◉` + testo "Clima" |
+| AlertTriangle | Simbolo `△` + testo "Gap" |
+| Search | Simbolo `◎` + testo |
+| Crown | Simbolo `★` + testo "LEADER" |
+| Building | Simbolo `▣` + testo "Fit" |
+| Handshake | Simbolo `⇄` + testo "Mgr" |
 
-Modificare la logica di rendering per:
-1. Usare posizionamento visibile ma nascosto (opacity bassa, z-index negativo)
-2. Forzare il calcolo del layout prima della cattura
-3. Aumentare i timeout per garantire rendering completo
-4. Aggiungere logging per debug
+#### 3. Aumentare timeout e forzare paint
 
 ```typescript
-const handleExport = async () => {
-  setIsExporting(true);
-  
-  try {
-    // Creare container VISIBILE ma nascosto visivamente
-    const container = document.createElement('div');
-    container.style.position = 'fixed';
-    container.style.top = '0';
-    container.style.left = '0';
-    container.style.width = '2400px';
-    container.style.backgroundColor = '#ffffff';
-    container.style.zIndex = '-9999';
-    container.style.opacity = '0.001';
-    container.style.pointerEvents = 'none';
-    document.body.appendChild(container);
+// Attendere più a lungo
+await new Promise(r => setTimeout(r, 3000));
 
-    // Render React
-    const root = createRoot(container);
-    await new Promise<void>((resolve) => {
-      root.render(
-        <OrgChartPrintView
-          company={company}
-          users={users}
-          options={options}
-          onRenderComplete={resolve}
-        />
-      );
-    });
-
-    // Forzare reflow layout
-    container.offsetHeight;
-    container.getBoundingClientRect();
-    
-    // Attendere rendering completo
-    await new Promise(r => setTimeout(r, 2000));
-
-    // Ora rendere VISIBILE per cattura
-    container.style.opacity = '1';
-    container.style.zIndex = '99999';
-    
-    // Breve pausa per paint
-    await new Promise(r => setTimeout(r, 200));
-
-    // Catturare
-    await exportOrgChartToPdf(container, company, options);
-
-    // Cleanup
-    root.unmount();
-    document.body.removeChild(container);
-    // ...
-  }
-};
+// Forzare layout multiplo
+for (let i = 0; i < 3; i++) {
+  void container.offsetHeight;
+  void container.getBoundingClientRect();
+  await new Promise(r => setTimeout(r, 200));
+}
 ```
 
-### File 2: `src/services/orgChartExportService.ts`
-
-Migliorare le impostazioni di html2canvas:
+#### 4. Configurare html2canvas per cloning migliore
 
 ```typescript
 const canvas = await html2canvas(container, {
   scale: 3,
   useCORS: true,
   backgroundColor: '#ffffff',
-  logging: false,
+  logging: true, // Attivare per debug
   allowTaint: true,
   windowWidth: Math.max(container.scrollWidth, 2400),
   windowHeight: Math.max(container.scrollHeight, 1600),
@@ -167,68 +76,92 @@ const canvas = await html2canvas(container, {
   scrollY: 0,
   x: 0,
   y: 0,
-  imageTimeout: 15000,
-  removeContainer: false, // Non rimuovere container automaticamente
+  onclone: (clonedDoc, element) => {
+    // Forzare visibilità su tutti gli elementi clonati
+    const allElements = element.querySelectorAll('*');
+    allElements.forEach((el) => {
+      if (el instanceof HTMLElement) {
+        el.style.visibility = 'visible';
+        el.style.opacity = '1';
+      }
+    });
+    
+    // Forzare dimensioni su SVG
+    const svgs = element.querySelectorAll('svg');
+    svgs.forEach((svg) => {
+      svg.setAttribute('width', '16');
+      svg.setAttribute('height', '16');
+      svg.style.display = 'inline-block';
+    });
+  }
 });
 ```
-
-### File 3: `src/components/admin/OrgChartPrintView.tsx`
-
-Aggiungere stili espliciti per garantire visibilità:
-
-1. **Colori testo espliciti**: Ogni elemento deve avere `color` specificato
-2. **Background espliciti**: Ogni container deve avere `backgroundColor`
-3. **Font espliciti**: `fontFamily: 'Arial, sans-serif'` per massima compatibilità
-
-```typescript
-const cardStyle = (nodeType: string): React.CSSProperties => ({
-  borderRadius: '12px',
-  borderLeft: `4px solid ${borderColor}`,
-  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
-  background: '#ffffff', // ✅ Esplicito
-  color: '#1f2937', // ✅ Esplicito - colore testo
-  padding: '16px',
-  minWidth: '280px',
-  maxWidth: '380px',
-  display: 'inline-block',
-  textAlign: 'left',
-  fontFamily: 'Arial, Helvetica, sans-serif', // ✅ Font standard
-});
-```
-
-E aggiungere `color` esplicito a TUTTI gli elementi testuali.
 
 ---
 
-## Flusso di Rendering Corretto
+## File da Modificare
 
-```text
-1. Creare container → position: fixed, opacity: 0.001
-                  ↓
-2. Montare React component
-                  ↓
-3. Attendere onRenderComplete callback
-                  ↓
-4. Forzare reflow (offsetHeight, getBoundingClientRect)
-                  ↓
-5. Attendere 2 secondi per fonts + paint
-                  ↓
-6. Rendere visibile (opacity: 1, z-index alto)
-                  ↓
-7. Breve pausa (200ms) per paint finale
-                  ↓
-8. html2canvas capture
-                  ↓
-9. Nascondere + cleanup
+### 1. `src/components/admin/OrgChartPrintView.tsx`
+
+**Rimuovere completamente le icone Lucide** e usare simboli Unicode/testo:
+
+```typescript
+// PRIMA
+<ThermometerSun size={12} />
+
+// DOPO
+<span style={{ fontSize: '12px', marginRight: '4px' }}>◉</span>
 ```
+
+Oppure usare SVG inline come stringhe:
+
+```typescript
+const thermometerIcon = (
+  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <path d="M12 9V4m0 5a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"/>
+  </svg>
+);
+```
+
+### 2. `src/components/admin/OrgChartExportModal.tsx`
+
+- Aumentare timeout a 3000ms
+- Aggiungere pre-processing SVG
+- Forzare repaint multipli
+
+### 3. `src/services/orgChartExportService.ts`
+
+- Aggiungere logica `onclone` per forzare visibilità
+- Attivare logging temporaneamente per debug
+- Processare SVG nel documento clonato
+
+---
+
+## Approccio Alternativo: Canvas Manuale
+
+Se html2canvas continua a fallire, considerare:
+
+1. **Usare dom-to-image** invece di html2canvas (libreria alternativa)
+2. **Generare PDF server-side** con puppeteer (richiederebbe edge function)
+3. **Esportare dati JSON** e generare PDF con layout manuale in jsPDF
+
+---
+
+## Ordine di Implementazione
+
+1. **Prima modifica**: Rimuovere icone Lucide da PrintView e sostituire con simboli Unicode
+2. **Seconda modifica**: Aggiungere pre-processing SVG in onclone
+3. **Terza modifica**: Aumentare timeout e forzare paint multipli
+4. **Test**: Verificare se il contenuto appare nel PDF
+5. **Se fallisce**: Passare ad approccio alternativo (dom-to-image o PDF manuale)
 
 ---
 
 ## Risultato Atteso
 
 Dopo queste modifiche:
-1. Il contenuto delle cards sarà visibile nel PDF
-2. Nomi, badge, metriche, avatar renderizzati correttamente
-3. Colori e stili identici alla UI live
-4. Nessun testo bianco/invisibile
+- Tutto il testo sarà visibile (nomi, badge, metriche)
+- I simboli sostituiranno le icone SVG problematiche
+- La struttura ad albero rimarrà intatta
+- I colori e stili saranno preservati
 
