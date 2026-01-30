@@ -24,12 +24,25 @@ export async function exportOrgChartToPdf(
       y: 0,
       imageTimeout: 15000,
       removeContainer: false,
-      onclone: (clonedDoc) => {
-        // Ensure all fonts are loaded in the cloned document
-        const clonedContainer = clonedDoc.body.querySelector('div');
-        if (clonedContainer) {
-          clonedContainer.style.fontFamily = 'Arial, Helvetica, sans-serif';
-        }
+      onclone: (_clonedDoc, element) => {
+        // Force visibility on ALL cloned elements
+        const allElements = element.querySelectorAll('*');
+        allElements.forEach((el) => {
+          if (el instanceof HTMLElement) {
+            el.style.visibility = 'visible';
+            el.style.opacity = '1';
+            el.style.fontFamily = 'Arial, Helvetica, sans-serif';
+          }
+        });
+        
+        // Force explicit dimensions on any remaining SVGs
+        const svgs = element.querySelectorAll('svg');
+        svgs.forEach((svg) => {
+          svg.setAttribute('width', '16');
+          svg.setAttribute('height', '16');
+          svg.style.display = 'inline-block';
+          svg.style.visibility = 'visible';
+        });
       }
     });
 

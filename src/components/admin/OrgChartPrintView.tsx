@@ -1,13 +1,5 @@
 import React, { useEffect, useMemo } from 'react';
 import { Tree, TreeNode } from 'react-organizational-chart';
-import { 
-  ThermometerSun, 
-  AlertTriangle, 
-  Search, 
-  Crown,
-  Building,
-  Handshake 
-} from 'lucide-react';
 import type { CompanyProfile, User, OrgNode } from '../../../types';
 import type { OrgChartExportOptions } from '../../types/orgChartExport';
 import { calculateUserCompatibility } from '../../../services/riasecService';
@@ -23,6 +15,17 @@ interface OrgChartPrintViewProps {
   options: OrgChartExportOptions;
   onRenderComplete?: () => void;
 }
+
+// Unicode symbols to replace Lucide icons (html2canvas compatible)
+const ICONS = {
+  thermometer: '◉',
+  alert: '△',
+  search: '◎',
+  crown: '★',
+  building: '▣',
+  handshake: '⇄',
+  hiring: '⊕',
+};
 
 // Color scheme for consistent styling
 const COLORS = {
@@ -40,14 +43,14 @@ const cardStyle = (nodeType: string): React.CSSProperties => ({
   borderLeft: `4px solid ${nodeType === 'root' ? COLORS.root.border : nodeType === 'department' ? COLORS.department.border : COLORS.team.border}`,
   boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
   background: nodeType === 'root' ? COLORS.root.bg : '#ffffff',
-  backgroundColor: '#ffffff', // Explicit for html2canvas
+  backgroundColor: '#ffffff',
   padding: '16px',
   minWidth: '280px',
   maxWidth: '380px',
   display: 'inline-block',
   textAlign: 'left' as const,
-  fontFamily: 'Arial, Helvetica, sans-serif', // Standard PDF-safe font
-  color: '#1f2937', // Explicit text color for html2canvas
+  fontFamily: 'Arial, Helvetica, sans-serif',
+  color: '#1f2937',
 });
 
 const typeBadgeStyle = (nodeType: string): React.CSSProperties => ({
@@ -57,9 +60,10 @@ const typeBadgeStyle = (nodeType: string): React.CSSProperties => ({
   padding: '2px 8px',
   borderRadius: '4px',
   backgroundColor: nodeType === 'root' ? COLORS.root.badge : nodeType === 'department' ? COLORS.department.badge : COLORS.team.badge,
-  color: 'white',
+  color: '#ffffff',
   display: 'inline-block',
   marginRight: '6px',
+  fontFamily: 'Arial, Helvetica, sans-serif',
 });
 
 const metricBadgeStyle = (color: 'green' | 'yellow' | 'red' | 'emerald'): React.CSSProperties => {
@@ -82,7 +86,16 @@ const metricBadgeStyle = (color: 'green' | 'yellow' | 'red' | 'emerald'): React.
     backgroundColor: c.bg,
     color: c.text,
     marginRight: '6px',
+    fontFamily: 'Arial, Helvetica, sans-serif',
   };
+};
+
+const iconStyle: React.CSSProperties = {
+  fontSize: '12px',
+  fontWeight: 'bold',
+  marginRight: '3px',
+  display: 'inline',
+  fontFamily: 'Arial, Helvetica, sans-serif',
 };
 
 const avatarStyle = (isLeader: boolean, isHiring: boolean): React.CSSProperties => ({
@@ -90,13 +103,14 @@ const avatarStyle = (isLeader: boolean, isHiring: boolean): React.CSSProperties 
   height: '36px',
   borderRadius: '50%',
   backgroundColor: isHiring ? COLORS.hiring : isLeader ? COLORS.leaderAvatar : COLORS.avatar,
-  color: 'white',
+  color: '#ffffff',
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
   fontSize: '12px',
   fontWeight: 700,
   flexShrink: 0,
+  fontFamily: 'Arial, Helvetica, sans-serif',
 });
 
 const progressBarBg: React.CSSProperties = {
@@ -211,7 +225,7 @@ const PrintNodeCard: React.FC<PrintNodeCardProps> = ({
     <div style={cardStyle(node.type)}>
       {/* Header */}
       <div style={{ marginBottom: '12px', paddingBottom: '12px', borderBottom: '1px solid #e5e7eb' }}>
-        <div style={{ fontSize: '14px', fontWeight: 700, color: '#1f2937', marginBottom: '8px' }}>
+        <div style={{ fontSize: '14px', fontWeight: 700, color: '#1f2937', marginBottom: '8px', fontFamily: 'Arial, Helvetica, sans-serif' }}>
           {node.name}
         </div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', alignItems: 'center' }}>
@@ -223,21 +237,21 @@ const PrintNodeCard: React.FC<PrintNodeCardProps> = ({
           
           {options.showClimateScore && nodeClimateScore !== null && (
             <span style={metricBadgeStyle(getClimateColor(nodeClimateScore))}>
-              <ThermometerSun size={12} />
+              <span style={iconStyle}>{ICONS.thermometer}</span>
               {nodeClimateScore.toFixed(1)}/5
             </span>
           )}
           
           {options.showSkillGap && skillMismatchScore !== null && (
             <span style={metricBadgeStyle(getGapColor(skillMismatchScore))}>
-              <AlertTriangle size={12} />
+              <span style={iconStyle}>{ICONS.alert}</span>
               {skillMismatchScore}% gap
             </span>
           )}
           
           {options.showHiringCount && hiringCount > 0 && (
             <span style={metricBadgeStyle('emerald')}>
-              <Search size={12} />
+              <span style={iconStyle}>{ICONS.search}</span>
               {hiringCount} {hiringCount === 1 ? 'aperta' : 'aperte'}
             </span>
           )}
@@ -294,7 +308,7 @@ const PrintNodeCard: React.FC<PrintNodeCardProps> = ({
                   {/* Avatar */}
                   <div style={avatarStyle(isLeader && node.isCulturalDriver, isHiring)}>
                     {isHiring ? (
-                      <Search size={14} />
+                      <span style={{ fontSize: '14px', fontWeight: 'bold' }}>{ICONS.hiring}</span>
                     ) : (
                       `${u.firstName?.[0] || '?'}${u.lastName?.[0] || ''}`
                     )}
@@ -309,7 +323,8 @@ const PrintNodeCard: React.FC<PrintNodeCardProps> = ({
                         color: '#1f2937',
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap'
+                        whiteSpace: 'nowrap',
+                        fontFamily: 'Arial, Helvetica, sans-serif',
                       }}>
                         {u.firstName && u.lastName ? `${u.firstName} ${u.lastName}` : 'Da assegnare'}
                       </div>
@@ -320,7 +335,8 @@ const PrintNodeCard: React.FC<PrintNodeCardProps> = ({
                         color: '#6b7280',
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap'
+                        whiteSpace: 'nowrap',
+                        fontFamily: 'Arial, Helvetica, sans-serif',
                       }}>
                         {u.jobTitle}
                       </div>
@@ -333,7 +349,7 @@ const PrintNodeCard: React.FC<PrintNodeCardProps> = ({
                       fontSize: '10px', 
                       fontWeight: 700, 
                       fontFamily: 'monospace',
-                      backgroundColor: 'white',
+                      backgroundColor: '#ffffff',
                       padding: '4px 8px',
                       borderRadius: '6px',
                       border: '1px solid #e5e7eb',
@@ -346,7 +362,7 @@ const PrintNodeCard: React.FC<PrintNodeCardProps> = ({
                   {/* Hiring Badge */}
                   {isHiring && (
                     <span style={metricBadgeStyle('emerald')}>
-                      <Search size={10} />
+                      <span style={{ fontSize: '10px', marginRight: '2px' }}>{ICONS.search}</span>
                       HIRING
                     </span>
                   )}
@@ -365,22 +381,22 @@ const PrintNodeCard: React.FC<PrintNodeCardProps> = ({
                     {/* Culture Fit */}
                     {options.showCultureFit && (
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <Building size={12} style={{ color: cultureFitScore > 60 ? '#3b82f6' : '#9ca3af' }} />
+                        <span style={{ fontSize: '12px', color: cultureFitScore > 60 ? '#3b82f6' : '#9ca3af' }}>{ICONS.building}</span>
                         <div style={progressBarBg}>
                           <div style={progressBarFill(cultureFitScore, getFitColor(cultureFitScore))} />
                         </div>
-                        <span style={{ fontSize: '10px', color: '#6b7280' }}>{cultureFitScore}%</span>
+                        <span style={{ fontSize: '10px', color: '#6b7280', fontFamily: 'Arial, Helvetica, sans-serif' }}>{cultureFitScore}%</span>
                       </div>
                     )}
                     
                     {/* Manager Fit */}
                     {options.showManagerFit && managerFitScore !== null && (
                       <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <Handshake size={12} style={{ color: managerFitScore > 60 ? '#22c55e' : '#9ca3af' }} />
+                        <span style={{ fontSize: '12px', color: managerFitScore > 60 ? '#22c55e' : '#9ca3af' }}>{ICONS.handshake}</span>
                         <div style={progressBarBg}>
                           <div style={progressBarFill(managerFitScore, getFitColor(managerFitScore))} />
                         </div>
-                        <span style={{ fontSize: '10px', color: '#6b7280' }}>{managerFitScore}%</span>
+                        <span style={{ fontSize: '10px', color: '#6b7280', fontFamily: 'Arial, Helvetica, sans-serif' }}>{managerFitScore}%</span>
                       </div>
                     )}
                     
@@ -396,9 +412,10 @@ const PrintNodeCard: React.FC<PrintNodeCardProps> = ({
                         color: '#d97706',
                         backgroundColor: '#fffbeb',
                         padding: '2px 8px',
-                        borderRadius: '12px'
+                        borderRadius: '12px',
+                        fontFamily: 'Arial, Helvetica, sans-serif',
                       }}>
-                        <Crown size={10} />
+                        <span style={{ fontSize: '10px' }}>{ICONS.crown}</span>
                         LEADER
                       </div>
                     )}
@@ -416,7 +433,8 @@ const PrintNodeCard: React.FC<PrintNodeCardProps> = ({
             fontStyle: 'italic',
             backgroundColor: '#f9fafb',
             borderRadius: '8px',
-            border: '2px dashed #e5e7eb'
+            border: '2px dashed #e5e7eb',
+            fontFamily: 'Arial, Helvetica, sans-serif',
           }}>
             Nessun dipendente
           </div>
@@ -528,7 +546,7 @@ export const OrgChartPrintView: React.FC<OrgChartPrintViewProps> = ({
 
   if (!rootNode) {
     return (
-      <div style={{ padding: '40px', textAlign: 'center', color: '#9ca3af' }}>
+      <div style={{ padding: '40px', textAlign: 'center', color: '#9ca3af', fontFamily: 'Arial, Helvetica, sans-serif' }}>
         Nessun organigramma disponibile
       </div>
     );
@@ -544,7 +562,7 @@ export const OrgChartPrintView: React.FC<OrgChartPrintViewProps> = ({
         backgroundColor: '#ffffff', 
         minWidth: '1800px',
         fontFamily: 'Arial, Helvetica, sans-serif',
-        color: '#1f2937', // Explicit text color
+        color: '#1f2937',
       }}
     >
       <Tree

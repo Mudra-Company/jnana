@@ -64,19 +64,22 @@ export const OrgChartExportModal: React.FC<OrgChartExportModalProps> = ({
         );
       });
 
-      // Force layout reflow computation
-      void container.offsetHeight;
-      void container.getBoundingClientRect();
+      // Force multiple layout reflow computations
+      for (let i = 0; i < 3; i++) {
+        void container.offsetHeight;
+        void container.getBoundingClientRect();
+        await new Promise(r => setTimeout(r, 200));
+      }
 
-      // Wait for fonts, images, and Tree component to fully render
-      await new Promise(r => setTimeout(r, 2000));
+      // Wait longer for fonts, images, and Tree component to fully render
+      await new Promise(r => setTimeout(r, 3000));
 
       // Make visible for capture (html2canvas needs visible content)
       container.style.opacity = '1';
       container.style.zIndex = '99999';
 
       // Brief pause for final paint
-      await new Promise(r => setTimeout(r, 200));
+      await new Promise(r => setTimeout(r, 300));
 
       // Generate PDF
       await exportOrgChartToPdf(container, company, options);
