@@ -345,6 +345,198 @@ export type Database = {
           },
         ]
       }
+      company_role_assignments: {
+        Row: {
+          assignment_type: Database["public"]["Enums"]["assignment_type"]
+          company_member_id: string | null
+          created_at: string
+          end_date: string | null
+          fte_percentage: number
+          id: string
+          notes: string | null
+          role_id: string
+          start_date: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          assignment_type?: Database["public"]["Enums"]["assignment_type"]
+          company_member_id?: string | null
+          created_at?: string
+          end_date?: string | null
+          fte_percentage?: number
+          id?: string
+          notes?: string | null
+          role_id: string
+          start_date?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          assignment_type?: Database["public"]["Enums"]["assignment_type"]
+          company_member_id?: string | null
+          created_at?: string
+          end_date?: string | null
+          fte_percentage?: number
+          id?: string
+          notes?: string | null
+          role_id?: string
+          start_date?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_role_assignments_company_member_id_fkey"
+            columns: ["company_member_id"]
+            isOneToOne: false
+            referencedRelation: "company_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "company_role_assignments_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
+            referencedRelation: "company_roles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "company_role_assignments_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      company_roles: {
+        Row: {
+          ccnl_level: string | null
+          code: string | null
+          company_id: string
+          contract_type: Database["public"]["Enums"]["contract_type"] | null
+          created_at: string
+          daily_tasks: Json | null
+          description: string | null
+          headcount: number
+          id: string
+          is_hiring: boolean
+          kpis: Json | null
+          org_node_id: string | null
+          ral_range_max: number | null
+          ral_range_min: number | null
+          remote_policy: Database["public"]["Enums"]["remote_policy"] | null
+          reports_to_role_id: string | null
+          required_certifications: Json | null
+          required_education: Json | null
+          required_hard_skills: Json | null
+          required_languages: Json | null
+          required_seniority:
+            | Database["public"]["Enums"]["seniority_level"]
+            | null
+          required_soft_skills: Json | null
+          responsibilities: Json | null
+          status: Database["public"]["Enums"]["role_status"]
+          title: string
+          updated_at: string
+          work_hours_type: Database["public"]["Enums"]["work_hours_type"] | null
+          years_experience_max: number | null
+          years_experience_min: number | null
+        }
+        Insert: {
+          ccnl_level?: string | null
+          code?: string | null
+          company_id: string
+          contract_type?: Database["public"]["Enums"]["contract_type"] | null
+          created_at?: string
+          daily_tasks?: Json | null
+          description?: string | null
+          headcount?: number
+          id?: string
+          is_hiring?: boolean
+          kpis?: Json | null
+          org_node_id?: string | null
+          ral_range_max?: number | null
+          ral_range_min?: number | null
+          remote_policy?: Database["public"]["Enums"]["remote_policy"] | null
+          reports_to_role_id?: string | null
+          required_certifications?: Json | null
+          required_education?: Json | null
+          required_hard_skills?: Json | null
+          required_languages?: Json | null
+          required_seniority?:
+            | Database["public"]["Enums"]["seniority_level"]
+            | null
+          required_soft_skills?: Json | null
+          responsibilities?: Json | null
+          status?: Database["public"]["Enums"]["role_status"]
+          title: string
+          updated_at?: string
+          work_hours_type?:
+            | Database["public"]["Enums"]["work_hours_type"]
+            | null
+          years_experience_max?: number | null
+          years_experience_min?: number | null
+        }
+        Update: {
+          ccnl_level?: string | null
+          code?: string | null
+          company_id?: string
+          contract_type?: Database["public"]["Enums"]["contract_type"] | null
+          created_at?: string
+          daily_tasks?: Json | null
+          description?: string | null
+          headcount?: number
+          id?: string
+          is_hiring?: boolean
+          kpis?: Json | null
+          org_node_id?: string | null
+          ral_range_max?: number | null
+          ral_range_min?: number | null
+          remote_policy?: Database["public"]["Enums"]["remote_policy"] | null
+          reports_to_role_id?: string | null
+          required_certifications?: Json | null
+          required_education?: Json | null
+          required_hard_skills?: Json | null
+          required_languages?: Json | null
+          required_seniority?:
+            | Database["public"]["Enums"]["seniority_level"]
+            | null
+          required_soft_skills?: Json | null
+          responsibilities?: Json | null
+          status?: Database["public"]["Enums"]["role_status"]
+          title?: string
+          updated_at?: string
+          work_hours_type?:
+            | Database["public"]["Enums"]["work_hours_type"]
+            | null
+          years_experience_max?: number | null
+          years_experience_min?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_roles_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "company_roles_org_node_id_fkey"
+            columns: ["org_node_id"]
+            isOneToOne: false
+            referencedRelation: "org_nodes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "company_roles_reports_to_role_id_fkey"
+            columns: ["reports_to_role_id"]
+            isOneToOne: false
+            referencedRelation: "company_roles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       company_subscriptions: {
         Row: {
           company_id: string
@@ -1697,10 +1889,21 @@ export type Database = {
     }
     Enums: {
       app_role: "super_admin" | "admin" | "user" | "hr"
+      assignment_type: "primary" | "interim" | "backup" | "training"
+      contract_type:
+        | "permanent"
+        | "fixed_term"
+        | "apprenticeship"
+        | "internship"
+        | "freelance"
+        | "consulting"
       gender_type: "M" | "F"
       member_status: "pending" | "invited" | "test_completed" | "completed"
       org_node_type: "root" | "department" | "team"
+      remote_policy: "on_site" | "hybrid" | "remote" | "flexible"
+      role_status: "active" | "vacant" | "frozen" | "planned"
       seniority_level: "Junior" | "Mid" | "Senior" | "Lead" | "C-Level"
+      work_hours_type: "full_time" | "part_time" | "flexible"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1829,10 +2032,22 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["super_admin", "admin", "user", "hr"],
+      assignment_type: ["primary", "interim", "backup", "training"],
+      contract_type: [
+        "permanent",
+        "fixed_term",
+        "apprenticeship",
+        "internship",
+        "freelance",
+        "consulting",
+      ],
       gender_type: ["M", "F"],
       member_status: ["pending", "invited", "test_completed", "completed"],
       org_node_type: ["root", "department", "team"],
+      remote_policy: ["on_site", "hybrid", "remote", "flexible"],
+      role_status: ["active", "vacant", "frozen", "planned"],
       seniority_level: ["Junior", "Mid", "Senior", "Lead", "C-Level"],
+      work_hours_type: ["full_time", "part_time", "flexible"],
     },
   },
 } as const
