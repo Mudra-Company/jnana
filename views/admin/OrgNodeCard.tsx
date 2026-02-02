@@ -12,11 +12,14 @@ import {
   Mail,
   Clock,
   CheckCircle2,
-  Target
+  Target,
+  Briefcase
 } from 'lucide-react';
 import { Card } from '../../components/Card';
 import { OrgNode, User, RequiredProfile } from '../../types';
 import { calculateUserCompatibility } from '../../services/riasecService';
+import { RoleCard } from '../../src/components/roles/RoleCard';
+import type { CompanyRole } from '../../src/types/roles';
 
 // Quick match data for popup
 export interface QuickMatchData {
@@ -66,6 +69,11 @@ interface OrgNodeCardProps {
   companyValues?: string[];
   parentManagers?: User[]; // Changed from parentManager to parentManagers (array)
   allHiringPositions?: User[]; // All open positions in the company
+  // New role-centric props
+  roles?: CompanyRole[];
+  onRoleClick?: (role: CompanyRole) => void;
+  onAddRole?: (nodeId: string) => void;
+  useRoleCentric?: boolean; // Feature flag for role-centric view
 }
 
 // Helper function to find ALL leaders within a node (for Cultural Driver nodes, all users are leaders)
@@ -166,7 +174,12 @@ export const OrgNodeCard: React.FC<OrgNodeCardProps> = ({
   onEmployeeProfileClick,
   companyValues,
   parentManagers = [], // Changed from parentManager to parentManagers
-  allHiringPositions
+  allHiringPositions,
+  // New role-centric props
+  roles = [],
+  onRoleClick,
+  onAddRole,
+  useRoleCentric = false
 }) => {
   // State for showing manager fit breakdown popover
   const [showManagerBreakdown, setShowManagerBreakdown] = useState<string | null>(null);
@@ -307,6 +320,10 @@ export const OrgNodeCard: React.FC<OrgNodeCardProps> = ({
   };
 
   const hiringCount = nodeUsers.filter(u => u.isHiring).length;
+  
+  // Filter roles for this node (role-centric mode)
+  const nodeRoles = roles.filter(r => r.orgNodeId === node.id);
+  const roleHiringCount = nodeRoles.filter(r => r.isHiring).length;
 
   return (
     <Card 
@@ -342,23 +359,37 @@ export const OrgNodeCard: React.FC<OrgNodeCardProps> = ({
               </div>
             )}
             
-            {hiringCount > 0 && (
+            {/* Show hiring count - supports both legacy and role-centric */}
+            {(useRoleCentric ? roleHiringCount : hiringCount) > 0 && (
               <span className="flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
                 <Search size={12} /> 
-                {hiringCount} {hiringCount === 1 ? 'aperta' : 'aperte'}
+                {useRoleCentric ? roleHiringCount : hiringCount} {(useRoleCentric ? roleHiringCount : hiringCount) === 1 ? 'aperta' : 'aperte'}
               </span>
             )}
           </div>
         </div>
         
         <div className="flex gap-1 shrink-0">
-          <button 
-            onClick={() => onInviteUser(node.id)} 
-            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg text-gray-400 hover:text-blue-600 transition-all" 
-            title="Aggiungi/Invita Persona"
-          >
-            <UserPlus size={16}/>
-          </button>
+          {/* Role-centric: Add Role button */}
+          {useRoleCentric && onAddRole && (
+            <button 
+              onClick={() => onAddRole(node.id)} 
+              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg text-gray-400 hover:text-emerald-600 transition-all" 
+              title="Aggiungi Ruolo"
+            >
+              <Briefcase size={16}/>
+            </button>
+          )}
+          {/* Legacy: Add Person button */}
+          {!useRoleCentric && (
+            <button 
+              onClick={() => onInviteUser(node.id)} 
+              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg text-gray-400 hover:text-blue-600 transition-all" 
+              title="Aggiungi/Invita Persona"
+            >
+              <UserPlus size={16}/>
+            </button>
+          )}
           <button 
             onClick={() => onEditNode(node)} 
             className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg text-gray-400 hover:text-indigo-600 transition-all"
@@ -376,9 +407,28 @@ export const OrgNodeCard: React.FC<OrgNodeCardProps> = ({
         </div>
       </div>
 
-      {/* User List */}
+      {/* Content: Roles (role-centric) or Users (legacy) */}
       <div className="space-y-2 max-h-[280px] overflow-y-auto pr-1 custom-scrollbar">
-        {nodeUsers.length > 0 ? (
+        {useRoleCentric ? (
+          // ROLE-CENTRIC VIEW: Show RoleCards
+          nodeRoles.length > 0 ? (
+            nodeRoles.map(role => (
+              <RoleCard
+                key={role.id}
+                role={role}
+                onClick={onRoleClick ? () => onRoleClick(role) : undefined}
+                size="compact"
+              />
+            ))
+          ) : (
+            <div className="text-center py-6 text-sm text-gray-400 italic bg-gray-50/50 dark:bg-gray-800/30 rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-700">
+              <Briefcase size={24} className="mx-auto mb-2 text-gray-300 dark:text-gray-600" />
+              Nessun ruolo definito
+            </div>
+          )
+        ) : (
+          // LEGACY VIEW: Show User cards
+          nodeUsers.length > 0 ? (
           nodeUsers.map(u => {
             const status = getUserStatus(u);
             
@@ -619,6 +669,7 @@ export const OrgNodeCard: React.FC<OrgNodeCardProps> = ({
             <UserPlus size={24} className="mx-auto mb-2 text-gray-300 dark:text-gray-600" />
             Nessun dipendente assegnato
           </div>
+        )
         )}
       </div>
     </Card>
