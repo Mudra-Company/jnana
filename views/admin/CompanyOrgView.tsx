@@ -29,7 +29,8 @@ import {
   MapPin,
   Loader2,
   Award,
-  Download
+  Download,
+  Briefcase
 } from 'lucide-react';
 import { OrgChartExportModal } from '../../src/components/admin/OrgChartExportModal';
 import { Card } from '../../components/Card';
@@ -49,6 +50,12 @@ import { getMatchQuality } from '../../src/utils/matchingEngine';
 import { MatchScorePopover, MatchBreakdown } from '../../src/components/shortlist/MatchScorePopover';
 import { EmployeeProfilePopover } from '../../src/components/shortlist/EmployeeProfilePopover';
 import type { ShortlistUser } from '../../src/types/shortlist';
+
+// Role-centric imports
+import { useCompanyRoles } from '../../src/hooks/useCompanyRoles';
+import { RoleCreationModal } from '../../src/components/roles/RoleCreationModal';
+import { RoleDetailModal } from '../../src/components/roles/RoleDetailModal';
+import type { CompanyRole, CreateRoleInput } from '../../src/types/roles';
 
 const SENIORITY_OPTIONS: SeniorityLevel[] = ['Junior', 'Mid', 'Senior', 'Lead', 'C-Level'];
 const SENIORITY_LEVELS: Record<SeniorityLevel, number> = { 'Junior': 1, 'Mid': 2, 'Senior': 3, 'Lead': 4, 'C-Level': 5 };
@@ -1492,7 +1499,12 @@ const renderOrgTreeChildren = (
     companyValues?: string[],
     parentManagers?: User[], // Changed from parentManager to parentManagers (array)
     onEmployeeProfileClick?: (profileData: EmployeeProfileData) => void,
-    allHiringPositions?: User[]
+    allHiringPositions?: User[],
+    // Role-centric params
+    roles?: CompanyRole[],
+    onRoleClick?: (role: CompanyRole) => void,
+    onAddRole?: (nodeId: string) => void,
+    useRoleCentric?: boolean
 ): React.ReactNode => {
     if (!node.children || node.children.length === 0) return null;
 
@@ -1520,6 +1532,11 @@ const renderOrgTreeChildren = (
                                 companyValues={companyValues}
                                 parentManagers={currentManagers}
                                 allHiringPositions={allHiringPositions}
+                                // Role-centric props
+                                roles={roles}
+                                onRoleClick={onRoleClick}
+                                onAddRole={onAddRole}
+                                useRoleCentric={useRoleCentric}
                             />
                         </div>
                     }
@@ -1534,7 +1551,11 @@ const renderOrgTreeChildren = (
                         companyValues,
                         childManagers,
                         onEmployeeProfileClick,
-                        allHiringPositions
+                        allHiringPositions,
+                        roles,
+                        onRoleClick,
+                        onAddRole,
+                        useRoleCentric
                     )}
                 </TreeNode>
             </React.Fragment>
@@ -1580,12 +1601,77 @@ export const CompanyOrgView: React.FC<{
     // Use the company members hook for DB persistence
     const { createCompanyMember, updateCompanyMember, assignUserToSlot, deleteCompanyMember, isLoading: isSaving } = useCompanyMembers();
     
+    // === ROLE-CENTRIC STATE ===
+    const [useRoleCentric, setUseRoleCentric] = useState(false); // Feature flag for role-centric view
+    const [selectedRole, setSelectedRole] = useState<CompanyRole | null>(null);
+    const [showRoleCreationModal, setShowRoleCreationModal] = useState(false);
+    const [roleCreationNodeId, setRoleCreationNodeId] = useState<string | null>(null);
+    
+    // Use the company roles hook for role management
+    const { 
+        roles, 
+        isLoading: rolesLoading, 
+        fetchRoles, 
+        createRole, 
+        updateRole, 
+        deleteRole,
+        fetchRoleWithAssignments 
+    } = useCompanyRoles();
+    
+    // Fetch roles on mount if role-centric mode is enabled
+    React.useEffect(() => {
+        if (useRoleCentric && company.id) {
+            fetchRoles(company.id);
+        }
+    }, [useRoleCentric, company.id, fetchRoles]);
+    
     // Calculate all hiring positions in the company
     const allHiringPositions = useMemo(() => users.filter(u => u.isHiring), [users]);
 
     // Handle employee profile click from org chart (for regular employees, not hiring positions)
     const handleEmployeeProfileClick = (profileData: EmployeeProfileData) => {
         setEmployeeProfilePopover(profileData);
+    };
+    
+    // Handle role click from org chart (role-centric mode)
+    const handleRoleClick = async (role: CompanyRole) => {
+        // Fetch role with assignments for full details
+        const fullRole = await fetchRoleWithAssignments(role.id);
+        if (fullRole) {
+            setSelectedRole(fullRole);
+        } else {
+            setSelectedRole(role);
+        }
+    };
+    
+    // Handle add role button click
+    const handleAddRole = (nodeId: string) => {
+        setRoleCreationNodeId(nodeId);
+        setShowRoleCreationModal(true);
+    };
+    
+    // Handle role creation
+    const handleCreateRole = async (input: CreateRoleInput) => {
+        const result = await createRole({
+            ...input,
+            companyId: company.id,
+            orgNodeId: roleCreationNodeId || undefined,
+        });
+        
+        if (result.success) {
+            toast({
+                title: "Ruolo creato",
+                description: `Il ruolo "${input.title}" è stato creato con successo`,
+            });
+            setShowRoleCreationModal(false);
+            setRoleCreationNodeId(null);
+        } else {
+            toast({
+                title: "Errore",
+                description: result.error || "Impossibile creare il ruolo",
+                variant: "destructive",
+            });
+        }
     };
 
     // Handle inviting a person to an existing slot (simplified modal)
@@ -1925,6 +2011,19 @@ export const CompanyOrgView: React.FC<{
             <div className="mb-8 text-center">
                  <div className="flex justify-center items-center gap-4 mb-2">
                      <h2 className="text-3xl font-brand font-bold dark:text-gray-100">Organigramma Aziendale</h2>
+                     {/* Role-centric toggle */}
+                     <button 
+                         onClick={() => setUseRoleCentric(!useRoleCentric)}
+                         className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-colors text-sm font-medium border ${
+                             useRoleCentric 
+                                 ? 'bg-emerald-100 text-emerald-700 border-emerald-300 dark:bg-emerald-900/40 dark:text-emerald-300 dark:border-emerald-700' 
+                                 : 'bg-muted text-muted-foreground border-border hover:bg-muted/80'
+                         }`}
+                         title={useRoleCentric ? 'Vista Ruoli attiva' : 'Attiva Vista Ruoli'}
+                     >
+                         <Briefcase size={16} />
+                         {useRoleCentric ? 'Vista Ruoli' : 'Vista Persone'}
+                     </button>
                      <button 
                          onClick={() => setShowExportModal(true)}
                          className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-xl hover:bg-primary/90 transition-colors text-sm font-medium"
@@ -1964,11 +2063,16 @@ export const CompanyOrgView: React.FC<{
                                     companyValues={company.cultureValues}
                                     parentManagers={[]}
                                     allHiringPositions={allHiringPositions}
+                                    // Role-centric props
+                                    roles={roles}
+                                    onRoleClick={handleRoleClick}
+                                    onAddRole={handleAddRole}
+                                    useRoleCentric={useRoleCentric}
                                 />
                             </div>
                         }
                     >
-                        {renderOrgTreeChildren(company.structure, users, handleAddNode, setEditingNode, setInviteNodeId, setSelectedUserForComparison, company.cultureValues, [], handleEmployeeProfileClick, allHiringPositions)}
+                        {renderOrgTreeChildren(company.structure, users, handleAddNode, setEditingNode, setInviteNodeId, setSelectedUserForComparison, company.cultureValues, [], handleEmployeeProfileClick, allHiringPositions, roles, handleRoleClick, handleAddRole, useRoleCentric)}
                     </Tree>
                 </div>
             </div>
@@ -2188,6 +2292,61 @@ export const CompanyOrgView: React.FC<{
                     company={company}
                     users={users}
                     onClose={() => setShowExportModal(false)}
+                />
+            )}
+            {/* Role Creation Modal */}
+            {showRoleCreationModal && (
+                <RoleCreationModal
+                    isOpen={showRoleCreationModal}
+                    onClose={() => {
+                        setShowRoleCreationModal(false);
+                        setRoleCreationNodeId(null);
+                    }}
+                    onSubmit={handleCreateRole}
+                    companyId={company.id}
+                    orgNodeId={roleCreationNodeId || undefined}
+                />
+            )}
+            {/* Role Detail Modal */}
+            {selectedRole && (
+                <RoleDetailModal
+                    isOpen={!!selectedRole}
+                    role={selectedRole}
+                    onClose={() => setSelectedRole(null)}
+                    onEdit={async (updatedRole) => {
+                        const result = await updateRole(selectedRole.id, updatedRole);
+                        if (result.success) {
+                            toast({
+                                title: "Ruolo aggiornato",
+                                description: "Il ruolo è stato modificato con successo",
+                            });
+                            // Refresh the role data
+                            const refreshed = await fetchRoleWithAssignments(selectedRole.id);
+                            if (refreshed) setSelectedRole(refreshed);
+                        } else {
+                            toast({
+                                title: "Errore",
+                                description: result.error || "Impossibile aggiornare il ruolo",
+                                variant: "destructive",
+                            });
+                        }
+                    }}
+                    onDelete={async () => {
+                        const result = await deleteRole(selectedRole.id);
+                        if (result.success) {
+                            toast({
+                                title: "Ruolo eliminato",
+                                description: "Il ruolo è stato rimosso con successo",
+                            });
+                            setSelectedRole(null);
+                        } else {
+                            toast({
+                                title: "Errore",
+                                description: result.error || "Impossibile eliminare il ruolo",
+                                variant: "destructive",
+                            });
+                        }
+                    }}
                 />
             )}
         </div>
