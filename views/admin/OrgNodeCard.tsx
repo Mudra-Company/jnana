@@ -18,8 +18,9 @@ import {
 import { Card } from '../../components/Card';
 import { OrgNode, User, RequiredProfile } from '../../types';
 import { calculateUserCompatibility } from '../../services/riasecService';
-import { RoleCard } from '../../src/components/roles/RoleCard';
+import { UnifiedRolePersonCard } from '../../src/components/roles/UnifiedRolePersonCard';
 import type { CompanyRole } from '../../src/types/roles';
+import type { UnifiedPosition } from '../../src/types/unified-org';
 
 // Quick match data for popup
 export interface QuickMatchData {
@@ -103,6 +104,65 @@ const findNodeManagers = (nodeUsers: User[], node: OrgNode): User[] => {
 const findNodeManager = (nodeUsers: User[], node: OrgNode): User | undefined => {
   const managers = findNodeManagers(nodeUsers, node);
   return managers[0] || nodeUsers.find(u => !u.isHiring && (u.firstName || u.lastName));
+};
+
+// Helper functions for unified position metrics
+const SENIORITY_LEVELS_MAP: Record<string, number> = { 
+  'Junior': 1, 'Mid': 2, 'Senior': 3, 'Lead': 4, 'C-Level': 5 
+};
+
+const calculateRoleFitScore = (role: CompanyRole, assignee: User): number => {
+  const requiredSoftSkills = role.requiredSoftSkills?.map(s => s.name) || [];
+  const userSoftSkills = assignee.karmaData?.softSkills || [];
+  
+  if (requiredSoftSkills.length === 0) return 100;
+  
+  const matches = requiredSoftSkills.filter(reqSkill => 
+    userSoftSkills.some(us => 
+      us.toLowerCase().includes(reqSkill.toLowerCase()) || 
+      reqSkill.toLowerCase().includes(us.toLowerCase())
+    )
+  ).length;
+  
+  let seniorityScore = 100;
+  const reqSeniority = role.requiredSeniority;
+  const userSeniority = assignee.karmaData?.seniorityAssessment;
+  
+  if (reqSeniority && userSeniority) {
+    const reqLevel = SENIORITY_LEVELS_MAP[reqSeniority] || 0;
+    const userLevel = SENIORITY_LEVELS_MAP[userSeniority] || 0;
+    const diff = userLevel - reqLevel;
+    if (diff > 0) seniorityScore = Math.max(0, 100 - (diff * 30));
+    else if (diff < 0) seniorityScore = Math.max(0, 100 + (diff * 15));
+  }
+  
+  const skillScore = (matches / requiredSoftSkills.length) * 100;
+  return Math.round((skillScore * 0.5) + (seniorityScore * 0.5));
+};
+
+const calculateManagerFitAverage = (assignee: User, managers: User[]): number | null => {
+  if (!assignee.profileCode) return null;
+  
+  const scores = managers
+    .filter(m => m.profileCode)
+    .map(m => calculateUserCompatibility(assignee, m));
+  
+  if (scores.length === 0) return null;
+  return Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
+};
+
+const calculateCultureFitScore = (assignee: User, companyValues: string[]): number => {
+  if (!companyValues.length || !assignee.karmaData?.primaryValues?.length) return 0;
+  
+  const matches = assignee.karmaData.primaryValues.filter(pv => 
+    companyValues.some(cv => 
+      cv.toLowerCase().includes(pv.toLowerCase()) || 
+      pv.toLowerCase().includes(cv.toLowerCase())
+    )
+  ).length;
+  
+  const score = Math.round((matches / Math.max(assignee.karmaData.primaryValues.length, 1)) * 100);
+  return Math.min(score, 100);
 };
 
 // Helper to get user status
@@ -410,16 +470,46 @@ export const OrgNodeCard: React.FC<OrgNodeCardProps> = ({
       {/* Content: Roles (role-centric) or Users (legacy) */}
       <div className="space-y-2 max-h-[280px] overflow-y-auto pr-1 custom-scrollbar">
         {useRoleCentric ? (
-          // ROLE-CENTRIC VIEW: Show RoleCards
+          // UNIFIED VIEW: Show UnifiedRolePersonCard for each role
           nodeRoles.length > 0 ? (
-            nodeRoles.map(role => (
-              <RoleCard
-                key={role.id}
-                role={role}
-                onClick={onRoleClick ? () => onRoleClick(role) : undefined}
-                size="compact"
-              />
-            ))
+            nodeRoles.map(role => {
+              // Find the assignee for this role
+              const assignee = role.currentAssignee 
+                ? users.find(u => u.id === role.currentAssignee?.id) || null
+                : null;
+              
+              // Build unified position with quick metrics
+              const metrics = {
+                roleFitScore: assignee ? calculateRoleFitScore(role, assignee) : 0,
+                managerFitScore: assignee && parentManagers.length > 0 
+                  ? calculateManagerFitAverage(assignee, parentManagers) 
+                  : null,
+                cultureFitScore: assignee && companyValues 
+                  ? calculateCultureFitScore(assignee, companyValues) 
+                  : 0,
+                isLeader: !!(assignee?.jobTitle && (
+                  assignee.jobTitle.toLowerCase().includes('head') ||
+                  assignee.jobTitle.toLowerCase().includes('manager') ||
+                  assignee.jobTitle.toLowerCase().includes('lead') ||
+                  assignee.jobTitle.toLowerCase().includes('director')
+                ))
+              };
+              
+              const position: UnifiedPosition = {
+                role,
+                assignee,
+                assignment: role.assignments?.[0] || null,
+                metrics
+              };
+              
+              return (
+                <UnifiedRolePersonCard
+                  key={role.id}
+                  position={position}
+                  onClick={onRoleClick ? () => onRoleClick(role) : undefined}
+                />
+              );
+            })
           ) : (
             <div className="text-center py-6 text-sm text-gray-400 italic bg-gray-50/50 dark:bg-gray-800/30 rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-700">
               <Briefcase size={24} className="mx-auto mb-2 text-gray-300 dark:text-gray-600" />
