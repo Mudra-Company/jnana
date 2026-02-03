@@ -1,363 +1,262 @@
 
 
-# Piano: Evoluzione Architetturale - Da Persone a Ruoli
+# Piano: Organigramma Unificato Ruolo-Persona
 
-## Analisi della Situazione Attuale
+## Problema Attuale
 
-Dopo un'esplorazione approfondita del codebase, ecco come funziona oggi:
+L'implementazione corrente separa le informazioni in due viste distinte ("Vista Persone" vs "Vista Ruoli"), rendendo difficile avere una visione d'insieme. Inoltre, il popover attuale mostra solo informazioni limitate sulla persona, senza contesto sul ruolo.
 
-### Struttura Dati Attuale
+## Obiettivo
 
-```
-company_members (tabella ibrida persona-ruolo)
-├── user_id (persona assegnata - nullable)
-├── job_title (titolo del ruolo)
-├── required_profile (competenze richieste: JSONB)
-│   ├── hardSkills
-│   ├── softSkills
-│   └── seniority
-├── is_hiring (segnaposto per posizioni aperte)
-├── department_id (nodo organigramma)
-└── placeholder_* (dati temporanei pre-assegnazione)
-```
-
-### Problema Concettuale
-
-Oggi `company_members` mescola due concetti distinti:
-- **La posizione/ruolo** (cosa l'azienda ha bisogno)
-- **La persona** (chi la occupa)
-
-Questo crea confusione quando:
-- Si vuole definire l'organigramma PRIMA di avere le persone
-- Si vogliono gestire mansionari, inquadramenti, sostituzioni
-- Una stessa persona può coprire più ruoli (ad interim)
-- Un ruolo può essere coperto a rotazione
+Creare un **unico organigramma** dove:
+1. Ogni card mostra chiaramente il **RUOLO** (entità primaria) con la **PERSONA** assegnata
+2. Al click, si apre una **modale completa** con tutte le informazioni organizzate in modo logico
 
 ---
 
-## Nuova Architettura Proposta
+## Design della Soluzione
 
-### Cambio di Paradigma
+### 1. Card Unificata nell'Organigramma
 
-**Prima (attuale)**: Persona → ha un Ruolo
-**Dopo (proposta)**: Ruolo → può avere una Persona assegnata
+Nuova struttura visiva per ogni posizione:
 
-### Nuove Entità
-
-```
-company_roles (NUOVA - entità primaria)
-├── id
-├── company_id
-├── org_node_id (dipartimento/team)
-├── title (nome del ruolo, es. "Senior Developer")
-├── code (codice interno, es. "DEV-SR-001")
-├── description (descrizione estesa del ruolo)
-│
-├── -- MANSIONARIO --
-├── responsibilities (JSONB: lista di responsabilità)
-├── daily_tasks (JSONB: attività quotidiane tipiche)
-├── kpis (JSONB: indicatori di performance)
-│
-├── -- REQUISITI COMPETENZE --
-├── required_hard_skills (JSONB: [{skill, level, mandatory}])
-├── required_soft_skills (JSONB: [{skill, importance}])
-├── required_seniority
-├── required_education (JSONB: [{degree, field, mandatory}])
-├── required_certifications (JSONB: array)
-├── required_languages (JSONB: [{lang, level}])
-├── years_experience_min
-├── years_experience_max
-│
-├── -- INQUADRAMENTO CONTRATTUALE --
-├── ccnl_level (livello CCNL, es. "Quadro", "Impiegato 3°")
-├── ral_range_min (RAL minima)
-├── ral_range_max (RAL massima)
-├── contract_type (Indeterminato, Determinato, etc.)
-├── work_hours_type (Full-time, Part-time, Flexible)
-├── remote_policy (On-site, Hybrid, Remote)
-│
-├── -- RELAZIONI GERARCHICHE --
-├── reports_to_role_id (ruolo superiore diretto)
-├── manages_roles (array di ruoli subordinati)
-│
-├── -- STATO --
-├── status (active, vacant, frozen, planned)
-├── headcount (numero di persone per questo ruolo, default 1)
-├── is_hiring (sta cercando attivamente)
-│
-├── created_at
-└── updated_at
-
-company_role_assignments (NUOVA - associazione persona-ruolo)
-├── id
-├── role_id (FK → company_roles)
-├── user_id (FK → profiles) - nullable per slot vuoti
-├── company_member_id (FK → company_members per retrocompatibilità)
-├── assignment_type (primary, interim, backup, training)
-├── start_date
-├── end_date (null = corrente)
-├── fte_percentage (100% default, può essere 50% etc.)
-├── notes
-├── created_at
-└── updated_at
+```text
+┌──────────────────────────────────────────┐
+│  📋 TITOLO RUOLO          [HIRING/BADGE] │
+│  Codice: DEV-SR-001                      │
+├──────────────────────────────────────────┤
+│  👤 Marco Rossi           I-A-R          │
+│     CEO                                  │
+│  📊 Fit 85%   👥 Mgr 75%   🏢 Cultura 0% │
+│                              ★ LEADER    │
+└──────────────────────────────────────────┘
 ```
 
-### Migrazione di company_members
+**Elementi visibili nella card:**
+- **RUOLO**: Titolo (primario), codice, stato (hiring/vacant)
+- **PERSONA**: Nome, avatar, codice RIASEC
+- **Metriche rapide**: Fit ruolo %, Fit manager %, Fit culturale %, Badge Leader
 
-La tabella `company_members` rimane ma cambia significato:
-- Diventa il "contratto" della persona con l'azienda
-- Mantiene: user_id, company_id, role (admin/user/hr), status, invited_at, joined_at
-- Rimuove (migra a company_roles): job_title, required_profile, department_id, is_hiring
+### 2. Modale Dettagliata Unificata
 
----
+Quando l'utente clicca sulla card, si apre una modale completa con **due macro-sezioni**:
 
-## Impatto sulla UI
-
-### Organigramma - Nuovo Flusso
-
-1. **Creazione Ruolo** (non più "Aggiungi Persona")
-   - Apro modale "Nuovo Ruolo"
-   - Definisco: Titolo, Descrizione, Mansionario
-   - Definisco: Requisiti (skills, seniority, education)
-   - Definisco: Inquadramento (CCNL, RAL, contratto)
-   - Il ruolo appare nell'organigramma come "Da assegnare"
-
-2. **Assegnazione Persona al Ruolo**
-   - Clicco sul ruolo → Modale dettaglio ruolo
-   - Sezione "Assegna Persona":
-     - Cerca tra dipendenti esistenti
-     - Invita nuova persona
-     - Cerca tra candidati Karma
-
-3. **Vista Ruolo nell'Organigramma**
-   - Card mostra RUOLO come entità primaria
-   - Persona assegnata (se presente) come attributo secondario
-   - Badge: HIRING, VACANT, INTERIM, etc.
-
-### Nuovo Componente: RoleDetailModal
-
-```
-┌─────────────────────────────────────────────┐
-│  🎯 Senior Frontend Developer               │
-│  Codice: DEV-SR-001 | Team: Engineering     │
-├─────────────────────────────────────────────┤
-│                                              │
-│  👤 PERSONA ASSEGNATA                        │
-│  ┌─────────────────────────────────────┐    │
-│  │ 👤 Marco Rossi                      │    │
-│  │ Assegnato dal: 01/03/2024           │    │
-│  │ Tipo: Primary (100% FTE)            │    │
-│  │ Fit con ruolo: 85%                  │    │
-│  └─────────────────────────────────────┘    │
-│                                              │
-│  📋 MANSIONARIO                              │
-│  • Sviluppo frontend React/TypeScript        │
-│  • Code review e mentoring junior            │
-│  • Architettura componenti UI                │
-│  • Collaborazione con UX team                │
-│                                              │
-│  🎓 REQUISITI                                │
-│  Hard Skills: React, TypeScript, Testing     │
-│  Soft Skills: Leadership, Problem Solving    │
-│  Seniority: Senior (3-5 anni)                │
-│  Certificazioni: AWS preferibile             │
-│                                              │
-│  💼 INQUADRAMENTO                            │
-│  CCNL: Metalmeccanico - Livello 6°           │
-│  RAL: €45.000 - €55.000                      │
-│  Contratto: Indeterminato                    │
-│  Modalità: Hybrid (3gg ufficio)              │
-│                                              │
-│  📊 STORICO ASSEGNAZIONI                     │
-│  • Luca Bianchi (2022-2024) - Promosso       │
-│  • [Vacant] (2024) - 3 mesi                  │
-│  • Marco Rossi (2024-oggi) - Current         │
-│                                              │
-├─────────────────────────────────────────────┤
-│ [Modifica Ruolo] [Gestisci Assegnazione]    │
-└─────────────────────────────────────────────┘
+```text
+┌─────────────────────────────────────────────────────┐
+│  🎯 Senior Frontend Developer                   ✕   │
+│  Marco Rossi • I-A-R • LEADER                       │
+├─────────────────────────────────────────────────────┤
+│  [Persona] [Ruolo] [Requisiti] [Contratto] [Storia] │
+├─────────────────────────────────────────────────────┤
+│                                                     │
+│  TAB PERSONA:                                       │
+│  ┌─────────────────────────────────────────────┐   │
+│  │ FIT CON IL RUOLO                            │   │
+│  │ Aderenza: ████████████░░░░ 85%              │   │
+│  │ Soft Skills: ✓Leadership ✓Problem Solving   │   │
+│  │              ✗Negoziazione                  │   │
+│  │ Seniority: Senior → Senior (Match)         │   │
+│  └─────────────────────────────────────────────┘   │
+│  ┌─────────────────────────────────────────────┐   │
+│  │ COMPATIBILITÀ RESPONSABILI                  │   │
+│  │ Media: ████████████████░░ 75%               │   │
+│  │ • Carlotta S. (CEO): 75%                   │   │
+│  │ • Diego B.: N/A (profilo incompleto)       │   │
+│  └─────────────────────────────────────────────┘   │
+│  ┌─────────────────────────────────────────────┐   │
+│  │ FIT CULTURALE                               │   │
+│  │ Allineamento: ░░░░░░░░░░░░░░░░░░ 0%        │   │
+│  │ Valori: Innovazione, Eccellenza, Teamwork  │   │
+│  └─────────────────────────────────────────────┘   │
+│  ┌─────────────────────────────────────────────┐   │
+│  │ HARD SKILLS                                 │   │
+│  │ React ★★★★★ Esperto                         │   │
+│  │ TypeScript ★★★★☆ Avanzato                   │   │
+│  └─────────────────────────────────────────────┘   │
+│                                                     │
+│  TAB RUOLO (Mansionario):                           │
+│  • Responsabilità del ruolo                         │
+│  • Attività quotidiane                              │
+│  • KPI e obiettivi                                  │
+│                                                     │
+│  TAB REQUISITI:                                     │
+│  • Hard Skills richieste                            │
+│  • Soft Skills richieste                            │
+│  • Seniority, esperienza, formazione                │
+│                                                     │
+│  TAB CONTRATTO:                                     │
+│  • Tipo contratto, orario, CCNL                     │
+│  • Range RAL, modalità lavoro                       │
+│                                                     │
+│  TAB STORIA:                                        │
+│  • Chi ha ricoperto questo ruolo nel tempo          │
+│                                                     │
+├─────────────────────────────────────────────────────┤
+│  [Modifica Ruolo] [Visualizza Profilo] [Rotazione] │
+└─────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Piano di Implementazione (Fasi)
+## Architettura Informativa
 
-### Fase 1: Schema Database (Migrazione)
+### Informazioni RUOLO (dalla tabella `company_roles`)
+| Sezione | Dati |
+|---------|------|
+| **Base** | Titolo, Codice, Descrizione, Stato |
+| **Mansionario** | Responsabilità, Tasks quotidiani, KPI |
+| **Requisiti** | Hard/Soft skills, Seniority, Formazione, Certificazioni |
+| **Contratto** | CCNL, RAL, Tipo contratto, Orario, Remote policy |
+| **Gerarchia** | Reports to, Headcount |
 
-1. **Creare nuove tabelle**
-   - `company_roles` con tutti i campi del mansionario
-   - `company_role_assignments` per le associazioni
-   - Enum per stati, tipi contratto, policy remote
+### Informazioni PERSONA (calcolate live da `profiles` + `karma_sessions`)
+| Sezione | Dati |
+|---------|------|
+| **Anagrafica** | Nome, Avatar, Codice RIASEC, Generazione |
+| **Fit Ruolo** | Match score, Skills matched/gaps, Seniority comparison |
+| **Fit Manager** | Compatibilità con ciascun responsabile (breakdown) |
+| **Fit Culturale** | Allineamento valori aziendali |
+| **Competenze** | Hard skills con livello, Soft skills |
 
-2. **Migrare dati esistenti**
-   - Ogni `company_members` con `job_title` diventa un `company_roles`
-   - Creare `company_role_assignments` per persone assegnate
-   - Mantenere riferimenti per retrocompatibilità
+---
 
-3. **RLS Policies**
-   - Stesse regole di company_members
-   - Admins/HR possono gestire ruoli
-   - Users possono vedere ruoli del proprio team
+## Implementazione Tecnica
 
-### Fase 2: TypeScript Types
+### File da Modificare/Creare
+
+1. **`src/components/roles/UnifiedRolePersonCard.tsx`** (NUOVO)
+   - Card che mostra Ruolo + Persona + Metriche rapide
+   - Sostituisce sia le card utente attuali che le RoleCard
+
+2. **`src/components/roles/UnifiedDetailModal.tsx`** (NUOVO)
+   - Modale con 5 tabs: Persona, Ruolo, Requisiti, Contratto, Storia
+   - Integra logica di EmployeeProfilePopover + RoleDetailModal
+
+3. **`views/admin/OrgNodeCard.tsx`** (MODIFICA)
+   - Rimuovere logica `useRoleCentric` (toggle)
+   - Usare sempre `UnifiedRolePersonCard`
+   - Passare sia dati ruolo che dati persona
+
+4. **`views/admin/CompanyOrgView.tsx`** (MODIFICA)
+   - Rimuovere toggle "Vista Persone"/"Vista Ruoli"
+   - Usare `UnifiedDetailModal` invece di popover separati
+   - Unificare la gestione click
+
+5. **`src/hooks/useUnifiedOrgData.ts`** (NUOVO)
+   - Hook che combina ruoli + assegnazioni + calcoli metriche
+   - Prepara i dati per la vista unificata
+
+### Logica di Binding Dati
+
+Per ogni nodo dell'organigramma:
 
 ```typescript
-interface CompanyRole {
-  id: string;
-  companyId: string;
-  orgNodeId: string;
-  title: string;
-  code?: string;
-  description?: string;
+interface UnifiedPosition {
+  // RUOLO
+  role: CompanyRole;
   
-  // Mansionario
-  responsibilities?: string[];
-  dailyTasks?: string[];
-  kpis?: string[];
+  // PERSONA (opzionale - può essere vacante)
+  assignee?: User;
+  assignment?: RoleAssignment;
   
-  // Requisiti
-  requiredHardSkills?: RequiredSkill[];
-  requiredSoftSkills?: RequiredSkill[];
-  requiredSeniority?: SeniorityLevel;
-  requiredEducation?: EducationRequirement[];
-  requiredCertifications?: string[];
-  requiredLanguages?: LanguageRequirement[];
-  yearsExperienceMin?: number;
-  yearsExperienceMax?: number;
-  
-  // Inquadramento
-  ccnlLevel?: string;
-  ralRangeMin?: number;
-  ralRangeMax?: number;
-  contractType?: ContractType;
-  workHoursType?: WorkHoursType;
-  remotePolicy?: RemotePolicy;
-  
-  // Gerarchie
-  reportsToRoleId?: string;
-  
-  // Stato
-  status: 'active' | 'vacant' | 'frozen' | 'planned';
-  headcount: number;
-  isHiring: boolean;
-  
-  // Meta
-  createdAt: string;
-  updatedAt: string;
-  
-  // Relazioni (populated)
-  assignments?: RoleAssignment[];
-  currentAssignee?: User;
-}
-
-interface RoleAssignment {
-  id: string;
-  roleId: string;
-  userId?: string;
-  assignmentType: 'primary' | 'interim' | 'backup' | 'training';
-  startDate: string;
-  endDate?: string;
-  ftePercentage: number;
-  notes?: string;
-  
-  // Populated
-  user?: User;
+  // METRICHE CALCOLATE (per card preview)
+  metrics: {
+    roleFitScore: number;
+    managerFitScore: number | null;
+    cultureFitScore: number;
+    isLeader: boolean;
+  };
 }
 ```
 
-### Fase 3: Nuovi Hooks
+### Flusso Dati
 
-- `useCompanyRoles(companyId)` - CRUD ruoli
-- `useRoleAssignments(roleId)` - Gestione assegnazioni
-- `useRoleHistory(roleId)` - Storico assegnazioni
-- Refactoring di `useCompanyMembers` per nuova struttura
-
-### Fase 4: Componenti UI
-
-1. **RoleCreationModal** - Wizard creazione ruolo con sezioni:
-   - Info base (titolo, codice, descrizione)
-   - Mansionario (responsabilità, tasks, KPI)
-   - Requisiti (skills, seniority, education)
-   - Inquadramento (CCNL, RAL, contratto)
-
-2. **RoleDetailModal** - Vista completa ruolo con:
-   - Header con persona assegnata (se presente)
-   - Tabs: Mansionario | Requisiti | Inquadramento | Storico
-
-3. **RoleAssignmentModal** - Assegnazione persona:
-   - Ricerca dipendenti interni
-   - Match score con requisiti
-   - Tipo assegnazione (primary/interim/backup)
-   - Percentuale FTE
-
-4. **OrgNodeCard** - Aggiornato per mostrare ruoli:
-   - Lista ruoli invece che lista persone
-   - Ogni ruolo mostra la persona assegnata (se presente)
-   - Badge stato: ACTIVE, VACANT, HIRING, INTERIM
-
-### Fase 5: Integrazione CCNL
-
-- Collegare `ccnlLevel` ai CCNL già configurati in `company_ccnl_selections`
-- Auto-suggest livelli in base al CCNL selezionato
-- Validazione RAL rispetto ai minimi contrattuali
+```text
+company_roles (DB)
+      │
+      ├──► useCompanyRoles() ──► Ruoli per company
+      │
+company_role_assignments (DB)
+      │
+      ├──► useRoleAssignments() ──► Assegnazioni attive
+      │
+profiles + karma_sessions (DB)
+      │
+      ├──► useProfiles() ──► Dati persona + Karma
+      │
+      ▼
+useUnifiedOrgData() ──► UnifiedPosition[] per ogni nodo
+      │
+      ▼
+OrgNodeCard ──► [UnifiedRolePersonCard, ...]
+      │
+      (click)
+      ▼
+UnifiedDetailModal ──► Tabs con tutte le info
+```
 
 ---
 
-## Vantaggi di questa Architettura
+## Migrazione Graduale
+
+### Fase 1: Componenti Base
+- Creare `UnifiedRolePersonCard` (card unificata)
+- Creare `UnifiedDetailModal` (modale completa)
+
+### Fase 2: Integrazione
+- Modificare `OrgNodeCard` per usare i nuovi componenti
+- Rimuovere toggle da `CompanyOrgView`
+- Creare `useUnifiedOrgData` per preparare i dati
+
+### Fase 3: Pulizia
+- Rimuovere codice legacy (popover separati, RoleCard isolata)
+- Aggiornare i tipi TypeScript
+
+---
+
+## Vantaggi della Nuova Architettura
 
 | Aspetto | Prima | Dopo |
 |---------|-------|------|
-| Modellazione | Persona-centrica | Ruolo-centrica |
-| Organigramma vuoto | Impossibile | Definibile prima di assumere |
-| Mansionario | Non esistente | Strutturato e ricercabile |
-| Inquadramento | Non tracciato | CCNL, RAL, contratto |
-| Storico | Nessuno | Chi ha ricoperto il ruolo |
-| Copertura multipla | Workaround | Interim, backup nativi |
-| FTE parziale | Non supportato | % configurabile |
-| Compliance | Manuale | Automatica con CCNL |
+| Viste | 2 separate (toggle) | 1 unificata |
+| Info visibili | Solo persona O solo ruolo | Entrambi sempre |
+| Click → Info | Popover piccolo | Modale completa |
+| Contesto lavoro | Assente | Mansionario, CCNL, RAL |
+| Contesto persona | Limitato | Fit, compatibilità, skills |
+| Navigazione | Confusa | Lineare e intuitiva |
 
 ---
 
-## File da Creare/Modificare
+## Struttura Tabs della Modale
 
-### Nuovi File
-- `src/types/roles.ts` - Tipi per ruoli e assegnazioni
-- `src/hooks/useCompanyRoles.ts` - CRUD ruoli
-- `src/hooks/useRoleAssignments.ts` - Gestione assegnazioni
-- `src/components/roles/RoleCreationModal.tsx` - Wizard creazione
-- `src/components/roles/RoleDetailModal.tsx` - Vista dettaglio
-- `src/components/roles/RoleAssignmentModal.tsx` - Assegnazione
-- `src/components/roles/RoleCard.tsx` - Card per organigramma
+### Tab "Persona" (Default per ruoli assegnati)
+- Fit con il ruolo (score + breakdown skills)
+- Compatibilità responsabili (media + breakdown per manager)
+- Fit culturale (allineamento valori)
+- Hard Skills del dipendente
 
-### File da Modificare
-- `views/admin/CompanyOrgView.tsx` - Integrare nuova logica ruoli
-- `views/admin/OrgNodeCard.tsx` - Mostrare ruoli invece che persone
-- `types.ts` - Aggiungere tipi ruoli
-- `App.tsx` - Nuovi view states per gestione ruoli
+### Tab "Ruolo" (Mansionario)
+- Descrizione del ruolo
+- Responsabilità
+- Attività quotidiane
+- KPI e obiettivi
 
-### Migrazioni Database
-- Creazione tabelle `company_roles` e `company_role_assignments`
-- Migrazione dati da `company_members`
-- Nuove RLS policies
+### Tab "Requisiti"
+- Hard Skills richieste (con livello e mandatory)
+- Soft Skills richieste
+- Seniority ed esperienza
+- Formazione e certificazioni
+- Lingue
 
----
+### Tab "Contratto" (Inquadramento)
+- Tipo contratto
+- Orario (full/part-time)
+- Livello CCNL
+- Range RAL
+- Modalità lavoro (on-site/hybrid/remote)
 
-## Retrocompatibilità
-
-Per non rompere il sistema esistente:
-
-1. **Fase transitoria**: `company_members` continua a funzionare
-2. **Sincronizzazione**: I nuovi ruoli sincronizzano con company_members
-3. **Feature flag**: Nuova UI attivabile gradualmente
-4. **Migrazione dati**: Script per convertire dati esistenti
-
----
-
-## Domanda per te
-
-Prima di procedere con l'implementazione, vorrei confermare:
-
-1. **Priorità**: Vuoi iniziare dalla struttura database o dalla UI?
-2. **Gradualità**: Preferisci un rilascio incrementale o un big-bang?
-3. **CCNL Integration**: Quanto profonda deve essere l'integrazione con i livelli contrattuali?
+### Tab "Storia"
+- Timeline delle assegnazioni
+- Chi ha ricoperto il ruolo
+- Date di inizio/fine
 
