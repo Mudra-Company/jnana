@@ -6,3 +6,5 @@ export { RoleCard } from './RoleCard';
 export { RoleStatusBadge } from './RoleStatusBadge';
 export { RoleDetailModal } from './RoleDetailModal';
 export { RoleCreationModal } from './RoleCreationModal';
+export { UnifiedRolePersonCard } from './UnifiedRolePersonCard';
+export { UnifiedDetailModal } from './UnifiedDetailModal';

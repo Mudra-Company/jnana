@@ -55,7 +55,9 @@ import type { ShortlistUser } from '../../src/types/shortlist';
 import { useCompanyRoles } from '../../src/hooks/useCompanyRoles';
 import { RoleCreationModal } from '../../src/components/roles/RoleCreationModal';
 import { RoleDetailModal } from '../../src/components/roles/RoleDetailModal';
+import { UnifiedDetailModal } from '../../src/components/roles/UnifiedDetailModal';
 import type { CompanyRole, CreateRoleInput } from '../../src/types/roles';
+import type { UnifiedPosition } from '../../src/types/unified-org';
 
 const SENIORITY_OPTIONS: SeniorityLevel[] = ['Junior', 'Mid', 'Senior', 'Lead', 'C-Level'];
 const SENIORITY_LEVELS: Record<SeniorityLevel, number> = { 'Junior': 1, 'Mid': 2, 'Senior': 3, 'Lead': 4, 'C-Level': 5 };
