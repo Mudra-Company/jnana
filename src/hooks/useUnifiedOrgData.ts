@@ -26,6 +26,18 @@ interface UseUnifiedOrgDataResult {
     companyValues?: string[],
     parentManagers?: User[]
   ) => UnifiedPosition[];
+  buildLegacyPositions: (
+    users: User[], 
+    companyValues?: string[],
+    parentManagers?: User[]
+  ) => UnifiedPosition[];
+  buildMergedPositions: (
+    roles: CompanyRole[], 
+    users: User[], 
+    nodeId: string,
+    companyValues?: string[],
+    parentManagers?: User[]
+  ) => UnifiedPosition[];
   calculateDetailedMetrics: (
     role: CompanyRole, 
     assignee: User | null, 
@@ -290,6 +302,99 @@ export const useUnifiedOrgData = (): UseUnifiedOrgDataResult => {
   }, [calculateQuickMetrics]);
 
   /**
+   * Build legacy positions from users without explicit roles
+   * Creates "implicit roles" based on job_title
+   */
+  const buildLegacyPositions = useCallback((
+    users: User[],
+    companyValues?: string[],
+    parentManagers?: User[]
+  ): UnifiedPosition[] => {
+    return users.map(user => {
+      // Create an implicit role from the user's job_title
+      const implicitRole: CompanyRole = {
+        id: `implicit-${user.id}`,
+        companyId: user.companyId || '',
+        orgNodeId: user.departmentId,
+        title: user.jobTitle || 'Posizione',
+        code: undefined,
+        description: undefined,
+        responsibilities: undefined,
+        dailyTasks: undefined,
+        kpis: undefined,
+        requiredHardSkills: user.requiredProfile?.hardSkills?.map(s => ({ name: s })),
+        requiredSoftSkills: user.requiredProfile?.softSkills?.map(s => ({ name: s })),
+        requiredSeniority: user.requiredProfile?.seniority as SeniorityLevel || null,
+        requiredEducation: undefined,
+        requiredCertifications: undefined,
+        requiredLanguages: undefined,
+        yearsExperienceMin: null,
+        yearsExperienceMax: null,
+        ccnlLevel: null,
+        ralRangeMin: null,
+        ralRangeMax: null,
+        contractType: null,
+        workHoursType: undefined,
+        remotePolicy: undefined,
+        reportsToRoleId: null,
+        status: user.isHiring ? 'vacant' : 'active',
+        headcount: 1,
+        isHiring: user.isHiring || false,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        currentAssignee: user.isHiring ? null : user
+      };
+
+      // Calculate metrics
+      const assignee = user.isHiring ? null : user;
+      const metrics = calculateQuickMetrics(implicitRole, assignee, companyValues, parentManagers);
+
+      return {
+        role: implicitRole,
+        assignee,
+        assignment: null,
+        metrics
+      };
+    });
+  }, [calculateQuickMetrics]);
+
+  /**
+   * Build merged positions: combines explicit roles with legacy users
+   */
+  const buildMergedPositions = useCallback((
+    roles: CompanyRole[],
+    users: User[],
+    nodeId: string,
+    companyValues?: string[],
+    parentManagers?: User[]
+  ): UnifiedPosition[] => {
+    const nodeRoles = roles.filter(r => r.orgNodeId === nodeId);
+    const nodeUsers = users.filter(u => u.departmentId === nodeId);
+    
+    if (nodeRoles.length > 0) {
+      const rolePositions = buildUnifiedPositions(nodeRoles, users, companyValues, parentManagers);
+      
+      const assignedUserIds = new Set(
+        nodeRoles
+          .filter(r => r.currentAssignee?.id)
+          .map(r => r.currentAssignee!.id)
+      );
+      
+      const unassignedUsers = nodeUsers.filter(u => 
+        !assignedUserIds.has(u.id) && 
+        !u.isHiring && 
+        (u.firstName || u.lastName)
+      );
+      
+      const legacyPositions = buildLegacyPositions(unassignedUsers, companyValues, parentManagers);
+      
+      return [...rolePositions, ...legacyPositions];
+    }
+    
+    return buildLegacyPositions(nodeUsers, companyValues, parentManagers);
+  }, [buildUnifiedPositions, buildLegacyPositions]);
+
+  /**
    * Fetch assignment history for a role
    */
   const fetchAssignmentHistory = useCallback(async (roleId: string): Promise<AssignmentHistoryEntry[]> => {
@@ -368,6 +473,8 @@ export const useUnifiedOrgData = (): UseUnifiedOrgDataResult => {
     isLoading,
     error,
     buildUnifiedPositions,
+    buildLegacyPositions,
+    buildMergedPositions,
     calculateDetailedMetrics,
     fetchAssignmentHistory,
     fetchUserHardSkills

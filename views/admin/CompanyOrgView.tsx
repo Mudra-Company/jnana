@@ -1497,16 +1497,13 @@ const renderOrgTreeChildren = (
     onAddNode: (parentId: string, type: 'department' | 'team') => void,
     onEditNode: (node: OrgNode) => void,
     onInviteUser: (nodeId: string) => void,
-    onSelectUserForComparison: (user: User) => void,
+    onPositionClick: (position: UnifiedPosition) => void,
     companyValues?: string[],
     parentManagers?: User[], // Changed from parentManager to parentManagers (array)
-    onEmployeeProfileClick?: (profileData: EmployeeProfileData) => void,
     allHiringPositions?: User[],
     // Role-centric params
     roles?: CompanyRole[],
-    onRoleClick?: (role: CompanyRole) => void,
-    onAddRole?: (nodeId: string) => void,
-    useRoleCentric?: boolean
+    onAddRole?: (nodeId: string) => void
 ): React.ReactNode => {
     if (!node.children || node.children.length === 0) return null;
 
@@ -1529,16 +1526,13 @@ const renderOrgTreeChildren = (
                                 onAddNode={onAddNode}
                                 onEditNode={onEditNode}
                                 onInviteUser={onInviteUser}
-                                onSelectUserForComparison={onSelectUserForComparison}
-                                onEmployeeProfileClick={onEmployeeProfileClick}
+                                onPositionClick={onPositionClick}
                                 companyValues={companyValues}
                                 parentManagers={currentManagers}
                                 allHiringPositions={allHiringPositions}
                                 // Role-centric props
                                 roles={roles}
-                                onRoleClick={onRoleClick}
                                 onAddRole={onAddRole}
-                                useRoleCentric={useRoleCentric}
                             />
                         </div>
                     }
@@ -1549,15 +1543,12 @@ const renderOrgTreeChildren = (
                         onAddNode,
                         onEditNode,
                         onInviteUser,
-                        onSelectUserForComparison,
+                        onPositionClick,
                         companyValues,
                         childManagers,
-                        onEmployeeProfileClick,
                         allHiringPositions,
                         roles,
-                        onRoleClick,
-                        onAddRole,
-                        useRoleCentric
+                        onAddRole
                     )}
                 </TreeNode>
             </React.Fragment>
@@ -1604,10 +1595,12 @@ export const CompanyOrgView: React.FC<{
     const { createCompanyMember, updateCompanyMember, assignUserToSlot, deleteCompanyMember, isLoading: isSaving } = useCompanyMembers();
     
     // === ROLE-CENTRIC STATE ===
-    const [useRoleCentric, setUseRoleCentric] = useState(false); // Feature flag for role-centric view
     const [selectedRole, setSelectedRole] = useState<CompanyRole | null>(null);
     const [showRoleCreationModal, setShowRoleCreationModal] = useState(false);
     const [roleCreationNodeId, setRoleCreationNodeId] = useState<string | null>(null);
+    
+    // Unified position for the new modal
+    const [selectedUnifiedPosition, setSelectedUnifiedPosition] = useState<UnifiedPosition | null>(null);
     
     // Use the company roles hook for role management
     const { 
@@ -1622,10 +1615,10 @@ export const CompanyOrgView: React.FC<{
     
     // Fetch roles on mount if role-centric mode is enabled
     React.useEffect(() => {
-        if (useRoleCentric && company.id) {
+        if (company.id) {
             fetchRoles(company.id);
         }
-    }, [useRoleCentric, company.id, fetchRoles]);
+    }, [company.id, fetchRoles]);
     
     // Calculate all hiring positions in the company
     const allHiringPositions = useMemo(() => users.filter(u => u.isHiring), [users]);
@@ -1635,15 +1628,17 @@ export const CompanyOrgView: React.FC<{
         setEmployeeProfilePopover(profileData);
     };
     
-    // Handle role click from org chart (role-centric mode)
-    const handleRoleClick = async (role: CompanyRole) => {
-        // Fetch role with assignments for full details
-        const fullRole = await fetchRoleWithAssignments(role.id);
-        if (fullRole) {
-            setSelectedRole(fullRole);
-        } else {
-            setSelectedRole(role);
+    // Handle unified position click from org chart
+    const handlePositionClick = async (position: UnifiedPosition) => {
+        // For explicit roles (not implicit), fetch full details
+        if (!position.role.id.startsWith('implicit-')) {
+            const fullRole = await fetchRoleWithAssignments(position.role.id);
+            if (fullRole) {
+                setSelectedUnifiedPosition({ ...position, role: fullRole });
+                return;
+            }
         }
+        setSelectedUnifiedPosition(position);
     };
     
     // Handle add role button click
@@ -2013,19 +2008,6 @@ export const CompanyOrgView: React.FC<{
             <div className="mb-8 text-center">
                  <div className="flex justify-center items-center gap-4 mb-2">
                      <h2 className="text-3xl font-brand font-bold dark:text-gray-100">Organigramma Aziendale</h2>
-                     {/* Role-centric toggle */}
-                     <button 
-                         onClick={() => setUseRoleCentric(!useRoleCentric)}
-                         className={`flex items-center gap-2 px-4 py-2 rounded-xl transition-colors text-sm font-medium border ${
-                             useRoleCentric 
-                                 ? 'bg-emerald-100 text-emerald-700 border-emerald-300 dark:bg-emerald-900/40 dark:text-emerald-300 dark:border-emerald-700' 
-                                 : 'bg-muted text-muted-foreground border-border hover:bg-muted/80'
-                         }`}
-                         title={useRoleCentric ? 'Vista Ruoli attiva' : 'Attiva Vista Ruoli'}
-                     >
-                         <Briefcase size={16} />
-                         {useRoleCentric ? 'Vista Ruoli' : 'Vista Persone'}
-                     </button>
                      <button 
                          onClick={() => setShowExportModal(true)}
                          className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-xl hover:bg-primary/90 transition-colors text-sm font-medium"
@@ -2060,21 +2042,18 @@ export const CompanyOrgView: React.FC<{
                                     onAddNode={handleAddNode}
                                     onEditNode={setEditingNode}
                                     onInviteUser={(nodeId) => setInviteNodeId(nodeId)}
-                                    onSelectUserForComparison={setSelectedUserForComparison}
-                                    onEmployeeProfileClick={handleEmployeeProfileClick}
+                                    onPositionClick={handlePositionClick}
                                     companyValues={company.cultureValues}
                                     parentManagers={[]}
                                     allHiringPositions={allHiringPositions}
                                     // Role-centric props
                                     roles={roles}
-                                    onRoleClick={handleRoleClick}
                                     onAddRole={handleAddRole}
-                                    useRoleCentric={useRoleCentric}
                                 />
                             </div>
                         }
                     >
-                        {renderOrgTreeChildren(company.structure, users, handleAddNode, setEditingNode, setInviteNodeId, setSelectedUserForComparison, company.cultureValues, [], handleEmployeeProfileClick, allHiringPositions, roles, handleRoleClick, handleAddRole, useRoleCentric)}
+                        {renderOrgTreeChildren(company.structure, users, handleAddNode, setEditingNode, setInviteNodeId, handlePositionClick, company.cultureValues, [], allHiringPositions, roles, handleAddRole)}
                     </Tree>
                 </div>
             </div>
@@ -2349,6 +2328,41 @@ export const CompanyOrgView: React.FC<{
                             });
                         }
                     }}
+                />
+            )}
+            {/* Unified Position Detail Modal */}
+            {selectedUnifiedPosition && (
+                <UnifiedDetailModal
+                    isOpen={!!selectedUnifiedPosition}
+                    position={selectedUnifiedPosition}
+                    companyValues={company.cultureValues}
+                    onClose={() => setSelectedUnifiedPosition(null)}
+                    onViewFullProfile={selectedUnifiedPosition.assignee ? () => {
+                        if (selectedUnifiedPosition.assignee) {
+                            onViewUser(selectedUnifiedPosition.assignee.id);
+                        }
+                        setSelectedUnifiedPosition(null);
+                    } : undefined}
+                    onEditRole={!selectedUnifiedPosition.role.id.startsWith('implicit-') ? async (updatedRole) => {
+                        const result = await updateRole(selectedUnifiedPosition.role.id, updatedRole);
+                        if (result.success) {
+                            toast({
+                                title: "Ruolo aggiornato",
+                                description: "Il ruolo è stato modificato con successo",
+                            });
+                            // Refresh the role data
+                            const refreshed = await fetchRoleWithAssignments(selectedUnifiedPosition.role.id);
+                            if (refreshed) {
+                                setSelectedUnifiedPosition(prev => prev ? { ...prev, role: refreshed } : null);
+                            }
+                        } else {
+                            toast({
+                                title: "Errore",
+                                description: result.error || "Impossibile aggiornare il ruolo",
+                                variant: "destructive",
+                            });
+                        }
+                    } : undefined}
                 />
             )}
         </div>

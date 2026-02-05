@@ -5,22 +5,17 @@ import {
   Edit2, 
   UserPlus,
   ThermometerSun,
-  Handshake,
-  Building,
   Search,
   AlertTriangle,
-  Mail,
-  Clock,
-  CheckCircle2,
-  Target,
   Briefcase
 } from 'lucide-react';
 import { Card } from '../../components/Card';
-import { OrgNode, User, RequiredProfile } from '../../types';
+import { OrgNode, User } from '../../types';
 import { calculateUserCompatibility } from '../../services/riasecService';
 import { UnifiedRolePersonCard } from '../../src/components/roles/UnifiedRolePersonCard';
 import type { CompanyRole } from '../../src/types/roles';
 import type { UnifiedPosition } from '../../src/types/unified-org';
+import type { RequiredProfile } from '../../types';
 
 // Quick match data for popup
 export interface QuickMatchData {
@@ -65,16 +60,13 @@ interface OrgNodeCardProps {
   onAddNode: (parentId: string, type: 'department' | 'team') => void;
   onEditNode: (node: OrgNode) => void;
   onInviteUser: (nodeId: string) => void;
-  onSelectUserForComparison: (user: User) => void;
-  onEmployeeProfileClick?: (profileData: EmployeeProfileData) => void;
+  onPositionClick?: (position: UnifiedPosition) => void;
   companyValues?: string[];
   parentManagers?: User[]; // Changed from parentManager to parentManagers (array)
   allHiringPositions?: User[]; // All open positions in the company
   // New role-centric props
   roles?: CompanyRole[];
-  onRoleClick?: (role: CompanyRole) => void;
   onAddRole?: (nodeId: string) => void;
-  useRoleCentric?: boolean; // Feature flag for role-centric view
 }
 
 // Helper function to find ALL leaders within a node (for Cultural Driver nodes, all users are leaders)
@@ -174,76 +166,20 @@ const getUserStatus = (user: User): 'hiring' | 'invited' | 'pending' | 'complete
   return 'invited';
 };
 
-// Status badge component
-const StatusBadge: React.FC<{ status: 'hiring' | 'invited' | 'pending' | 'completed' | 'test_completed' }> = ({ status }) => {
-  const config = {
-    hiring: {
-      bg: 'bg-emerald-100 dark:bg-emerald-900/40',
-      text: 'text-emerald-700 dark:text-emerald-300',
-      border: 'border-emerald-300 dark:border-emerald-700',
-      icon: Search,
-      label: 'HIRING'
-    },
-    invited: {
-      bg: 'bg-amber-100 dark:bg-amber-900/40',
-      text: 'text-amber-700 dark:text-amber-300',
-      border: 'border-amber-300 dark:border-amber-700',
-      icon: Mail,
-      label: 'INVITATO'
-    },
-    pending: {
-      bg: 'bg-gray-100 dark:bg-gray-700/40',
-      text: 'text-gray-600 dark:text-gray-400',
-      border: 'border-gray-300 dark:border-gray-600',
-      icon: Clock,
-      label: 'IN ATTESA'
-    },
-    completed: {
-      bg: 'bg-blue-100 dark:bg-blue-900/40',
-      text: 'text-blue-700 dark:text-blue-300',
-      border: 'border-blue-300 dark:border-blue-700',
-      icon: CheckCircle2,
-      label: 'COMPLETO'
-    },
-    test_completed: {
-      bg: 'bg-green-100 dark:bg-green-900/40',
-      text: 'text-green-700 dark:text-green-300',
-      border: 'border-green-300 dark:border-green-700',
-      icon: CheckCircle2,
-      label: 'COMPLETATO'
-    }
-  };
-
-  const { bg, text, border, icon: Icon, label } = config[status];
-
-  return (
-    <span className={`inline-flex items-center gap-1 px-2 py-0.5 text-xs font-bold rounded-full border ${bg} ${text} ${border}`}>
-      <Icon size={10} />
-      {label}
-    </span>
-  );
-};
-
 export const OrgNodeCard: React.FC<OrgNodeCardProps> = ({
   node,
   users,
   onAddNode,
   onEditNode,
   onInviteUser,
-  onSelectUserForComparison,
-  onEmployeeProfileClick,
+  onPositionClick,
   companyValues,
   parentManagers = [], // Changed from parentManager to parentManagers
   allHiringPositions,
   // New role-centric props
   roles = [],
-  onRoleClick,
-  onAddRole,
-  useRoleCentric = false
+  onAddRole
 }) => {
-  // State for showing manager fit breakdown popover
-  const [showManagerBreakdown, setShowManagerBreakdown] = useState<string | null>(null);
-  
   // Find users BELONGING to this node
   const nodeUsers = users.filter(u => u.departmentId === node.id);
   
@@ -385,6 +321,128 @@ export const OrgNodeCard: React.FC<OrgNodeCardProps> = ({
   const nodeRoles = roles.filter(r => r.orgNodeId === node.id);
   const roleHiringCount = nodeRoles.filter(r => r.isHiring).length;
 
+  // Build unified positions - merge roles with legacy users
+  const unifiedPositions = useMemo((): UnifiedPosition[] => {
+    // If we have explicit roles, use them as primary
+    if (nodeRoles.length > 0) {
+      // Build positions from explicit roles
+      const rolePositions = nodeRoles.map(role => {
+        const assignee = role.currentAssignee 
+          ? users.find(u => u.id === role.currentAssignee?.id) || null
+          : null;
+        
+        const metrics = {
+          roleFitScore: assignee ? calculateRoleFitScore(role, assignee) : 0,
+          managerFitScore: assignee && parentManagers.length > 0 
+            ? calculateManagerFitAverage(assignee, parentManagers) 
+            : null,
+          cultureFitScore: assignee && companyValues 
+            ? calculateCultureFitScore(assignee, companyValues) 
+            : 0,
+          isLeader: !!(assignee?.jobTitle && (
+            assignee.jobTitle.toLowerCase().includes('head') ||
+            assignee.jobTitle.toLowerCase().includes('manager') ||
+            assignee.jobTitle.toLowerCase().includes('lead') ||
+            assignee.jobTitle.toLowerCase().includes('director') ||
+            assignee.jobTitle.toLowerCase().includes('ceo') ||
+            assignee.jobTitle.toLowerCase().includes('cto')
+          ))
+        };
+        
+        return {
+          role,
+          assignee,
+          assignment: role.assignments?.[0] || null,
+          metrics
+        } as UnifiedPosition;
+      });
+      
+      // Find users in this node NOT assigned to any explicit role
+      const assignedUserIds = new Set(
+        nodeRoles
+          .filter(r => r.currentAssignee?.id)
+          .map(r => r.currentAssignee!.id)
+      );
+      
+      const unassignedUsers = nodeUsers.filter(u => 
+        !assignedUserIds.has(u.id)
+      );
+      
+      // Create implicit roles for unassigned users
+      const legacyPositions = unassignedUsers.map(user => createImplicitPosition(user));
+      
+      return [...rolePositions, ...legacyPositions];
+    }
+    
+    // No explicit roles: show all users as implicit roles
+    return nodeUsers.map(user => createImplicitPosition(user));
+  }, [nodeRoles, nodeUsers, users, parentManagers, companyValues]);
+  
+  // Helper to create implicit position from user
+  function createImplicitPosition(user: User): UnifiedPosition {
+    const implicitRole: CompanyRole = {
+      id: `implicit-${user.id}`,
+      companyId: user.companyId || '',
+      orgNodeId: user.departmentId,
+      title: user.jobTitle || 'Posizione',
+      code: undefined,
+      description: undefined,
+      responsibilities: undefined,
+      dailyTasks: undefined,
+      kpis: undefined,
+      requiredHardSkills: user.requiredProfile?.hardSkills?.map(s => ({ name: s })),
+      requiredSoftSkills: user.requiredProfile?.softSkills?.map(s => ({ name: s })),
+      requiredSeniority: user.requiredProfile?.seniority || null,
+      requiredEducation: undefined,
+      requiredCertifications: undefined,
+      requiredLanguages: undefined,
+      yearsExperienceMin: null,
+      yearsExperienceMax: null,
+      ccnlLevel: null,
+      ralRangeMin: null,
+      ralRangeMax: null,
+      contractType: null,
+      workHoursType: undefined,
+      remotePolicy: undefined,
+      reportsToRoleId: null,
+      status: user.isHiring ? 'vacant' : 'active',
+      headcount: 1,
+      isHiring: user.isHiring || false,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      currentAssignee: user.isHiring ? null : user
+    };
+    
+    const assignee = user.isHiring ? null : user;
+    const metrics = {
+      roleFitScore: assignee ? calculateRoleFitScore(implicitRole, assignee) : 0,
+      managerFitScore: assignee && parentManagers.length > 0 
+        ? calculateManagerFitAverage(assignee, parentManagers) 
+        : null,
+      cultureFitScore: assignee && companyValues 
+        ? calculateCultureFitScore(assignee, companyValues) 
+        : 0,
+      isLeader: !!(assignee?.jobTitle && (
+        assignee.jobTitle.toLowerCase().includes('head') ||
+        assignee.jobTitle.toLowerCase().includes('manager') ||
+        assignee.jobTitle.toLowerCase().includes('lead') ||
+        assignee.jobTitle.toLowerCase().includes('director') ||
+        assignee.jobTitle.toLowerCase().includes('ceo') ||
+        assignee.jobTitle.toLowerCase().includes('cto')
+      ))
+    };
+    
+    return {
+      role: implicitRole,
+      assignee,
+      assignment: null,
+      metrics
+    };
+  }
+
+  // Calculate total hiring count from unified positions
+  const totalHiringCount = unifiedPositions.filter(p => p.role.isHiring).length;
+
   return (
     <Card 
       className={`relative min-w-[300px] max-w-[400px] w-max flex flex-col transition-all duration-200 hover:-translate-y-0.5 hover:shadow-xl ${getHierarchyStyle()}`}
@@ -419,19 +477,19 @@ export const OrgNodeCard: React.FC<OrgNodeCardProps> = ({
               </div>
             )}
             
-            {/* Show hiring count - supports both legacy and role-centric */}
-            {(useRoleCentric ? roleHiringCount : hiringCount) > 0 && (
+            {/* Show hiring count */}
+            {totalHiringCount > 0 && (
               <span className="flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
                 <Search size={12} /> 
-                {useRoleCentric ? roleHiringCount : hiringCount} {(useRoleCentric ? roleHiringCount : hiringCount) === 1 ? 'aperta' : 'aperte'}
+                {totalHiringCount} {totalHiringCount === 1 ? 'aperta' : 'aperte'}
               </span>
             )}
           </div>
         </div>
         
         <div className="flex gap-1 shrink-0">
-          {/* Role-centric: Add Role button */}
-          {useRoleCentric && onAddRole && (
+          {/* Add Role button */}
+          {onAddRole && (
             <button 
               onClick={() => onAddRole(node.id)} 
               className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg text-gray-400 hover:text-emerald-600 transition-all" 
@@ -440,16 +498,14 @@ export const OrgNodeCard: React.FC<OrgNodeCardProps> = ({
               <Briefcase size={16}/>
             </button>
           )}
-          {/* Legacy: Add Person button */}
-          {!useRoleCentric && (
-            <button 
-              onClick={() => onInviteUser(node.id)} 
-              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg text-gray-400 hover:text-blue-600 transition-all" 
-              title="Aggiungi/Invita Persona"
-            >
-              <UserPlus size={16}/>
-            </button>
-          )}
+          {/* Add Person button */}
+          <button 
+            onClick={() => onInviteUser(node.id)} 
+            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg text-gray-400 hover:text-blue-600 transition-all" 
+            title="Aggiungi/Invita Persona"
+          >
+            <UserPlus size={16}/>
+          </button>
           <button 
             onClick={() => onEditNode(node)} 
             className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg text-gray-400 hover:text-indigo-600 transition-all"
@@ -467,299 +523,21 @@ export const OrgNodeCard: React.FC<OrgNodeCardProps> = ({
         </div>
       </div>
 
-      {/* Content: Roles (role-centric) or Users (legacy) */}
+      {/* Content: Unified Positions (Roles + Persons) */}
       <div className="space-y-2 max-h-[280px] overflow-y-auto pr-1 custom-scrollbar">
-        {useRoleCentric ? (
-          // UNIFIED VIEW: Show UnifiedRolePersonCard for each role
-          nodeRoles.length > 0 ? (
-            nodeRoles.map(role => {
-              // Find the assignee for this role
-              const assignee = role.currentAssignee 
-                ? users.find(u => u.id === role.currentAssignee?.id) || null
-                : null;
-              
-              // Build unified position with quick metrics
-              const metrics = {
-                roleFitScore: assignee ? calculateRoleFitScore(role, assignee) : 0,
-                managerFitScore: assignee && parentManagers.length > 0 
-                  ? calculateManagerFitAverage(assignee, parentManagers) 
-                  : null,
-                cultureFitScore: assignee && companyValues 
-                  ? calculateCultureFitScore(assignee, companyValues) 
-                  : 0,
-                isLeader: !!(assignee?.jobTitle && (
-                  assignee.jobTitle.toLowerCase().includes('head') ||
-                  assignee.jobTitle.toLowerCase().includes('manager') ||
-                  assignee.jobTitle.toLowerCase().includes('lead') ||
-                  assignee.jobTitle.toLowerCase().includes('director')
-                ))
-              };
-              
-              const position: UnifiedPosition = {
-                role,
-                assignee,
-                assignment: role.assignments?.[0] || null,
-                metrics
-              };
-              
-              return (
-                <UnifiedRolePersonCard
-                  key={role.id}
-                  position={position}
-                  onClick={onRoleClick ? () => onRoleClick(role) : undefined}
-                />
-              );
-            })
-          ) : (
-            <div className="text-center py-6 text-sm text-gray-400 italic bg-gray-50/50 dark:bg-gray-800/30 rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-700">
-              <Briefcase size={24} className="mx-auto mb-2 text-gray-300 dark:text-gray-600" />
-              Nessun ruolo definito
-            </div>
-          )
-        ) : (
-          // LEGACY VIEW: Show User cards
-          nodeUsers.length > 0 ? (
-          nodeUsers.map(u => {
-            const status = getUserStatus(u);
-            
-            // Cultural Fit (Company Values)
-            let cultureFitScore = 0;
-            if (companyValues && companyValues.length > 0 && u.karmaData?.primaryValues) {
-              const matches = u.karmaData.primaryValues.filter(pv => 
-                companyValues.some(cv => cv.toLowerCase().includes(pv.toLowerCase()) || pv.toLowerCase().includes(cv.toLowerCase()))
-              ).length;
-              cultureFitScore = Math.round((matches / Math.max(u.karmaData.primaryValues.length, 1)) * 100);
-              if (cultureFitScore > 100) cultureFitScore = 100;
-            }
-
-            // Manager Fit (Average compatibility with ALL PARENT NODE Managers)
-            // Include ALL managers in breakdown, but only calculate scores for those with profileCode
-            const managerFitBreakdown: ManagerFitBreakdown[] = parentManagers.length > 0
-              ? parentManagers
-                  .filter(pm => pm.firstName || pm.lastName) // Include all managers with names
-                  .map(pm => ({
-                    managerId: pm.id,
-                    managerName: `${pm.firstName || ''} ${pm.lastName || ''}`.trim(),
-                    score: pm.profileCode ? calculateUserCompatibility(u, pm) : -1 // -1 = no profile data
-                  }))
-              : [];
-            
-            // Calculate average only from managers WITH profile data (score >= 0)
-            const managersWithScores = managerFitBreakdown.filter(m => m.score >= 0);
-            const managerFitScore = managersWithScores.length > 0
-              ? Math.round(managersWithScores.reduce((sum, m) => sum + m.score, 0) / managersWithScores.length)
-              : null;
-            
-            // Check if this user is one of the leaders in this Cultural Driver node
-            const isInternalLeader = currentNodeManagers.some(m => m.id === u.id);
-
-            // Calculate role fit for this user (against their own requiredProfile)
-            const calculateRoleFit = (user: User): {
-              roleFitScore: number;
-              softSkillsMatched: string[];
-              softSkillsMissing: string[];
-              seniorityMatch: 'match' | 'above' | 'below' | undefined;
-            } => {
-              const SENIORITY_LEVELS: Record<string, number> = { 
-                'Junior': 1, 'Mid': 2, 'Senior': 3, 'Lead': 4, 'C-Level': 5 
-              };
-              const required = user.requiredProfile;
-              if (!required) return { roleFitScore: 100, softSkillsMatched: [], softSkillsMissing: [], seniorityMatch: undefined };
-              
-              const userSoftSkills = user.karmaData?.softSkills || [];
-              const userSeniority = user.karmaData?.seniorityAssessment;
-              
-              const softMatches: string[] = [];
-              const softGaps: string[] = [];
-              
-              (required.softSkills || []).forEach(reqSkill => {
-                const found = userSoftSkills.some(us => 
-                  us.toLowerCase().includes(reqSkill.toLowerCase()) || 
-                  reqSkill.toLowerCase().includes(us.toLowerCase())
-                );
-                if (found) softMatches.push(reqSkill);
-                else softGaps.push(reqSkill);
-              });
-              
-              let seniorityMatch: 'match' | 'above' | 'below' | undefined = undefined;
-              let seniorityScore = 100;
-              
-              if (required.seniority && userSeniority) {
-                const reqLevel = SENIORITY_LEVELS[required.seniority] || 0;
-                const userLevel = SENIORITY_LEVELS[userSeniority] || 0;
-                const levelDiff = userLevel - reqLevel;
-                
-                if (levelDiff === 0) {
-                  seniorityMatch = 'match';
-                } else if (levelDiff > 0) {
-                  seniorityMatch = 'above';
-                  seniorityScore = Math.max(0, 100 - (levelDiff * 30));
-                } else {
-                  seniorityMatch = 'below';
-                  seniorityScore = Math.max(0, 100 + (levelDiff * 15));
-                }
-              }
-              
-              const softSkillScore = (required.softSkills?.length || 0) > 0 
-                ? (softMatches.length / required.softSkills.length) * 100 
-                : 100;
-              
-              const roleFitScore = Math.round((softSkillScore * 0.5) + (seniorityScore * 0.5));
-              
-              return { roleFitScore, softSkillsMatched: softMatches, softSkillsMissing: softGaps, seniorityMatch };
-            };
-
-            const roleFitData = status !== 'hiring' ? calculateRoleFit(u) : null;
-
-            return (
-              <div 
-                key={u.id} 
-                onClick={() => {
-                  if (status === 'hiring') {
-                    // Hiring position -> open RoleComparisonModal
-                    onSelectUserForComparison(u);
-                  } else if (onEmployeeProfileClick) {
-                    // Regular employee -> open EmployeeProfilePopover
-                    onEmployeeProfileClick({
-                      user: u,
-                      roleFitScore: roleFitData?.roleFitScore || 0,
-                      softSkillsMatched: roleFitData?.softSkillsMatched || [],
-                      softSkillsMissing: roleFitData?.softSkillsMissing || [],
-                      hardSkillsRequired: u.requiredProfile?.hardSkills || [],
-                      seniorityMatch: roleFitData?.seniorityMatch,
-                      userSeniority: u.karmaData?.seniorityAssessment,
-                      requiredSeniority: u.requiredProfile?.seniority,
-                      managerFitScore,
-                      managerFitBreakdown,
-                      cultureFitScore,
-                      userHardSkills: u.hardSkills || [],
-                    });
-                  } else {
-                    // Fallback to comparison modal
-                    onSelectUserForComparison(u);
-                  }
-                }}
-                className={`flex flex-col p-3 rounded-xl transition-all duration-200 cursor-pointer group/user border-2 hover:shadow-md ${
-                  status === 'hiring' 
-                    ? 'border-dashed border-emerald-300 dark:border-emerald-700 bg-emerald-50/50 dark:bg-emerald-900/10 hover:bg-emerald-50 dark:hover:bg-emerald-900/20' 
-                    : 'border-transparent bg-gray-50 dark:bg-gray-700/30 hover:bg-white dark:hover:bg-gray-700/60 hover:border-gray-200 dark:hover:border-gray-600'
-                }`}
-              >
-                {/* User Header Row */}
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-3 overflow-hidden">
-                    {/* Avatar - larger and more prominent */}
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold text-white shrink-0 shadow-md ${
-                      status === 'hiring' ? 'bg-emerald-500' :
-                      isInternalLeader && node.isCulturalDriver ? 'bg-amber-500 ring-2 ring-amber-200 dark:ring-amber-800' : 
-                      'bg-jnana-sage'
-                    }`}>
-                      {status === 'hiring' ? <Search size={16}/> : `${u.firstName?.[0] || '?'}${u.lastName?.[0] || ''}`}
-                    </div>
-                    
-                    <div className="min-w-0 flex-1">
-                      <div className="text-sm font-bold text-gray-800 dark:text-gray-100 truncate group-hover/user:text-indigo-600 dark:group-hover/user:text-indigo-400 transition-colors">
-                        {u.firstName && u.lastName ? `${u.firstName} ${u.lastName}` : <span className="text-gray-400 italic">Da assegnare</span>}
-                      </div>
-                      <div className="text-xs text-gray-500 dark:text-gray-400 truncate">{u.jobTitle}</div>
-                    </div>
-                  </div>
-                  
-                  {/* Right side: Status badge or profile code */}
-                  <div className="shrink-0 flex items-center gap-2">
-                    {status === 'hiring' && <StatusBadge status="hiring" />}
-                    {status !== 'hiring' && u.profileCode && (
-                      <span className="text-xs font-mono font-bold bg-white dark:bg-gray-800 px-2 py-1 rounded-lg border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-400">
-                        {u.profileCode}
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                {/* Metrics Row - only for non-hiring users */}
-                {status !== 'hiring' && (
-                  <div className="flex items-center gap-3 mt-2 pt-2 border-t border-gray-200/50 dark:border-gray-600/50">
-                    {/* Cultural Fit */}
-                    <div className="flex items-center gap-2" title="Fit Culturale (Azienda)">
-                      <Building size={14} className={cultureFitScore > 60 ? "text-blue-500" : "text-gray-400"} />
-                      <div className="w-16 h-2 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden">
-                        <div 
-                          className={`h-full rounded-full transition-all ${cultureFitScore > 70 ? 'bg-blue-500' : cultureFitScore > 40 ? 'bg-blue-300' : 'bg-red-300'}`} 
-                          style={{width: `${cultureFitScore}%`}}
-                        />
-                      </div>
-                      <span className="text-xs text-gray-500">{cultureFitScore}%</span>
-                    </div>
-
-                    {/* Manager Fit with breakdown popover */}
-                    {parentManagers.length > 0 && managerFitScore !== null && (
-                      <div 
-                        className="flex items-center gap-2 ml-auto relative cursor-pointer"
-                        onMouseEnter={() => setShowManagerBreakdown(u.id)}
-                        onMouseLeave={() => setShowManagerBreakdown(null)}
-                        title={`Compatibilità Media Responsabili: ${managerFitScore}%`}
-                      >
-                        <Handshake size={14} className={managerFitScore > 60 ? "text-green-500" : "text-gray-400"} />
-                        <div className="w-16 h-2 bg-gray-200 dark:bg-gray-600 rounded-full overflow-hidden">
-                          <div 
-                            className={`h-full rounded-full transition-all ${managerFitScore > 70 ? 'bg-green-500' : managerFitScore > 40 ? 'bg-yellow-400' : 'bg-red-400'}`} 
-                            style={{width: `${managerFitScore}%`}}
-                          />
-                        </div>
-                        <span className="text-xs text-gray-500">{managerFitScore}%</span>
-                        
-                        {/* Breakdown Popover */}
-                        {showManagerBreakdown === u.id && managerFitBreakdown.length > 1 && (
-                          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 z-50 bg-white dark:bg-gray-800 shadow-lg rounded-lg border border-gray-200 dark:border-gray-700 p-3 min-w-[200px]">
-                            <div className="text-xs font-bold text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-1">
-                              <Handshake size={12}/> Compatibilità Responsabili
-                            </div>
-                            <div className="space-y-2">
-                              {managerFitBreakdown.map(mb => (
-                                <div key={mb.managerId} className="flex items-center justify-between gap-2">
-                                  <span className="text-xs text-gray-600 dark:text-gray-400 truncate max-w-[120px]">
-                                    {mb.managerName}
-                                  </span>
-                                  {mb.score >= 0 ? (
-                                    <span className={`text-xs font-bold ${mb.score > 70 ? 'text-green-600' : mb.score > 40 ? 'text-yellow-600' : 'text-red-600'}`}>
-                                      {mb.score}%
-                                    </span>
-                                  ) : (
-                                    <span className="text-xs italic text-gray-400">N/A</span>
-                                  )}
-                                </div>
-                              ))}
-                            </div>
-                            <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between">
-                              <span className="text-xs font-bold text-gray-700 dark:text-gray-300">Media</span>
-                              <span className={`text-xs font-bold ${managerFitScore > 70 ? 'text-green-600' : managerFitScore > 40 ? 'text-yellow-600' : 'text-red-600'}`}>
-                                {managerFitScore}%
-                              </span>
-                            </div>
-                            {/* Arrow pointing down */}
-                            <div className="absolute top-full left-1/2 -translate-x-1/2 border-8 border-transparent border-t-white dark:border-t-gray-800"></div>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                    
-                    {/* Leader badge - show for ALL users in Cultural Driver node */}
-                    {isInternalLeader && node.isCulturalDriver && (
-                      <span className="ml-auto flex items-center gap-1 text-xs font-bold text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 px-2 py-0.5 rounded-full">
-                        <Crown size={12}/> LEADER
-                      </span>
-                    )}
-                  </div>
-                )}
-              </div>
-            );
-          })
+        {unifiedPositions.length > 0 ? (
+          unifiedPositions.map(position => (
+            <UnifiedRolePersonCard
+              key={position.role.id}
+              position={position}
+              onClick={onPositionClick ? () => onPositionClick(position) : undefined}
+            />
+          ))
         ) : (
           <div className="text-center py-6 text-sm text-gray-400 italic bg-gray-50/50 dark:bg-gray-800/30 rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-700">
-            <UserPlus size={24} className="mx-auto mb-2 text-gray-300 dark:text-gray-600" />
-            Nessun dipendente assegnato
+            <Briefcase size={24} className="mx-auto mb-2 text-gray-300 dark:text-gray-600" />
+            Nessuna posizione definita
           </div>
-        )
         )}
       </div>
     </Card>
