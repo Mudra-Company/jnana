@@ -66,10 +66,11 @@ const STEP_TITLES: Record<Step, { title: string; icon: React.ReactNode }> = {
 
 // Flatten org nodes for select
 const flattenOrgNodes = (node: OrgNode, prefix = ''): { id: string; name: string }[] => {
+  if (!node) return [];
   const result: { id: string; name: string }[] = [];
   const displayName = prefix ? `${prefix} > ${node.name}` : node.name;
   result.push({ id: node.id, name: displayName });
-  node.children.forEach(child => {
+  (node.children || []).forEach(child => {
     result.push(...flattenOrgNodes(child, displayName));
   });
   return result;
@@ -122,7 +123,7 @@ export const RoleCreationModal: React.FC<RoleCreationModalProps> = ({
   const [remotePolicy, setRemotePolicy] = useState<RemotePolicy>('on_site');
 
   // Flattened org nodes for dropdown
-  const flatNodes = orgNodes.length > 0 ? flattenOrgNodes(orgNodes[0]) : [];
+  const flatNodes = orgNodes && orgNodes.length > 0 ? flattenOrgNodes(orgNodes[0]) : [];
 
   const canProceed = () => {
     switch (step) {
