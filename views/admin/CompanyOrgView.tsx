@@ -1496,7 +1496,6 @@ const renderOrgTreeChildren = (
     users: User[],
     onAddNode: (parentId: string, type: 'department' | 'team') => void,
     onEditNode: (node: OrgNode) => void,
-    onInviteUser: (nodeId: string) => void,
     onPositionClick: (position: UnifiedPosition) => void,
     companyValues?: string[],
     parentManagers?: User[], // Changed from parentManager to parentManagers (array)
@@ -1525,7 +1524,6 @@ const renderOrgTreeChildren = (
                                 users={users}
                                 onAddNode={onAddNode}
                                 onEditNode={onEditNode}
-                                onInviteUser={onInviteUser}
                                 onPositionClick={onPositionClick}
                                 companyValues={companyValues}
                                 parentManagers={currentManagers}
@@ -1542,7 +1540,6 @@ const renderOrgTreeChildren = (
                         users,
                         onAddNode,
                         onEditNode,
-                        onInviteUser,
                         onPositionClick,
                         companyValues,
                         childManagers,
@@ -1749,91 +1746,7 @@ export const CompanyOrgView: React.FC<{
         }
     };
 
-    const handleInviteUser = async () => {
-        // Job Title is the ONLY required field
-        if (!inviteRole || !inviteNodeId) {
-            return;
-        }
-        
-        // Save to database
-        const result = await createCompanyMember({
-            companyId: company.id,
-            departmentId: inviteNodeId,
-            jobTitle: inviteRole,
-            firstName: inviteName ? inviteName.split(' ')[0] : undefined,
-            lastName: inviteName ? inviteName.split(' ').slice(1).join(' ') : undefined,
-            email: inviteEmail || undefined,
-            isHiring: isHiring,
-            requiredProfile: {
-                hardSkills: inviteHardSkills,
-                softSkills: inviteSoftSkills,
-                seniority: inviteSeniority
-            }
-        });
-        
-        if (result.success) {
-            // Create local user object for UI
-            const newUser: User = {
-                id: result.memberId || `u_${Date.now()}`,
-                firstName: inviteName ? inviteName.split(' ')[0] : '',
-                lastName: inviteName ? inviteName.split(' ').slice(1).join(' ') : '',
-                email: inviteEmail || '',
-                companyId: company.id,
-                status: isHiring ? 'pending' : (inviteEmail ? 'invited' : 'pending'),
-                jobTitle: inviteRole,
-                departmentId: inviteNodeId,
-                isHiring: isHiring,
-                requiredProfile: {
-                    hardSkills: inviteHardSkills,
-                    softSkills: inviteSoftSkills,
-                    seniority: inviteSeniority
-                }
-            };
-            const updatedUsers = [...users, newUser];
-            onUpdateUsers(updatedUsers);
-            
-            toast({
-                title: isHiring ? "Posizione creata" : "Invito inviato",
-                description: isHiring 
-                    ? `Posizione "${inviteRole}" creata con successo` 
-                    : inviteName 
-                        ? `${inviteName} è stato invitato per la posizione ${inviteRole}`
-                        : `Posizione "${inviteRole}" aggiunta all'organigramma`,
-            });
-        } else {
-            toast({
-                title: "Errore",
-                description: result.error || "Impossibile completare l'operazione",
-                variant: "destructive",
-            });
-        }
-        
-        // Reset form
-        setInviteNodeId(null);
-        setInviteName('');
-        setInviteEmail('');
-        setInviteRole('');
-        setInviteHardSkills([]);
-        setInviteSoftSkills([]);
-        setInviteSeniority('Mid');
-        setNewHardSkill('');
-        setNewSoftSkill('');
-        setIsHiring(false);
-    };
-    
-    const addInviteHardSkill = () => {
-        if (newHardSkill && !inviteHardSkills.includes(newHardSkill)) {
-            setInviteHardSkills([...inviteHardSkills, newHardSkill]);
-            setNewHardSkill('');
-        }
-    };
-    
-    const addInviteSoftSkill = () => {
-        if (newSoftSkill && !inviteSoftSkills.includes(newSoftSkill)) {
-            setInviteSoftSkills([...inviteSoftSkills, newSoftSkill]);
-            setNewSoftSkill('');
-        }
-    };
+    // Legacy handleInviteUser removed - now using unified RoleCreationModal with assignment step
 
     // Recursively find and add child
     const addNodeRecursive = (parent: OrgNode, parentId: string, newNode: OrgNode): OrgNode => {
@@ -1930,7 +1843,6 @@ export const CompanyOrgView: React.FC<{
                                     users={users}
                                     onAddNode={handleAddNode}
                                     onEditNode={setEditingNode}
-                                    onInviteUser={(nodeId) => setInviteNodeId(nodeId)}
                                     onPositionClick={handlePositionClick}
                                     companyValues={company.cultureValues}
                                     parentManagers={[]}
@@ -1942,7 +1854,7 @@ export const CompanyOrgView: React.FC<{
                             </div>
                         }
                     >
-                        {renderOrgTreeChildren(company.structure, users, handleAddNode, setEditingNode, setInviteNodeId, handlePositionClick, company.cultureValues, [], allHiringPositions, roles, handleAddRole)}
+                        {renderOrgTreeChildren(company.structure, users, handleAddNode, setEditingNode, handlePositionClick, company.cultureValues, [], allHiringPositions, roles, handleAddRole)}
                     </Tree>
                 </div>
             </div>
