@@ -58,7 +58,6 @@ interface OrgNodeCardProps {
   users: User[];
   onAddNode: (parentId: string, type: 'department' | 'team') => void;
   onEditNode: (node: OrgNode) => void;
-  onInviteUser: (nodeId: string) => void;
   onPositionClick?: (position: UnifiedPosition) => void;
   companyValues?: string[];
   parentManagers?: User[]; // Changed from parentManager to parentManagers (array)
@@ -170,7 +169,6 @@ export const OrgNodeCard: React.FC<OrgNodeCardProps> = ({
   users,
   onAddNode,
   onEditNode,
-  onInviteUser,
   onPositionClick,
   companyValues,
   parentManagers = [], // Changed from parentManager to parentManagers
