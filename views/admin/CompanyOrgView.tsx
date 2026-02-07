@@ -1568,10 +1568,6 @@ export const CompanyOrgView: React.FC<{
     onOpenPositionMatching?: (positionId: string, initialTab?: 'internal' | 'external' | 'shortlist') => void;
 }> = ({ company, users, onUpdateStructure, onUpdateUsers, onViewUser, onViewExternalCandidate, onOpenPositionMatching }) => {
     const [editingNode, setEditingNode] = useState<OrgNode | null>(null);
-    const [inviteNodeId, setInviteNodeId] = useState<string | null>(null);
-    const [inviteName, setInviteName] = useState('');
-    const [inviteEmail, setInviteEmail] = useState('');
-    const [inviteRole, setInviteRole] = useState('');
     const [selectedUserForComparison, setSelectedUserForComparison] = useState<User | null>(null);
     
     // State for InviteToSlotModal (simplified invite for existing slots)
@@ -1579,14 +1575,6 @@ export const CompanyOrgView: React.FC<{
     
     // State for Employee Profile popover (from org chart click on regular employees)
     const [employeeProfilePopover, setEmployeeProfilePopover] = useState<EmployeeProfileData | null>(null);
-    
-    // Required Profile state for new member
-    const [inviteHardSkills, setInviteHardSkills] = useState<string[]>([]);
-    const [inviteSoftSkills, setInviteSoftSkills] = useState<string[]>([]);
-    const [inviteSeniority, setInviteSeniority] = useState<SeniorityLevel>('Mid');
-    const [newHardSkill, setNewHardSkill] = useState('');
-    const [newSoftSkill, setNewSoftSkill] = useState('');
-    const [isHiring, setIsHiring] = useState(false);
     
     // State for Export Modal
     const [showExportModal, setShowExportModal] = useState(false);
@@ -1647,25 +1635,67 @@ export const CompanyOrgView: React.FC<{
         setShowRoleCreationModal(true);
     };
     
-    // Handle role creation
-    const handleCreateRole = async (input: CreateRoleInput) => {
+    // Handle role creation with optional person assignment
+    const handleCreateRole = async (input: CreateRoleInput, assignment?: {
+        mode: 'none' | 'existing' | 'invite';
+        userId?: string;
+        inviteData?: { firstName: string; lastName: string; email: string };
+    }) => {
         const result = await createRole({
             ...input,
             companyId: company.id,
             orgNodeId: roleCreationNodeId || undefined,
         });
         
-        if (result.success) {
+        if (result.success && result.role) {
+            // Handle person assignment if provided
+            if (assignment?.mode === 'existing' && assignment.userId) {
+                // Create role assignment for existing user
+                const { createAssignment } = await import('../../src/hooks/useRoleAssignments').then(m => {
+                    const hook = m.useRoleAssignments();
+                    return hook;
+                });
+                await createAssignment({
+                    roleId: result.role.id,
+                    userId: assignment.userId,
+                    assignmentType: 'primary',
+                    startDate: new Date().toISOString().split('T')[0]
+                });
+            } else if (assignment?.mode === 'invite' && assignment.inviteData) {
+                // Create a placeholder company member and send invite
+                await createCompanyMember({
+                    companyId: company.id,
+                    departmentId: roleCreationNodeId || '',
+                    jobTitle: input.title,
+                    firstName: assignment.inviteData.firstName,
+                    lastName: assignment.inviteData.lastName,
+                    email: assignment.inviteData.email,
+                    isHiring: false,
+                    requiredProfile: {
+                        seniority: input.requiredSeniority,
+                        softSkills: input.requiredSoftSkills?.map(s => s.name) || [],
+                        hardSkills: input.requiredHardSkills?.map(s => s.name) || []
+                    }
+                });
+            }
+            
             toast({
-                title: "Ruolo creato",
-                description: `Il ruolo "${input.title}" è stato creato con successo`,
+                title: "Posizione creata",
+                description: assignment?.mode === 'invite' 
+                    ? `Posizione "${input.title}" creata e invito inviato`
+                    : assignment?.mode === 'existing'
+                    ? `Posizione "${input.title}" creata e assegnata`
+                    : `Posizione "${input.title}" creata (vacante)`,
             });
             setShowRoleCreationModal(false);
             setRoleCreationNodeId(null);
+            
+            // Refresh roles
+            await fetchRoles(company.id);
         } else {
             toast({
                 title: "Errore",
-                description: result.error || "Impossibile creare il ruolo",
+                description: result.error || "Impossibile creare la posizione",
                 variant: "destructive",
             });
         }
@@ -1862,148 +1892,7 @@ export const CompanyOrgView: React.FC<{
 
     return (
         <div className="p-8 max-w-full overflow-x-auto min-h-screen bg-gray-50/50 dark:bg-gray-900/50">
-            {inviteNodeId && (
-                <div className="fixed inset-0 bg-black/50 z-[120] flex items-center justify-center p-4 backdrop-blur-sm">
-                    <Card className="w-full max-w-lg max-h-[90vh] overflow-y-auto animate-scale-in">
-                        <div className="flex justify-between items-center mb-4">
-                            <h3 className="text-lg font-bold dark:text-gray-100">Aggiungi Ruolo/Persona al Nodo</h3>
-                            <button onClick={() => setInviteNodeId(null)}><X className="text-gray-400 hover:text-red-500" /></button>
-                        </div>
-                        <div className="space-y-4">
-                            {/* Basic Info - Job Title is REQUIRED, others optional */}
-                            <div className="space-y-3">
-                                <div>
-                                    <label className="block text-xs font-bold uppercase text-gray-500 mb-1">
-                                        Ruolo/Job Title <span className="text-red-500">*</span>
-                                    </label>
-                                    <input
-                                        required
-                                        className="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                                        placeholder="Es. Marketing Manager, Senior Developer..."
-                                        value={inviteRole}
-                                        onChange={e => setInviteRole(e.target.value)}
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-bold uppercase text-gray-500 mb-1">
-                                        Nome e Cognome <span className="text-gray-400 text-[10px]">(opzionale)</span>
-                                    </label>
-                                    <input
-                                        className="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                                        placeholder="Se conosci già chi occuperà questo ruolo"
-                                        value={inviteName}
-                                        onChange={e => setInviteName(e.target.value)}
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-bold uppercase text-gray-500 mb-1">
-                                        Email Aziendale <span className="text-gray-400 text-[10px]">(opzionale)</span>
-                                    </label>
-                                    <input
-                                        className="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                                        placeholder="Per inviare l'invito ai test"
-                                        value={inviteEmail}
-                                        onChange={e => setInviteEmail(e.target.value)}
-                                    />
-                                </div>
-                                
-                                {/* Hiring Checkbox */}
-                                <div className="flex items-center gap-2 p-3 bg-green-50 dark:bg-green-900/20 rounded-xl border border-green-100 dark:border-green-800">
-                                    <input 
-                                        type="checkbox" 
-                                        id="isHiring"
-                                        checked={isHiring}
-                                        onChange={e => setIsHiring(e.target.checked)}
-                                        className="w-5 h-5 text-green-600 rounded focus:ring-green-500"
-                                    />
-                                    <label htmlFor="isHiring" className="text-sm font-bold text-green-800 dark:text-green-200 cursor-pointer select-none flex items-center gap-2">
-                                        <Search size={16}/> Posizione in Hiring (aperta)
-                                    </label>
-                                </div>
-                            </div>
-
-                            {/* Required Profile Section */}
-                            <div className="border-t border-gray-100 dark:border-gray-700 pt-4">
-                                <h4 className="font-bold text-sm text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
-                                    <Target size={16}/> Profilo Richiesto per questo Ruolo
-                                </h4>
-                                
-                                {/* Seniority */}
-                                <div className="mb-4">
-                                    <label className="block text-xs font-bold uppercase text-gray-500 mb-1">Seniority</label>
-                                    <select
-                                        className="w-full p-2 border rounded-lg text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                                        value={inviteSeniority}
-                                        onChange={e => setInviteSeniority(e.target.value as SeniorityLevel)}
-                                    >
-                                        {SENIORITY_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
-                                    </select>
-                                </div>
-
-                                {/* Hard Skills */}
-                                <div className="mb-4">
-                                    <label className="block text-xs font-bold uppercase text-gray-500 mb-1">Hard Skills Richieste</label>
-                                    <div className="flex gap-2 mb-2">
-                                        <input
-                                            className="flex-1 p-2 border rounded-lg text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                                            placeholder="Es. Python, Excel, SQL..."
-                                            value={newHardSkill}
-                                            onChange={e => setNewHardSkill(e.target.value)}
-                                            onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addInviteHardSkill())}
-                                        />
-                                        <button type="button" onClick={addInviteHardSkill} className="px-3 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600">
-                                            <Plus size={16}/>
-                                        </button>
-                                    </div>
-                                    <div className="flex flex-wrap gap-1">
-                                        {inviteHardSkills.map(skill => (
-                                            <span key={skill} className="px-2 py-1 bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 rounded text-xs border border-blue-100 dark:border-blue-800 flex items-center gap-1">
-                                                {skill}
-                                                <button type="button" onClick={() => setInviteHardSkills(inviteHardSkills.filter(s => s !== skill))}>
-                                                    <X size={12}/>
-                                                </button>
-                                            </span>
-                                        ))}
-                                    </div>
-                                </div>
-
-                                {/* Soft Skills */}
-                                <div>
-                                    <label className="block text-xs font-bold uppercase text-gray-500 mb-1">Soft Skills Richieste</label>
-                                    <div className="flex gap-2 mb-2">
-                                        <select
-                                            className="flex-1 p-2 border rounded-lg text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                                            value={newSoftSkill}
-                                            onChange={e => setNewSoftSkill(e.target.value)}
-                                        >
-                                            <option value="">Seleziona skill...</option>
-                                            {SOFT_SKILLS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
-                                        </select>
-                                        <button type="button" onClick={addInviteSoftSkill} className="px-3 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600">
-                                            <Plus size={16}/>
-                                        </button>
-                                    </div>
-                                    <div className="flex flex-wrap gap-1">
-                                        {inviteSoftSkills.map(skill => (
-                                            <span key={skill} className="px-2 py-1 bg-purple-50 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 rounded text-xs border border-purple-100 dark:border-purple-800 flex items-center gap-1">
-                                                {skill}
-                                                <button type="button" onClick={() => setInviteSoftSkills(inviteSoftSkills.filter(s => s !== skill))}>
-                                                    <X size={12}/>
-                                                </button>
-                                            </span>
-                                        ))}
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="flex gap-2 pt-4 border-t border-gray-100 dark:border-gray-700">
-                                <Button fullWidth onClick={handleInviteUser}>Conferma</Button>
-                                <Button variant="ghost" onClick={() => setInviteNodeId(null)}>Annulla</Button>
-                            </div>
-                        </div>
-                    </Card>
-                </div>
-            )}
+            {/* Legacy invite modal removed - now using unified RoleCreationModal */}
 
             <div className="mb-8 text-center">
                  <div className="flex justify-center items-center gap-4 mb-2">
@@ -2278,14 +2167,15 @@ export const CompanyOrgView: React.FC<{
             {/* Role Creation Modal */}
             {showRoleCreationModal && (
                 <RoleCreationModal
-                    isOpen={showRoleCreationModal}
+                    companyId={company.id}
+                    orgNodes={[company.structure]}
+                    companyMembers={users}
                     onClose={() => {
                         setShowRoleCreationModal(false);
                         setRoleCreationNodeId(null);
                     }}
-                    onSubmit={handleCreateRole}
-                    companyId={company.id}
-                    orgNodeId={roleCreationNodeId || undefined}
+                    onSave={handleCreateRole}
+                    defaultOrgNodeId={roleCreationNodeId || undefined}
                 />
             )}
             {/* Role Detail Modal */}

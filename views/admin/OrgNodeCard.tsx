@@ -3,7 +3,6 @@ import {
   Crown, 
   Plus, 
   Edit2, 
-  UserPlus,
   ThermometerSun,
   Search,
   AlertTriangle,
@@ -488,24 +487,16 @@ export const OrgNodeCard: React.FC<OrgNodeCardProps> = ({
         </div>
         
         <div className="flex gap-1 shrink-0">
-          {/* Add Role button */}
+          {/* Add Position button - unified entry point for roles + persons */}
           {onAddRole && (
             <button 
               onClick={() => onAddRole(node.id)} 
               className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg text-gray-400 hover:text-emerald-600 transition-all" 
-              title="Aggiungi Ruolo"
+              title="Aggiungi Posizione"
             >
               <Briefcase size={16}/>
             </button>
           )}
-          {/* Add Person button */}
-          <button 
-            onClick={() => onInviteUser(node.id)} 
-            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg text-gray-400 hover:text-blue-600 transition-all" 
-            title="Aggiungi/Invita Persona"
-          >
-            <UserPlus size={16}/>
-          </button>
           <button 
             onClick={() => onEditNode(node)} 
             className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg text-gray-400 hover:text-indigo-600 transition-all"

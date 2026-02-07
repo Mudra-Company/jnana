@@ -1,14 +1,17 @@
 /**
- * RoleCreationModal - Multi-step wizard for creating new roles
+ * RoleCreationModal - Multi-step wizard for creating new positions
+ * 
+ * Unified flow: First define the Role, then optionally assign a Person
  * 
  * Steps:
- * 1. Info Base (title, code, description, org node)
- * 2. Mansionario (responsibilities, tasks, KPIs)
- * 3. Requisiti (skills, seniority, education)
- * 4. Inquadramento (CCNL, RAL, contract type, remote policy)
+ * 1. Info Base (title, code, description, org node) - REQUIRED
+ * 2. Mansionario (responsibilities, tasks, KPIs) - Optional (Advanced)
+ * 3. Requisiti (skills, seniority, education) - Optional (Advanced)
+ * 4. Inquadramento (CCNL, RAL, contract type) - Optional (Advanced)
+ * 5. Assegna Persona (assign existing, invite new, or leave vacant) - Optional
  */
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   X,
   ChevronLeft,
@@ -20,7 +23,13 @@ import {
   Plus,
   Trash2,
   Check,
-  Loader2
+  Loader2,
+  User as UserIcon,
+  UserPlus,
+  Search,
+  Settings2,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 import { Card } from '../../../components/Card';
 import { Button } from '../../../components/Button';
@@ -39,17 +48,25 @@ import {
   REMOTE_POLICY_LABELS,
   ROLE_STATUS_LABELS
 } from '../../types/roles';
-import type { SeniorityLevel, OrgNode } from '../../../types';
+import type { SeniorityLevel, OrgNode, User } from '../../../types';
+
+// Assignment mode for Step 5
+type AssignmentMode = 'none' | 'existing' | 'invite';
 
 interface RoleCreationModalProps {
   companyId: string;
   orgNodes: OrgNode[];
+  companyMembers?: User[]; // For selecting existing employees
   onClose: () => void;
-  onSave: (input: CreateRoleInput) => Promise<void>;
+  onSave: (input: CreateRoleInput, assignment?: {
+    mode: AssignmentMode;
+    userId?: string;
+    inviteData?: { firstName: string; lastName: string; email: string };
+  }) => Promise<void>;
   defaultOrgNodeId?: string;
 }
 
-type Step = 1 | 2 | 3 | 4;
+type Step = 1 | 2 | 3 | 4 | 5;
 
 const SENIORITY_OPTIONS: SeniorityLevel[] = ['Junior', 'Mid', 'Senior', 'Lead', 'C-Level'];
 const CONTRACT_TYPES: ContractType[] = ['permanent', 'fixed_term', 'apprenticeship', 'internship', 'freelance', 'consulting'];
@@ -61,7 +78,8 @@ const STEP_TITLES: Record<Step, { title: string; icon: React.ReactNode }> = {
   1: { title: 'Informazioni Base', icon: <Briefcase size={20} /> },
   2: { title: 'Mansionario', icon: <FileText size={20} /> },
   3: { title: 'Requisiti', icon: <GraduationCap size={20} /> },
-  4: { title: 'Inquadramento', icon: <Building2 size={20} /> }
+  4: { title: 'Inquadramento', icon: <Building2 size={20} /> },
+  5: { title: 'Assegna Persona', icon: <UserIcon size={20} /> }
 };
 
 // Flatten org nodes for select
@@ -79,6 +97,7 @@ const flattenOrgNodes = (node: OrgNode, prefix = ''): { id: string; name: string
 export const RoleCreationModal: React.FC<RoleCreationModalProps> = ({
   companyId,
   orgNodes,
+  companyMembers = [],
   onClose,
   onSave,
   defaultOrgNodeId
@@ -86,7 +105,10 @@ export const RoleCreationModal: React.FC<RoleCreationModalProps> = ({
   const [step, setStep] = useState<Step>(1);
   const [isSaving, setIsSaving] = useState(false);
   
-  // Form state
+  // Quick mode vs Advanced mode
+  const [showAdvancedSteps, setShowAdvancedSteps] = useState(false);
+  
+  // Form state - Step 1
   const [title, setTitle] = useState('');
   const [code, setCode] = useState('');
   const [description, setDescription] = useState('');
@@ -95,7 +117,7 @@ export const RoleCreationModal: React.FC<RoleCreationModalProps> = ({
   const [headcount, setHeadcount] = useState(1);
   const [isHiring, setIsHiring] = useState(false);
   
-  // Mansionario
+  // Mansionario - Step 2
   const [responsibilities, setResponsibilities] = useState<string[]>([]);
   const [dailyTasks, setDailyTasks] = useState<string[]>([]);
   const [kpis, setKpis] = useState<KPI[]>([]);
@@ -103,7 +125,7 @@ export const RoleCreationModal: React.FC<RoleCreationModalProps> = ({
   const [newTask, setNewTask] = useState('');
   const [newKpi, setNewKpi] = useState({ name: '', target: '' });
   
-  // Requisiti
+  // Requisiti - Step 3
   const [requiredSeniority, setRequiredSeniority] = useState<SeniorityLevel | ''>('');
   const [yearsExperienceMin, setYearsExperienceMin] = useState<number | ''>('');
   const [yearsExperienceMax, setYearsExperienceMax] = useState<number | ''>('');
@@ -114,36 +136,76 @@ export const RoleCreationModal: React.FC<RoleCreationModalProps> = ({
   const [newSoftSkill, setNewSoftSkill] = useState('');
   const [newCertification, setNewCertification] = useState('');
   
-  // Inquadramento
+  // Inquadramento - Step 4
   const [ccnlLevel, setCcnlLevel] = useState('');
   const [ralRangeMin, setRalRangeMin] = useState<number | ''>('');
   const [ralRangeMax, setRalRangeMax] = useState<number | ''>('');
   const [contractType, setContractType] = useState<ContractType | ''>('');
   const [workHoursType, setWorkHoursType] = useState<WorkHoursType>('full_time');
   const [remotePolicy, setRemotePolicy] = useState<RemotePolicy>('on_site');
+  
+  // Assignment - Step 5
+  const [assignmentMode, setAssignmentMode] = useState<AssignmentMode>('none');
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
+  const [inviteFirstName, setInviteFirstName] = useState('');
+  const [inviteLastName, setInviteLastName] = useState('');
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [employeeSearchQuery, setEmployeeSearchQuery] = useState('');
 
   // Flattened org nodes for dropdown
   const flatNodes = orgNodes && orgNodes.length > 0 ? flattenOrgNodes(orgNodes[0]) : [];
+  
+  // Available employees for assignment (exclude hiring positions)
+  const availableEmployees = useMemo(() => {
+    return companyMembers.filter(u => 
+      !u.isHiring && 
+      u.firstName && 
+      u.lastName &&
+      (employeeSearchQuery === '' || 
+        `${u.firstName} ${u.lastName}`.toLowerCase().includes(employeeSearchQuery.toLowerCase()) ||
+        u.jobTitle?.toLowerCase().includes(employeeSearchQuery.toLowerCase())
+      )
+    );
+  }, [companyMembers, employeeSearchQuery]);
+
+  // Calculate which steps to show
+  const visibleSteps: Step[] = showAdvancedSteps 
+    ? [1, 2, 3, 4, 5] 
+    : [1, 5];
+  
+  const currentStepIndex = visibleSteps.indexOf(step);
+  const isLastStep = currentStepIndex === visibleSteps.length - 1;
+  const isFirstStep = currentStepIndex === 0;
 
   const canProceed = () => {
     switch (step) {
       case 1:
         return title.trim().length > 0;
-      case 2:
-      case 3:
-      case 4:
+      case 5:
+        if (assignmentMode === 'invite') {
+          return inviteEmail.trim().length > 0;
+        }
+        if (assignmentMode === 'existing') {
+          return selectedUserId !== null;
+        }
         return true;
       default:
-        return false;
+        return true;
     }
   };
 
   const handleNext = () => {
-    if (step < 4) setStep((step + 1) as Step);
+    const nextIndex = currentStepIndex + 1;
+    if (nextIndex < visibleSteps.length) {
+      setStep(visibleSteps[nextIndex]);
+    }
   };
 
   const handleBack = () => {
-    if (step > 1) setStep((step - 1) as Step);
+    const prevIndex = currentStepIndex - 1;
+    if (prevIndex >= 0) {
+      setStep(visibleSteps[prevIndex]);
+    }
   };
 
   const handleSave = async () => {
@@ -157,7 +219,7 @@ export const RoleCreationModal: React.FC<RoleCreationModalProps> = ({
         orgNodeId: orgNodeId || undefined,
         status,
         headcount,
-        isHiring,
+        isHiring: assignmentMode === 'none' ? true : isHiring, // Auto-set hiring if no person assigned
         responsibilities: responsibilities.length > 0 ? responsibilities : undefined,
         dailyTasks: dailyTasks.length > 0 ? dailyTasks : undefined,
         kpis: kpis.length > 0 ? kpis : undefined,
@@ -175,13 +237,25 @@ export const RoleCreationModal: React.FC<RoleCreationModalProps> = ({
         remotePolicy
       };
       
-      await onSave(input);
+      // Build assignment data
+      const assignment = assignmentMode !== 'none' ? {
+        mode: assignmentMode,
+        userId: assignmentMode === 'existing' ? selectedUserId || undefined : undefined,
+        inviteData: assignmentMode === 'invite' ? {
+          firstName: inviteFirstName,
+          lastName: inviteLastName,
+          email: inviteEmail
+        } : undefined
+      } : undefined;
+      
+      await onSave(input, assignment);
       onClose();
     } finally {
       setIsSaving(false);
     }
   };
 
+  // Add helpers
   const addResponsibility = () => {
     if (newResponsibility.trim()) {
       setResponsibilities([...responsibilities, newResponsibility.trim()]);
@@ -231,7 +305,7 @@ export const RoleCreationModal: React.FC<RoleCreationModalProps> = ({
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Titolo Ruolo *
+                Titolo Posizione *
               </label>
               <input
                 type="text"
@@ -280,8 +354,8 @@ export const RoleCreationModal: React.FC<RoleCreationModalProps> = ({
               <textarea
                 value={description}
                 onChange={e => setDescription(e.target.value)}
-                placeholder="Descrizione del ruolo..."
-                rows={3}
+                placeholder="Descrizione della posizione..."
+                rows={2}
                 className="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white resize-none"
               />
             </div>
@@ -324,11 +398,24 @@ export const RoleCreationModal: React.FC<RoleCreationModalProps> = ({
                     className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
                   />
                   <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Posizione in Hiring
+                    In Hiring
                   </span>
                 </label>
               </div>
             </div>
+            
+            {/* Toggle for Advanced Steps */}
+            <button
+              type="button"
+              onClick={() => setShowAdvancedSteps(!showAdvancedSteps)}
+              className="flex items-center gap-2 w-full p-3 mt-2 border border-dashed rounded-xl text-gray-500 hover:text-gray-700 hover:border-gray-400 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
+            >
+              <Settings2 size={16} />
+              <span className="text-sm font-medium">
+                {showAdvancedSteps ? 'Nascondi configurazione avanzata' : 'Mostra configurazione avanzata'}
+              </span>
+              {showAdvancedSteps ? <ChevronUp size={16} className="ml-auto" /> : <ChevronDown size={16} className="ml-auto" />}
+            </button>
           </div>
         );
 
@@ -678,22 +765,167 @@ export const RoleCreationModal: React.FC<RoleCreationModalProps> = ({
                 </div>
               </div>
             </div>
+          </div>
+        );
 
-            {/* Summary Preview */}
-            <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-xl">
-              <h4 className="text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Riepilogo Ruolo</h4>
-              <div className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
-                <p><strong>Titolo:</strong> {title || '-'}</p>
-                <p><strong>Stato:</strong> {ROLE_STATUS_LABELS[status]}</p>
-                {requiredSeniority && <p><strong>Seniority:</strong> {requiredSeniority}</p>}
-                {requiredHardSkills.length > 0 && (
-                  <p><strong>Hard Skills:</strong> {requiredHardSkills.map(s => s.name).join(', ')}</p>
-                )}
-                {ccnlLevel && <p><strong>CCNL:</strong> {ccnlLevel}</p>}
-                {(ralRangeMin || ralRangeMax) && (
-                  <p><strong>RAL:</strong> €{ralRangeMin?.toLocaleString() || '?'} - €{ralRangeMax?.toLocaleString() || '?'}</p>
-                )}
-              </div>
+      case 5:
+        return (
+          <div className="space-y-4">
+            <div className="text-center py-2">
+              <h4 className="font-bold text-gray-700 dark:text-gray-200 mb-1">Chi occuperà questa posizione?</h4>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Puoi assegnare subito o lasciare vacante</p>
+            </div>
+            
+            <div className="space-y-3">
+              {/* Option: Vacant */}
+              <label className={`flex items-start gap-3 p-4 border-2 rounded-xl cursor-pointer transition-all ${
+                assignmentMode === 'none' 
+                  ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20' 
+                  : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800'
+              }`}>
+                <input 
+                  type="radio" 
+                  name="assignmentMode"
+                  checked={assignmentMode === 'none'} 
+                  onChange={() => setAssignmentMode('none')}
+                  className="mt-1"
+                />
+                <div>
+                  <div className="font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
+                    <Search size={16} className="text-emerald-600" />
+                    Posizione Vacante
+                  </div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400">
+                    Sarà segnata come "In Hiring", assegna qualcuno in seguito
+                  </div>
+                </div>
+              </label>
+              
+              {/* Option: Existing Employee */}
+              <label className={`flex items-start gap-3 p-4 border-2 rounded-xl cursor-pointer transition-all ${
+                assignmentMode === 'existing' 
+                  ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' 
+                  : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800'
+              }`}>
+                <input 
+                  type="radio" 
+                  name="assignmentMode"
+                  checked={assignmentMode === 'existing'} 
+                  onChange={() => setAssignmentMode('existing')}
+                  className="mt-1"
+                />
+                <div className="flex-1">
+                  <div className="font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
+                    <UserIcon size={16} className="text-blue-600" />
+                    Dipendente Esistente
+                  </div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400">
+                    Seleziona da lista dipendenti azienda
+                  </div>
+                </div>
+              </label>
+              
+              {/* Existing Employee Selector */}
+              {assignmentMode === 'existing' && (
+                <div className="ml-8 space-y-3 p-4 bg-gray-50 dark:bg-gray-800 rounded-xl">
+                  <input
+                    type="text"
+                    placeholder="Cerca dipendente..."
+                    value={employeeSearchQuery}
+                    onChange={e => setEmployeeSearchQuery(e.target.value)}
+                    className="w-full px-3 py-2 border rounded-lg text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                  />
+                  <div className="max-h-40 overflow-y-auto space-y-2">
+                    {availableEmployees.length > 0 ? (
+                      availableEmployees.slice(0, 10).map(emp => (
+                        <label 
+                          key={emp.id}
+                          className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors ${
+                            selectedUserId === emp.id 
+                              ? 'bg-blue-100 dark:bg-blue-900/40' 
+                              : 'hover:bg-gray-100 dark:hover:bg-gray-700'
+                          }`}
+                        >
+                          <input
+                            type="radio"
+                            name="selectedEmployee"
+                            checked={selectedUserId === emp.id}
+                            onChange={() => setSelectedUserId(emp.id)}
+                          />
+                          <div className="w-8 h-8 rounded-full bg-indigo-500 text-white flex items-center justify-center text-xs font-bold">
+                            {emp.firstName?.[0]}{emp.lastName?.[0]}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium text-sm text-gray-800 dark:text-gray-100 truncate">
+                              {emp.firstName} {emp.lastName}
+                            </div>
+                            <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                              {emp.jobTitle || 'Nessun ruolo'}
+                            </div>
+                          </div>
+                        </label>
+                      ))
+                    ) : (
+                      <div className="text-center py-4 text-sm text-gray-500">
+                        {employeeSearchQuery ? 'Nessun risultato' : 'Nessun dipendente disponibile'}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+              
+              {/* Option: Invite New */}
+              <label className={`flex items-start gap-3 p-4 border-2 rounded-xl cursor-pointer transition-all ${
+                assignmentMode === 'invite' 
+                  ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20' 
+                  : 'border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800'
+              }`}>
+                <input 
+                  type="radio" 
+                  name="assignmentMode"
+                  checked={assignmentMode === 'invite'} 
+                  onChange={() => setAssignmentMode('invite')}
+                  className="mt-1"
+                />
+                <div className="flex-1">
+                  <div className="font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
+                    <UserPlus size={16} className="text-purple-600" />
+                    Invita Nuova Persona
+                  </div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400">
+                    Inserisci i dati per inviare un invito
+                  </div>
+                </div>
+              </label>
+              
+              {/* Invite Form */}
+              {assignmentMode === 'invite' && (
+                <div className="ml-8 space-y-3 p-4 bg-gray-50 dark:bg-gray-800 rounded-xl">
+                  <div className="grid grid-cols-2 gap-3">
+                    <input
+                      type="text"
+                      placeholder="Nome"
+                      value={inviteFirstName}
+                      onChange={e => setInviteFirstName(e.target.value)}
+                      className="px-3 py-2 border rounded-lg text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Cognome"
+                      value={inviteLastName}
+                      onChange={e => setInviteLastName(e.target.value)}
+                      className="px-3 py-2 border rounded-lg text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                    />
+                  </div>
+                  <input
+                    type="email"
+                    placeholder="Email aziendale *"
+                    value={inviteEmail}
+                    onChange={e => setInviteEmail(e.target.value)}
+                    className="w-full px-3 py-2 border rounded-lg text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                  />
+                </div>
+              )}
             </div>
           </div>
         );
@@ -712,10 +944,10 @@ export const RoleCreationModal: React.FC<RoleCreationModalProps> = ({
             {STEP_TITLES[step].icon}
             <div>
               <h2 className="text-lg font-bold text-gray-800 dark:text-gray-100">
-                Nuovo Ruolo
+                Nuova Posizione
               </h2>
               <p className="text-sm text-gray-500 dark:text-gray-400">
-                Step {step}/4: {STEP_TITLES[step].title}
+                Step {currentStepIndex + 1}/{visibleSteps.length}: {STEP_TITLES[step].title}
               </p>
             </div>
           </div>
@@ -726,11 +958,11 @@ export const RoleCreationModal: React.FC<RoleCreationModalProps> = ({
 
         {/* Progress Bar */}
         <div className="flex gap-2 mb-6">
-          {([1, 2, 3, 4] as Step[]).map(s => (
+          {visibleSteps.map((s, idx) => (
             <div
               key={s}
               className={`flex-1 h-2 rounded-full transition-colors ${
-                s <= step ? 'bg-indigo-500' : 'bg-gray-200 dark:bg-gray-700'
+                idx <= currentStepIndex ? 'bg-indigo-500' : 'bg-gray-200 dark:bg-gray-700'
               }`}
             />
           ))}
@@ -746,12 +978,12 @@ export const RoleCreationModal: React.FC<RoleCreationModalProps> = ({
           <Button
             variant="ghost"
             onClick={handleBack}
-            disabled={step === 1}
+            disabled={isFirstStep}
           >
             <ChevronLeft size={16} className="mr-1" /> Indietro
           </Button>
           
-          {step < 4 ? (
+          {!isLastStep ? (
             <Button onClick={handleNext} disabled={!canProceed()}>
               Avanti <ChevronRight size={16} className="ml-1" />
             </Button>
@@ -763,7 +995,7 @@ export const RoleCreationModal: React.FC<RoleCreationModalProps> = ({
                 </>
               ) : (
                 <>
-                  <Check size={16} className="mr-2" /> Crea Ruolo
+                  <Check size={16} className="mr-2" /> Crea Posizione
                 </>
               )}
             </Button>
