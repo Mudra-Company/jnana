@@ -143,8 +143,8 @@ const calculateManagerFitAverage = (assignee: User, managers: User[]): number | 
   return Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
 };
 
-const calculateCultureFitScore = (assignee: User, companyValues: string[]): number => {
-  if (!companyValues.length || !assignee.karmaData?.primaryValues?.length) return 0;
+const calculateCultureFitScore = (assignee: User, companyValues?: string[]): number => {
+  if (!companyValues || !companyValues.length || !assignee.karmaData?.primaryValues?.length) return 0;
   
   const matches = assignee.karmaData.primaryValues.filter(pv => 
     companyValues.some(cv => 
