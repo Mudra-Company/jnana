@@ -51,10 +51,10 @@ export const usePositionShortlist = (positionId: string, companyId: string) => {
           id: existing.id,
           positionId: existing.position_id,
           companyId: existing.company_id,
-          createdAt: existing.created_at,
-          updatedAt: existing.updated_at,
+          createdAt: existing.created_at ?? undefined,
+          updatedAt: existing.updated_at ?? undefined,
           status: existing.status as PositionShortlist['status'],
-          notes: existing.notes || undefined
+          notes: existing.notes ?? undefined
         };
         setShortlist(mapped);
         return mapped;
@@ -77,10 +77,10 @@ export const usePositionShortlist = (positionId: string, companyId: string) => {
         id: created.id,
         positionId: created.position_id,
         companyId: created.company_id,
-        createdAt: created.created_at,
-        updatedAt: created.updated_at,
+        createdAt: created.created_at ?? undefined,
+        updatedAt: created.updated_at ?? undefined,
         status: created.status as PositionShortlist['status'],
-        notes: created.notes || undefined
+        notes: created.notes ?? undefined
       };
       setShortlist(mapped);
       return mapped;
@@ -139,15 +139,15 @@ export const usePositionShortlist = (positionId: string, companyId: string) => {
         id: c.id,
         shortlistId: c.shortlist_id,
         candidateType: c.candidate_type as CandidateType,
-        internalUserId: c.internal_user_id || undefined,
-        externalProfileId: c.external_profile_id || undefined,
-        matchScore: c.match_score || undefined,
+        internalUserId: c.internal_user_id ?? undefined,
+        externalProfileId: c.external_profile_id ?? undefined,
+        matchScore: c.match_score ?? undefined,
         matchDetails: (c.match_details as StoredMatchDetails) || {},
         status: c.status as CandidateStatus,
-        hrNotes: c.hr_notes || undefined,
-        rating: c.rating || undefined,
-        addedAt: c.added_at,
-        updatedAt: c.updated_at,
+        hrNotes: c.hr_notes ?? undefined,
+        rating: c.rating ?? undefined,
+        addedAt: c.added_at ?? undefined,
+        updatedAt: c.updated_at ?? undefined,
         // Attach loaded external profile data
         externalProfile: c.external_profile_id ? externalProfiles[c.external_profile_id] : undefined
       }));
@@ -211,12 +211,12 @@ export const usePositionShortlist = (positionId: string, companyId: string) => {
         id: data.id,
         shortlistId: data.shortlist_id,
         candidateType: 'internal',
-        internalUserId: data.internal_user_id || undefined,
-        matchScore: data.match_score || undefined,
+        internalUserId: data.internal_user_id ?? undefined,
+        matchScore: data.match_score ?? undefined,
         matchDetails,
         status: 'shortlisted',
-        addedAt: data.added_at,
-        updatedAt: data.updated_at,
+        addedAt: data.added_at ?? undefined,
+        updatedAt: data.updated_at ?? undefined,
         internalUser: user
       };
 
@@ -279,12 +279,12 @@ export const usePositionShortlist = (positionId: string, companyId: string) => {
         id: data.id,
         shortlistId: data.shortlist_id,
         candidateType: 'external',
-        externalProfileId: data.external_profile_id || undefined,
-        matchScore: data.match_score || undefined,
+        externalProfileId: data.external_profile_id ?? undefined,
+        matchScore: data.match_score ?? undefined,
         matchDetails,
         status: 'shortlisted',
-        addedAt: data.added_at,
-        updatedAt: data.updated_at,
+        addedAt: data.added_at ?? undefined,
+        updatedAt: data.updated_at ?? undefined,
         externalMatch: match
       };
 

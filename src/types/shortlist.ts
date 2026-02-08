@@ -41,8 +41,8 @@ export interface PositionShortlist {
   id: string;
   positionId: string;
   companyId: string;
-  createdAt: string;
-  updatedAt: string;
+  createdAt?: string; // Made optional for DB compatibility
+  updatedAt?: string; // Made optional for DB compatibility
   status: ShortlistStatus;
   notes?: string;
 }
@@ -84,8 +84,8 @@ export interface ShortlistCandidate {
   status: CandidateStatus;
   hrNotes?: string;
   rating?: number;
-  addedAt: string;
-  updatedAt: string;
+  addedAt?: string; // Made optional for DB compatibility
+  updatedAt?: string; // Made optional for DB compatibility
   // Joined data (loaded separately)
   internalUser?: ShortlistUser;
   externalProfile?: ExternalProfileData;

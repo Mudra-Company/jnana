@@ -46,7 +46,7 @@ export function useCompanyCCNL(companyId: string | undefined): UseCompanyCCNLRet
         ccnlCode: row.ccnl_code as CCNLCode,
         ccnlLabel: row.ccnl_label,
         isPrimary: row.is_primary || false,
-        createdAt: row.created_at,
+        createdAt: row.created_at ?? undefined,
       }));
 
       setSelections(mapped);

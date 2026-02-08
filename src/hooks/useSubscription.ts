@@ -27,7 +27,7 @@ export const useSubscription = (companyId?: string) => {
         id: p.id,
         name: p.name as SubscriptionPlan['name'],
         displayName: p.display_name,
-        description: p.description || undefined,
+        description: p.description ?? undefined,
         features: (p.features as string[]) || [],
         monthlyPriceCents: p.monthly_price_cents,
         annualPriceCents: p.annual_price_cents,
@@ -36,7 +36,7 @@ export const useSubscription = (companyId?: string) => {
         canAccessMatching: p.can_access_matching || false,
         canExportData: p.can_export_data || false,
         isActive: p.is_active || true,
-        createdAt: p.created_at,
+        createdAt: p.created_at ?? undefined,
       }));
 
       setPlans(formattedPlans);
@@ -75,14 +75,14 @@ export const useSubscription = (companyId?: string) => {
           currentPeriodStart: data.current_period_start,
           currentPeriodEnd: data.current_period_end,
           profileViewsUsed: data.profile_views_used || 0,
-          stripeSubscriptionId: data.stripe_subscription_id || undefined,
-          createdAt: data.created_at,
-          updatedAt: data.updated_at,
+          stripeSubscriptionId: data.stripe_subscription_id ?? undefined,
+          createdAt: data.created_at ?? undefined,
+          updatedAt: data.updated_at ?? undefined,
           plan: data.plan ? {
             id: data.plan.id,
             name: data.plan.name as SubscriptionPlan['name'],
             displayName: data.plan.display_name,
-            description: data.plan.description || undefined,
+            description: data.plan.description ?? undefined,
             features: (data.plan.features as string[]) || [],
             monthlyPriceCents: data.plan.monthly_price_cents,
             annualPriceCents: data.plan.annual_price_cents,
@@ -91,7 +91,7 @@ export const useSubscription = (companyId?: string) => {
             canAccessMatching: data.plan.can_access_matching || false,
             canExportData: data.plan.can_export_data || false,
             isActive: data.plan.is_active || true,
-            createdAt: data.plan.created_at,
+            createdAt: data.plan.created_at ?? undefined,
           } : undefined,
         };
         setSubscription(formatted);

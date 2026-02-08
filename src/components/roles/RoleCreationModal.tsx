@@ -113,8 +113,7 @@ export const RoleCreationModal: React.FC<RoleCreationModalProps> = ({
   const [code, setCode] = useState('');
   const [description, setDescription] = useState('');
   const [orgNodeId, setOrgNodeId] = useState(defaultOrgNodeId || '');
-  const [status, setStatus] = useState<RoleStatus>('active');
-  const [headcount, setHeadcount] = useState(1);
+  // Status and headcount are now auto-calculated, not user inputs
   const [isHiring, setIsHiring] = useState(false);
   
   // Mansionario - Step 2
@@ -211,15 +210,21 @@ export const RoleCreationModal: React.FC<RoleCreationModalProps> = ({
   const handleSave = async () => {
     setIsSaving(true);
     try {
+      // Auto-calculate status based on assignment
+      const hasAssignment = assignmentMode !== 'none';
+      
       const input: CreateRoleInput = {
         companyId,
         title,
         code: code || undefined,
         description: description || undefined,
         orgNodeId: orgNodeId || undefined,
-        status,
-        headcount,
-        isHiring: assignmentMode === 'none' ? true : isHiring, // Auto-set hiring if no person assigned
+        // Status: active if someone is assigned, vacant otherwise
+        status: hasAssignment ? 'active' : 'vacant',
+        // Headcount: always 1 in role-centric model (1 role = 1 position)
+        headcount: 1,
+        // If no one assigned, default to hiring mode
+        isHiring: hasAssignment ? isHiring : true,
         responsibilities: responsibilities.length > 0 ? responsibilities : undefined,
         dailyTasks: dailyTasks.length > 0 ? dailyTasks : undefined,
         kpis: kpis.length > 0 ? kpis : undefined,
@@ -360,48 +365,24 @@ export const RoleCreationModal: React.FC<RoleCreationModalProps> = ({
               />
             </div>
             
-            <div className="grid grid-cols-3 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Stato
-                </label>
-                <select
-                  value={status}
-                  onChange={e => setStatus(e.target.value as RoleStatus)}
-                  className="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                >
-                  {ROLE_STATUSES.map(s => (
-                    <option key={s} value={s}>{ROLE_STATUS_LABELS[s]}</option>
-                  ))}
-                </select>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Headcount
-                </label>
+            {/* In Hiring checkbox - Status and Headcount are auto-calculated */}
+            <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-xl">
+              <label className="flex items-center gap-3 cursor-pointer">
                 <input
-                  type="number"
-                  min={1}
-                  value={headcount}
-                  onChange={e => setHeadcount(parseInt(e.target.value) || 1)}
-                  className="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                  type="checkbox"
+                  checked={isHiring}
+                  onChange={e => setIsHiring(e.target.checked)}
+                  className="w-5 h-5 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
                 />
-              </div>
-              
-              <div className="flex items-end">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={isHiring}
-                    onChange={e => setIsHiring(e.target.checked)}
-                    className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                  />
+                <div>
                   <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                    In Hiring
+                    Posizione in Hiring
                   </span>
-                </label>
-              </div>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                    Stiamo cercando candidati per questa posizione
+                  </p>
+                </div>
+              </label>
             </div>
             
             {/* Toggle for Advanced Steps */}

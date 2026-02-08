@@ -117,7 +117,7 @@ export const useKarmaAdminSearch = () => {
           .select('user_id, companies(name)')
           .in('user_id', allProfileIds);
         
-        jnanaUserIds = new Set(companyMembers?.map(cm => cm.user_id) || []);
+        jnanaUserIds = new Set(companyMembers?.map(cm => cm.user_id).filter((id): id is string => id !== null) || []);
         
         // Map user_id to company name
         companyMembers?.forEach(cm => {
@@ -442,11 +442,11 @@ export const useKarmaAdminSearch = () => {
         userId: p.user_id,
         itemType: p.item_type as any,
         title: p.title,
-        description: p.description || undefined,
-        fileUrl: p.file_url || undefined,
-        externalUrl: p.external_url || undefined,
+        description: p.description ?? undefined,
+        fileUrl: p.file_url ?? undefined,
+        externalUrl: p.external_url ?? undefined,
         sortOrder: p.sort_order || 0,
-        createdAt: p.created_at,
+        createdAt: p.created_at ?? undefined,
       }));
 
       // Transform social links

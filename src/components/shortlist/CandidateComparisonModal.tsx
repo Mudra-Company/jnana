@@ -222,7 +222,7 @@ export const CandidateComparisonModal: React.FC<CandidateComparisonModalProps> =
       <Button 
         onClick={() => onSelectCandidate(candidate.id)}
         className="w-full"
-        variant={index === 0 ? "default" : "outline"}
+        variant={index === 0 ? "primary" : "outline"}
       >
         Scegli {candidate.name.split(' ')[0]}
       </Button>
@@ -238,7 +238,7 @@ export const CandidateComparisonModal: React.FC<CandidateComparisonModalProps> =
             <h2 className="text-lg font-semibold">Confronto Candidati</h2>
             <p className="text-sm text-muted-foreground">Posizione: {positionTitle}</p>
           </div>
-          <Button variant="ghost" size="icon" onClick={onClose}>
+          <Button variant="ghost" size="sm" onClick={onClose} className="h-8 w-8 p-0">
             <X className="w-5 h-5" />
           </Button>
         </div>

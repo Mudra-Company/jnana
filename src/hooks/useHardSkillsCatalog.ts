@@ -22,8 +22,8 @@ export const useHardSkillsCatalog = () => {
       const formattedSkills: HardSkill[] = (data || []).map(s => ({
         id: s.id,
         name: s.name,
-        category: s.category || undefined,
-        createdAt: s.created_at,
+        category: s.category ?? undefined,
+        createdAt: s.created_at ?? undefined,
       }));
 
       setSkills(formattedSkills);

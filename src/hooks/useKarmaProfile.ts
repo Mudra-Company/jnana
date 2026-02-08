@@ -110,14 +110,14 @@ export const useKarmaProfile = (userId?: string) => {
       const formattedSkills: UserHardSkill[] = (skillsData || []).map(s => ({
         id: s.id,
         userId: s.user_id,
-        skillId: s.skill_id || undefined,
-        customSkillName: s.custom_skill_name || undefined,
+        skillId: s.skill_id ?? undefined,
+        customSkillName: s.custom_skill_name ?? undefined,
         proficiencyLevel: s.proficiency_level as 1 | 2 | 3 | 4 | 5,
-        createdAt: s.created_at,
+        createdAt: s.created_at ?? undefined,
         skill: s.skill ? {
           id: s.skill.id,
           name: s.skill.name,
-          category: s.skill.category || undefined,
+          category: s.skill.category ?? undefined,
         } : undefined,
       }));
 
@@ -127,11 +127,11 @@ export const useKarmaProfile = (userId?: string) => {
         userId: p.user_id,
         itemType: p.item_type as PortfolioItem['itemType'],
         title: p.title,
-        description: p.description || undefined,
-        fileUrl: p.file_url || undefined,
-        externalUrl: p.external_url || undefined,
+        description: p.description ?? undefined,
+        fileUrl: p.file_url ?? undefined,
+        externalUrl: p.external_url ?? undefined,
         sortOrder: p.sort_order || 0,
-        createdAt: p.created_at,
+        createdAt: p.created_at ?? undefined,
       }));
 
       // Format social links
@@ -140,7 +140,7 @@ export const useKarmaProfile = (userId?: string) => {
         userId: s.user_id,
         platform: s.platform as SocialLink['platform'],
         url: s.url,
-        createdAt: s.created_at,
+        createdAt: s.created_at ?? undefined,
       }));
 
       // Format experiences
@@ -149,13 +149,13 @@ export const useKarmaProfile = (userId?: string) => {
         userId: e.user_id,
         company: e.company,
         role: e.role,
-        startDate: e.start_date || undefined,
-        endDate: e.end_date || undefined,
+        startDate: e.start_date ?? undefined,
+        endDate: e.end_date ?? undefined,
         isCurrent: e.is_current || false,
-        description: e.description || undefined,
-        location: e.location || undefined,
+        description: e.description ?? undefined,
+        location: e.location ?? undefined,
         sortOrder: e.sort_order || 0,
-        createdAt: e.created_at,
+        createdAt: e.created_at ?? undefined,
       }));
 
       // Format education
@@ -164,12 +164,12 @@ export const useKarmaProfile = (userId?: string) => {
         userId: e.user_id,
         institution: e.institution,
         degree: e.degree,
-        fieldOfStudy: e.field_of_study || undefined,
-        startYear: e.start_year || undefined,
-        endYear: e.end_year || undefined,
-        description: e.description || undefined,
+        fieldOfStudy: e.field_of_study ?? undefined,
+        startYear: e.start_year ?? undefined,
+        endYear: e.end_year ?? undefined,
+        description: e.description ?? undefined,
         sortOrder: e.sort_order || 0,
-        createdAt: e.created_at,
+        createdAt: e.created_at ?? undefined,
       }));
 
       // Format certifications
@@ -177,12 +177,12 @@ export const useKarmaProfile = (userId?: string) => {
         id: c.id,
         userId: c.user_id,
         name: c.name,
-        issuingOrganization: c.issuing_organization || undefined,
-        issueDate: c.issue_date || undefined,
-        expiryDate: c.expiry_date || undefined,
-        credentialId: c.credential_id || undefined,
-        credentialUrl: c.credential_url || undefined,
-        createdAt: c.created_at,
+        issuingOrganization: c.issuing_organization ?? undefined,
+        issueDate: c.issue_date ?? undefined,
+        expiryDate: c.expiry_date ?? undefined,
+        credentialId: c.credential_id ?? undefined,
+        credentialUrl: c.credential_url ?? undefined,
+        createdAt: c.created_at ?? undefined,
       }));
 
       // Format languages
@@ -191,7 +191,7 @@ export const useKarmaProfile = (userId?: string) => {
         userId: l.user_id,
         language: l.language,
         proficiency: l.proficiency as LanguageProficiency,
-        createdAt: l.created_at,
+        createdAt: l.created_at ?? undefined,
       }));
 
       setProfile(formattedProfile);
