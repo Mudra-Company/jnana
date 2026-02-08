@@ -34,7 +34,7 @@ export interface PortfolioItem {
   fileUrl?: string;
   externalUrl?: string;
   sortOrder: number;
-  createdAt: string;
+  createdAt?: string; // Made optional for DB compatibility
 }
 
 // Work Experience
@@ -118,7 +118,7 @@ export interface SubscriptionPlan {
   canAccessMatching: boolean;
   canExportData: boolean;
   isActive: boolean;
-  createdAt?: string;
+  createdAt?: string; // Made optional for DB compatibility
 }
 
 export interface CompanySubscription {
@@ -130,8 +130,8 @@ export interface CompanySubscription {
   currentPeriodEnd: string;
   profileViewsUsed: number;
   stripeSubscriptionId?: string;
-  createdAt: string;
-  updatedAt: string;
+  createdAt?: string; // Made optional for DB compatibility
+  updatedAt?: string; // Made optional for DB compatibility
   plan?: SubscriptionPlan; // joined data
 }
 

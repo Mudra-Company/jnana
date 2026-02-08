@@ -137,11 +137,7 @@ export const EmployeeProfilePopover: React.FC<EmployeeProfilePopoverProps> = ({
         <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-br from-jnana-sage/10 to-transparent">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg bg-gradient-to-br from-jnana-sage to-jnana-sage/80 shadow-lg">
-              {user.avatarUrl ? (
-                <img src={user.avatarUrl} alt={`${user.firstName} ${user.lastName}`} className="w-full h-full rounded-full object-cover" />
-              ) : (
-                `${user.firstName?.[0] || '?'}${user.lastName?.[0] || ''}`
-              )}
+              {`${user.firstName?.[0] || '?'}${user.lastName?.[0] || ''}`}
             </div>
             <div>
               <h3 className="font-bold text-gray-900 dark:text-white text-lg">
@@ -249,7 +245,7 @@ export const EmployeeProfilePopover: React.FC<EmployeeProfilePopoverProps> = ({
               </div>
               
               {/* Average Score */}
-              {managerFitScore !== null && (
+              {managerFitScore != null && managerFitScore !== undefined && (
                 <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-900/50 rounded-lg">
                   <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Media</span>
                   <ProgressBar value={managerFitScore} />

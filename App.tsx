@@ -227,7 +227,7 @@ const AppContent: React.FC = () => {
       localStorage.setItem('pendingInvite', JSON.stringify({ inviteId, companyId }));
       // Clean the URL
       window.history.replaceState({}, document.title, window.location.pathname);
-      return { type: 'AUTH' };
+      return { type: 'LOGIN' };
     }
     return { type: 'LOADING' }; // Start with LOADING, not LOGIN
   });
@@ -507,7 +507,7 @@ const AppContent: React.FC = () => {
     const placeholders = members.filter(m => !m.user_id);
     
     // Get user IDs for test data loading (only real users)
-    const userIds = membersWithProfiles.map(m => m.user_id).filter(Boolean);
+    const userIds = membersWithProfiles.map(m => m.user_id).filter((id): id is string => id !== null);
     
     // 2. Load test results AND user_roles for real users only
     let riasecResults: any[] = [];
@@ -989,7 +989,7 @@ const AppContent: React.FC = () => {
   return (
     <div className={isDark ? 'dark' : ''}>
       <div className="min-h-screen bg-white dark:bg-gray-900 text-jnana-text dark:text-gray-100 transition-colors duration-300 font-sans">
-        {currentUserData && view.type !== 'LOGIN' && view.type !== 'LANDING' && view.type !== 'LOADING' && 
+        {currentUserData && view.type !== 'LOGIN' && view.type !== 'LANDING' && 
           !view.type.startsWith('KARMA_') && (
           <Header
             onLogout={handleLogout}

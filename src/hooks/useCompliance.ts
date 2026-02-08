@@ -85,7 +85,7 @@ export function useCompliance(companyId: string | undefined): UseComplianceRetur
         fixedDeadlineMonth: row.fixed_deadline_month ?? undefined,
         isActive: row.is_active ?? true,
         sortOrder: row.sort_order ?? 0,
-        createdAt: row.created_at,
+        createdAt: row.created_at ?? undefined,
       }));
 
       setRequirements(mappedRequirements);
@@ -111,8 +111,8 @@ export function useCompliance(companyId: string | undefined): UseComplianceRetur
         validUntil: row.valid_until ?? undefined,
         notes: row.notes ?? undefined,
         lastReminderSent: row.last_reminder_sent ?? undefined,
-        createdAt: row.created_at,
-        updatedAt: row.updated_at,
+        createdAt: row.created_at ?? undefined,
+        updatedAt: row.updated_at ?? undefined,
       }));
 
       setStatuses(mappedStatuses);

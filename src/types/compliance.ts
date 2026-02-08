@@ -53,7 +53,7 @@ export interface ComplianceRequirement {
   fixedDeadlineMonth?: number;
   isActive: boolean;
   sortOrder: number;
-  createdAt: string;
+  createdAt?: string; // Made optional for DB compatibility
 }
 
 export interface CompanyCCNLSelection {
@@ -62,7 +62,7 @@ export interface CompanyCCNLSelection {
   ccnlCode: CCNLCode;
   ccnlLabel: string;
   isPrimary: boolean;
-  createdAt: string;
+  createdAt?: string; // Made optional for DB compatibility
 }
 
 export interface CompanyComplianceStatusRecord {
@@ -78,8 +78,8 @@ export interface CompanyComplianceStatusRecord {
   validUntil?: string;
   notes?: string;
   lastReminderSent?: string;
-  createdAt: string;
-  updatedAt: string;
+  createdAt?: string; // Made optional for DB compatibility
+  updatedAt?: string; // Made optional for DB compatibility
 }
 
 export interface ComplianceHistoryEntry {

@@ -193,7 +193,7 @@ export const UnifiedRolePersonCard: React.FC<UnifiedRolePersonCardProps> = ({
                 </span>
               )}
               {assignee.birthDate && (
-                <GenerationBadge birthDate={assignee.birthDate} size="xs" />
+                <GenerationBadge birthDate={assignee.birthDate} size="sm" />
               )}
             </div>
           </div>

@@ -232,27 +232,27 @@ export const ShortlistTab: React.FC<ShortlistTabProps> = ({
                     <div className="flex items-center justify-end gap-1">
                       <Button
                         variant="ghost"
-                        size="icon"
+                        size="sm"
                         onClick={() => setExpandedNotes(expandedNotes === candidate.id ? null : candidate.id)}
-                        className="h-8 w-8"
+                        className="h-8 w-8 p-0"
                         title="Note"
                       >
                         <span className="text-xs">📝</span>
                       </Button>
                       <Button
                         variant="ghost"
-                        size="icon"
+                        size="sm"
                         onClick={() => onViewProfile(candidate)}
-                        className="h-8 w-8"
+                        className="h-8 w-8 p-0"
                         title="Visualizza profilo"
                       >
                         <Eye className="w-4 h-4" />
                       </Button>
                       <Button
                         variant="ghost"
-                        size="icon"
+                        size="sm"
                         onClick={() => onRemoveCandidate(candidate.id)}
-                        className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-50"
+                        className="h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
                         title="Rimuovi dalla shortlist"
                       >
                         <Trash2 className="w-4 h-4" />
