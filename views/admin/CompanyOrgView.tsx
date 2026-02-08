@@ -2145,15 +2145,15 @@ export const CompanyOrgView: React.FC<{
                         }
                         setSelectedUnifiedPosition(null);
                     } : undefined}
-                    onEditRole={!selectedUnifiedPosition.role.id.startsWith('implicit-') ? async (updatedRole) => {
-                        const result = await updateRole(selectedUnifiedPosition.role.id, updatedRole);
+                    onSaveRole={!selectedUnifiedPosition.role.id.startsWith('implicit-') ? async (roleId, updatedRole) => {
+                        const result = await updateRole(roleId, updatedRole, selectedUnifiedPosition.role);
                         if (result.success) {
                             toast({
                                 title: "Ruolo aggiornato",
                                 description: "Il ruolo è stato modificato con successo",
                             });
                             // Refresh the role data
-                            const refreshed = await fetchRoleWithAssignments(selectedUnifiedPosition.role.id);
+                            const refreshed = await fetchRoleWithAssignments(roleId);
                             if (refreshed) {
                                 setSelectedUnifiedPosition(prev => prev ? { ...prev, role: refreshed } : null);
                             }
@@ -2164,6 +2164,24 @@ export const CompanyOrgView: React.FC<{
                                 variant: "destructive",
                             });
                         }
+                        return result;
+                    } : undefined}
+                    onDeleteRole={!selectedUnifiedPosition.role.id.startsWith('implicit-') ? async (roleId) => {
+                        const result = await deleteRole(roleId);
+                        if (result.success) {
+                            toast({
+                                title: "Ruolo eliminato",
+                                description: "Il ruolo è stato rimosso con successo",
+                            });
+                            setSelectedUnifiedPosition(null);
+                        } else {
+                            toast({
+                                title: "Errore",
+                                description: result.error || "Impossibile eliminare il ruolo",
+                                variant: "destructive",
+                            });
+                        }
+                        return result;
                     } : undefined}
                 />
             )}

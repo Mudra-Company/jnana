@@ -304,9 +304,37 @@ export const useCompanyRoles = (): UseCompanyRolesResult => {
   }, []);
 
   /**
-   * Update an existing role
+   * Log role changes to audit table
    */
-  const updateRole = useCallback(async (roleId: string, input: UpdateRoleInput): Promise<{ success: boolean; error?: string }> => {
+  const logRoleChange = useCallback(async (
+    roleId: string,
+    action: 'created' | 'updated' | 'deleted',
+    changes?: { before?: Partial<CompanyRole>; after?: Partial<UpdateRoleInput>; changedFields?: string[] }
+  ): Promise<void> => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Use type assertion since the table types may not be synced yet
+      await (supabase.from('company_role_audit_logs') as any).insert({
+        role_id: roleId,
+        user_id: user.id,
+        action,
+        changes: changes || null
+      });
+    } catch (err) {
+      console.error('Failed to log role change:', err);
+    }
+  }, []);
+
+  /**
+   * Update an existing role (with audit logging)
+   */
+  const updateRole = useCallback(async (
+    roleId: string, 
+    input: UpdateRoleInput,
+    previousRole?: CompanyRole
+  ): Promise<{ success: boolean; error?: string }> => {
     setIsLoading(true);
     setError(null);
 
@@ -327,6 +355,22 @@ export const useCompanyRoles = (): UseCompanyRolesResult => {
           : role
       ));
 
+      // Log the change
+      if (previousRole) {
+        const prevRoleAny = previousRole as unknown as Record<string, unknown>;
+        const inputAny = input as unknown as Record<string, unknown>;
+        const changedFields = Object.keys(input).filter(
+          key => JSON.stringify(prevRoleAny[key]) !== JSON.stringify(inputAny[key])
+        );
+        await logRoleChange(roleId, 'updated', {
+          before: changedFields.reduce((acc, key) => ({ ...acc, [key]: prevRoleAny[key] }), {}),
+          after: changedFields.reduce((acc, key) => ({ ...acc, [key]: inputAny[key] }), {}),
+          changedFields
+        });
+      } else {
+        await logRoleChange(roleId, 'updated');
+      }
+
       return { success: true };
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to update role';
@@ -335,7 +379,7 @@ export const useCompanyRoles = (): UseCompanyRolesResult => {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [logRoleChange]);
 
   /**
    * Delete a role

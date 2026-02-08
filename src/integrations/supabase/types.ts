@@ -409,6 +409,48 @@ export type Database = {
           },
         ]
       }
+      company_role_audit_logs: {
+        Row: {
+          action: Database["public"]["Enums"]["role_audit_action"]
+          changes: Json | null
+          created_at: string
+          id: string
+          role_id: string
+          user_id: string | null
+        }
+        Insert: {
+          action: Database["public"]["Enums"]["role_audit_action"]
+          changes?: Json | null
+          created_at?: string
+          id?: string
+          role_id: string
+          user_id?: string | null
+        }
+        Update: {
+          action?: Database["public"]["Enums"]["role_audit_action"]
+          changes?: Json | null
+          created_at?: string
+          id?: string
+          role_id?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_role_audit_logs_role_id_fkey"
+            columns: ["role_id"]
+            isOneToOne: false
+            referencedRelation: "company_roles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "company_role_audit_logs_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       company_roles: {
         Row: {
           ccnl_level: string | null
@@ -1901,6 +1943,12 @@ export type Database = {
       member_status: "pending" | "invited" | "test_completed" | "completed"
       org_node_type: "root" | "department" | "team"
       remote_policy: "on_site" | "hybrid" | "remote" | "flexible"
+      role_audit_action:
+        | "created"
+        | "updated"
+        | "deleted"
+        | "assigned"
+        | "unassigned"
       role_status: "active" | "vacant" | "frozen" | "planned"
       seniority_level: "Junior" | "Mid" | "Senior" | "Lead" | "C-Level"
       work_hours_type: "full_time" | "part_time" | "flexible"
@@ -2045,6 +2093,13 @@ export const Constants = {
       member_status: ["pending", "invited", "test_completed", "completed"],
       org_node_type: ["root", "department", "team"],
       remote_policy: ["on_site", "hybrid", "remote", "flexible"],
+      role_audit_action: [
+        "created",
+        "updated",
+        "deleted",
+        "assigned",
+        "unassigned",
+      ],
       role_status: ["active", "vacant", "frozen", "planned"],
       seniority_level: ["Junior", "Mid", "Senior", "Lead", "C-Level"],
       work_hours_type: ["full_time", "part_time", "flexible"],

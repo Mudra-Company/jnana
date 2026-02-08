@@ -3,6 +3,11 @@
  * 
  * Comprehensive modal showing both Role and Person information.
  * 5 tabs: Persona, Ruolo (Mansionario), Requisiti, Contratto, Storia
+ * 
+ * Features:
+ * - View mode (read-only) by default
+ * - Edit mode when clicking "Modifica"
+ * - Delete confirmation dialog
  */
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -35,13 +40,17 @@ import {
   Eye,
   Shuffle,
   Users,
-  FileSearch
+  FileSearch,
+  Save,
+  Loader2,
+  Trash2,
+  AlertTriangle
 } from 'lucide-react';
 import { Button } from '../../../components/Button';
 import { GenerationBadge } from '../GenerationBadge';
 import { useUnifiedOrgData } from '../../hooks/useUnifiedOrgData';
 import type { UnifiedPosition, DetailedMetrics, AssignmentHistoryEntry, UserHardSkillDisplay } from '../../types/unified-org';
-import type { CompanyRole } from '../../types/roles';
+import type { CompanyRole, UpdateRoleInput } from '../../types/roles';
 import type { User as UserType } from '../../../types';
 import {
   CONTRACT_TYPE_LABELS,
@@ -72,7 +81,11 @@ interface UnifiedDetailModalProps {
   companyValues?: string[];
   parentManagers?: UserType[];
   onClose: () => void;
-  onEditRole?: () => void;
+  // New props for save/delete
+  onSaveRole?: (roleId: string, updates: UpdateRoleInput) => Promise<{ success: boolean; error?: string }>;
+  onDeleteRole?: (roleId: string) => Promise<{ success: boolean; error?: string }>;
+  // Legacy props (kept for compatibility)
+  onEditRole?: (updates: UpdateRoleInput) => Promise<void>;
   onViewFullProfile?: () => void;
   onProposeRotation?: () => void;
   onOpenMatching?: () => void;
@@ -115,12 +128,38 @@ const InfoRow: React.FC<{ label: string; value?: string | React.ReactNode; icon?
   );
 };
 
+// Editable Info Row (for edit mode)
+const EditableInfoRow: React.FC<{
+  label: string;
+  value?: string;
+  onChange: (value: string) => void;
+  icon?: React.ReactNode;
+  type?: 'text' | 'number';
+  placeholder?: string;
+}> = ({ label, value, onChange, icon, type = 'text', placeholder }) => (
+  <div className="flex items-center justify-between py-2 px-3 bg-gray-50 dark:bg-gray-900/30 rounded-lg gap-3">
+    <span className="text-sm font-medium text-gray-600 dark:text-gray-400 flex items-center gap-2 shrink-0">
+      {icon}
+      {label}
+    </span>
+    <input
+      type={type}
+      value={value || ''}
+      onChange={e => onChange(e.target.value)}
+      placeholder={placeholder}
+      className="text-sm font-medium text-gray-800 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded px-2 py-1 flex-1 min-w-0 text-right"
+    />
+  </div>
+);
+
 export const UnifiedDetailModal: React.FC<UnifiedDetailModalProps> = ({
   isOpen,
   position,
   companyValues,
   parentManagers,
   onClose,
+  onSaveRole,
+  onDeleteRole,
   onEditRole,
   onViewFullProfile,
   onProposeRotation,
@@ -131,15 +170,33 @@ export const UnifiedDetailModal: React.FC<UnifiedDetailModalProps> = ({
   const [userHardSkills, setUserHardSkills] = useState<UserHardSkillDisplay[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   
+  // Edit mode state
+  const [isEditing, setIsEditing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [editedRole, setEditedRole] = useState<Partial<UpdateRoleInput>>({});
+  
   const { calculateDetailedMetrics, fetchAssignmentHistory, fetchUserHardSkills } = useUnifiedOrgData();
 
   const { role, assignee, assignment, metrics } = position;
+
+  // Check if this is a formal role (not implicit)
+  const isImplicitRole = role.id.startsWith('implicit-');
+  const canEdit = !isImplicitRole && (!!onSaveRole || !!onEditRole);
+  const canDelete = !isImplicitRole && !!onDeleteRole;
 
   // Calculate detailed metrics
   const detailedMetrics = useMemo(() => 
     calculateDetailedMetrics(role, assignee || null, companyValues, parentManagers),
     [role, assignee, companyValues, parentManagers, calculateDetailedMetrics]
   );
+
+  // Reset edit state when modal opens/closes or position changes
+  useEffect(() => {
+    setIsEditing(false);
+    setEditedRole({});
+    setShowDeleteConfirm(false);
+  }, [isOpen, position.role.id]);
 
   // Load history when Storia tab is selected
   useEffect(() => {
@@ -160,6 +217,64 @@ export const UnifiedDetailModal: React.FC<UnifiedDetailModalProps> = ({
   }, [assignee?.id, userHardSkills.length, fetchUserHardSkills]);
 
   if (!isOpen) return null;
+
+  // Handle save
+  const handleSave = async () => {
+    if (Object.keys(editedRole).length === 0) {
+      setIsEditing(false);
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      if (onSaveRole) {
+        const result = await onSaveRole(role.id, editedRole);
+        if (result.success) {
+          setIsEditing(false);
+          setEditedRole({});
+        }
+      } else if (onEditRole) {
+        // Legacy compatibility
+        await onEditRole(editedRole);
+        setIsEditing(false);
+        setEditedRole({});
+      }
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Handle delete
+  const handleDelete = async () => {
+    if (!onDeleteRole) return;
+    
+    setIsSaving(true);
+    try {
+      const result = await onDeleteRole(role.id);
+      if (result.success) {
+        onClose();
+      }
+    } finally {
+      setIsSaving(false);
+      setShowDeleteConfirm(false);
+    }
+  };
+
+  // Cancel editing
+  const handleCancelEdit = () => {
+    setIsEditing(false);
+    setEditedRole({});
+  };
+
+  // Get current value (edited or original)
+  const getValue = <K extends keyof CompanyRole>(key: K): CompanyRole[K] => {
+    return (editedRole[key as keyof UpdateRoleInput] as CompanyRole[K]) ?? role[key];
+  };
+
+  // Update edited value
+  const updateValue = <K extends keyof UpdateRoleInput>(key: K, value: UpdateRoleInput[K]) => {
+    setEditedRole(prev => ({ ...prev, [key]: value }));
+  };
 
   const getProficiencyLabel = (level: number) => {
     if (level >= 5) return 'Esperto';
@@ -340,74 +455,208 @@ export const UnifiedDetailModal: React.FC<UnifiedDetailModalProps> = ({
     );
   };
 
-  const renderRuoloTab = () => (
-    <div className="space-y-6">
-      {/* DESCRIZIONE */}
-      {role.description && (
+  const renderRuoloTab = () => {
+    const currentDescription = getValue('description');
+    const currentResponsibilities = getValue('responsibilities') || [];
+    const currentDailyTasks = getValue('dailyTasks') || [];
+    const currentKpis = getValue('kpis') || [];
+
+    return (
+      <div className="space-y-6">
+        {/* TITOLO (solo in edit mode) */}
+        {isEditing && (
+          <Section title="Titolo Ruolo" icon={<Briefcase size={16} />}>
+            <input
+              value={getValue('title')}
+              onChange={e => updateValue('title', e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200"
+              placeholder="Titolo del ruolo"
+            />
+          </Section>
+        )}
+
+        {/* DESCRIZIONE */}
         <Section title="Descrizione" icon={<FileText size={16} />}>
-          <p className="text-sm text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-900/30 p-3 rounded-lg">
-            {role.description}
-          </p>
+          {isEditing ? (
+            <textarea
+              value={currentDescription || ''}
+              onChange={e => updateValue('description', e.target.value)}
+              rows={4}
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 text-sm"
+              placeholder="Descrizione del ruolo..."
+            />
+          ) : currentDescription ? (
+            <p className="text-sm text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-900/30 p-3 rounded-lg">
+              {currentDescription}
+            </p>
+          ) : (
+            <p className="text-sm text-gray-400 italic">Nessuna descrizione</p>
+          )}
         </Section>
-      )}
 
-      {/* RESPONSABILITÀ */}
-      {role.responsibilities && role.responsibilities.length > 0 && (
+        {/* RESPONSABILITÀ */}
         <Section title="Responsabilità" icon={<Target size={16} />}>
-          <ul className="space-y-2">
-            {role.responsibilities.map((resp, i) => (
-              <li key={i} className="flex items-start gap-2 text-sm text-gray-700 dark:text-gray-300">
-                <ChevronRight size={14} className="text-indigo-500 shrink-0 mt-1" />
-                {resp}
-              </li>
-            ))}
-          </ul>
+          {isEditing ? (
+            <div className="space-y-2">
+              {currentResponsibilities.map((resp, i) => (
+                <div key={i} className="flex gap-2">
+                  <input
+                    value={resp}
+                    onChange={e => {
+                      const newResp = [...currentResponsibilities];
+                      newResp[i] = e.target.value;
+                      updateValue('responsibilities', newResp);
+                    }}
+                    className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-sm"
+                    placeholder={`Responsabilità ${i + 1}`}
+                  />
+                  <button
+                    onClick={() => {
+                      const newResp = currentResponsibilities.filter((_, idx) => idx !== i);
+                      updateValue('responsibilities', newResp);
+                    }}
+                    className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+              ))}
+              <button
+                onClick={() => updateValue('responsibilities', [...currentResponsibilities, ''])}
+                className="text-sm text-indigo-600 hover:text-indigo-700 font-medium"
+              >
+                + Aggiungi responsabilità
+              </button>
+            </div>
+          ) : currentResponsibilities.length > 0 ? (
+            <ul className="space-y-2">
+              {currentResponsibilities.map((resp, i) => (
+                <li key={i} className="flex items-start gap-2 text-sm text-gray-700 dark:text-gray-300">
+                  <ChevronRight size={14} className="text-indigo-500 shrink-0 mt-1" />
+                  {resp}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-sm text-gray-400 italic">Nessuna responsabilità definita</p>
+          )}
         </Section>
-      )}
 
-      {/* ATTIVITÀ QUOTIDIANE */}
-      {role.dailyTasks && role.dailyTasks.length > 0 && (
+        {/* ATTIVITÀ QUOTIDIANE */}
         <Section title="Attività Quotidiane" icon={<Clock size={16} />}>
-          <ul className="space-y-2">
-            {role.dailyTasks.map((task, i) => (
-              <li key={i} className="flex items-start gap-2 text-sm text-gray-700 dark:text-gray-300">
-                <CheckCircle size={14} className="text-green-500 shrink-0 mt-1" />
-                {task}
-              </li>
-            ))}
-          </ul>
+          {isEditing ? (
+            <div className="space-y-2">
+              {currentDailyTasks.map((task, i) => (
+                <div key={i} className="flex gap-2">
+                  <input
+                    value={task}
+                    onChange={e => {
+                      const newTasks = [...currentDailyTasks];
+                      newTasks[i] = e.target.value;
+                      updateValue('dailyTasks', newTasks);
+                    }}
+                    className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-sm"
+                    placeholder={`Attività ${i + 1}`}
+                  />
+                  <button
+                    onClick={() => {
+                      const newTasks = currentDailyTasks.filter((_, idx) => idx !== i);
+                      updateValue('dailyTasks', newTasks);
+                    }}
+                    className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+              ))}
+              <button
+                onClick={() => updateValue('dailyTasks', [...currentDailyTasks, ''])}
+                className="text-sm text-indigo-600 hover:text-indigo-700 font-medium"
+              >
+                + Aggiungi attività
+              </button>
+            </div>
+          ) : currentDailyTasks.length > 0 ? (
+            <ul className="space-y-2">
+              {currentDailyTasks.map((task, i) => (
+                <li key={i} className="flex items-start gap-2 text-sm text-gray-700 dark:text-gray-300">
+                  <CheckCircle size={14} className="text-green-500 shrink-0 mt-1" />
+                  {task}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-sm text-gray-400 italic">Nessuna attività definita</p>
+          )}
         </Section>
-      )}
 
-      {/* KPI */}
-      {role.kpis && role.kpis.length > 0 && (
+        {/* KPI */}
         <Section title="KPI e Obiettivi" icon={<TrendingUp size={16} />}>
-          <div className="space-y-3">
-            {role.kpis.map((kpi, i) => (
-              <div key={i} className="p-3 bg-gray-50 dark:bg-gray-900/30 rounded-lg">
-                <div className="font-medium text-gray-800 dark:text-gray-200">{kpi.name}</div>
-                {kpi.description && <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{kpi.description}</p>}
-                {kpi.target && (
-                  <div className="text-xs text-indigo-600 dark:text-indigo-400 mt-2">
-                    Target: {kpi.target} {kpi.measurementUnit && `(${kpi.measurementUnit})`}
+          {isEditing ? (
+            <div className="space-y-3">
+              {currentKpis.map((kpi, i) => (
+                <div key={i} className="p-3 bg-gray-50 dark:bg-gray-900/30 rounded-lg space-y-2">
+                  <div className="flex gap-2">
+                    <input
+                      value={kpi.name}
+                      onChange={e => {
+                        const newKpis = [...currentKpis];
+                        newKpis[i] = { ...newKpis[i], name: e.target.value };
+                        updateValue('kpis', newKpis);
+                      }}
+                      className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-sm font-medium"
+                      placeholder="Nome KPI"
+                    />
+                    <button
+                      onClick={() => {
+                        const newKpis = currentKpis.filter((_, idx) => idx !== i);
+                        updateValue('kpis', newKpis);
+                      }}
+                      className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded"
+                    >
+                      <X size={16} />
+                    </button>
                   </div>
-                )}
-              </div>
-            ))}
-          </div>
+                  <input
+                    value={kpi.target || ''}
+                    onChange={e => {
+                      const newKpis = [...currentKpis];
+                      newKpis[i] = { ...newKpis[i], target: e.target.value };
+                      updateValue('kpis', newKpis);
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-sm"
+                    placeholder="Target (es. >95%)"
+                  />
+                </div>
+              ))}
+              <button
+                onClick={() => updateValue('kpis', [...currentKpis, { name: '', target: '' }])}
+                className="text-sm text-indigo-600 hover:text-indigo-700 font-medium"
+              >
+                + Aggiungi KPI
+              </button>
+            </div>
+          ) : currentKpis.length > 0 ? (
+            <div className="space-y-3">
+              {currentKpis.map((kpi, i) => (
+                <div key={i} className="p-3 bg-gray-50 dark:bg-gray-900/30 rounded-lg">
+                  <div className="font-medium text-gray-800 dark:text-gray-200">{kpi.name}</div>
+                  {kpi.description && <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{kpi.description}</p>}
+                  {kpi.target && (
+                    <div className="text-xs text-indigo-600 dark:text-indigo-400 mt-2">
+                      Target: {kpi.target} {kpi.measurementUnit && `(${kpi.measurementUnit})`}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-gray-400 italic">Nessun KPI definito</p>
+          )}
         </Section>
-      )}
-
-      {/* Empty state */}
-      {!role.description && (!role.responsibilities || role.responsibilities.length === 0) && (!role.dailyTasks || role.dailyTasks.length === 0) && (!role.kpis || role.kpis.length === 0) && (
-        <div className="text-center py-12 text-gray-400">
-          <FileText size={48} className="mx-auto mb-4 text-gray-300" />
-          <p className="text-lg font-medium">Mansionario non definito</p>
-          <p className="text-sm mt-1">Clicca "Modifica Ruolo" per aggiungere dettagli</p>
-        </div>
-      )}
-    </div>
-  );
+      </div>
+    );
+  };
 
   const renderRequisitiTab = () => (
     <div className="space-y-6">
@@ -501,6 +750,20 @@ export const UnifiedDetailModal: React.FC<UnifiedDetailModalProps> = ({
             ))}
           </div>
         </Section>
+      )}
+
+      {/* Empty state for requisiti */}
+      {(!role.requiredHardSkills || role.requiredHardSkills.length === 0) &&
+       (!role.requiredSoftSkills || role.requiredSoftSkills.length === 0) &&
+       !role.requiredSeniority &&
+       (!role.requiredEducation || role.requiredEducation.length === 0) &&
+       (!role.requiredCertifications || role.requiredCertifications.length === 0) &&
+       (!role.requiredLanguages || role.requiredLanguages.length === 0) && (
+        <div className="text-center py-12 text-gray-400">
+          <Target size={48} className="mx-auto mb-4 text-gray-300" />
+          <p className="text-lg font-medium">Nessun requisito definito</p>
+          <p className="text-sm mt-1">Clicca "Modifica" per aggiungere requisiti</p>
+        </div>
       )}
     </div>
   );
@@ -663,6 +926,11 @@ export const UnifiedDetailModal: React.FC<UnifiedDetailModalProps> = ({
                       HIRING
                     </span>
                   )}
+                  {isImplicitRole && (
+                    <span className="text-xs px-2 py-0.5 rounded bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400">
+                      Ruolo implicito
+                    </span>
+                  )}
                 </div>
               </div>
             </div>
@@ -707,28 +975,99 @@ export const UnifiedDetailModal: React.FC<UnifiedDetailModalProps> = ({
 
         {/* Actions */}
         <div className="p-4 border-t border-gray-200 dark:border-gray-700 flex gap-2 shrink-0 bg-gray-50 dark:bg-gray-900/30">
-          {onEditRole && (
-            <Button variant="outline" onClick={onEditRole} className="flex-1">
-              <Edit size={16} className="mr-1" /> Modifica Ruolo
-            </Button>
-          )}
-          {assignee && onViewFullProfile && (
-            <Button onClick={onViewFullProfile} className="flex-1">
-              <Eye size={16} className="mr-1" /> Profilo Completo
-            </Button>
-          )}
-          {!assignee && role.isHiring && onOpenMatching && (
-            <Button onClick={onOpenMatching} className="flex-1">
-              <FileSearch size={16} className="mr-1" /> Avvia Matching
-            </Button>
-          )}
-          {assignee && onProposeRotation && (
-            <Button variant="ghost" onClick={onProposeRotation} title="Proponi Job Rotation">
-              <Shuffle size={16} />
-            </Button>
+          {/* Edit Mode Actions */}
+          {isEditing ? (
+            <>
+              <Button variant="ghost" onClick={handleCancelEdit} disabled={isSaving} className="flex-1">
+                Annulla
+              </Button>
+              <Button onClick={handleSave} disabled={isSaving} className="flex-1">
+                {isSaving ? <Loader2 size={16} className="animate-spin mr-1" /> : <Save size={16} className="mr-1" />}
+                Salva Modifiche
+              </Button>
+            </>
+          ) : (
+            <>
+              {/* View Mode Actions */}
+              {canEdit && (
+                <Button variant="outline" onClick={() => setIsEditing(true)} className="flex-1">
+                  <Edit size={16} className="mr-1" /> Modifica Ruolo
+                </Button>
+              )}
+              {canDelete && (
+                <Button 
+                  variant="ghost" 
+                  onClick={() => setShowDeleteConfirm(true)}
+                  className="text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
+                >
+                  <Trash2 size={16} />
+                </Button>
+              )}
+              {assignee && onViewFullProfile && (
+                <Button onClick={onViewFullProfile} className="flex-1">
+                  <Eye size={16} className="mr-1" /> Profilo Completo
+                </Button>
+              )}
+              {!assignee && role.isHiring && onOpenMatching && (
+                <Button onClick={onOpenMatching} className="flex-1">
+                  <FileSearch size={16} className="mr-1" /> Avvia Matching
+                </Button>
+              )}
+              {assignee && onProposeRotation && (
+                <Button variant="ghost" onClick={onProposeRotation} title="Proponi Job Rotation">
+                  <Shuffle size={16} />
+                </Button>
+              )}
+            </>
           )}
         </div>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <>
+          <div className="fixed inset-0 bg-black/60 z-[220]" onClick={() => setShowDeleteConfirm(false)} />
+          <div className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-[230] w-[400px] bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-12 h-12 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+                <AlertTriangle size={24} className="text-red-600 dark:text-red-400" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-gray-900 dark:text-white">Elimina Ruolo</h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400">Questa azione è irreversibile</p>
+              </div>
+            </div>
+            
+            <p className="text-gray-600 dark:text-gray-300 mb-6">
+              Sei sicuro di voler eliminare il ruolo <strong>"{role.title}"</strong>? 
+              {assignee && (
+                <span className="block mt-2 text-amber-600 dark:text-amber-400 text-sm">
+                  ⚠️ Attenzione: {assignee.firstName} {assignee.lastName} è attualmente assegnato a questo ruolo.
+                </span>
+              )}
+            </p>
+            
+            <div className="flex gap-3">
+              <Button 
+                variant="ghost" 
+                onClick={() => setShowDeleteConfirm(false)} 
+                disabled={isSaving}
+                className="flex-1"
+              >
+                Annulla
+              </Button>
+              <Button 
+                onClick={handleDelete} 
+                disabled={isSaving}
+                className="flex-1 bg-red-600 hover:bg-red-700 text-white"
+              >
+                {isSaving ? <Loader2 size={16} className="animate-spin mr-1" /> : <Trash2 size={16} className="mr-1" />}
+                Elimina
+              </Button>
+            </div>
+          </div>
+        </>
+      )}
     </>
   );
 };
