@@ -1,13 +1,23 @@
-import React, { useState, useMemo } from 'react';
-import { UserPlus, ArrowRight, Eye, Shield, User as UserIcon, MoreVertical, UserCog, UserMinus, Trash2, Loader2, Mail, Edit } from 'lucide-react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import { UserPlus, Loader2 } from 'lucide-react';
 import { Card } from '../../components/Card';
 import { Button } from '../../components/Button';
 import { CompanyProfile, User, ViewState } from '../../types';
 import { calculateCultureAnalysis } from '../../services/riasecService';
 import { useCompanyMembers } from '../../src/hooks/useCompanyMembers';
+import { useCompanyRoles } from '../../src/hooks/useCompanyRoles';
+import { useRoleAssignments } from '../../src/hooks/useRoleAssignments';
+import { useOrgNodes } from '../../src/hooks/useOrgNodes';
+import { useCompliance } from '../../src/hooks/useCompliance';
 import { toast } from '../../src/hooks/use-toast';
 import { supabase } from '../../src/integrations/supabase/client';
 import { EditUserModal } from '../../src/components/admin/EditUserModal';
+import { DashboardKPIGrid } from '../../src/components/dashboard/DashboardKPIGrid';
+import { AlertsPanel } from '../../src/components/dashboard/AlertsPanel';
+import { QuickActionsPanel } from '../../src/components/dashboard/QuickActionsPanel';
+import { RolesByDepartment } from '../../src/components/dashboard/RolesByDepartment';
+import { EnhancedEmployeeTable } from '../../src/components/dashboard/EnhancedEmployeeTable';
+import type { CompanyRole } from '../../src/types/roles';
 
 interface AdminDashboardProps {
   activeCompany: CompanyProfile;
@@ -63,12 +73,81 @@ export const AdminDashboardView: React.FC<AdminDashboardProps> = ({
   // Separate real employees from hiring positions
   const allCompanyRecords = users.filter(u => u.companyId === activeCompany.id);
   const companyUsers = allCompanyRecords.filter(u => !u.isHiring);
-  const hiringPositions = allCompanyRecords.filter(u => u.isHiring);
   
   const completedCount = companyUsers.filter(u => u.status === 'completed' || u.status === 'test_completed').length;
+  const completionRate = companyUsers.length > 0 ? Math.round((completedCount / companyUsers.length) * 100) : 0;
   const adminCount = companyUsers.filter(u => u.role === 'admin').length;
 
   const { updateMemberRole, deleteCompanyMember } = useCompanyMembers();
+  
+  // --- ROLES & ASSIGNMENTS DATA ---
+  const { roles, fetchRoles } = useCompanyRoles();
+  const { assignments, fetchAssignmentsByRole } = useRoleAssignments();
+  const { fetchOrgNodes } = useOrgNodes();
+  const { items: complianceItems, riskScore } = useCompliance(activeCompany.id);
+
+  const [orgNodes, setOrgNodes] = useState<{ id: string; name: string; type: string }[]>([]);
+  const [allAssignments, setAllAssignments] = useState<typeof assignments>([]);
+  const [isDataLoading, setIsDataLoading] = useState(true);
+
+  // Fetch roles, assignments, and org nodes on mount
+  const loadDashboardData = useCallback(async () => {
+    setIsDataLoading(true);
+    try {
+      const [fetchedRoles, orgResult] = await Promise.all([
+        fetchRoles(activeCompany.id),
+        fetchOrgNodes(activeCompany.id),
+      ]);
+
+      // Map org nodes
+      const nodes = (orgResult.data || []).map(n => ({
+        id: n.id,
+        name: n.name,
+        type: n.type,
+      }));
+      setOrgNodes(nodes);
+
+      // Fetch all assignments for all roles
+      const assignmentPromises = fetchedRoles.map(r => fetchAssignmentsByRole(r.id));
+      const allResults = await Promise.all(assignmentPromises);
+      setAllAssignments(allResults.flat());
+    } catch (err) {
+      console.error('Error loading dashboard data:', err);
+    } finally {
+      setIsDataLoading(false);
+    }
+  }, [activeCompany.id, fetchRoles, fetchOrgNodes, fetchAssignmentsByRole]);
+
+  useEffect(() => {
+    loadDashboardData();
+  }, [loadDashboardData]);
+
+  // --- KPI CALCULATIONS ---
+  const vacantRoles = useMemo(() => roles.filter(r => r.status === 'vacant'), [roles]);
+  const hiringRoles = useMemo(() => roles.filter(r => r.isHiring), [roles]);
+  const cultureScore = useMemo(() => calculateCultureAnalysis(activeCompany, users).matchScore, [activeCompany, users]);
+
+  // Build roleId -> orgNodeId map
+  const roleOrgNodeMap = useMemo(() => {
+    const map = new Map<string, string | null>();
+    roles.forEach(r => map.set(r.id, r.orgNodeId || null));
+    return map;
+  }, [roles]);
+
+  // Pending test users
+  const pendingTestUsers = useMemo(() => 
+    companyUsers.filter(u => u.status === 'pending' || u.status === 'invited'),
+    [companyUsers]
+  );
+
+  // Expiring compliance items
+  const expiringCompliance = useMemo(() => 
+    complianceItems.filter(i => {
+      const d = i.daysUntilExpiry;
+      return d !== null && d !== undefined && d <= 30;
+    }),
+    [complianceItems]
+  );
 
   // --- INVITE MODAL ---
   const [showInvite, setShowInvite] = useState(false);
@@ -77,9 +156,6 @@ export const AdminDashboardView: React.FC<AdminDashboardProps> = ({
   const [inviteRole, setInviteRole] = useState('');
   const [isInviting, setIsInviting] = useState(false);
   
-  // --- ACTION MENU ---
-  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
-  
   // --- CONFIRM MODALS ---
   const [confirmModal, setConfirmModal] = useState<{
     isOpen: boolean;
@@ -87,25 +163,11 @@ export const AdminDashboardView: React.FC<AdminDashboardProps> = ({
     user: User | null;
   }>({ isOpen: false, type: 'promote', user: null });
 
-  // --- SEARCH ---
-  const [searchTerm, setSearchTerm] = useState('');
-
   // --- EDIT USER MODAL ---
   const [editingUser, setEditingUser] = useState<User | null>(null);
   
   // --- SENDING INVITE STATE ---
   const [sendingInviteId, setSendingInviteId] = useState<string | null>(null);
-
-  const filteredUsers = useMemo(() => {
-    if (!searchTerm) return companyUsers;
-    const term = searchTerm.toLowerCase();
-    return companyUsers.filter(u => 
-      u.firstName.toLowerCase().includes(term) ||
-      u.lastName.toLowerCase().includes(term) ||
-      u.email.toLowerCase().includes(term) ||
-      (u.jobTitle && u.jobTitle.toLowerCase().includes(term))
-    );
-  }, [companyUsers, searchTerm]);
 
   const handleInviteUser = async () => {
     if (!inviteName || !inviteEmail) return;
@@ -113,7 +175,6 @@ export const AdminDashboardView: React.FC<AdminDashboardProps> = ({
     setIsInviting(true);
     
     try {
-      // 1. Create a placeholder company_member record
       const firstName = inviteName.split(' ')[0];
       const lastName = inviteName.split(' ').slice(1).join(' ') || '';
       
@@ -132,13 +193,11 @@ export const AdminDashboardView: React.FC<AdminDashboardProps> = ({
         .single();
 
       if (memberError) {
-        console.error('Error creating member:', memberError);
         toast({ title: 'Errore', description: 'Impossibile creare l\'invito', variant: 'destructive' });
         return;
       }
 
-      // 2. Call edge function to send email
-      const { data, error } = await supabase.functions.invoke('send-invite-email', {
+      const { error } = await supabase.functions.invoke('send-invite-email', {
         body: {
           employeeEmail: inviteEmail,
           employeeName: `${firstName} ${lastName}`,
@@ -149,10 +208,9 @@ export const AdminDashboardView: React.FC<AdminDashboardProps> = ({
       });
 
       if (error) {
-        console.error('Error sending invite email:', error);
         toast({ 
           title: 'Utente creato', 
-          description: `${firstName} aggiunto ma l'email non è stata inviata. Contattalo manualmente.`,
+          description: `${firstName} aggiunto ma l'email non è stata inviata.`,
         });
       } else {
         toast({ 
@@ -161,7 +219,6 @@ export const AdminDashboardView: React.FC<AdminDashboardProps> = ({
         });
       }
 
-      // 3. Refresh users list
       if (onRefreshUsers) await onRefreshUsers();
       
       setShowInvite(false);
@@ -169,7 +226,6 @@ export const AdminDashboardView: React.FC<AdminDashboardProps> = ({
       setInviteEmail('');
       setInviteRole('');
     } catch (err) {
-      console.error('Invite error:', err);
       toast({ title: 'Errore', description: 'Si è verificato un errore durante l\'invito', variant: 'destructive' });
     } finally {
       setIsInviting(false);
@@ -178,7 +234,6 @@ export const AdminDashboardView: React.FC<AdminDashboardProps> = ({
 
   const handlePromoteToAdmin = async (user: User) => {
     if (!user.memberId) return;
-    
     const result = await updateMemberRole(user.memberId, 'admin');
     if (result.success) {
       toast({ title: 'Successo', description: `${user.firstName} ${user.lastName} è ora Admin` });
@@ -187,19 +242,15 @@ export const AdminDashboardView: React.FC<AdminDashboardProps> = ({
       toast({ title: 'Errore', description: 'Impossibile aggiornare il ruolo', variant: 'destructive' });
     }
     setConfirmModal({ isOpen: false, type: 'promote', user: null });
-    setOpenMenuId(null);
   };
 
   const handleDemoteToUser = async (user: User) => {
     if (!user.memberId) return;
-    
-    // Check if this is the last admin
     if (adminCount <= 1) {
       toast({ title: 'Errore', description: 'Non puoi declassare l\'ultimo admin', variant: 'destructive' });
       setConfirmModal({ isOpen: false, type: 'demote', user: null });
       return;
     }
-    
     const result = await updateMemberRole(user.memberId, 'user');
     if (result.success) {
       toast({ title: 'Successo', description: `${user.firstName} ${user.lastName} è ora Utente` });
@@ -208,19 +259,15 @@ export const AdminDashboardView: React.FC<AdminDashboardProps> = ({
       toast({ title: 'Errore', description: 'Impossibile aggiornare il ruolo', variant: 'destructive' });
     }
     setConfirmModal({ isOpen: false, type: 'demote', user: null });
-    setOpenMenuId(null);
   };
 
   const handleRemoveMember = async (user: User) => {
     if (!user.memberId) return;
-    
-    // Check if this is the last admin
     if (user.role === 'admin' && adminCount <= 1) {
       toast({ title: 'Errore', description: 'Non puoi rimuovere l\'ultimo admin', variant: 'destructive' });
       setConfirmModal({ isOpen: false, type: 'remove', user: null });
       return;
     }
-    
     const result = await deleteCompanyMember(user.memberId);
     if (result.success) {
       toast({ title: 'Successo', description: `${user.firstName} ${user.lastName} rimosso dall'azienda` });
@@ -229,7 +276,6 @@ export const AdminDashboardView: React.FC<AdminDashboardProps> = ({
       toast({ title: 'Errore', description: 'Impossibile rimuovere l\'utente', variant: 'destructive' });
     }
     setConfirmModal({ isOpen: false, type: 'remove', user: null });
-    setOpenMenuId(null);
   };
 
   const handleSendInvite = async (user: User) => {
@@ -237,12 +283,9 @@ export const AdminDashboardView: React.FC<AdminDashboardProps> = ({
       toast({ title: 'Errore', description: 'ID membro non trovato', variant: 'destructive' });
       return;
     }
-
-    setOpenMenuId(null);
     setSendingInviteId(user.memberId);
-
     try {
-      const { data, error } = await supabase.functions.invoke('send-invite-email', {
+      const { error } = await supabase.functions.invoke('send-invite-email', {
         body: {
           employeeEmail: user.email,
           employeeName: `${user.firstName} ${user.lastName}`.trim(),
@@ -251,36 +294,23 @@ export const AdminDashboardView: React.FC<AdminDashboardProps> = ({
           memberId: user.memberId,
         }
       });
-
       if (error) throw error;
-
-      toast({ 
-        title: 'Invito inviato! ✉️', 
-        description: `Email di invito inviata a ${user.email}` 
-      });
-
+      toast({ title: 'Invito inviato! ✉️', description: `Email di invito inviata a ${user.email}` });
       if (onRefreshUsers) await onRefreshUsers();
     } catch (err) {
-      console.error('Error sending invite:', err);
-      toast({ 
-        title: 'Errore', 
-        description: 'Impossibile inviare l\'invito. Verifica la configurazione email.', 
-        variant: 'destructive' 
-      });
+      toast({ title: 'Errore', description: 'Impossibile inviare l\'invito.', variant: 'destructive' });
     } finally {
       setSendingInviteId(null);
     }
   };
 
-  const handleOpenEditModal = (user: User) => {
-    setOpenMenuId(null);
-    setEditingUser(user);
+  const handleRoleClick = (roleId: string) => {
+    // Navigate to org chart with focus on this role
+    setView({ type: 'ADMIN_ORG_CHART' });
   };
 
-  const isCurrentUser = (userId: string) => currentUserId === userId;
-
   return (
-    <div className="p-8 max-w-7xl mx-auto space-y-8 relative">
+    <div className="p-6 lg:p-8 max-w-7xl mx-auto space-y-6 relative">
 
       {/* Confirm Modal */}
       <ConfirmModal 
@@ -292,15 +322,14 @@ export const AdminDashboardView: React.FC<AdminDashboardProps> = ({
         }
         message={
           confirmModal.type === 'promote' 
-            ? `Vuoi promuovere ${confirmModal.user?.firstName} ${confirmModal.user?.lastName} ad Admin? Avrà accesso alla gestione aziendale.` 
+            ? `Vuoi promuovere ${confirmModal.user?.firstName} ${confirmModal.user?.lastName} ad Admin?` 
             : confirmModal.type === 'demote'
-            ? `Vuoi declassare ${confirmModal.user?.firstName} ${confirmModal.user?.lastName} a Utente normale?`
-            : `Vuoi rimuovere ${confirmModal.user?.firstName} ${confirmModal.user?.lastName} dall'azienda? Questa azione non può essere annullata.`
+            ? `Vuoi declassare ${confirmModal.user?.firstName} ${confirmModal.user?.lastName} a Utente?`
+            : `Vuoi rimuovere ${confirmModal.user?.firstName} ${confirmModal.user?.lastName} dall'azienda?`
         }
         confirmLabel={
           confirmModal.type === 'promote' ? 'Promuovi' :
-          confirmModal.type === 'demote' ? 'Declassa' :
-          'Rimuovi'
+          confirmModal.type === 'demote' ? 'Declassa' : 'Rimuovi'
         }
         confirmVariant={confirmModal.type === 'remove' ? 'danger' : 'primary'}
         onConfirm={() => {
@@ -317,11 +346,10 @@ export const AdminDashboardView: React.FC<AdminDashboardProps> = ({
         isOpen={!!editingUser}
         user={editingUser}
         onClose={() => setEditingUser(null)}
-        onSaved={async () => {
-          if (onRefreshUsers) await onRefreshUsers();
-        }}
+        onSaved={async () => { if (onRefreshUsers) await onRefreshUsers(); }}
       />
 
+      {/* Invite Modal */}
       {showInvite && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
           <Card className="w-full max-w-md animate-scale-in">
@@ -356,201 +384,79 @@ export const AdminDashboardView: React.FC<AdminDashboardProps> = ({
         </div>
       )}
 
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
         <div>
-          <h1 className="text-3xl font-brand font-bold text-gray-900 dark:text-gray-100 mb-2">Dashboard {activeCompany.name}</h1>
-          <p className="text-gray-600">Panoramica dello stato del capitale umano.</p>
+          <h1 className="text-2xl lg:text-3xl font-brand font-bold text-gray-900 dark:text-gray-100">
+            Dashboard {activeCompany.name}
+          </h1>
+          <p className="text-sm text-gray-500 mt-1">Panoramica del capitale umano e dell'organizzazione.</p>
         </div>
-        <Button onClick={() => setShowInvite(true)}><UserPlus size={18} className="mr-2"/> Invita Utenti</Button>
+        <div className="flex gap-2">
+          <Button onClick={() => setView({ type: 'ADMIN_ORG_CHART' })} variant="outline" size="sm">
+            Organigramma
+          </Button>
+          <Button onClick={() => setShowInvite(true)} size="sm">
+            <UserPlus size={16} className="mr-1.5" /> Invita
+          </Button>
+        </div>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-        <Card className="flex flex-col justify-between">
-          <span className="text-gray-500 text-xs font-bold uppercase tracking-wider">Totale Dipendenti</span>
-          <span className="text-3xl font-bold text-gray-800 dark:text-white mt-2">{companyUsers.length}</span>
-        </Card>
-        <Card className="flex flex-col justify-between">
-          <span className="text-gray-500 text-xs font-bold uppercase tracking-wider">Test Completati</span>
-          <span className="text-3xl font-bold text-jnana-sage mt-2">{completedCount}</span>
-        </Card>
-        <Card className="flex flex-col justify-between">
-          <span className="text-gray-500 text-xs font-bold uppercase tracking-wider">Admin</span>
-          <span className="text-3xl font-bold text-amber-500 mt-2">{adminCount}</span>
-        </Card>
-        <Card 
-          className="flex flex-col justify-between bg-gradient-to-br from-blue-500 to-cyan-600 text-white border-0 shadow-lg cursor-pointer hover:scale-[1.02] transition-transform" 
-          onClick={() => setView({ type: 'ADMIN_OPEN_POSITIONS' })}
-        >
-          <div className="flex justify-between items-start">
-            <span className="text-blue-100 text-xs font-bold uppercase tracking-wider">Posizioni Aperte</span>
-            <ArrowRight size={16} className="text-white"/>
-          </div>
-          <span className="text-3xl font-bold mt-2">{hiringPositions.length}</span>
-        </Card>
-        <Card className="flex flex-col justify-between bg-gradient-to-br from-purple-600 to-indigo-700 text-white border-0 shadow-lg cursor-pointer hover:scale-[1.02] transition-transform" onClick={() => setView({ type: 'ADMIN_IDENTITY_HUB' })}>
-          <div className="flex justify-between items-start">
-            <span className="text-purple-100 text-xs font-bold uppercase tracking-wider">Culture Match</span>
-            <ArrowRight size={16} className="text-white"/>
-          </div>
-          <span className="text-3xl font-bold mt-2">{calculateCultureAnalysis(activeCompany, users).matchScore}%</span>
-        </Card>
-      </div>
+      {/* KPI Grid */}
+      <DashboardKPIGrid
+        totalEmployees={companyUsers.length}
+        completedTests={completedCount}
+        completionRate={completionRate}
+        totalRoles={roles.length}
+        vacantRoles={vacantRoles.length}
+        hiringRoles={hiringRoles.length}
+        complianceScore={riskScore.score}
+        cultureMatchScore={cultureScore}
+        onNavigateToOrgChart={() => setView({ type: 'ADMIN_ORG_CHART' })}
+        onNavigateToOpenPositions={() => setView({ type: 'ADMIN_OPEN_POSITIONS' })}
+        onNavigateToCompliance={() => setView({ type: 'ADMIN_COMPLIANCE' })}
+        onNavigateToIdentityHub={() => setView({ type: 'ADMIN_IDENTITY_HUB' })}
+      />
 
-      {/* User Table */}
-      <Card>
-        <div className="flex justify-between items-center mb-6">
-          <h3 className="font-bold text-lg text-gray-800 dark:text-gray-200">Elenco Dipendenti</h3>
-          <div className="flex gap-2">
-            <input 
-              placeholder="Cerca..." 
-              value={searchTerm}
-              onChange={e => setSearchTerm(e.target.value)}
-              className="bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg px-3 py-1.5 text-sm outline-none focus:ring-1 focus:ring-jnana-sage dark:text-white" 
-            />
-          </div>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm text-left">
-            <thead className="bg-gray-50 dark:bg-gray-700/50 text-gray-500 uppercase text-xs font-bold">
-              <tr>
-                <th className="px-4 py-3 rounded-l-lg w-12 text-center">Tipo</th>
-                <th className="px-4 py-3">Utente</th>
-                <th className="px-4 py-3">Posizione</th>
-                <th className="px-4 py-3">Stato</th>
-                <th className="px-4 py-3">Profilo</th>
-                <th className="px-4 py-3 text-right rounded-r-lg w-20">Azioni</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
-              {filteredUsers.map(u => (
-                <tr key={u.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors group">
-                  {/* Role Icon Column */}
-                  <td className="px-4 py-3 text-center">
-                    {u.role === 'admin' || u.role === 'super_admin' ? (
-                      <Shield size={18} className="text-amber-500 mx-auto" title="Admin" />
-                    ) : (
-                      <UserIcon size={18} className="text-gray-400 mx-auto" title="Utente" />
-                    )}
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-600 flex items-center justify-center text-xs font-bold text-gray-600 dark:text-gray-300">
-                        {u.firstName[0]}{u.lastName[0]}
-                      </div>
-                      <div>
-                        <div className="font-bold text-gray-800 dark:text-gray-200">
-                          {u.firstName} {u.lastName}
-                          {isCurrentUser(u.id) && <span className="ml-2 text-xs text-gray-400">(tu)</span>}
-                        </div>
-                        <div className="text-xs text-gray-500">{u.email}</div>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{u.jobTitle || '-'}</td>
-                  <td className="px-4 py-3">
-                    <span className={`px-2 py-0.5 rounded text-xs font-bold uppercase ${
-                      (u.status === 'completed' || u.status === 'test_completed') ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' :
-                      u.status === 'invited' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' :
-                      'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
-                    }`}>
-                      {u.status === 'test_completed' ? 'completato' : u.status}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 font-mono font-bold text-gray-600 dark:text-gray-300">{u.profileCode || '-'}</td>
-                  <td className="px-4 py-3 text-right">
-                    <div className="relative inline-block">
-                      <button
-                        onClick={() => setOpenMenuId(openMenuId === u.id ? null : u.id)}
-                        className="p-1.5 hover:bg-gray-200 dark:hover:bg-gray-700 rounded text-gray-400 hover:text-gray-600"
-                        title="Azioni"
-                      >
-                        <MoreVertical size={16}/>
-                      </button>
-                      
-                      {/* Dropdown Menu */}
-                      {openMenuId === u.id && (
-                        <div className="absolute right-0 mt-1 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-1 z-10">
-                          <button
-                            onClick={() => {
-                              setView({ type: 'USER_RESULT', userId: u.id });
-                              setOpenMenuId(null);
-                            }}
-                            disabled={u.status !== 'completed' && u.status !== 'test_completed'}
-                            className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            <Eye size={14} /> Vedi Profilo
-                          </button>
-                          
-                          {/* Invia/Reinvia Invito - solo per utenti pending/invited */}
-                          {(u.status === 'pending' || u.status === 'invited') && (
-                            <button
-                              onClick={() => handleSendInvite(u)}
-                              disabled={sendingInviteId === u.memberId}
-                              className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2 text-blue-600 disabled:opacity-50"
-                            >
-                              {sendingInviteId === u.memberId ? (
-                                <><Loader2 size={14} className="animate-spin" /> Invio...</>
-                              ) : (
-                                <><Mail size={14} /> {u.status === 'pending' ? 'Invia Invito' : 'Reinvia Invito'}</>
-                              )}
-                            </button>
-                          )}
-                          
-                          {/* Modifica Utente */}
-                          <button
-                            onClick={() => handleOpenEditModal(u)}
-                            className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
-                          >
-                            <Edit size={14} /> Modifica
-                          </button>
-                          
-                          {!isCurrentUser(u.id) && u.role !== 'super_admin' && (
-                            <>
-                              {u.role === 'admin' ? (
-                                <button
-                                  onClick={() => setConfirmModal({ isOpen: true, type: 'demote', user: u })}
-                                  className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
-                                >
-                                  <UserMinus size={14} /> Declassa a Utente
-                                </button>
-                              ) : (
-                                <button
-                                  onClick={() => setConfirmModal({ isOpen: true, type: 'promote', user: u })}
-                                  className="w-full px-4 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
-                                >
-                                  <UserCog size={14} /> Promuovi ad Admin
-                                </button>
-                              )}
-                              
-                              <div className="border-t border-gray-200 dark:border-gray-700 my-1" />
-                              
-                              <button
-                                onClick={() => setConfirmModal({ isOpen: true, type: 'remove', user: u })}
-                                className="w-full px-4 py-2 text-left text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2"
-                              >
-                                <Trash2 size={14} /> Rimuovi dall'Azienda
-                              </button>
-                            </>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </Card>
-      
-      {/* Click outside to close menu */}
-      {openMenuId && (
-        <div 
-          className="fixed inset-0 z-0" 
-          onClick={() => setOpenMenuId(null)}
+      {/* Alerts + Quick Actions */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <AlertsPanel
+          vacantRoles={vacantRoles}
+          expiringCompliance={expiringCompliance}
+          pendingTestUsers={pendingTestUsers}
+          onNavigateToMatching={(roleId) => setView({ type: 'ADMIN_ORG_CHART' })}
+          onNavigateToCompliance={() => setView({ type: 'ADMIN_COMPLIANCE' })}
         />
-      )}
+        <QuickActionsPanel
+          setView={setView}
+          onInviteUser={() => setShowInvite(true)}
+        />
+      </div>
+
+      {/* Roles by Department */}
+      <RolesByDepartment
+        roles={roles}
+        assignments={allAssignments}
+        orgNodes={orgNodes}
+        onRoleClick={handleRoleClick}
+      />
+
+      {/* Employee Table */}
+      <EnhancedEmployeeTable
+        users={companyUsers}
+        currentUserId={currentUserId}
+        roleAssignments={allAssignments}
+        orgNodes={orgNodes}
+        roleOrgNodeMap={roleOrgNodeMap}
+        setView={setView}
+        onPromote={(u) => setConfirmModal({ isOpen: true, type: 'promote', user: u })}
+        onDemote={(u) => setConfirmModal({ isOpen: true, type: 'demote', user: u })}
+        onRemove={(u) => setConfirmModal({ isOpen: true, type: 'remove', user: u })}
+        onEdit={(u) => setEditingUser(u)}
+        onSendInvite={handleSendInvite}
+        sendingInviteId={sendingInviteId}
+        adminCount={adminCount}
+      />
     </div>
   );
 };
