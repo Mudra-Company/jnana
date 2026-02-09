@@ -1,3 +1,4 @@
+import { useCallback } from 'react';
 import { supabase } from '../integrations/supabase/client';
 import { OrgNode } from '../../types';
 import type { Json } from '../integrations/supabase/types';
@@ -149,7 +150,7 @@ export const useOrgNodes = () => {
   };
 
   // Fetch all nodes for a company
-  const fetchOrgNodes = async (companyId: string) => {
+  const fetchOrgNodes = useCallback(async (companyId: string) => {
     const { data, error } = await supabase
       .from('org_nodes')
       .select('*')
@@ -160,7 +161,7 @@ export const useOrgNodes = () => {
       console.error('[useOrgNodes] Error fetching nodes:', error);
     }
     return { data, error };
-  };
+  }, []);
 
   // Sync entire tree structure to database
   // This handles create, update, and delete in one operation

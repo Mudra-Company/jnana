@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { UserPlus, Loader2 } from 'lucide-react';
 import { Card } from '../../components/Card';
 import { Button } from '../../components/Button';
@@ -96,37 +96,55 @@ export const AdminDashboardView: React.FC<AdminDashboardProps> = ({
   const [allAssignments, setAllAssignments] = useState<typeof assignments>([]);
   const [isDataLoading, setIsDataLoading] = useState(true);
 
-  // Fetch roles, assignments, and org nodes on mount
-  const loadDashboardData = useCallback(async () => {
-    setIsDataLoading(true);
-    try {
-      const [fetchedRoles, orgResult] = await Promise.all([
-        fetchRoles(activeCompany.id),
-        fetchOrgNodes(activeCompany.id),
-      ]);
+  // Use refs to avoid stale closures while keeping effect stable
+  const fetchRolesRef = useRef(fetchRoles);
+  const fetchOrgNodesRef = useRef(fetchOrgNodes);
+  const fetchAssignmentsByRoleRef = useRef(fetchAssignmentsByRole);
+  fetchRolesRef.current = fetchRoles;
+  fetchOrgNodesRef.current = fetchOrgNodes;
+  fetchAssignmentsByRoleRef.current = fetchAssignmentsByRole;
 
-      // Map org nodes
-      const nodes = (orgResult.data || []).map(n => ({
-        id: n.id,
-        name: n.name,
-        type: n.type,
-      }));
-      setOrgNodes(nodes);
-
-      // Fetch all assignments for all roles
-      const assignmentPromises = fetchedRoles.map(r => fetchAssignmentsByRole(r.id));
-      const allResults = await Promise.all(assignmentPromises);
-      setAllAssignments(allResults.flat());
-    } catch (err) {
-      console.error('Error loading dashboard data:', err);
-    } finally {
-      setIsDataLoading(false);
-    }
-  }, [activeCompany.id, fetchRoles, fetchOrgNodes, fetchAssignmentsByRole]);
-
+  // Fetch roles, assignments, and org nodes on mount (only when companyId changes)
   useEffect(() => {
+    let cancelled = false;
+
+    const loadDashboardData = async () => {
+      setIsDataLoading(true);
+      try {
+        const [fetchedRoles, orgResult] = await Promise.all([
+          fetchRolesRef.current(activeCompany.id),
+          fetchOrgNodesRef.current(activeCompany.id),
+        ]);
+
+        if (cancelled) return;
+
+        // Map org nodes
+        const nodes = (orgResult.data || []).map(n => ({
+          id: n.id,
+          name: n.name,
+          type: n.type,
+        }));
+        setOrgNodes(nodes);
+
+        // Fetch all assignments for all roles
+        const assignmentPromises = fetchedRoles.map(r => fetchAssignmentsByRoleRef.current(r.id));
+        const allResults = await Promise.all(assignmentPromises);
+        if (!cancelled) {
+          setAllAssignments(allResults.flat());
+        }
+      } catch (err) {
+        console.error('Error loading dashboard data:', err);
+      } finally {
+        if (!cancelled) {
+          setIsDataLoading(false);
+        }
+      }
+    };
+
     loadDashboardData();
-  }, [loadDashboardData]);
+
+    return () => { cancelled = true; };
+  }, [activeCompany.id]);
 
   // --- KPI CALCULATIONS ---
   const vacantRoles = useMemo(() => roles.filter(r => r.status === 'vacant'), [roles]);
