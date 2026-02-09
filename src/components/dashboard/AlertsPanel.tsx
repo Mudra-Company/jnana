@@ -14,8 +14,17 @@ export interface DashboardAlert {
   };
 }
 
+interface LegacyHiringPosition {
+  id: string;
+  firstName: string;
+  lastName: string;
+  jobTitle?: string;
+  isHiring?: boolean;
+}
+
 interface AlertsPanelProps {
   vacantRoles: CompanyRole[];
+  legacyHiringPositions?: LegacyHiringPosition[];
   expiringCompliance: ComplianceItem[];
   pendingTestUsers: { id: string; firstName: string; lastName: string }[];
   onNavigateToMatching?: (roleId: string) => void;
@@ -24,12 +33,25 @@ interface AlertsPanelProps {
 
 export const AlertsPanel: React.FC<AlertsPanelProps> = ({
   vacantRoles,
+  legacyHiringPositions = [],
   expiringCompliance,
   pendingTestUsers,
   onNavigateToMatching,
   onNavigateToCompliance,
 }) => {
   const alerts: DashboardAlert[] = [];
+
+  // Legacy hiring positions (from company_members with is_hiring=true)
+  legacyHiringPositions.forEach(pos => {
+    alerts.push({
+      id: `legacy-hiring-${pos.id}`,
+      type: 'warning',
+      message: `"${pos.jobTitle || 'Posizione aperta'}" in cerca di candidati`,
+      action: onNavigateToMatching
+        ? { label: 'Vedi posizione', onClick: () => onNavigateToMatching(pos.id) }
+        : undefined,
+    });
+  });
 
   // Vacant roles (created more than 30 days ago)
   vacantRoles.forEach(role => {
