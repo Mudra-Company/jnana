@@ -1,170 +1,362 @@
 
+# Piano: Trasformazione AdminDashboard in Dashboard Completa
 
-# Piano: Semplificazione Wizard Creazione Posizione
+## Problema Identificato
 
-## Analisi del Problema
+L'attuale `AdminDashboard` è estremamente limitato:
+- Mostra solo 5 KPI di base (Dipendenti, Test Completati, Admin, Posizioni Aperte, Culture Match)
+- Ha solo una tabella dipendenti con funzionalità minime
+- Non mostra i **Ruoli** (entità primaria nel modello ruolo-centrico)
+- Non mostra la **struttura organizzativa** per dipartimento
+- Non fornisce accesso rapido alle altre sezioni (Compliance, Organigramma, etc.)
+- Non offre una panoramica delle attività recenti o delle urgenze
 
-I campi **Stato** e **Headcount** nel wizard attuale creano confusione per l'utente:
+## Soluzione: Dashboard Completa Multi-Sezione
 
-### Problema 1: Campo "Stato" Ambiguo
+Trasformeremo la dashboard in un hub operativo completo con:
 
-| Stato | Significato Attuale | Problema |
-|-------|---------------------|----------|
-| Attivo | Il ruolo ha qualcuno assegnato | Ridondante: se assegno persona diventa "attivo" automaticamente |
-| Vacante | Il ruolo non ha nessuno | Ridondante: se non assegno persona è vacante per definizione |
-| Congelato | Il ruolo non è attualmente operativo | Caso raro, non necessario in creazione |
-| Pianificato | Ruolo previsto ma non ancora attivato | Caso raro, può essere derivato dal fatto che non c'è budget |
-
-**Il "Stato" può essere calcolato automaticamente:**
-- Se c'è persona assegnata → **Attivo**
-- Se non c'è persona ma isHiring = true → **In Hiring** (che mostriamo già col badge)
-- Se non c'è persona e isHiring = false → **Vacante**
-- Congelato/Pianificato → Casi rari da gestire solo in modifica, non in creazione
-
-### Problema 2: "Headcount" Incoerente
-
-Nel modello ruolo-centrico attuale:
-- **1 Ruolo = 1 Posizione = 1 Casella nell'organigramma**
-- Se servono 3 sviluppatori → si creano 3 ruoli separati (es. "Senior Developer #1", "#2", "#3")
-- Oppure si crea 1 ruolo "Senior Developer" con 3 assignments diversi
-
-Il campo `headcount > 1` implica che un singolo ruolo possa avere più occupanti, ma:
-1. Nella pratica poi chiediamo di assegnare UNA persona
-2. L'organigramma mostra UNA card per ruolo
-3. Non c'è supporto UI per gestire più persone su stesso ruolo
-
-**Headcount quindi non serve in fase di creazione.**
+1. **KPI Cards Espanse** - Più metriche con trend e navigazione
+2. **Sezione Ruoli per Dipartimento** - Accordion con ruoli raggruppati per nodo organizzativo
+3. **Quick Actions Panel** - Accesso rapido alle funzionalità principali
+4. **Activity Feed / Urgenze** - Posizioni vacanti, compliance in scadenza, etc.
+5. **Tabella Dipendenti Migliorata** - Con più filtri e informazioni sul ruolo assegnato
 
 ---
 
-## Soluzione Proposta
-
-### Eliminare dal wizard questi campi:
-
-| Campo | Azione | Motivazione |
-|-------|--------|-------------|
-| **Stato** | Rimuovere | Calcolato automaticamente in base a presenza assignment |
-| **Headcount** | Rimuovere | Sempre 1 (1 ruolo = 1 posizione) |
-| **In Hiring** | Mantenere | Indica se stiamo cercando candidati esterni |
-
-### Nuovo Comportamento
-
-Quando si crea un ruolo:
+## Architettura della Nuova Dashboard
 
 ```text
-┌────────────────────────────────────────────────────────────┐
-│ Step 1: DEFINISCI IL RUOLO                                 │
-│ ────────────────────────────────────────────────────────── │
-│ Titolo Posizione*: [________________________]              │
-│                                                            │
-│ ┌──────────────────┐  ┌──────────────────────────────────┐ │
-│ │ Codice (opz.)    │  │ Dipartimento/Team               │ │
-│ │ [______________] │  │ [Seleziona... ▼]                │ │
-│ └──────────────────┘  └──────────────────────────────────┘ │
-│                                                            │
-│ Descrizione:                                               │
-│ [___________________________________________________]     │
-│                                                            │
-│ ☐ Posizione in Hiring (stiamo cercando candidati)         │
-│                                                            │
-│ ⚙️ Mostra configurazione avanzata ▼                       │
-└────────────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────────────────────┐
+│  Dashboard [Company Name]                          [+ Invita] [+ Nuova Pos]│
+│  Panoramica del capitale umano                                             │
+├────────────────────────────────────────────────────────────────────────────┤
+│                                                                            │
+│  ┌─────────┬─────────┬─────────┬─────────┬─────────┬─────────┬─────────┐  │
+│  │DIPEND.  │TEST OK  │POSIZ.   │VACANTI  │HIRING   │COMPLIANCE│CULTURE │  │
+│  │   12    │   8     │  15     │   3     │   2     │  85%    │  78%   │  │
+│  │ ▲2      │ 67%     │ Tot.    │ Urgenti │ Attive  │  Score  │ Match  │  │
+│  └─────────┴─────────┴─────────┴─────────┴─────────┴─────────┴─────────┘  │
+│                                                                            │
+├────────────────────────────────────────────────────────────────────────────┤
+│                                                                            │
+│  ┌──────────────────────────────────┐  ┌─────────────────────────────────┐ │
+│  │ 🚨 ATTENZIONE RICHIESTA          │  │ ⚡ AZIONI RAPIDE               │ │
+│  │ ─────────────────────────────    │  │ ─────────────────────────────  │ │
+│  │ • 3 posizioni vacanti da >30gg   │  │ [📊 Organigramma]              │ │
+│  │ • 2 documenti compliance scaduti │  │ [🎯 Identity Hub]              │ │
+│  │ • 1 test RIASEC in attesa        │  │ [📋 Compliance]                │ │
+│  └──────────────────────────────────┘  │ [🔍 Talent Search]             │ │
+│                                        └─────────────────────────────────┘ │
+├────────────────────────────────────────────────────────────────────────────┤
+│                                                                            │
+│  📁 RUOLI PER DIPARTIMENTO                                    [Cerca...]  │
+│  ─────────────────────────────────────────────────────────────────────────│
+│  ┌─────────────────────────────────────────────────────────────────────┐  │
+│  │ ▼ Direzione (3 ruoli, 2 assegnati, 1 vacante)                      │  │
+│  │   ├─ CEO                    Carlotta Silvestrini   ● Attivo        │  │
+│  │   ├─ CFO                    —                       ○ Vacante 🔥    │  │
+│  │   └─ COO                    Marco Rossi             ● Attivo        │  │
+│  ├─────────────────────────────────────────────────────────────────────┤  │
+│  │ ▶ Operations (5 ruoli, 4 assegnati, 1 in hiring)                   │  │
+│  ├─────────────────────────────────────────────────────────────────────┤  │
+│  │ ▶ Sales & Marketing (4 ruoli, 3 assegnati, 1 vacante)              │  │
+│  └─────────────────────────────────────────────────────────────────────┘  │
+│                                                                            │
+├────────────────────────────────────────────────────────────────────────────┤
+│                                                                            │
+│  👥 ELENCO DIPENDENTI                                [Filtri] [Cerca...]  │
+│  ─────────────────────────────────────────────────────────────────────────│
+│  │ TIPO │ UTENTE           │ RUOLO ASSEGNATO │ DIPARTIMENTO │ STATO │ ••• │
+│  ├──────┼──────────────────┼─────────────────┼──────────────┼───────┼─────│
+│  │  🛡️  │ Carlotta S.      │ CEO             │ Direzione    │ ✓     │ ··· │
+│  │  👤  │ Giuseppe C.      │ Stagista        │ Operations   │ ⏳    │ ··· │
+│  │  ...                                                                   │
+│  └─────────────────────────────────────────────────────────────────────────┘
+│                                                                            │
+└────────────────────────────────────────────────────────────────────────────┘
 ```
-
-### Logica di Stato Automatica
-
-Nel salvataggio, il campo `status` viene derivato:
-
-```typescript
-const handleSave = async () => {
-  const hasAssignment = assignmentMode !== 'none';
-  
-  const input: CreateRoleInput = {
-    ...formData,
-    status: hasAssignment ? 'active' : (isHiring ? 'vacant' : 'vacant'),
-    headcount: 1, // Sempre 1
-    isHiring: assignmentMode === 'none' ? true : isHiring
-  };
-  
-  // Se non assegno persona, automaticamente è in hiring
-  // (a meno che l'utente non lo abbia esplicitamente disattivato)
-};
-```
-
-### Casi d'Uso Residui per Stato
-
-Per i casi rari (Congelato, Pianificato), l'utente può modificare lo stato dalla **modale di dettaglio** dopo la creazione. Non serve in fase di creazione iniziale.
 
 ---
 
-## Modifiche Tecniche
+## Implementazione Tecnica
 
-### File da Modificare
+### 1. Nuovi Hook da Utilizzare
+
+La dashboard dovrà integrare dati da molteplici fonti:
+
+| Hook | Dati Forniti |
+|------|--------------|
+| `useCompanyRoles` | Lista ruoli, status (active/vacant), isHiring |
+| `useRoleAssignments` | Mapping ruolo-persona |
+| `useOrgNodes` | Struttura dipartimenti/team |
+| `useCompliance` | Score compliance, items in scadenza |
+| `calculateCultureAnalysis` | Culture match score |
+
+### 2. Nuovi Componenti da Creare
+
+```text
+src/components/dashboard/
+├── DashboardKPIGrid.tsx        # Griglia espansa delle metriche
+├── AlertsPanel.tsx             # Pannello urgenze/attenzione richiesta
+├── QuickActionsPanel.tsx       # Azioni rapide con navigazione
+├── RolesByDepartment.tsx       # Accordion ruoli per dipartimento
+└── EnhancedEmployeeTable.tsx   # Tabella dipendenti migliorata
+```
+
+### 3. File da Modificare
 
 | File | Azione |
 |------|--------|
-| `src/components/roles/RoleCreationModal.tsx` | Rimuovere Stato e Headcount dall'UI, impostare valori di default |
-| `src/types/roles.ts` | Nessuna modifica (i campi restano nel DB per retrocompatibilità e modifica post-creazione) |
+| `views/admin/AdminDashboard.tsx` | Refactor completo con nuova struttura |
+| `types.ts` | Nessuna modifica necessaria |
 
-### Modifiche nel RoleCreationModal
+---
 
-**Rimuovere** dai campi form:
-- `status` e relativo `<select>`
-- `headcount` e relativo `<input type="number">`
+## Dettaglio Componenti
 
-**Mantenere**:
-- `isHiring` checkbox (posizione per cui cerchiamo candidati)
+### 3.1 DashboardKPIGrid
 
-**Aggiornare** il salvataggio:
+7 KPI cards invece di 5:
 
 ```typescript
-const handleSave = async () => {
-  const input: CreateRoleInput = {
-    companyId,
-    title,
-    code: code || undefined,
-    description: description || undefined,
-    orgNodeId: orgNodeId || undefined,
-    // Status derivato automaticamente
-    status: assignmentMode !== 'none' ? 'active' : 'vacant',
-    // Headcount sempre 1 per design
-    headcount: 1,
-    // Se nessuno assegnato e hiring non esplicitamente impostato, default a true
-    isHiring: assignmentMode === 'none' ? true : isHiring,
-    // ...resto dei campi
-  };
+const kpiData = [
+  { label: 'Dipendenti', value: companyUsers.length, trend: '+2 questo mese', icon: Users },
+  { label: 'Test Completati', value: completedCount, subValue: `${completionRate}%`, icon: CheckCircle },
+  { label: 'Posizioni Totali', value: totalRoles, onClick: () => setView({ type: 'ADMIN_ORG_CHART' }) },
+  { label: 'Posizioni Vacanti', value: vacantRoles, variant: vacantRoles > 0 ? 'warning' : 'default' },
+  { label: 'In Hiring', value: hiringRoles, variant: 'accent', onClick: () => setView({ type: 'ADMIN_OPEN_POSITIONS' }) },
+  { label: 'Compliance Score', value: `${complianceScore}%`, onClick: () => setView({ type: 'ADMIN_COMPLIANCE' }) },
+  { label: 'Culture Match', value: `${cultureScore}%`, onClick: () => setView({ type: 'ADMIN_IDENTITY_HUB' }) },
+];
+```
+
+### 3.2 AlertsPanel
+
+Mostra situazioni che richiedono attenzione:
+
+```typescript
+interface Alert {
+  type: 'warning' | 'error' | 'info';
+  message: string;
+  action?: { label: string; onClick: () => void };
+}
+
+const alerts: Alert[] = [
+  // Posizioni vacanti da più di 30 giorni
+  ...vacantRolesOver30Days.map(role => ({
+    type: 'warning',
+    message: `${role.title} vacante da ${daysSinceCreation} giorni`,
+    action: { label: 'Trova candidati', onClick: () => goToMatching(role.id) }
+  })),
+  // Documenti compliance in scadenza
+  ...expiringCompliance.map(item => ({
+    type: 'error',
+    message: `${item.name} scade tra ${item.daysUntilExpiry} giorni`,
+    action: { label: 'Carica documento', onClick: () => goToCompliance() }
+  })),
+  // Test in attesa
+  ...pendingTests.map(user => ({
+    type: 'info',
+    message: `${user.firstName} non ha completato il test RIASEC`,
+    action: { label: 'Invia reminder', onClick: () => sendReminder(user) }
+  })),
+];
+```
+
+### 3.3 QuickActionsPanel
+
+Grid di pulsanti per navigazione rapida:
+
+```typescript
+const quickActions = [
+  { icon: Briefcase, label: 'Organigramma', view: { type: 'ADMIN_ORG_CHART' } },
+  { icon: Fingerprint, label: 'Identity Hub', view: { type: 'ADMIN_IDENTITY_HUB' } },
+  { icon: Shield, label: 'Compliance', view: { type: 'ADMIN_COMPLIANCE' } },
+  { icon: Building, label: 'Profilo Azienda', view: { type: 'ADMIN_COMPANY_PROFILE' } },
+  { icon: Search, label: 'Talent Search', view: { type: 'COMPANY_TALENT_SEARCH' } },
+];
+```
+
+### 3.4 RolesByDepartment (Componente Principale)
+
+Accordion collassabile con ruoli raggruppati per dipartimento:
+
+```typescript
+interface DepartmentRolesSection {
+  nodeId: string;
+  nodeName: string;
+  totalRoles: number;
+  assignedCount: number;
+  vacantCount: number;
+  hiringCount: number;
+  roles: {
+    role: CompanyRole;
+    assignee: User | null;
+    status: 'active' | 'vacant' | 'hiring';
+  }[];
+}
+
+// Raggruppamento ruoli per org_node_id
+const departmentSections = useMemo(() => {
+  const grouped = new Map<string, DepartmentRolesSection>();
   
-  await onSave(input, assignment);
-};
+  roles.forEach(role => {
+    const nodeId = role.orgNodeId || 'unassigned';
+    const nodeName = orgNodesMap.get(nodeId)?.name || 'Non assegnato';
+    
+    if (!grouped.has(nodeId)) {
+      grouped.set(nodeId, {
+        nodeId,
+        nodeName,
+        totalRoles: 0,
+        assignedCount: 0,
+        vacantCount: 0,
+        hiringCount: 0,
+        roles: []
+      });
+    }
+    
+    const section = grouped.get(nodeId)!;
+    section.totalRoles++;
+    
+    const assignment = assignmentsMap.get(role.id);
+    const isVacant = role.status === 'vacant' || !assignment;
+    
+    if (isVacant) section.vacantCount++;
+    else section.assignedCount++;
+    if (role.isHiring) section.hiringCount++;
+    
+    section.roles.push({
+      role,
+      assignee: assignment?.user || null,
+      status: role.isHiring ? 'hiring' : (isVacant ? 'vacant' : 'active')
+    });
+  });
+  
+  return Array.from(grouped.values());
+}, [roles, assignments, orgNodes]);
+```
+
+UI dell'accordion:
+
+```typescript
+{departmentSections.map(section => (
+  <Collapsible key={section.nodeId}>
+    <CollapsibleTrigger className="w-full">
+      <div className="flex justify-between items-center p-4 hover:bg-gray-50">
+        <div className="flex items-center gap-3">
+          <ChevronRight className="transition-transform" />
+          <Folder className="text-amber-500" />
+          <span className="font-bold">{section.nodeName}</span>
+        </div>
+        <div className="flex gap-4 text-sm">
+          <span>{section.totalRoles} ruoli</span>
+          <span className="text-green-600">{section.assignedCount} assegnati</span>
+          {section.vacantCount > 0 && (
+            <span className="text-red-600">{section.vacantCount} vacanti</span>
+          )}
+          {section.hiringCount > 0 && (
+            <span className="text-blue-600">{section.hiringCount} in hiring</span>
+          )}
+        </div>
+      </div>
+    </CollapsibleTrigger>
+    <CollapsibleContent>
+      {section.roles.map(({ role, assignee, status }) => (
+        <div 
+          key={role.id} 
+          className="flex items-center justify-between px-6 py-3 border-t cursor-pointer hover:bg-gray-50"
+          onClick={() => openRoleDetail(role.id)}
+        >
+          <div className="flex items-center gap-3">
+            <Briefcase size={16} className="text-gray-400" />
+            <span className="font-medium">{role.title}</span>
+            {role.code && <span className="text-xs text-gray-400">{role.code}</span>}
+          </div>
+          <div className="flex items-center gap-4">
+            {assignee ? (
+              <span className="text-sm">{assignee.firstName} {assignee.lastName}</span>
+            ) : (
+              <span className="text-sm text-gray-400">—</span>
+            )}
+            <RoleStatusBadge status={status} isHiring={role.isHiring} />
+          </div>
+        </div>
+      ))}
+    </CollapsibleContent>
+  </Collapsible>
+))}
+```
+
+### 3.5 EnhancedEmployeeTable
+
+Tabella migliorata con:
+- Colonna "Ruolo Assegnato" (dal sistema ruoli, non da jobTitle legacy)
+- Colonna "Dipartimento" (dal nodo organizzativo del ruolo)
+- Filtri per dipartimento e stato
+- Badge RIASEC profile code
+
+```typescript
+<thead>
+  <tr>
+    <th>Tipo</th>
+    <th>Dipendente</th>
+    <th>Ruolo Assegnato</th>    {/* NUOVO */}
+    <th>Dipartimento</th>       {/* NUOVO */}
+    <th>Stato Test</th>
+    <th>Profilo RIASEC</th>
+    <th>Azioni</th>
+  </tr>
+</thead>
 ```
 
 ---
 
-## UI Risultante
+## Flusso Dati
 
-**Prima (confusa):**
 ```text
-┌─────────────────┬─────────────────┬───────────────────┐
-│ Stato           │ Headcount       │                   │
-│ [Attivo ▼]      │ [1]             │ ☐ In Hiring       │
-└─────────────────┴─────────────────┴───────────────────┘
-```
-
-**Dopo (semplificata):**
-```text
-┌─────────────────────────────────────────────────────────┐
-│ ☐ Posizione in Hiring (stiamo cercando candidati)       │
-└─────────────────────────────────────────────────────────┘
+AdminDashboard
+    │
+    ├── useCompanyRoles(companyId) ──► roles[]
+    │
+    ├── useRoleAssignments() 
+    │   └── fetchByRole(roleId) ──► assignments[]
+    │
+    ├── useOrgNodes()
+    │   └── fetchOrgNodes(companyId) ──► orgNodes[]
+    │
+    ├── useCompliance(companyId) ──► { items, riskScore }
+    │
+    └── calculateCultureAnalysis(company, users) ──► cultureScore
 ```
 
 ---
 
-## Riepilogo
+## Effetto al Caricamento
 
-1. **Rimuovere** il dropdown "Stato" dal wizard (calcolato automaticamente)
-2. **Rimuovere** il campo "Headcount" (sempre 1 nel modello ruolo-centrico)
-3. **Mantenere** la checkbox "In Hiring" con label più chiara
-4. Il sistema **calcola automaticamente** lo stato in base alla presenza di assignment
+1. **Mount**: Fetch parallelo di roles, assignments, orgNodes
+2. **Loading State**: Skeleton placeholders per ogni sezione
+3. **Data Ready**: Render delle sezioni con dati aggregati
+4. **Click su Ruolo**: Apre `UnifiedDetailModal` per dettaglio/modifica
 
-Questo semplifica drasticamente l'esperienza utente mantenendo la flessibilità (gli stati speciali come "Congelato" restano modificabili dalla modale di dettaglio).
+---
 
+## File Risultanti
+
+| File | Linee Stimate | Descrizione |
+|------|---------------|-------------|
+| `AdminDashboard.tsx` | ~600 | Componente principale refactorato |
+| `DashboardKPIGrid.tsx` | ~150 | Griglia KPI riutilizzabile |
+| `AlertsPanel.tsx` | ~100 | Pannello urgenze |
+| `QuickActionsPanel.tsx` | ~80 | Azioni rapide |
+| `RolesByDepartment.tsx` | ~250 | Accordion ruoli per dipartimento |
+
+---
+
+## Benefici
+
+1. **Visione completa**: Tutti i dati HR in un'unica schermata
+2. **Navigazione rapida**: Accesso diretto a tutte le funzionalità
+3. **Urgenze evidenti**: Pannello alert per azioni immediate
+4. **Ruoli centrali**: I ruoli sono ora protagonisti (modello ruolo-centrico)
+5. **Mansionari accessibili**: Click su qualsiasi ruolo apre il dettaglio completo
