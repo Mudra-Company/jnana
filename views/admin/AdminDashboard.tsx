@@ -74,6 +74,12 @@ export const AdminDashboardView: React.FC<AdminDashboardProps> = ({
   const allCompanyRecords = users.filter(u => u.companyId === activeCompany.id);
   const companyUsers = allCompanyRecords.filter(u => !u.isHiring);
   
+  // Legacy hiring positions from company_members (not yet in company_roles)
+  const legacyHiringPositions = useMemo(() => 
+    allCompanyRecords.filter(u => u.isHiring === true),
+    [allCompanyRecords]
+  );
+  
   const completedCount = companyUsers.filter(u => u.status === 'completed' || u.status === 'test_completed').length;
   const completionRate = companyUsers.length > 0 ? Math.round((completedCount / companyUsers.length) * 100) : 0;
   const adminCount = companyUsers.filter(u => u.role === 'admin').length;
@@ -126,6 +132,11 @@ export const AdminDashboardView: React.FC<AdminDashboardProps> = ({
   const vacantRoles = useMemo(() => roles.filter(r => r.status === 'vacant'), [roles]);
   const hiringRoles = useMemo(() => roles.filter(r => r.isHiring), [roles]);
   const cultureScore = useMemo(() => calculateCultureAnalysis(activeCompany, users).matchScore, [activeCompany, users]);
+
+  // Combined KPI values (new roles + legacy hiring positions)
+  const totalRolesCount = roles.length + legacyHiringPositions.length;
+  const vacantRolesCount = vacantRoles.length + legacyHiringPositions.length;
+  const hiringRolesCount = hiringRoles.length + legacyHiringPositions.length;
 
   // Build roleId -> orgNodeId map
   const roleOrgNodeMap = useMemo(() => {
@@ -407,9 +418,9 @@ export const AdminDashboardView: React.FC<AdminDashboardProps> = ({
         totalEmployees={companyUsers.length}
         completedTests={completedCount}
         completionRate={completionRate}
-        totalRoles={roles.length}
-        vacantRoles={vacantRoles.length}
-        hiringRoles={hiringRoles.length}
+        totalRoles={totalRolesCount}
+        vacantRoles={vacantRolesCount}
+        hiringRoles={hiringRolesCount}
         complianceScore={riskScore.score}
         cultureMatchScore={cultureScore}
         onNavigateToOrgChart={() => setView({ type: 'ADMIN_ORG_CHART' })}
@@ -422,6 +433,7 @@ export const AdminDashboardView: React.FC<AdminDashboardProps> = ({
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <AlertsPanel
           vacantRoles={vacantRoles}
+          legacyHiringPositions={legacyHiringPositions}
           expiringCompliance={expiringCompliance}
           pendingTestUsers={pendingTestUsers}
           onNavigateToMatching={(roleId) => setView({ type: 'ADMIN_ORG_CHART' })}
@@ -438,6 +450,7 @@ export const AdminDashboardView: React.FC<AdminDashboardProps> = ({
         roles={roles}
         assignments={allAssignments}
         orgNodes={orgNodes}
+        legacyHiringPositions={legacyHiringPositions}
         onRoleClick={handleRoleClick}
       />
 

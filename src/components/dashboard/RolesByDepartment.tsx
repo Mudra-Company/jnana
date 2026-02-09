@@ -25,10 +25,20 @@ interface DepartmentSection {
   }[];
 }
 
+interface LegacyHiringPosition {
+  id: string;
+  firstName: string;
+  lastName: string;
+  jobTitle?: string;
+  departmentId?: string;
+  isHiring?: boolean;
+}
+
 interface RolesByDepartmentProps {
   roles: CompanyRole[];
   assignments: RoleAssignment[];
   orgNodes: OrgNodeInfo[];
+  legacyHiringPositions?: LegacyHiringPosition[];
   onRoleClick?: (roleId: string) => void;
 }
 
@@ -36,6 +46,7 @@ export const RolesByDepartment: React.FC<RolesByDepartmentProps> = ({
   roles,
   assignments,
   orgNodes,
+  legacyHiringPositions = [],
   onRoleClick,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -103,14 +114,63 @@ export const RolesByDepartment: React.FC<RolesByDepartmentProps> = ({
       section.roles.push({ role, assigneeName, isVacant });
     });
 
+    // Add legacy hiring positions as virtual roles
+    const filteredLegacy = searchTerm
+      ? legacyHiringPositions.filter(p =>
+          (p.jobTitle || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+          `${p.firstName} ${p.lastName}`.toLowerCase().includes(searchTerm.toLowerCase())
+        )
+      : legacyHiringPositions;
+
+    filteredLegacy.forEach(pos => {
+      const nodeId = pos.departmentId || 'unassigned';
+      const node = pos.departmentId ? orgNodeMap.get(pos.departmentId) : null;
+      const nodeName = node?.name || 'Non assegnato a dipartimento';
+
+      if (!grouped.has(nodeId)) {
+        grouped.set(nodeId, {
+          nodeId,
+          nodeName,
+          totalRoles: 0,
+          assignedCount: 0,
+          vacantCount: 0,
+          hiringCount: 0,
+          roles: [],
+        });
+      }
+
+      const section = grouped.get(nodeId)!;
+      section.totalRoles++;
+      section.vacantCount++;
+      section.hiringCount++;
+
+      // Create a virtual CompanyRole-like object for the legacy position
+      section.roles.push({
+        role: {
+          id: pos.id,
+          companyId: '',
+          title: pos.jobTitle || 'Posizione aperta',
+          status: 'vacant' as const,
+          isHiring: true,
+          headcount: 1,
+          createdAt: '',
+          updatedAt: '',
+        } as CompanyRole,
+        assigneeName: null,
+        isVacant: true,
+      });
+    });
+
     // Sort: departments with issues first, then alphabetically
     return Array.from(grouped.values()).sort((a, b) => {
       if (a.vacantCount !== b.vacantCount) return b.vacantCount - a.vacantCount;
       return a.nodeName.localeCompare(b.nodeName);
     });
-  }, [roles, assignmentMap, orgNodeMap, searchTerm]);
+  }, [roles, assignmentMap, orgNodeMap, searchTerm, legacyHiringPositions]);
 
-  if (roles.length === 0) {
+  const totalCount = roles.length + legacyHiringPositions.length;
+
+  if (totalCount === 0) {
     return (
       <Card padding="sm">
         <div className="text-center py-8 text-gray-400">
@@ -128,7 +188,7 @@ export const RolesByDepartment: React.FC<RolesByDepartmentProps> = ({
         <h3 className="text-sm font-bold text-gray-800 dark:text-gray-200 flex items-center gap-2">
           <Folder size={16} className="text-amber-500" />
           Ruoli per Dipartimento
-          <span className="text-xs font-normal text-gray-400">({roles.length} totali)</span>
+          <span className="text-xs font-normal text-gray-400">({totalCount} totali)</span>
         </h3>
         <div className="relative">
           <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
