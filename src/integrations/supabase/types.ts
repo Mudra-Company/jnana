@@ -896,6 +896,164 @@ export type Database = {
           },
         ]
       }
+      office_desks: {
+        Row: {
+          company_member_id: string | null
+          company_role_id: string | null
+          created_at: string
+          id: string
+          label: string
+          room_id: string
+          updated_at: string
+          x: number
+          y: number
+        }
+        Insert: {
+          company_member_id?: string | null
+          company_role_id?: string | null
+          created_at?: string
+          id?: string
+          label?: string
+          room_id: string
+          updated_at?: string
+          x?: number
+          y?: number
+        }
+        Update: {
+          company_member_id?: string | null
+          company_role_id?: string | null
+          created_at?: string
+          id?: string
+          label?: string
+          room_id?: string
+          updated_at?: string
+          x?: number
+          y?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "office_desks_company_member_id_fkey"
+            columns: ["company_member_id"]
+            isOneToOne: false
+            referencedRelation: "company_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "office_desks_company_role_id_fkey"
+            columns: ["company_role_id"]
+            isOneToOne: false
+            referencedRelation: "company_roles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "office_desks_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "office_rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      office_locations: {
+        Row: {
+          address: string | null
+          building_name: string | null
+          canvas_height: number
+          canvas_width: number
+          company_id: string
+          created_at: string
+          floor_number: number | null
+          id: string
+          name: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          building_name?: string | null
+          canvas_height?: number
+          canvas_width?: number
+          company_id: string
+          created_at?: string
+          floor_number?: number | null
+          id?: string
+          name: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          building_name?: string | null
+          canvas_height?: number
+          canvas_width?: number
+          company_id?: string
+          created_at?: string
+          floor_number?: number | null
+          id?: string
+          name?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "office_locations_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      office_rooms: {
+        Row: {
+          color: string | null
+          created_at: string
+          height: number
+          id: string
+          location_id: string
+          name: string
+          room_type: string
+          updated_at: string
+          width: number
+          x: number
+          y: number
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          height?: number
+          id?: string
+          location_id: string
+          name?: string
+          room_type?: string
+          updated_at?: string
+          width?: number
+          x?: number
+          y?: number
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          height?: number
+          id?: string
+          location_id?: string
+          name?: string
+          room_type?: string
+          updated_at?: string
+          width?: number
+          x?: number
+          y?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "office_rooms_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "office_locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       org_nodes: {
         Row: {
           company_id: string

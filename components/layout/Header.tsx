@@ -16,7 +16,8 @@ import {
   BarChart3,
   User,
   Bot,
-  ShieldCheck
+  ShieldCheck,
+  MapPin
 } from 'lucide-react';
 import { Button } from '../Button';
 import { ViewState, CompanyProfile } from '../../types';
@@ -31,6 +32,7 @@ interface HeaderProps {
   onIdentityHub: () => void;
   onCompanyProfile: () => void;
   onCompliance?: () => void;
+  onSpaceSync?: () => void;
   
   onSuperAdminHome: () => void;
   onJobDb: () => void;
@@ -51,7 +53,7 @@ interface HeaderProps {
 }
 
 export const Header: React.FC<HeaderProps> = ({ 
-  onLogout, view, onAdminHome, onOrgChart, onIdentityHub, onCompanyProfile, onCompliance,
+  onLogout, view, onAdminHome, onOrgChart, onIdentityHub, onCompanyProfile, onCompliance, onSpaceSync,
   onSuperAdminHome, onJobDb, onKarmaTalents, onKarmaAIConfig, onAnalytics, onQuestionnaires, activeCompany, isSuperAdminMode, onExitImpersonation,
   isDark, toggleTheme, onBack, canGoBack, userRole, onMyProfile, hasCompanyMembership
 }) => {
@@ -218,6 +220,17 @@ export const Header: React.FC<HeaderProps> = ({
                 <Settings size={16} className="mr-2" />
                 Azienda
               </Button>
+              {onSpaceSync && (
+                <Button 
+                  variant={view.type === 'ADMIN_SPACESYNC' ? 'primary' : 'ghost'} 
+                  size="sm"
+                  onClick={onSpaceSync}
+                  className={view.type === 'ADMIN_SPACESYNC' ? '!bg-rose-600' : ''}
+                >
+                  <MapPin size={16} className="mr-2" />
+                  SpaceSync
+                </Button>
+              )}
               {onCompliance && (
                 <Button 
                   variant={view.type === 'ADMIN_COMPLIANCE' ? 'primary' : 'ghost'} 
