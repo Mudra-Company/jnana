@@ -1,81 +1,18 @@
 
 
-# Piano: Fix KPI Dashboard - Dati Duplicati tra Sorgenti
+# Piano: Rimozione Sezione "Organico/Headcount" dalla UI
 
-## Problema Identificato
+## Contesto
 
-La dashboard e l'organigramma usano **due sorgenti dati diverse** per le posizioni:
+Il modello ruolo-centrico prevede **1 ruolo = 1 posizione = 1 casella**. Il campo `headcount` e' sempre 1 e la sezione "ORGANICO" nella modale di dettaglio e' ridondante. Il conteggio dell'organico ha senso solo a livello di ramo/dipartimento, non sulla singola posizione.
 
-| Componente | Sorgente Dati | Tabella DB | Risultato |
-|------------|---------------|------------|-----------|
-| Organigramma | `users[]` (prop da App.tsx) | `company_members` | Mostra "Stagista" in HIRING |
-| Dashboard KPI | `useCompanyRoles()` | `company_roles` | Mostra 0 (tabella vuota!) |
+## Modifiche
 
-La tabella `company_roles` e' vuota perche' i ruoli sono stati creati nel vecchio sistema (come record `company_members` con `is_hiring=true` e `user_id=null`), non nella nuova tabella `company_roles`.
+| File | Azione |
+|------|--------|
+| `src/components/roles/UnifiedDetailModal.tsx` | Rimuovere la sezione "Organico" (righe 796-799) dal tab Contratto |
+| `src/components/roles/UnifiedRolePersonCard.tsx` | Rimuovere il badge `headcount > 1` (righe 159-164) |
+| `src/components/roles/RoleCard.tsx` | Rimuovere il badge `headcount > 1` (righe 137-142) |
 
-## Soluzione
-
-Rendere i KPI della dashboard **consapevoli di entrambe le sorgenti dati**: la nuova tabella `company_roles` E i dati legacy dalla prop `users[]`.
-
-### Logica di Calcolo KPI Corretta
-
-```text
-Posizioni Totali = roles.length + hiringUsersLegacy.length
-Posizioni Vacanti = roles.filter(vacant).length + hiringUsersLegacy.length
-In Hiring = roles.filter(isHiring).length + hiringUsersLegacy.length
-```
-
-Dove `hiringUsersLegacy` sono gli utenti con `isHiring === true` dalla prop `users[]` che NON hanno un corrispondente record in `company_roles`.
-
-### Modifiche
-
-**File: `views/admin/AdminDashboard.tsx`**
-
-Aggiungere il calcolo dei dati legacy dalla prop `users`:
-
-```typescript
-// Legacy hiring positions from company_members (not yet in company_roles)
-const legacyHiringPositions = useMemo(() => 
-  users.filter(u => u.companyId === activeCompany.id && u.isHiring === true),
-  [users, activeCompany.id]
-);
-
-// Combined KPI values (new roles + legacy)
-const totalRolesCount = roles.length + legacyHiringPositions.length;
-const vacantRolesCount = vacantRoles.length + legacyHiringPositions.length;
-const hiringRolesCount = hiringRoles.length + legacyHiringPositions.length;
-```
-
-Poi passare questi valori combinati al componente `DashboardKPIGrid`:
-
-```typescript
-<DashboardKPIGrid
-  totalRoles={totalRolesCount}
-  vacantRoles={vacantRolesCount}
-  hiringRoles={hiringRolesCount}
-  // ... resto invariato
-/>
-```
-
-Fare lo stesso per `AlertsPanel` e `RolesByDepartment`, includendo le posizioni legacy come ruoli virtuali per una visualizzazione coerente.
-
-**File: `src/components/dashboard/RolesByDepartment.tsx`**
-
-Aggiungere una prop per le posizioni legacy in hiring, e mostrarle come righe aggiuntive nella sezione del dipartimento corretto (o in "Non assegnato" se non hanno `departmentId`).
-
-**File: `src/components/dashboard/AlertsPanel.tsx`**
-
-Includere le posizioni legacy negli alert per le vacancy.
-
----
-
-## Riepilogo
-
-| File | Modifica |
-|------|----------|
-| `views/admin/AdminDashboard.tsx` | Calcolare KPI combinati da `company_roles` + `users[]` legacy |
-| `src/components/dashboard/RolesByDepartment.tsx` | Mostrare posizioni legacy hiring come righe nell'accordion |
-| `src/components/dashboard/AlertsPanel.tsx` | Includere posizioni legacy negli alert vacancy |
-
-Il risultato: i KPI mostreranno i dati corretti indipendentemente dal fatto che le posizioni siano state create nel nuovo sistema (`company_roles`) o nel vecchio (`company_members` con `is_hiring`).
+Nessuna modifica al DB o ai tipi: il campo `headcount` resta nel modello dati per retrocompatibilita' ma non viene piu' mostrato a livello di singola posizione.
 
