@@ -28,6 +28,7 @@ import { AdminDashboardView } from './views/admin/AdminDashboard';
 import { OpenPositionsView } from './views/admin/OpenPositionsView';
 import { PositionMatchingView } from './views/admin/PositionMatchingView';
 import { ComplianceDashboardView } from './views/admin/ComplianceDashboardView';
+import { SpaceSyncView } from './views/admin/SpaceSyncView';
 
 import { CompanyOrgView } from './views/admin/CompanyOrgView';
 import { AdminIdentityHub } from './views/admin/AdminIdentityHub';
@@ -999,6 +1000,7 @@ const AppContent: React.FC = () => {
             onIdentityHub={() => navigate({ type: 'ADMIN_IDENTITY_HUB' })}
             onCompanyProfile={() => navigate({ type: 'ADMIN_COMPANY_PROFILE' })}
             onCompliance={() => navigate({ type: 'ADMIN_COMPLIANCE' })}
+            onSpaceSync={() => navigate({ type: 'ADMIN_SPACESYNC' })}
             onSuperAdminHome={() => navigate({ type: 'SUPER_ADMIN_DASHBOARD' })}
             onJobDb={() => navigate({ type: 'SUPER_ADMIN_JOBS' })}
             onKarmaTalents={() => navigate({ type: 'SUPER_ADMIN_KARMA_TALENTS' })}
@@ -1194,6 +1196,13 @@ const AppContent: React.FC = () => {
             <ComplianceDashboardView
               companyId={activeCompanyData.id}
               companyName={activeCompanyData.name}
+            />
+          )}
+
+          {view.type === 'ADMIN_SPACESYNC' && activeCompanyData && canAccessAdminViews && (
+            <SpaceSyncView
+              company={activeCompanyData}
+              companyUsers={companyUsers}
             />
           )}
 

@@ -1,6 +1,6 @@
 import React from 'react';
 import { 
-  Briefcase, Fingerprint, Shield, Building, Search, UserPlus, LucideIcon 
+  Briefcase, Fingerprint, Shield, Building, Search, UserPlus, MapPin, LucideIcon 
 } from 'lucide-react';
 import { Card } from '../../../components/Card';
 import type { ViewState } from '../../../types';
@@ -54,6 +54,13 @@ export const QuickActionsPanel: React.FC<QuickActionsPanelProps> = ({ setView, o
       description: 'Cerca talenti Karma',
       onClick: () => setView({ type: 'COMPANY_TALENT_SEARCH' }),
       color: 'text-cyan-600 bg-cyan-100 dark:bg-cyan-900/30 dark:text-cyan-400',
+    },
+    {
+      icon: MapPin,
+      label: 'SpaceSync',
+      description: 'Disposizione uffici',
+      onClick: () => setView({ type: 'ADMIN_SPACESYNC' }),
+      color: 'text-rose-600 bg-rose-100 dark:bg-rose-900/30 dark:text-rose-400',
     },
   ];
 
