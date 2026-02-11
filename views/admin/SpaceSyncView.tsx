@@ -11,6 +11,8 @@ import { DeskAssignmentModal } from '../../src/components/spacesync/DeskAssignme
 import { RoomEditor } from '../../src/components/spacesync/RoomEditor';
 import { ProximityHeatmap } from '../../src/components/spacesync/ProximityHeatmap';
 import { ProximityReport } from '../../src/components/spacesync/ProximityReport';
+import { SwapSimulationModal } from '../../src/components/spacesync/SwapSimulationModal';
+import { OptimizationSuggestions } from '../../src/components/spacesync/OptimizationSuggestions';
 import type { CompanyProfile, User } from '../../types';
 import type { OfficeDesk, OfficeRoom } from '../../src/types/spacesync';
 
@@ -29,6 +31,7 @@ export const SpaceSyncView: React.FC<SpaceSyncViewProps> = ({ company, companyUs
   const [selectedRoomId, setSelectedRoomId] = useState<string | undefined>();
   const [selectedDesk, setSelectedDesk] = useState<OfficeDesk | null>(null);
   const [heatmapMode, setHeatmapMode] = useState(false);
+  const [showSimulation, setShowSimulation] = useState(false);
 
   const selectedLocation = useMemo(() => locations.find(l => l.id === selectedLocationId), [locations, selectedLocationId]);
   const selectedRoom = useMemo(() => rooms.find(r => r.id === selectedRoomId), [rooms, selectedRoomId]);
@@ -59,6 +62,7 @@ export const SpaceSyncView: React.FC<SpaceSyncViewProps> = ({ company, companyUs
 
   const assignedMemberIds = useMemo(() => desks.filter(d => d.companyMemberId).map(d => d.companyMemberId!), [desks]);
 
+  // --- Handlers ---
   const handleCreateLocation = async (name: string, address?: string, buildingName?: string, floorNumber?: number) => {
     const result = await createLocation(company.id, name, address, buildingName, floorNumber);
     if (result) setSelectedLocationId(result.id);
@@ -106,6 +110,26 @@ export const SpaceSyncView: React.FC<SpaceSyncViewProps> = ({ company, companyUs
     if (!selectedLocationId) return;
     await updateDesk(deskId, { label } as any, selectedLocationId);
   };
+
+  // Apply a swap between two desks
+  const handleApplySwap = async (deskIdA: string, deskIdB: string) => {
+    if (!selectedLocationId) return;
+    const deskA = desks.find(d => d.id === deskIdA);
+    const deskB = desks.find(d => d.id === deskIdB);
+    if (!deskA || !deskB) return;
+    // Swap member assignments
+    await updateDesk(deskIdA, { companyMemberId: deskB.companyMemberId || undefined } as any, selectedLocationId);
+    await updateDesk(deskIdB, { companyMemberId: deskA.companyMemberId || undefined } as any, selectedLocationId);
+  };
+
+  // Handle "Simula" from AI suggestions (find desks by label)
+  const handleSimulateFromLabel = useCallback((labelA: string, labelB: string) => {
+    const deskA = desks.find(d => d.label === labelA);
+    const deskB = desks.find(d => d.label === labelB);
+    if (deskA && deskB) {
+      setShowSimulation(true);
+    }
+  }, [desks]);
 
   return (
     <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
@@ -177,6 +201,18 @@ export const SpaceSyncView: React.FC<SpaceSyncViewProps> = ({ company, companyUs
           {heatmapMode && (
             <ProximityReport pairs={proximityPairs} globalAverage={globalAverage} />
           )}
+
+          {/* AI Optimization Suggestions */}
+          {heatmapMode && proximityPairs.length > 0 && (
+            <OptimizationSuggestions
+              pairs={proximityPairs}
+              desks={desks}
+              rooms={rooms.map(r => ({ id: r.id, name: r.name }))}
+              globalAverage={globalAverage}
+              userDataMap={userDataMap}
+              onSimulateSwap={handleSimulateFromLabel}
+            />
+          )}
         </div>
 
         {/* Main: Floor Plan Canvas */}
@@ -185,9 +221,19 @@ export const SpaceSyncView: React.FC<SpaceSyncViewProps> = ({ company, companyUs
             <Card padding="sm">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-sm font-semibold text-foreground">{selectedLocation.name}</h3>
-                {selectedLocation.address && (
-                  <span className="text-xs text-muted-foreground">{selectedLocation.address}</span>
-                )}
+                <div className="flex items-center gap-2">
+                  {heatmapMode && (
+                    <button
+                      onClick={() => setShowSimulation(true)}
+                      className="px-2.5 py-1 text-xs font-medium rounded-md bg-amber-100 text-amber-700 hover:bg-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:hover:bg-amber-900/50 transition-colors"
+                    >
+                      🔄 Simula Scambio
+                    </button>
+                  )}
+                  {selectedLocation.address && (
+                    <span className="text-xs text-muted-foreground">{selectedLocation.address}</span>
+                  )}
+                </div>
               </div>
               <FloorPlanCanvas
                 rooms={rooms}
@@ -237,6 +283,20 @@ export const SpaceSyncView: React.FC<SpaceSyncViewProps> = ({ company, companyUs
           onDelete={handleDeleteDesk}
           onClose={() => setSelectedDesk(null)}
           onUpdateLabel={handleUpdateDeskLabel}
+        />
+      )}
+
+      {/* Swap Simulation Modal */}
+      {showSimulation && (
+        <SwapSimulationModal
+          isOpen={showSimulation}
+          onClose={() => setShowSimulation(false)}
+          desks={desks}
+          rooms={rooms}
+          userDataMap={userDataMap}
+          currentPairs={proximityPairs}
+          currentGlobalAvg={globalAverage}
+          onApplySwap={handleApplySwap}
         />
       )}
     </div>
