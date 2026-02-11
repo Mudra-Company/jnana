@@ -1,5 +1,6 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { MousePointer, Square, Monitor, Trash2, ZoomIn, ZoomOut } from 'lucide-react';
+import { MousePointer, Square, Monitor, Trash2, ZoomIn, ZoomOut, Thermometer } from 'lucide-react';
+import { getProximityColor } from '@/utils/proximityEngine';
 import type { OfficeRoom, OfficeDesk, CanvasMode, RoomType } from '@/types/spacesync';
 
 interface FloorPlanCanvasProps {
@@ -17,6 +18,10 @@ interface FloorPlanCanvasProps {
   selectedRoomId?: string;
   selectedDeskId?: string;
   onSelectRoom: (id: string | undefined) => void;
+  heatmapMode?: boolean;
+  onToggleHeatmap?: () => void;
+  heatmapOverlay?: React.ReactNode;
+  deskScores?: Map<string, { avgScore: number; pairCount: number }>;
 }
 
 const ROOM_COLORS: Record<RoomType, string> = {
@@ -50,6 +55,10 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
   selectedRoomId,
   selectedDeskId,
   onSelectRoom,
+  heatmapMode,
+  onToggleHeatmap,
+  heatmapOverlay,
+  deskScores,
 }) => {
   const [mode, setMode] = useState<CanvasMode>('select');
   const [zoom, setZoom] = useState(1);
@@ -164,6 +173,18 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
         <ToolButton onClick={() => setZoom(z => Math.max(0.3, z - 0.1))} icon={<ZoomOut size={16} />} label="Zoom -" />
         <span className="text-xs text-muted-foreground ml-1">{Math.round(zoom * 100)}%</span>
 
+        {onToggleHeatmap && (
+          <>
+            <div className="w-px h-6 bg-border mx-1" />
+            <ToolButton
+              active={heatmapMode}
+              onClick={onToggleHeatmap}
+              icon={<Thermometer size={16} />}
+              label="Heatmap"
+            />
+          </>
+        )}
+
         {selectedRoomId && (
           <>
             <div className="w-px h-6 bg-border mx-1" />
@@ -198,6 +219,9 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
             </pattern>
           </defs>
           <rect width={canvasWidth} height={canvasHeight} fill="url(#grid)" />
+
+          {/* Heatmap overlay */}
+          {heatmapMode && heatmapOverlay}
 
           {/* Rooms */}
           {rooms.map(room => (
@@ -244,7 +268,10 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
                     width={DESK_SIZE}
                     height={DESK_SIZE}
                     rx={4}
-                    fill={desk.companyMemberId ? '#3b82f6' : '#94a3b8'}
+                    fill={heatmapMode && desk.companyMemberId && deskScores?.has(desk.id)
+                      ? getProximityColor(deskScores.get(desk.id)!.avgScore)
+                      : desk.companyMemberId ? '#3b82f6' : '#94a3b8'
+                    }
                     opacity={selectedDeskId === desk.id ? 1 : 0.8}
                     stroke={selectedDeskId === desk.id ? 'hsl(var(--primary))' : 'transparent'}
                     strokeWidth={selectedDeskId === desk.id ? 2 : 0}
