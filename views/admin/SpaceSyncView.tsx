@@ -1,13 +1,16 @@
-import React, { useEffect, useState, useMemo } from 'react';
-import { MapPin, Info } from 'lucide-react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
+import { MapPin } from 'lucide-react';
 import { Card } from '../../components/Card';
 import { useOfficeLocations } from '../../src/hooks/useOfficeLocations';
 import { useOfficeRooms } from '../../src/hooks/useOfficeRooms';
 import { useOfficeDesks } from '../../src/hooks/useOfficeDesks';
+import { useProximityScoring } from '../../src/hooks/useProximityScoring';
 import { LocationSelector } from '../../src/components/spacesync/LocationSelector';
 import { FloorPlanCanvas } from '../../src/components/spacesync/FloorPlanCanvas';
 import { DeskAssignmentModal } from '../../src/components/spacesync/DeskAssignmentModal';
 import { RoomEditor } from '../../src/components/spacesync/RoomEditor';
+import { ProximityHeatmap } from '../../src/components/spacesync/ProximityHeatmap';
+import { ProximityReport } from '../../src/components/spacesync/ProximityReport';
 import type { CompanyProfile, User } from '../../types';
 import type { OfficeDesk, OfficeRoom } from '../../src/types/spacesync';
 
@@ -20,36 +23,40 @@ export const SpaceSyncView: React.FC<SpaceSyncViewProps> = ({ company, companyUs
   const { locations, isLoading: locLoading, fetchLocations, createLocation, updateLocation, deleteLocation } = useOfficeLocations();
   const { rooms, fetchRooms, createRoom, updateRoom, deleteRoom } = useOfficeRooms();
   const { desks, fetchDesks, createDesk, updateDesk, deleteDesk } = useOfficeDesks();
+  const { userDataMap, isLoading: proximityLoading, loadUserData, calculateAllPairs, getDeskScores } = useProximityScoring();
 
   const [selectedLocationId, setSelectedLocationId] = useState<string | undefined>();
   const [selectedRoomId, setSelectedRoomId] = useState<string | undefined>();
   const [selectedDesk, setSelectedDesk] = useState<OfficeDesk | null>(null);
-  const [showRoomEditor, setShowRoomEditor] = useState(false);
+  const [heatmapMode, setHeatmapMode] = useState(false);
 
   const selectedLocation = useMemo(() => locations.find(l => l.id === selectedLocationId), [locations, selectedLocationId]);
   const selectedRoom = useMemo(() => rooms.find(r => r.id === selectedRoomId), [rooms, selectedRoomId]);
 
   // Fetch locations on mount
-  useEffect(() => {
-    fetchLocations(company.id);
-  }, [company.id, fetchLocations]);
+  useEffect(() => { fetchLocations(company.id); }, [company.id, fetchLocations]);
 
   // Auto-select first location
   useEffect(() => {
-    if (locations.length > 0 && !selectedLocationId) {
-      setSelectedLocationId(locations[0].id);
-    }
+    if (locations.length > 0 && !selectedLocationId) setSelectedLocationId(locations[0].id);
   }, [locations, selectedLocationId]);
 
   // Fetch rooms & desks when location changes
   useEffect(() => {
-    if (selectedLocationId) {
-      fetchRooms(selectedLocationId);
-      fetchDesks(selectedLocationId);
-    }
+    if (selectedLocationId) { fetchRooms(selectedLocationId); fetchDesks(selectedLocationId); }
   }, [selectedLocationId, fetchRooms, fetchDesks]);
 
-  // Track assigned member IDs
+  // Load proximity data when desks change
+  useEffect(() => { loadUserData(desks); }, [desks, loadUserData]);
+
+  // Calculate proximity pairs
+  const proximityPairs = useMemo(() => calculateAllPairs(desks, rooms), [desks, rooms, calculateAllPairs]);
+  const deskScores = useMemo(() => getDeskScores(proximityPairs), [proximityPairs, getDeskScores]);
+  const globalAverage = useMemo(() => {
+    if (proximityPairs.length === 0) return 0;
+    return Math.round(proximityPairs.reduce((sum, p) => sum + p.proximityResult.score, 0) / proximityPairs.length);
+  }, [proximityPairs]);
+
   const assignedMemberIds = useMemo(() => desks.filter(d => d.companyMemberId).map(d => d.companyMemberId!), [desks]);
 
   const handleCreateLocation = async (name: string, address?: string, buildingName?: string, floorNumber?: number) => {
@@ -116,8 +123,8 @@ export const SpaceSyncView: React.FC<SpaceSyncViewProps> = ({ company, companyUs
       </div>
 
       <div className="grid grid-cols-12 gap-6">
-        {/* Sidebar: Location selector */}
-        <div className="col-span-12 lg:col-span-3">
+        {/* Sidebar */}
+        <div className="col-span-12 lg:col-span-3 space-y-4">
           <Card padding="sm">
             <LocationSelector
               locations={locations}
@@ -129,46 +136,46 @@ export const SpaceSyncView: React.FC<SpaceSyncViewProps> = ({ company, companyUs
             />
           </Card>
 
-          {/* Room editor sidebar */}
           {selectedRoom && (
-            <div className="mt-4">
-              <Card padding="sm">
-                <RoomEditor
-                  room={selectedRoom}
-                  onUpdate={handleUpdateRoom}
-                  onClose={() => setSelectedRoomId(undefined)}
-                />
-              </Card>
-            </div>
+            <Card padding="sm">
+              <RoomEditor
+                room={selectedRoom}
+                onUpdate={handleUpdateRoom}
+                onClose={() => setSelectedRoomId(undefined)}
+              />
+            </Card>
           )}
 
           {/* Stats */}
           {selectedLocation && (
-            <div className="mt-4">
-              <Card padding="sm">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">
-                  📊 Riepilogo
-                </h3>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Stanze</span>
-                    <span className="font-medium">{rooms.length}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Scrivanie</span>
-                    <span className="font-medium">{desks.length}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Assegnate</span>
-                    <span className="font-medium text-primary">{desks.filter(d => d.companyMemberId).length}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Libere</span>
-                    <span className="font-medium text-amber-500">{desks.filter(d => !d.companyMemberId).length}</span>
-                  </div>
+            <Card padding="sm">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">
+                📊 Riepilogo
+              </h3>
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Stanze</span>
+                  <span className="font-medium">{rooms.length}</span>
                 </div>
-              </Card>
-            </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Scrivanie</span>
+                  <span className="font-medium">{desks.length}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Assegnate</span>
+                  <span className="font-medium text-primary">{desks.filter(d => d.companyMemberId).length}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Libere</span>
+                  <span className="font-medium text-amber-500">{desks.filter(d => !d.companyMemberId).length}</span>
+                </div>
+              </div>
+            </Card>
+          )}
+
+          {/* Proximity Report */}
+          {heatmapMode && (
+            <ProximityReport pairs={proximityPairs} globalAverage={globalAverage} />
           )}
         </div>
 
@@ -197,6 +204,12 @@ export const SpaceSyncView: React.FC<SpaceSyncViewProps> = ({ company, companyUs
                 selectedRoomId={selectedRoomId}
                 selectedDeskId={selectedDesk?.id}
                 onSelectRoom={setSelectedRoomId}
+                heatmapMode={heatmapMode}
+                onToggleHeatmap={() => setHeatmapMode(prev => !prev)}
+                heatmapOverlay={
+                  <ProximityHeatmap deskScores={deskScores} desks={desks} rooms={rooms} />
+                }
+                deskScores={deskScores}
               />
             </Card>
           ) : (
