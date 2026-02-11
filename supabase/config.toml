@@ -20,3 +20,6 @@ verify_jwt = false
 
 [functions.migrate-legacy-tests]
 verify_jwt = false
+
+[functions.spacesync-optimize]
+verify_jwt = false
