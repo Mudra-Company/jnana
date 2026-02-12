@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Pencil, Maximize2 } from 'lucide-react';
 import type { OfficeRoom, RoomType } from '@/types/spacesync';
 
@@ -26,6 +26,15 @@ export const RoomEditor: React.FC<RoomEditorProps> = ({ room, deskCount = 0, onU
   const [width, setWidth] = useState(Math.round(room.width));
   const [height, setHeight] = useState(Math.round(room.height));
   const [color, setColor] = useState(room.color);
+
+  // Sync local state when room prop changes (e.g. from canvas resize/drag)
+  useEffect(() => {
+    setName(room.name);
+    setRoomType(room.roomType);
+    setWidth(Math.round(room.width));
+    setHeight(Math.round(room.height));
+    setColor(room.color);
+  }, [room.id, room.width, room.height, room.x, room.y, room.name, room.roomType, room.color]);
 
   const handleSave = () => {
     onUpdate(room.id, { name, roomType, width, height, color });
