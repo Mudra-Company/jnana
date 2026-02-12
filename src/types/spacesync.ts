@@ -46,6 +46,24 @@ export interface OfficeDesk {
 
 export type CanvasMode = 'select' | 'draw-room' | 'place-desk';
 
+export type ResizeDirection = 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w';
+
+export interface ResizingRoom {
+  roomId: string;
+  direction: ResizeDirection;
+  startX: number;
+  startY: number;
+  originalRoom: { x: number; y: number; width: number; height: number };
+}
+
+export interface DraggingRoom {
+  roomId: string;
+  startX: number;
+  startY: number;
+  originalX: number;
+  originalY: number;
+}
+
 export interface CanvasState {
   mode: CanvasMode;
   zoom: number;

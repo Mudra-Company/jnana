@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
-import { MapPin } from 'lucide-react';
+import { MapPin, ChevronDown, BarChart3, Sparkles, LayoutGrid } from 'lucide-react';
 import { Card } from '../../components/Card';
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '../../src/components/ui/collapsible';
 import { useOfficeLocations } from '../../src/hooks/useOfficeLocations';
 import { useOfficeRooms } from '../../src/hooks/useOfficeRooms';
 import { useOfficeDesks } from '../../src/hooks/useOfficeDesks';
@@ -36,23 +37,15 @@ export const SpaceSyncView: React.FC<SpaceSyncViewProps> = ({ company, companyUs
   const selectedLocation = useMemo(() => locations.find(l => l.id === selectedLocationId), [locations, selectedLocationId]);
   const selectedRoom = useMemo(() => rooms.find(r => r.id === selectedRoomId), [rooms, selectedRoomId]);
 
-  // Fetch locations on mount
   useEffect(() => { fetchLocations(company.id); }, [company.id, fetchLocations]);
-
-  // Auto-select first location
   useEffect(() => {
     if (locations.length > 0 && !selectedLocationId) setSelectedLocationId(locations[0].id);
   }, [locations, selectedLocationId]);
-
-  // Fetch rooms & desks when location changes
   useEffect(() => {
     if (selectedLocationId) { fetchRooms(selectedLocationId); fetchDesks(selectedLocationId); }
   }, [selectedLocationId, fetchRooms, fetchDesks]);
-
-  // Load proximity data when desks change
   useEffect(() => { loadUserData(desks); }, [desks, loadUserData]);
 
-  // Calculate proximity pairs
   const proximityPairs = useMemo(() => calculateAllPairs(desks, rooms), [desks, rooms, calculateAllPairs]);
   const deskScores = useMemo(() => getDeskScores(proximityPairs), [proximityPairs, getDeskScores]);
   const globalAverage = useMemo(() => {
@@ -61,6 +54,11 @@ export const SpaceSyncView: React.FC<SpaceSyncViewProps> = ({ company, companyUs
   }, [proximityPairs]);
 
   const assignedMemberIds = useMemo(() => desks.filter(d => d.companyMemberId).map(d => d.companyMemberId!), [desks]);
+  const assignedCount = useMemo(() => desks.filter(d => d.companyMemberId).length, [desks]);
+  const occupancyPct = desks.length > 0 ? Math.round((assignedCount / desks.length) * 100) : 0;
+  const selectedRoomDeskCount = useMemo(() =>
+    selectedRoom ? desks.filter(d => d.roomId === selectedRoom.id).length : 0
+  , [selectedRoom, desks]);
 
   // --- Handlers ---
   const handleCreateLocation = async (name: string, address?: string, buildingName?: string, floorNumber?: number) => {
@@ -111,44 +109,58 @@ export const SpaceSyncView: React.FC<SpaceSyncViewProps> = ({ company, companyUs
     await updateDesk(deskId, { label } as any, selectedLocationId);
   };
 
-  // Apply a swap between two desks
   const handleApplySwap = async (deskIdA: string, deskIdB: string) => {
     if (!selectedLocationId) return;
     const deskA = desks.find(d => d.id === deskIdA);
     const deskB = desks.find(d => d.id === deskIdB);
     if (!deskA || !deskB) return;
-    // Swap member assignments
     await updateDesk(deskIdA, { companyMemberId: deskB.companyMemberId || undefined } as any, selectedLocationId);
     await updateDesk(deskIdB, { companyMemberId: deskA.companyMemberId || undefined } as any, selectedLocationId);
   };
 
-  // Handle "Simula" from AI suggestions (find desks by label)
   const handleSimulateFromLabel = useCallback((labelA: string, labelB: string) => {
-    const deskA = desks.find(d => d.label === labelA);
-    const deskB = desks.find(d => d.label === labelB);
-    if (deskA && deskB) {
-      setShowSimulation(true);
-    }
-  }, [desks]);
+    setShowSimulation(true);
+  }, []);
 
   return (
-    <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+    <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-5">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-            <MapPin className="text-amber-500" size={24} />
+          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2.5">
+            <div className="p-2 bg-primary/10 rounded-xl">
+              <MapPin className="text-primary" size={22} />
+            </div>
             SpaceSync
           </h1>
-          <p className="text-sm text-muted-foreground mt-1">
+          <p className="text-sm text-muted-foreground mt-1 ml-12">
             Ottimizza la disposizione spaziale del tuo team
           </p>
         </div>
+        {heatmapMode && (
+          <button
+            onClick={() => setShowSimulation(true)}
+            className="px-3 py-2 text-xs font-semibold rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors flex items-center gap-1.5"
+          >
+            🔄 Simula Scambio
+          </button>
+        )}
       </div>
 
-      <div className="grid grid-cols-12 gap-6">
-        {/* Sidebar */}
-        <div className="col-span-12 lg:col-span-3 space-y-4">
+      <div className="grid grid-cols-12 gap-5">
+        {/* === SIDEBAR === */}
+        <div className="col-span-12 lg:col-span-3 space-y-3">
+          {/* Header with location info */}
+          {selectedLocation && (
+            <div className="px-1">
+              <h2 className="text-sm font-bold text-foreground">{selectedLocation.name}</h2>
+              {selectedLocation.address && (
+                <p className="text-[11px] text-muted-foreground">{selectedLocation.address}</p>
+              )}
+            </div>
+          )}
+
+          {/* Locations */}
           <Card padding="sm">
             <LocationSelector
               locations={locations}
@@ -160,81 +172,108 @@ export const SpaceSyncView: React.FC<SpaceSyncViewProps> = ({ company, companyUs
             />
           </Card>
 
+          {/* Room Editor - Collapsible */}
           {selectedRoom && (
             <Card padding="sm">
               <RoomEditor
                 room={selectedRoom}
+                deskCount={selectedRoomDeskCount}
                 onUpdate={handleUpdateRoom}
                 onClose={() => setSelectedRoomId(undefined)}
               />
             </Card>
           )}
 
-          {/* Stats */}
+          {/* Stats with progress bar */}
           {selectedLocation && (
             <Card padding="sm">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-3">
-                📊 Riepilogo
+              <h3 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-1.5">
+                <LayoutGrid size={12} />
+                Riepilogo
               </h3>
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Stanze</span>
-                  <span className="font-medium">{rooms.length}</span>
+                  <span className="font-semibold">{rooms.length}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Scrivanie</span>
-                  <span className="font-medium">{desks.length}</span>
+                  <span className="font-semibold">{desks.length}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Assegnate</span>
-                  <span className="font-medium text-primary">{desks.filter(d => d.companyMemberId).length}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Libere</span>
-                  <span className="font-medium text-amber-500">{desks.filter(d => !d.companyMemberId).length}</span>
+                  <span className="font-semibold text-primary">{assignedCount}</span>
                 </div>
               </div>
+              {/* Occupancy bar */}
+              {desks.length > 0 && (
+                <div className="mt-3">
+                  <div className="flex justify-between text-[10px] text-muted-foreground mb-1">
+                    <span>Tasso occupazione</span>
+                    <span className="font-bold text-foreground">{occupancyPct}%</span>
+                  </div>
+                  <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
+                    <div
+                      className="h-full rounded-full transition-all duration-500"
+                      style={{
+                        width: `${occupancyPct}%`,
+                        background: occupancyPct > 80 ? 'hsl(var(--primary))' : occupancyPct > 50 ? '#f59e0b' : '#94a3b8',
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
             </Card>
           )}
 
-          {/* Proximity Report */}
-          {heatmapMode && (
-            <ProximityReport pairs={proximityPairs} globalAverage={globalAverage} />
+          {/* Proximity Report - Collapsible */}
+          {heatmapMode && proximityPairs.length > 0 && (
+            <Collapsible defaultOpen>
+              <Card padding="sm">
+                <CollapsibleTrigger className="w-full flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                  <span className="flex items-center gap-1.5">
+                    <BarChart3 size={12} />
+                    Report Prossimità
+                  </span>
+                  <ChevronDown size={14} className="transition-transform data-[state=open]:rotate-180" />
+                </CollapsibleTrigger>
+                <CollapsibleContent className="mt-2">
+                  <ProximityReport pairs={proximityPairs} globalAverage={globalAverage} />
+                </CollapsibleContent>
+              </Card>
+            </Collapsible>
           )}
 
-          {/* AI Optimization Suggestions */}
+          {/* AI Suggestions - Collapsible */}
           {heatmapMode && proximityPairs.length > 0 && (
-            <OptimizationSuggestions
-              pairs={proximityPairs}
-              desks={desks}
-              rooms={rooms.map(r => ({ id: r.id, name: r.name }))}
-              globalAverage={globalAverage}
-              userDataMap={userDataMap}
-              onSimulateSwap={handleSimulateFromLabel}
-            />
+            <Collapsible defaultOpen>
+              <Card padding="sm">
+                <CollapsibleTrigger className="w-full flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">
+                  <span className="flex items-center gap-1.5">
+                    <Sparkles size={12} className="text-amber-500" />
+                    Suggerimenti AI
+                  </span>
+                  <ChevronDown size={14} className="transition-transform data-[state=open]:rotate-180" />
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <OptimizationSuggestions
+                    pairs={proximityPairs}
+                    desks={desks}
+                    rooms={rooms.map(r => ({ id: r.id, name: r.name }))}
+                    globalAverage={globalAverage}
+                    userDataMap={userDataMap}
+                    onSimulateSwap={handleSimulateFromLabel}
+                  />
+                </CollapsibleContent>
+              </Card>
+            </Collapsible>
           )}
         </div>
 
-        {/* Main: Floor Plan Canvas */}
+        {/* === MAIN CANVAS === */}
         <div className="col-span-12 lg:col-span-9">
           {selectedLocation ? (
             <Card padding="sm">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-semibold text-foreground">{selectedLocation.name}</h3>
-                <div className="flex items-center gap-2">
-                  {heatmapMode && (
-                    <button
-                      onClick={() => setShowSimulation(true)}
-                      className="px-2.5 py-1 text-xs font-medium rounded-md bg-amber-100 text-amber-700 hover:bg-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:hover:bg-amber-900/50 transition-colors"
-                    >
-                      🔄 Simula Scambio
-                    </button>
-                  )}
-                  {selectedLocation.address && (
-                    <span className="text-xs text-muted-foreground">{selectedLocation.address}</span>
-                  )}
-                </div>
-              </div>
               <FloorPlanCanvas
                 rooms={rooms}
                 desks={desks}
@@ -260,12 +299,17 @@ export const SpaceSyncView: React.FC<SpaceSyncViewProps> = ({ company, companyUs
             </Card>
           ) : (
             <Card padding="lg">
-              <div className="text-center py-16 text-muted-foreground">
-                <MapPin size={48} className="mx-auto mb-4 opacity-30" />
-                <h3 className="font-semibold text-lg mb-2">Inizia con SpaceSync</h3>
-                <p className="text-sm max-w-md mx-auto">
+              <div className="text-center py-20 text-muted-foreground">
+                <div className="mx-auto mb-6 w-20 h-20 rounded-2xl bg-primary/5 flex items-center justify-center">
+                  <MapPin size={36} className="text-primary/30" />
+                </div>
+                <h3 className="font-bold text-xl mb-2 text-foreground">Inizia con SpaceSync</h3>
+                <p className="text-sm max-w-md mx-auto leading-relaxed">
                   Crea la prima sede per disegnare la planimetria del tuo ufficio
                   e posizionare le scrivanie del team.
+                </p>
+                <p className="text-xs mt-4 text-muted-foreground/60">
+                  Usa il pannello a sinistra per aggiungere una nuova sede →
                 </p>
               </div>
             </Card>
@@ -273,7 +317,7 @@ export const SpaceSyncView: React.FC<SpaceSyncViewProps> = ({ company, companyUs
         </div>
       </div>
 
-      {/* Desk Assignment Modal */}
+      {/* Modals */}
       {selectedDesk && (
         <DeskAssignmentModal
           desk={selectedDesk}
@@ -286,7 +330,6 @@ export const SpaceSyncView: React.FC<SpaceSyncViewProps> = ({ company, companyUs
         />
       )}
 
-      {/* Swap Simulation Modal */}
       {showSimulation && (
         <SwapSimulationModal
           isOpen={showSimulation}
