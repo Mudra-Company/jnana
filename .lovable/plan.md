@@ -1,238 +1,113 @@
 
-# Piano: SpaceSync - Gestione Spaziale degli Uffici con Matching di Compatibilita
+# Piano: SpaceSync UX/UI Overhaul + Room Resize
 
-## Nome della Feature: **SpaceSync**
-
-Un nome che comunica il concetto di sincronizzazione tra persone e spazi, allineato al vocabolario del prodotto (Jnana = conoscenza, Karma = azione, SpaceSync = armonia spaziale).
-
----
-
-## Panoramica
-
-SpaceSync permette di:
-1. Disegnare planimetrie semplificate degli uffici (rettangoli/quadrati su canvas)
-2. Gestire piu piani/edifici/sedi con indirizzi
-3. Posizionare scrivanie e associarle a ruoli/persone
-4. Calcolare la compatibilita spaziale tra colleghi vicini (basata su RIASEC, soft skills, valori, generazione)
-5. Suggerire ricollocazioni ottimali basate sui flussi di comunicazione
+## Problema Principale
+Le stanze non possono essere ridimensionate dopo il disegno. L'interfaccia e' funzionale ma basica, con toolbar piatta, sidebar poco strutturata e mancanza di feedback visivi moderni.
 
 ---
 
-## Schema Database
+## 1. Room Resize (Funzionalita Critica)
 
-Tre nuove tabelle:
+Aggiungere **8 handle di resize** (4 angoli + 4 lati) visibili quando una stanza e' selezionata in modalita "Seleziona".
+
+**Implementazione in `FloorPlanCanvas.tsx`:**
+- Quando `selectedRoomId` corrisponde a una stanza, renderizzare 8 piccoli quadrati SVG sugli angoli e sui punti medi dei lati
+- Ogni handle ha un `onMouseDown` che attiva un nuovo stato `resizingRoom` con la direzione (es. `'nw'`, `'se'`, `'e'`, etc.)
+- Durante `handleMouseMove`, se `resizingRoom` e' attivo, ricalcolare `x, y, width, height` della stanza in base alla direzione del drag
+- Su `mouseUp`, chiamare `onUpdateRoom(id, { x, y, width, height })` per persistere
+- Le scrivanie dentro la stanza restano nelle loro posizioni relative (non serve spostarle)
+- Aggiungere anche la possibilita di **trascinare l'intera stanza** (drag dalla superficie della stanza, non dagli handle)
+
+**Cursori contestuali:** `nwse-resize`, `nesw-resize`, `ew-resize`, `ns-resize` sugli handle appropriati.
+
+---
+
+## 2. Redesign Toolbar del Canvas
+
+Trasformare la toolbar da una riga piatta a un design piu moderno e organizzato:
+
+- **Raggruppamento visivo**: Strumenti di disegno | Zoom | Visualizzazione | Azioni
+- **Icone piu grandi** (18px) con tooltip al hover
+- **Indicatore di modalita attiva** piu evidente con pill colorata e animazione
+- **Slider zoom** al posto dei due bottoni +/-, con reset rapido a 100% al click sul valore
+- **Separatori** con label di gruppo leggibili
+- Dimensione minima touch-friendly (min 36px per target)
+
+---
+
+## 3. Redesign Sidebar Sinistra
+
+La sidebar attuale ha card separate senza gerarchia visiva chiara.
+
+**Miglioramenti:**
+- **Header sidebar** con titolo della sede selezionata e indirizzo come sottotitolo
+- **LocationSelector** con card piu compatte, icona edificio/piano distinta, hover con azioni inline (edit/delete) piu visibili
+- **RoomEditor** integrato come pannello espandibile (collapsible) invece di card separata, con:
+  - Campi dimensioni (larghezza x altezza) editabili manualmente
+  - Color picker per il colore della stanza
+  - Conteggio scrivanie nella stanza
+- **Riepilogo** con progress bar visuale per il tasso di occupazione (assegnate/totali)
+- **Collapsible sections** con Radix Collapsible per ProximityReport e OptimizationSuggestions
+
+---
+
+## 4. Miglioramenti Canvas SVG
+
+- **Snap to grid**: Quando si disegna o ridimensiona, le coordinate si allineano alla griglia di 40px (con possibilita di disattivare tenendo premuto Shift)
+- **Tooltip on hover** sulle scrivanie: mostra nome persona, ruolo e score senza dover cliccare
+- **Room move**: Click e drag sulla superficie della stanza per spostarla (solo in modalita Seleziona)
+- **Feedback visivo** quando si trascina una scrivania: ombra e leggero ingrandimento
+- **Dimensioni room** visibili come testo piccolo (es. "240x160") nell'angolo in basso a destra della stanza selezionata
+
+---
+
+## 5. Miglioramenti Generali UX
+
+- **Empty state** piu accattivante quando non ci sono sedi, con illustrazione e CTA chiara
+- **Toast di conferma** per azioni distruttive (elimina stanza/scrivania) con conferma
+- **Keyboard shortcuts**: Canc/Delete per eliminare stanza/scrivania selezionata, Esc per deselezionare, 1/2/3 per cambiare modalita
+
+---
+
+## File da Modificare
+
+| File | Modifiche |
+|------|-----------|
+| `src/components/spacesync/FloorPlanCanvas.tsx` | Room resize handles, room drag, snap-to-grid, toolbar redesign, desk tooltips, keyboard shortcuts |
+| `src/components/spacesync/RoomEditor.tsx` | Aggiungere campi dimensioni editabili, color picker, conteggio scrivanie |
+| `src/components/spacesync/LocationSelector.tsx` | Card piu compatte, hover actions migliori |
+| `views/admin/SpaceSyncView.tsx` | Sidebar ristrutturata con collapsible sections, progress bar occupazione |
+| `src/types/spacesync.ts` | Aggiungere tipo `ResizeDirection` |
+
+Nessuna modifica al database necessaria.
+
+---
+
+## Dettagli Tecnici: Room Resize
 
 ```text
-office_locations (Sedi/Edifici)
-├── id (uuid PK)
-├── company_id (FK -> companies)
-├── name (es. "Sede Milano - Piano 2")
-├── address (indirizzo completo)
-├── building_name (nome edificio, nullable)
-├── floor_number (numero piano, nullable)
-├── sort_order (int)
-├── created_at / updated_at
+Handle layout su stanza selezionata:
 
-office_rooms (Stanze/Aree sulla planimetria)
-├── id (uuid PK)
-├── location_id (FK -> office_locations)
-├── name (es. "Ufficio Marketing", "Open Space A")
-├── x, y, width, height (coordinate e dimensioni in px sul canvas)
-├── color (colore di sfondo, nullable)
-├── room_type ('office' | 'meeting' | 'common' | 'other')
-├── created_at / updated_at
+  [NW]────[N]────[NE]
+   |                |
+  [W]    stanza    [E]
+   |                |
+  [SW]────[S]────[SE]
 
-office_desks (Scrivanie con assegnazione)
-├── id (uuid PK)
-├── room_id (FK -> office_rooms)
-├── label (es. "D1", "Scrivania Marco")
-├── x, y (posizione relativa alla stanza)
-├── company_member_id (FK -> company_members, nullable)
-├── company_role_id (FK -> company_roles, nullable)
-├── created_at / updated_at
+Stato nuovo in FloorPlanCanvas:
+  resizingRoom: {
+    roomId: string,
+    direction: 'nw'|'n'|'ne'|'e'|'se'|'s'|'sw'|'w',
+    startX: number,
+    startY: number,
+    originalRoom: { x, y, width, height }
+  } | null
+
+Logica resize:
+- 'e': width = original.width + (currentX - startX), min 60px
+- 'w': x = original.x + delta, width = original.width - delta
+- 's': height = original.height + (currentY - startY)
+- 'n': y = original.y + delta, height = original.height - delta
+- Angoli: combinazione dei due assi
+- Snap: Math.round(value / 40) * 40 (se shift non premuto)
 ```
-
-RLS: Tutte le tabelle protette per `company_id` tramite join, accessibili solo da admin/membri della stessa azienda.
-
----
-
-## Algoritmo di Compatibilita Spaziale
-
-Il cuore brevettabile: un **Proximity Compatibility Score** che valuta quanto e efficace la vicinanza tra due persone.
-
-```text
-ProximityScore(A, B) = weighted_sum(
-  RIASEC_Complementarity(A, B)     * 0.20   // Profili complementari (non identici!)
-  SoftSkills_Overlap(A, B)         * 0.15   // Soft skills condivise
-  Values_Alignment(A, B)           * 0.15   // Valori personali allineati
-  Communication_Flow(A, B)         * 0.30   // Frequenza di collaborazione necessaria
-  Generation_Synergy(A, B)         * 0.10   // Bonus intergenerazionale (gia implementato)
-  Conflict_Risk(A, B)              * 0.10   // Penalita per risk factors incompatibili
-)
-```
-
-Aspetto chiave: **Communication Flow** - un nuovo dato che dobbiamo raccogliere:
-- Per ogni ruolo, definiamo con quali altri ruoli ha un flusso di comunicazione frequente
-- Questo viene configurato dall'admin nella sezione ruoli (campo `communicates_with_roles`)
-- Chi comunica spesso dovrebbe stare vicino
-
----
-
-## Struttura dei File
-
-```text
-Nuovi file:
-├── src/types/spacesync.ts                    // Tipi TypeScript
-├── src/hooks/useOfficeLocations.ts           // CRUD sedi
-├── src/hooks/useOfficeRooms.ts               // CRUD stanze
-├── src/hooks/useOfficeDesks.ts               // CRUD scrivanie
-├── src/hooks/useProximityScoring.ts          // Calcolo compatibilita
-├── src/utils/proximityEngine.ts              // Algoritmo di scoring puro
-├── views/admin/SpaceSyncView.tsx             // Vista principale
-├── src/components/spacesync/LocationSelector.tsx    // Selezione sede/piano
-├── src/components/spacesync/FloorPlanCanvas.tsx     // Canvas planimetria
-├── src/components/spacesync/RoomEditor.tsx           // Disegno stanze
-├── src/components/spacesync/DeskMarker.tsx           // Scrivania sul canvas
-├── src/components/spacesync/DeskAssignmentModal.tsx  // Assegna persona
-├── src/components/spacesync/ProximityHeatmap.tsx     // Overlay compatibilita
-├── src/components/spacesync/ProximityReport.tsx      // Report di ottimizzazione
-
-File da modificare:
-├── types.ts                           // Aggiungere ViewState ADMIN_SPACESYNC
-├── App.tsx                            // Aggiungere route + import
-├── components/layout/Header.tsx       // Aggiungere bottone nav SpaceSync
-├── src/components/dashboard/QuickActionsPanel.tsx  // Aggiungere azione rapida
-```
-
----
-
-## UI della Planimetria
-
-L'editor sara basato su un canvas HTML5 semplificato (no librerie pesanti), con:
-
-```text
-┌────────────────────────────────────────────────────────────────┐
-│  SpaceSync                                    [Sede ▼] [+ Sede]│
-│  Ottimizza la disposizione del tuo team                        │
-├────────────────────────────────────────────────────────────────┤
-│  [Piano Terra] [Piano 1] [Piano 2]              [+ Piano]     │
-├────────────────────────────────────────────────────────────────┤
-│                                                                │
-│   PLANIMETRIA                                [Edit] [Heatmap]  │
-│   ┌──────────────────────┐  ┌──────────────┐                  │
-│   │  Ufficio Direzione   │  │  Open Space  │                  │
-│   │  ┌──┐ ┌──┐           │  │  ┌──┐┌──┐┌──┐│                  │
-│   │  │D1│ │D2│           │  │  │D3││D4││D5││                  │
-│   │  │CS│ │MR│           │  │  │GC││LB││--││                  │
-│   │  └──┘ └──┘           │  │  └──┘└──┘└──┘│                  │
-│   └──────────────────────┘  │  ┌──┐┌──┐    │                  │
-│                              │  │D6││D7│    │                  │
-│   ┌──────────────────────┐  │  │AP││--│    │                  │
-│   │  Sala Riunioni       │  │  └──┘└──┘    │                  │
-│   │                      │  └──────────────┘                  │
-│   └──────────────────────┘                                    │
-│                                                                │
-├────────────────────────────────────────────────────────────────┤
-│  SUGGERIMENTI DI OTTIMIZZAZIONE                                │
-│  ┌──────────────────────────────────────────────────────────┐  │
-│  │ ! Giuseppe C. (Operations) e Carlotta S. (Direzione)     │  │
-│  │   Comunicano frequentemente ma sono su piani diversi.    │  │
-│  │   Compatibilita: 87% - [Suggerisci spostamento]          │  │
-│  └──────────────────────────────────────────────────────────┘  │
-└────────────────────────────────────────────────────────────────┘
-```
-
-### Interazioni Canvas:
-- **Modalita Edit**: Click e drag per disegnare rettangoli (stanze), click per posizionare scrivanie
-- **Modalita Heatmap**: Overlay colorato che mostra le zone di alta/bassa compatibilita
-- **Click su scrivania**: Mostra popup con persona assegnata, compatibilita con vicini, suggerimenti
-- **Drag & drop**: Trascina scrivanie per riposizionarle, con aggiornamento live dello score
-
----
-
-## Integrazione nella Navigazione
-
-### Header (menu admin):
-Nuovo bottone tra "Compliance" e "Azienda":
-```text
-[Organigramma] [Dashboard] [Identity Hub] [SpaceSync] [Compliance] [Azienda]
-```
-
-### Quick Actions (dashboard):
-Nuova azione rapida con icona `MapPin`:
-```text
-{ icon: MapPin, label: 'SpaceSync', description: 'Disposizione uffici', view: 'ADMIN_SPACESYNC' }
-```
-
-### ViewState:
-```typescript
-| { type: 'ADMIN_SPACESYNC' }
-```
-
----
-
-## Fasi di Implementazione
-
-Data la complessita, suggerisco di procedere in **3 fasi**:
-
-### Fase 1 - Fondamenta (questa implementazione)
-- Schema DB (3 tabelle + RLS)
-- ViewState + routing + navigazione
-- CRUD sedi/piani
-- Canvas base con disegno stanze (rettangoli)
-- Posizionamento scrivanie
-- Assegnazione persona/ruolo alle scrivanie
-
-### Fase 2 - Scoring (prossima iterazione)
-- Algoritmo ProximityScore
-- Communication Flow config sui ruoli
-- Heatmap overlay
-- Report di ottimizzazione
-
-### Fase 3 - Suggerimenti AI (futura)
-- Suggerimenti automatici di ricollocazione
-- Simulazione "what-if" (drag persona e vedi come cambia lo score globale)
-- Export report per management
-
----
-
-## Dettagli Tecnici
-
-### Canvas Implementation
-Il canvas usera un approccio React + SVG (non Canvas 2D) per semplicita e accessibilita:
-- Ogni stanza e un `<rect>` SVG con handler di drag/resize
-- Ogni scrivania e un `<g>` SVG con icona e label
-- Lo zoom/pan sara gestito con viewBox transformation
-- Nessuna dipendenza esterna necessaria
-
-### Proximity Engine (src/utils/proximityEngine.ts)
-Funzione pura che calcola il punteggio di compatibilita tra due utenti:
-
-```typescript
-export function calculateProximityScore(
-  userA: ProximityUserData,
-  userB: ProximityUserData,
-  communicationFlow: boolean  // true se i ruoli comunicano frequentemente
-): ProximityResult {
-  // 1. RIASEC Complementarity (non identica!)
-  // Profili troppo simili = bassa complementarieta
-  // Profili complementari (es. S+E, I+R) = alta complementarieta
-  
-  // 2. Soft Skills overlap
-  // Skills condivise = comunicazione piu facile
-  
-  // 3. Values alignment
-  // Valori condivisi = meno friction
-  
-  // 4. Communication Flow (peso maggiore)
-  // Se i ruoli comunicano spesso -> massimo punteggio se vicini
-  
-  // 5. Generation Synergy (riuso analyzeSynergy esistente)
-  
-  // 6. Conflict Risk
-  // Risk factors incompatibili penalizzano
-}
-```
-
-### Persistenza
-Segue il pattern standard del progetto: update locale immediato -> persist su DB -> rollback se errore.
