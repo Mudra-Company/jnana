@@ -33,9 +33,15 @@ export const SpaceSyncView: React.FC<SpaceSyncViewProps> = ({ company, companyUs
   const [selectedDesk, setSelectedDesk] = useState<OfficeDesk | null>(null);
   const [heatmapMode, setHeatmapMode] = useState(false);
   const [showSimulation, setShowSimulation] = useState(false);
+  const [roomPreviewOverrides, setRoomPreviewOverrides] = useState<Partial<OfficeRoom> | null>(null);
 
   const selectedLocation = useMemo(() => locations.find(l => l.id === selectedLocationId), [locations, selectedLocationId]);
   const selectedRoom = useMemo(() => rooms.find(r => r.id === selectedRoomId), [rooms, selectedRoomId]);
+
+  const displayRooms = useMemo(() => {
+    if (!roomPreviewOverrides || !selectedRoomId) return rooms;
+    return rooms.map(r => r.id === selectedRoomId ? { ...r, ...roomPreviewOverrides } : r);
+  }, [rooms, roomPreviewOverrides, selectedRoomId]);
 
   useEffect(() => { fetchLocations(company.id); }, [company.id, fetchLocations]);
   useEffect(() => {
@@ -178,8 +184,9 @@ export const SpaceSyncView: React.FC<SpaceSyncViewProps> = ({ company, companyUs
               <RoomEditor
                 room={selectedRoom}
                 deskCount={selectedRoomDeskCount}
-                onUpdate={handleUpdateRoom}
-                onClose={() => setSelectedRoomId(undefined)}
+                onUpdate={(id, updates) => { handleUpdateRoom(id, updates); setRoomPreviewOverrides(null); }}
+                onClose={() => { setSelectedRoomId(undefined); setRoomPreviewOverrides(null); }}
+                onPreview={setRoomPreviewOverrides}
               />
             </Card>
           )}
@@ -275,7 +282,7 @@ export const SpaceSyncView: React.FC<SpaceSyncViewProps> = ({ company, companyUs
           {selectedLocation ? (
             <Card padding="sm">
               <FloorPlanCanvas
-                rooms={rooms}
+                rooms={displayRooms}
                 desks={desks}
                 canvasWidth={selectedLocation.canvasWidth}
                 canvasHeight={selectedLocation.canvasHeight}
