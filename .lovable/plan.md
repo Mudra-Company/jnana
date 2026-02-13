@@ -1,36 +1,47 @@
 
-# Fix: Room Editor Not Syncing with Canvas Changes
+# Fix: Anteprima Live delle Modifiche Manuali nel Room Editor
 
-## Root Cause
+## Problema
+Quando modifichi larghezza/altezza/colore nei campi testuali della sidebar, il canvas non si aggiorna fino a quando non premi "Salva" (che fa un round-trip al database). L'utente vuole vedere l'effetto visivo in tempo reale mentre digita.
 
-The `RoomEditor` component uses `useState` to initialize `width`, `height`, `name`, `roomType`, and `color` from the `room` prop. These values are set **once on mount** and never updated when the room changes on the canvas (resize/drag). When the user presses "Salva", the stale initial values overwrite the canvas changes in the database.
+## Soluzione
+Aggiungere un callback `onPreview` al `RoomEditor` che viene chiamato ad ogni modifica dei campi (dimensioni, colore, nome). Il parent `SpaceSyncView` mantiene un override locale che viene applicato alla lista `rooms` passata al canvas, senza toccare il database fino al "Salva".
 
-## Solution
+---
 
-Add a `useEffect` in `RoomEditor.tsx` that watches for changes to the `room` prop and syncs the local state accordingly. To avoid overwriting user edits in text fields while they're typing, we sync all properties but use `room.id` combined with dimension changes as the trigger.
+## Modifiche
 
-### Changes to `src/components/spacesync/RoomEditor.tsx`
+### 1. `src/components/spacesync/RoomEditor.tsx`
+- Aggiungere prop `onPreview?: (updates: Partial<OfficeRoom>) => void`
+- Nei handler `onChange` di width, height e color, chiamare `onPreview` con i valori correnti
+- Usare un piccolo helper che chiama onPreview con tutti i campi attuali ad ogni cambio
 
-Add after the `useState` declarations (line 28):
+### 2. `views/admin/SpaceSyncView.tsx`
+- Aggiungere stato locale `roomPreviewOverrides: Partial<OfficeRoom> | null`
+- Creare `displayRooms = useMemo(...)` che applica gli override alla stanza selezionata
+- Passare `displayRooms` invece di `rooms` al `FloorPlanCanvas`
+- Passare un callback `handleRoomPreview` al `RoomEditor` che aggiorna gli override
+- Al "Salva", gli override vengono persistiti e resettati
+- Al "Annulla" o cambio stanza, gli override vengono resettati
 
-```typescript
-// Sync local state when room prop changes (e.g. from canvas resize/drag)
-useEffect(() => {
-  setName(room.name);
-  setRoomType(room.roomType);
-  setWidth(Math.round(room.width));
-  setHeight(Math.round(room.height));
-  setColor(room.color);
-}, [room.id, room.width, room.height, room.x, room.y, room.name, room.roomType, room.color]);
+---
+
+## Dettagli Tecnici
+
+```text
+Flusso dati:
+
+RoomEditor (campo width cambia)
+  -> onPreview({ width: 300 })
+  -> SpaceSyncView aggiorna roomPreviewOverrides
+  -> displayRooms = rooms.map(r => r.id === selectedRoomId ? {...r, ...overrides} : r)
+  -> FloorPlanCanvas riceve rooms aggiornate
+  -> Canvas si ri-renderizza con le nuove dimensioni
+
+Al "Salva":
+  -> onUpdate persiste nel DB
+  -> roomPreviewOverrides si resetta a null
+  -> rooms dal DB si aggiorna (useOfficeRooms.fetchRooms)
 ```
 
-This ensures that:
-- When the user resizes a room on the canvas, the width/height fields update in real-time
-- When the user drags a room, the state stays in sync
-- When a different room is selected, all fields refresh
-- Pressing "Salva" will persist the correct current values
-
-### File Modified
-- `src/components/spacesync/RoomEditor.tsx` -- add `useEffect` import and sync effect (2 line changes)
-
-No other files need modification. This is a minimal, targeted fix.
+Nessuna modifica al database. Solo 2 file da toccare.
