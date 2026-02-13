@@ -1,47 +1,39 @@
 
-# Fix: Anteprima Live delle Modifiche Manuali nel Room Editor
 
-## Problema
-Quando modifichi larghezza/altezza/colore nei campi testuali della sidebar, il canvas non si aggiorna fino a quando non premi "Salva" (che fa un round-trip al database). L'utente vuole vedere l'effetto visivo in tempo reale mentre digita.
+# Fix: "Posiziona Scrivania" non funziona
+
+## Causa
+In `FloorPlanCanvas.tsx`, la funzione `handleRoomMouseDown` (linea 195-207) chiama `e.stopPropagation()` **prima** del controllo della modalita. Quando sei in modalita "place-desk" e clicchi su una stanza:
+
+1. Il click arriva al `<rect>` della stanza (che ha `onMouseDown={handleRoomMouseDown}`)
+2. `e.stopPropagation()` viene chiamato immediatamente (linea 196)
+3. Il controllo `if (mode !== 'select') return;` esce dalla funzione (linea 197)
+4. L'evento **non raggiunge mai** il `<svg>` dove `handleMouseDown` gestisce il posizionamento delle scrivanie
 
 ## Soluzione
-Aggiungere un callback `onPreview` al `RoomEditor` che viene chiamato ad ogni modifica dei campi (dimensioni, colore, nome). Il parent `SpaceSyncView` mantiene un override locale che viene applicato alla lista `rooms` passata al canvas, senza toccare il database fino al "Salva".
+Spostare `e.stopPropagation()` **dopo** il controllo della modalita, in modo che in modalita "place-desk" (e "draw-room") l'evento possa propagarsi fino all'SVG.
 
----
+## Modifica
 
-## Modifiche
+**File:** `src/components/spacesync/FloorPlanCanvas.tsx`
 
-### 1. `src/components/spacesync/RoomEditor.tsx`
-- Aggiungere prop `onPreview?: (updates: Partial<OfficeRoom>) => void`
-- Nei handler `onChange` di width, height e color, chiamare `onPreview` con i valori correnti
-- Usare un piccolo helper che chiama onPreview con tutti i campi attuali ad ogni cambio
-
-### 2. `views/admin/SpaceSyncView.tsx`
-- Aggiungere stato locale `roomPreviewOverrides: Partial<OfficeRoom> | null`
-- Creare `displayRooms = useMemo(...)` che applica gli override alla stanza selezionata
-- Passare `displayRooms` invece di `rooms` al `FloorPlanCanvas`
-- Passare un callback `handleRoomPreview` al `RoomEditor` che aggiorna gli override
-- Al "Salva", gli override vengono persistiti e resettati
-- Al "Annulla" o cambio stanza, gli override vengono resettati
-
----
-
-## Dettagli Tecnici
-
-```text
-Flusso dati:
-
-RoomEditor (campo width cambia)
-  -> onPreview({ width: 300 })
-  -> SpaceSyncView aggiorna roomPreviewOverrides
-  -> displayRooms = rooms.map(r => r.id === selectedRoomId ? {...r, ...overrides} : r)
-  -> FloorPlanCanvas riceve rooms aggiornate
-  -> Canvas si ri-renderizza con le nuove dimensioni
-
-Al "Salva":
-  -> onUpdate persiste nel DB
-  -> roomPreviewOverrides si resetta a null
-  -> rooms dal DB si aggiorna (useOfficeRooms.fetchRooms)
+Cambiare le linee 195-197 da:
+```typescript
+const handleRoomMouseDown = (e: React.MouseEvent, room: OfficeRoom) => {
+    e.stopPropagation();
+    if (mode !== 'select') return;
 ```
 
-Nessuna modifica al database. Solo 2 file da toccare.
+A:
+```typescript
+const handleRoomMouseDown = (e: React.MouseEvent, room: OfficeRoom) => {
+    if (mode !== 'select') return;
+    e.stopPropagation();
+```
+
+Una sola riga spostata. Nessun altro file da modificare.
+
+## Note
+Gli errori WebSocket 412 nel log sono relativi a Supabase Realtime e non sono collegati a questo bug. Sono errori di connessione che non impattano la funzionalita.
+
+I numerosi errori di build elencati sono pre-esistenti e non correlati a SpaceSync.
