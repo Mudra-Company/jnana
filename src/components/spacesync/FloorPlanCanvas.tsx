@@ -193,8 +193,8 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
 
   // --- ROOM CLICK (select or start drag) ---
   const handleRoomMouseDown = (e: React.MouseEvent, room: OfficeRoom) => {
-    e.stopPropagation();
     if (mode !== 'select') return;
+    e.stopPropagation();
     onSelectRoom(room.id);
     const pt = getSVGPoint(e);
     setDraggingRoom({
