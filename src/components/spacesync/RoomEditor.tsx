@@ -18,9 +18,10 @@ interface RoomEditorProps {
   deskCount?: number;
   onUpdate: (id: string, updates: Partial<OfficeRoom>) => void;
   onClose: () => void;
+  onPreview?: (updates: Partial<OfficeRoom>) => void;
 }
 
-export const RoomEditor: React.FC<RoomEditorProps> = ({ room, deskCount = 0, onUpdate, onClose }) => {
+export const RoomEditor: React.FC<RoomEditorProps> = ({ room, deskCount = 0, onUpdate, onClose, onPreview }) => {
   const [name, setName] = useState(room.name);
   const [roomType, setRoomType] = useState<RoomType>(room.roomType);
   const [width, setWidth] = useState(Math.round(room.width));
@@ -35,6 +36,10 @@ export const RoomEditor: React.FC<RoomEditorProps> = ({ room, deskCount = 0, onU
     setHeight(Math.round(room.height));
     setColor(room.color);
   }, [room.id, room.width, room.height, room.x, room.y, room.name, room.roomType, room.color]);
+
+  const emitPreview = (overrides: Partial<{ name: string; roomType: RoomType; width: number; height: number; color: string }>) => {
+    onPreview?.({ name, roomType, width, height, color, ...overrides });
+  };
 
   const handleSave = () => {
     onUpdate(room.id, { name, roomType, width, height, color });
@@ -54,7 +59,7 @@ export const RoomEditor: React.FC<RoomEditorProps> = ({ room, deskCount = 0, onU
         <input
           className="w-full px-3 py-1.5 mt-0.5 text-sm rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition"
           value={name}
-          onChange={(e: React.ChangeEvent<HTMLInputElement>) => setName(e.target.value)}
+          onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setName(e.target.value); emitPreview({ name: e.target.value }); }}
         />
       </div>
 
@@ -64,7 +69,7 @@ export const RoomEditor: React.FC<RoomEditorProps> = ({ room, deskCount = 0, onU
         <select
           className="w-full px-3 py-1.5 mt-0.5 text-sm rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition"
           value={roomType}
-          onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setRoomType(e.target.value as RoomType)}
+          onChange={(e: React.ChangeEvent<HTMLSelectElement>) => { const v = e.target.value as RoomType; setRoomType(v); emitPreview({ roomType: v }); }}
         >
           {ROOM_TYPES.map(t => (
             <option key={t.value} value={t.value}>{t.label}</option>
@@ -85,7 +90,7 @@ export const RoomEditor: React.FC<RoomEditorProps> = ({ room, deskCount = 0, onU
               min={60}
               className="w-full px-3 py-1.5 text-sm rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition"
               value={width}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setWidth(parseInt(e.target.value) || 60)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => { const v = parseInt(e.target.value) || 60; setWidth(v); emitPreview({ width: v }); }}
             />
             <span className="text-[9px] text-muted-foreground">Larghezza</span>
           </div>
@@ -96,7 +101,7 @@ export const RoomEditor: React.FC<RoomEditorProps> = ({ room, deskCount = 0, onU
               min={60}
               className="w-full px-3 py-1.5 text-sm rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition"
               value={height}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) => setHeight(parseInt(e.target.value) || 60)}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) => { const v = parseInt(e.target.value) || 60; setHeight(v); emitPreview({ height: v }); }}
             />
             <span className="text-[9px] text-muted-foreground">Altezza</span>
           </div>
@@ -110,7 +115,7 @@ export const RoomEditor: React.FC<RoomEditorProps> = ({ room, deskCount = 0, onU
           {ROOM_COLORS_OPTIONS.map(c => (
             <button
               key={c}
-              onClick={() => setColor(c)}
+              onClick={() => { setColor(c); emitPreview({ color: c }); }}
               className={`w-6 h-6 rounded-full border-2 transition-transform hover:scale-110 ${
                 color === c ? 'border-primary scale-110' : 'border-transparent'
               }`}
