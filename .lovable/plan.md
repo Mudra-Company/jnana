@@ -1,39 +1,67 @@
 
 
-# Fix: "Posiziona Scrivania" non funziona
+# Fix: Stile Brutto nei Componenti SpaceSync
 
-## Causa
-In `FloorPlanCanvas.tsx`, la funzione `handleRoomMouseDown` (linea 195-207) chiama `e.stopPropagation()` **prima** del controllo della modalita. Quando sei in modalita "place-desk" e clicchi su una stanza:
+## Problema Identificato
 
-1. Il click arriva al `<rect>` della stanza (che ha `onMouseDown={handleRoomMouseDown}`)
-2. `e.stopPropagation()` viene chiamato immediatamente (linea 196)
-3. Il controllo `if (mode !== 'select') return;` esce dalla funzione (linea 197)
-4. L'evento **non raggiunge mai** il `<svg>` dove `handleMouseDown` gestisce il posizionamento delle scrivanie
+La causa radice e chiara: i componenti SpaceSync usano classi Tailwind come `bg-background`, `text-foreground`, `border-border`, `bg-muted`, `text-primary`, `text-destructive` -- queste sono convenzioni **shadcn/ui** che dipendono da variabili CSS custom (es. `--background`, `--border`). 
+
+Il progetto Jnana pero **non definisce queste variabili CSS**. Il Tailwind e configurato tramite CDN in `index.html` con un sistema colori personalizzato (`jnana-sage`, `jnana-bg`, `jnana-text`, etc.). Di conseguenza, classi come `bg-background` non risolvono a nessun colore e il risultato e trasparenza, bordi neri e font senza stile.
 
 ## Soluzione
-Spostare `e.stopPropagation()` **dopo** il controllo della modalita, in modo che in modalita "place-desk" (e "draw-room") l'evento possa propagarsi fino all'SVG.
 
-## Modifica
+Sostituire tutte le classi shadcn/ui con le classi del design system Jnana nei 5 componenti SpaceSync affetti. Ecco la mappatura:
 
-**File:** `src/components/spacesync/FloorPlanCanvas.tsx`
-
-Cambiare le linee 195-197 da:
-```typescript
-const handleRoomMouseDown = (e: React.MouseEvent, room: OfficeRoom) => {
-    e.stopPropagation();
-    if (mode !== 'select') return;
+```text
+bg-background     -> bg-white dark:bg-gray-800
+text-foreground    -> text-jnana-text dark:text-gray-100
+border-border      -> border-gray-200 dark:border-gray-700
+bg-muted           -> bg-gray-100 dark:bg-gray-700
+bg-muted/30        -> bg-gray-50 dark:bg-gray-800
+text-muted-foreground -> text-gray-500 dark:text-gray-400
+bg-primary         -> bg-jnana-sage
+text-primary       -> text-jnana-sage
+text-primary-foreground -> text-white
+bg-primary/10      -> bg-jnana-sage/10
+bg-primary/5       -> bg-jnana-sage/5
+border-primary/20  -> border-jnana-sage/20
+text-destructive   -> text-red-500
+bg-destructive/10  -> bg-red-50 dark:bg-red-900/20
+hover:bg-primary/90 -> hover:bg-jnana-sageDark
+focus:ring-primary/20 -> focus:ring-jnana-sage/20
+focus:border-primary -> focus:border-jnana-sage
 ```
 
-A:
-```typescript
-const handleRoomMouseDown = (e: React.MouseEvent, room: OfficeRoom) => {
-    if (mode !== 'select') return;
-    e.stopPropagation();
-```
+## File da Modificare
 
-Una sola riga spostata. Nessun altro file da modificare.
+### 1. `src/components/spacesync/DeskAssignmentModal.tsx`
+- Modal container: `bg-background` -> `bg-white dark:bg-gray-800`
+- Bordi: `border-border` -> `border-gray-200 dark:border-gray-700`
+- Titolo: `text-foreground` -> `text-jnana-text dark:text-gray-100`
+- Input: sostituire tutte le classi shadcn
+- Bottoni: usare `bg-jnana-sage`, `text-white`
+- Stile arrotondato: `rounded-xl` -> `rounded-2xl` per coerenza col design system
 
-## Note
-Gli errori WebSocket 412 nel log sono relativi a Supabase Realtime e non sono collegati a questo bug. Sono errori di connessione che non impattano la funzionalita.
+### 2. `src/components/spacesync/RoomEditor.tsx`
+- Tutti gli input e label: stessa mappatura
+- Bottoni salva/annulla: colori Jnana
+- Select dropdown: sfondo solido bianco
 
-I numerosi errori di build elencati sono pre-esistenti e non correlati a SpaceSync.
+### 3. `src/components/spacesync/LocationSelector.tsx`
+- Input di creazione location: stessa mappatura
+- Bordi e sfondi pannelli
+
+### 4. `src/components/spacesync/SwapSimulationModal.tsx`
+- Modal e contenuti interni
+
+### 5. `src/components/spacesync/canvas/CanvasToolbar.tsx`
+- Toolbar e bottoni
+
+Tutti i 5 file seguiranno la stessa mappatura colori per garantire coerenza visiva col resto dell'app.
+
+## Sezione Tecnica
+
+- Nessuna modifica a `index.html` o al config Tailwind
+- Nessuna nuova dipendenza
+- Circa 80 sostituzioni di classi CSS distribuite su 5 file
+- Le classi dark mode vengono mantenute con i colori gray standard gia usati nel resto del progetto
