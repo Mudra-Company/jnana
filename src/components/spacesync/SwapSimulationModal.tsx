@@ -112,28 +112,28 @@ export const SwapSimulationModal: React.FC<SwapSimulationModalProps> = ({
         onClick={onClose}
       >
         <motion.div
-          className="bg-card rounded-xl shadow-2xl border border-border w-full max-w-lg mx-4 max-h-[80vh] overflow-y-auto"
+          className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 w-full max-w-lg mx-4 max-h-[80vh] overflow-y-auto"
           initial={{ scale: 0.95 }}
           animate={{ scale: 1 }}
           onClick={e => e.stopPropagation()}
         >
           {/* Header */}
-          <div className="flex items-center justify-between p-4 border-b border-border">
-            <h2 className="text-lg font-bold text-foreground flex items-center gap-2">
+          <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
+            <h2 className="text-lg font-bold text-jnana-text dark:text-gray-100 flex items-center gap-2">
               <ArrowLeftRight size={20} className="text-amber-500" />
               Simulazione Scambio
             </h2>
-            <button onClick={onClose} className="p-1 hover:bg-muted rounded-md"><X size={18} /></button>
+            <button onClick={onClose} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md"><X size={18} /></button>
           </div>
 
           <div className="p-4 space-y-4">
             {/* Person selector A */}
             <div>
-              <label className="text-xs font-semibold text-muted-foreground uppercase mb-1 block">Persona A</label>
+              <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-1 block">Persona A</label>
               <select
                 value={selectedA || ''}
                 onChange={e => setSelectedA(e.target.value || null)}
-                className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm"
+                className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-jnana-text dark:text-gray-100 text-sm"
               >
                 <option value="">Seleziona scrivania...</option>
                 {assignedDesks.filter(d => d.id !== selectedB).map(d => {
@@ -156,11 +156,11 @@ export const SwapSimulationModal: React.FC<SwapSimulationModalProps> = ({
 
             {/* Person selector B */}
             <div>
-              <label className="text-xs font-semibold text-muted-foreground uppercase mb-1 block">Persona B</label>
+              <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-1 block">Persona B</label>
               <select
                 value={selectedB || ''}
                 onChange={e => setSelectedB(e.target.value || null)}
-                className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm"
+                className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-jnana-text dark:text-gray-100 text-sm"
               >
                 <option value="">Seleziona scrivania...</option>
                 {assignedDesks.filter(d => d.id !== selectedA).map(d => {
@@ -181,23 +181,23 @@ export const SwapSimulationModal: React.FC<SwapSimulationModalProps> = ({
                 animate={{ opacity: 1, y: 0 }}
                 className="space-y-3"
               >
-                <Card padding="sm" className="bg-muted/30">
+                <Card padding="sm" className="bg-gray-50 dark:bg-gray-800">
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">Score Attuale</span>
+                    <span className="text-sm text-gray-500 dark:text-gray-400">Score Attuale</span>
                     <span className="text-lg font-bold" style={{ color: getProximityColor(currentGlobalAvg) }}>
                       {currentGlobalAvg}%
                     </span>
                   </div>
                   <div className="flex items-center justify-between mt-2">
-                    <span className="text-sm text-muted-foreground">Score Dopo Scambio</span>
+                    <span className="text-sm text-gray-500 dark:text-gray-400">Score Dopo Scambio</span>
                     <span className="text-lg font-bold" style={{ color: getProximityColor(simulation.newAvg) }}>
                       {simulation.newAvg}%
                     </span>
                   </div>
-                  <div className="flex items-center justify-between mt-2 pt-2 border-t border-border">
-                    <span className="text-sm font-medium text-foreground">Variazione</span>
+                  <div className="flex items-center justify-between mt-2 pt-2 border-t border-gray-200 dark:border-gray-700">
+                    <span className="text-sm font-medium text-jnana-text dark:text-gray-100">Variazione</span>
                     <span className={`text-lg font-bold flex items-center gap-1 ${
-                      simulation.delta > 0 ? 'text-green-500' : simulation.delta < 0 ? 'text-red-500' : 'text-muted-foreground'
+                      simulation.delta > 0 ? 'text-green-500' : simulation.delta < 0 ? 'text-red-500' : 'text-gray-500 dark:text-gray-400'
                     }`}>
                       <DeltaIcon size={16} />
                       {simulation.delta > 0 ? '+' : ''}{simulation.delta}%
@@ -206,7 +206,7 @@ export const SwapSimulationModal: React.FC<SwapSimulationModalProps> = ({
                 </Card>
 
                 {/* Swap details */}
-                <div className="text-xs text-muted-foreground space-y-1">
+                <div className="text-xs text-gray-500 dark:text-gray-400 space-y-1">
                   <p className="flex items-center gap-1">
                     <Users size={12} />
                     <strong>{simulation.userA?.firstName} {simulation.userA?.lastName}</strong> → scrivania {simulation.deskB.label}
@@ -221,7 +221,7 @@ export const SwapSimulationModal: React.FC<SwapSimulationModalProps> = ({
           </div>
 
           {/* Footer */}
-          <div className="flex justify-end gap-2 p-4 border-t border-border">
+          <div className="flex justify-end gap-2 p-4 border-t border-gray-200 dark:border-gray-700">
             <Button variant="outline" onClick={onClose}>Annulla</Button>
             <Button
               onClick={() => {

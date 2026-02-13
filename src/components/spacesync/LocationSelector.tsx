@@ -66,13 +66,13 @@ export const LocationSelector: React.FC<LocationSelectorProps> = ({
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+        <h3 className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 flex items-center gap-1.5">
           <Building size={14} />
           Sedi e Piani
         </h3>
         <button
           onClick={() => setShowCreateForm(!showCreateForm)}
-          className="text-xs font-medium text-primary hover:text-primary/80 flex items-center gap-1 transition-colors"
+          className="text-xs font-medium text-jnana-sage hover:text-jnana-sageDark flex items-center gap-1 transition-colors"
         >
           <Plus size={14} />
           Nuova Sede
@@ -80,28 +80,28 @@ export const LocationSelector: React.FC<LocationSelectorProps> = ({
       </div>
 
       {showCreateForm && (
-        <div className="p-3 rounded-lg border border-border bg-muted/30 space-y-2">
+        <div className="p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 space-y-2">
           <input
-            className="w-full px-3 py-1.5 text-sm rounded-md border border-border bg-background"
+            className="w-full px-3 py-1.5 text-sm rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800"
             placeholder="Nome (es. Piano 2)"
             value={formData.name}
             onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData(p => ({ ...p, name: e.target.value }))}
           />
           <input
-            className="w-full px-3 py-1.5 text-sm rounded-md border border-border bg-background"
+            className="w-full px-3 py-1.5 text-sm rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800"
             placeholder="Indirizzo (opzionale)"
             value={formData.address}
             onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData(p => ({ ...p, address: e.target.value }))}
           />
           <div className="flex gap-2">
             <input
-              className="flex-1 px-3 py-1.5 text-sm rounded-md border border-border bg-background"
+              className="flex-1 px-3 py-1.5 text-sm rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800"
               placeholder="Edificio (opzionale)"
               value={formData.buildingName}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData(p => ({ ...p, buildingName: e.target.value }))}
             />
             <input
-              className="w-20 px-3 py-1.5 text-sm rounded-md border border-border bg-background"
+              className="w-20 px-3 py-1.5 text-sm rounded-md border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800"
               placeholder="Piano"
               type="number"
               value={formData.floorNumber}
@@ -109,10 +109,10 @@ export const LocationSelector: React.FC<LocationSelectorProps> = ({
             />
           </div>
           <div className="flex gap-2 justify-end">
-            <button onClick={() => setShowCreateForm(false)} className="text-xs px-3 py-1 rounded-md text-muted-foreground hover:bg-muted transition-colors">
+            <button onClick={() => setShowCreateForm(false)} className="text-xs px-3 py-1 rounded-md text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
               Annulla
             </button>
-            <button onClick={handleCreate} className="text-xs px-3 py-1 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors">
+            <button onClick={handleCreate} className="text-xs px-3 py-1 rounded-md bg-jnana-sage text-white hover:bg-jnana-sageDark transition-colors">
               Crea
             </button>
           </div>
@@ -122,28 +122,28 @@ export const LocationSelector: React.FC<LocationSelectorProps> = ({
       {Object.entries(grouped).map(([group, locs]) => (
         <div key={group} className="space-y-1">
           {Object.keys(grouped).length > 1 && (
-            <div className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold px-1 pt-1">
+            <div className="text-[10px] uppercase tracking-wider text-gray-500 dark:text-gray-400 font-bold px-1 pt-1">
               {group}
             </div>
           )}
           {locs.map(loc => (
             <div key={loc.id}>
               {editingId === loc.id ? (
-                <div className="p-2 rounded-lg border border-primary/30 bg-muted/30 space-y-2">
+                <div className="p-2 rounded-lg border border-jnana-sage/30 bg-gray-50 dark:bg-gray-800 space-y-2">
                   <input
-                    className="w-full px-2 py-1 text-sm rounded border border-border bg-background"
+                    className="w-full px-2 py-1 text-sm rounded border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800"
                     value={formData.name}
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData(p => ({ ...p, name: e.target.value }))}
                   />
                   <input
-                    className="w-full px-2 py-1 text-sm rounded border border-border bg-background"
+                    className="w-full px-2 py-1 text-sm rounded border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800"
                     placeholder="Indirizzo"
                     value={formData.address}
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) => setFormData(p => ({ ...p, address: e.target.value }))}
                   />
                   <div className="flex gap-2 justify-end">
-                    <button onClick={() => setEditingId(null)} className="text-xs px-2 py-1 text-muted-foreground">Annulla</button>
-                    <button onClick={() => handleUpdate(loc.id)} className="text-xs px-2 py-1 bg-primary text-primary-foreground rounded">Salva</button>
+                    <button onClick={() => setEditingId(null)} className="text-xs px-2 py-1 text-gray-500 dark:text-gray-400">Annulla</button>
+                    <button onClick={() => handleUpdate(loc.id)} className="text-xs px-2 py-1 bg-jnana-sage text-white rounded">Salva</button>
                   </div>
                 </div>
               ) : (
@@ -151,25 +151,25 @@ export const LocationSelector: React.FC<LocationSelectorProps> = ({
                   onClick={() => onSelectLocation(loc.id)}
                   className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-left text-sm transition-colors group ${
                     selectedLocationId === loc.id 
-                      ? 'bg-primary/10 text-primary border border-primary/20' 
-                      : 'hover:bg-muted text-foreground'
+                      ? 'bg-jnana-sage/10 text-jnana-sage border border-jnana-sage/20' 
+                      : 'hover:bg-gray-100 dark:hover:bg-gray-700 text-jnana-text dark:text-gray-100'
                   }`}
                 >
-                  <MapPin size={14} className={selectedLocationId === loc.id ? 'text-primary' : 'text-muted-foreground'} />
+                  <MapPin size={14} className={selectedLocationId === loc.id ? 'text-jnana-sage' : 'text-gray-500 dark:text-gray-400'} />
                   <div className="flex-1 min-w-0">
                     <div className="font-medium truncate">{loc.name}</div>
-                    {loc.address && <div className="text-[10px] text-muted-foreground truncate">{loc.address}</div>}
+                    {loc.address && <div className="text-[10px] text-gray-500 dark:text-gray-400 truncate">{loc.address}</div>}
                   </div>
                   <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button
                       onClick={(e) => { e.stopPropagation(); startEdit(loc); }}
-                      className="p-1 rounded hover:bg-muted-foreground/10"
+                      className="p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-600"
                     >
                       <Pencil size={12} />
                     </button>
                     <button
                       onClick={(e) => { e.stopPropagation(); onDeleteLocation(loc.id); }}
-                      className="p-1 rounded hover:bg-destructive/10 text-destructive"
+                      className="p-1 rounded hover:bg-red-50 dark:hover:bg-red-900/20 text-red-500"
                     >
                       <Trash2 size={12} />
                     </button>
@@ -182,7 +182,7 @@ export const LocationSelector: React.FC<LocationSelectorProps> = ({
       ))}
 
       {locations.length === 0 && !showCreateForm && (
-        <div className="text-center py-6 text-muted-foreground text-sm">
+        <div className="text-center py-6 text-gray-500 dark:text-gray-400 text-sm">
           <MapPin size={24} className="mx-auto mb-2 opacity-40" />
           <p>Nessuna sede configurata.</p>
           <p className="text-xs mt-1">Aggiungi la prima sede per iniziare.</p>
