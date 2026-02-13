@@ -28,7 +28,6 @@ export const RoomEditor: React.FC<RoomEditorProps> = ({ room, deskCount = 0, onU
   const [height, setHeight] = useState(Math.round(room.height));
   const [color, setColor] = useState(room.color);
 
-  // Sync local state when room prop changes (e.g. from canvas resize/drag)
   useEffect(() => {
     setName(room.name);
     setRoomType(room.roomType);
@@ -48,16 +47,16 @@ export const RoomEditor: React.FC<RoomEditorProps> = ({ room, deskCount = 0, onU
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center gap-2 text-sm font-bold text-foreground">
-        <Pencil size={14} className="text-primary" />
+      <div className="flex items-center gap-2 text-sm font-bold text-jnana-text dark:text-gray-100">
+        <Pencil size={14} className="text-jnana-sage" />
         Modifica Stanza
       </div>
 
       {/* Name */}
       <div>
-        <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Nome</label>
+        <label className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Nome</label>
         <input
-          className="w-full px-3 py-1.5 mt-0.5 text-sm rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition"
+          className="w-full px-3 py-1.5 mt-0.5 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 focus:ring-2 focus:ring-jnana-sage/20 focus:border-jnana-sage outline-none transition"
           value={name}
           onChange={(e: React.ChangeEvent<HTMLInputElement>) => { setName(e.target.value); emitPreview({ name: e.target.value }); }}
         />
@@ -65,9 +64,9 @@ export const RoomEditor: React.FC<RoomEditorProps> = ({ room, deskCount = 0, onU
 
       {/* Type */}
       <div>
-        <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Tipo</label>
+        <label className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Tipo</label>
         <select
-          className="w-full px-3 py-1.5 mt-0.5 text-sm rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition"
+          className="w-full px-3 py-1.5 mt-0.5 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 focus:ring-2 focus:ring-jnana-sage/20 focus:border-jnana-sage outline-none transition"
           value={roomType}
           onChange={(e: React.ChangeEvent<HTMLSelectElement>) => { const v = e.target.value as RoomType; setRoomType(v); emitPreview({ roomType: v }); }}
         >
@@ -79,7 +78,7 @@ export const RoomEditor: React.FC<RoomEditorProps> = ({ room, deskCount = 0, onU
 
       {/* Dimensions */}
       <div>
-        <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+        <label className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 flex items-center gap-1">
           <Maximize2 size={10} />
           Dimensioni (px)
         </label>
@@ -88,36 +87,36 @@ export const RoomEditor: React.FC<RoomEditorProps> = ({ room, deskCount = 0, onU
             <input
               type="number"
               min={60}
-              className="w-full px-3 py-1.5 text-sm rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition"
+              className="w-full px-3 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 focus:ring-2 focus:ring-jnana-sage/20 focus:border-jnana-sage outline-none transition"
               value={width}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => { const v = parseInt(e.target.value) || 60; setWidth(v); emitPreview({ width: v }); }}
             />
-            <span className="text-[9px] text-muted-foreground">Larghezza</span>
+            <span className="text-[9px] text-gray-500 dark:text-gray-400">Larghezza</span>
           </div>
-          <span className="text-muted-foreground self-start mt-2">×</span>
+          <span className="text-gray-500 dark:text-gray-400 self-start mt-2">×</span>
           <div className="flex-1">
             <input
               type="number"
               min={60}
-              className="w-full px-3 py-1.5 text-sm rounded-lg border border-border bg-background focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition"
+              className="w-full px-3 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 focus:ring-2 focus:ring-jnana-sage/20 focus:border-jnana-sage outline-none transition"
               value={height}
               onChange={(e: React.ChangeEvent<HTMLInputElement>) => { const v = parseInt(e.target.value) || 60; setHeight(v); emitPreview({ height: v }); }}
             />
-            <span className="text-[9px] text-muted-foreground">Altezza</span>
+            <span className="text-[9px] text-gray-500 dark:text-gray-400">Altezza</span>
           </div>
         </div>
       </div>
 
       {/* Color */}
       <div>
-        <label className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Colore</label>
+        <label className="text-[10px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Colore</label>
         <div className="flex gap-1.5 mt-1">
           {ROOM_COLORS_OPTIONS.map(c => (
             <button
               key={c}
               onClick={() => { setColor(c); emitPreview({ color: c }); }}
               className={`w-6 h-6 rounded-full border-2 transition-transform hover:scale-110 ${
-                color === c ? 'border-primary scale-110' : 'border-transparent'
+                color === c ? 'border-jnana-sage scale-110' : 'border-transparent'
               }`}
               style={{ backgroundColor: c }}
             />
@@ -126,17 +125,17 @@ export const RoomEditor: React.FC<RoomEditorProps> = ({ room, deskCount = 0, onU
       </div>
 
       {/* Desk count */}
-      <div className="flex items-center justify-between text-xs text-muted-foreground bg-muted/30 rounded-lg px-3 py-2">
+      <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 rounded-lg px-3 py-2">
         <span>Scrivanie nella stanza</span>
-        <span className="font-bold text-foreground">{deskCount}</span>
+        <span className="font-bold text-jnana-text dark:text-gray-100">{deskCount}</span>
       </div>
 
       {/* Actions */}
       <div className="flex gap-2 justify-end pt-1">
-        <button onClick={onClose} className="text-xs px-3 py-1.5 rounded-lg text-muted-foreground hover:bg-muted transition-colors">
+        <button onClick={onClose} className="text-xs px-3 py-1.5 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
           Annulla
         </button>
-        <button onClick={handleSave} className="text-xs px-3 py-1.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors shadow-sm">
+        <button onClick={handleSave} className="text-xs px-3 py-1.5 rounded-lg bg-jnana-sage text-white hover:bg-jnana-sageDark transition-colors shadow-sm">
           Salva
         </button>
       </div>

@@ -28,9 +28,9 @@ export const CanvasToolbar: React.FC<CanvasToolbarProps> = ({
   onDeleteDesk,
 }) => {
   return (
-    <div className="flex items-center gap-0.5 p-2 bg-card rounded-xl border border-border shadow-sm">
+    <div className="flex items-center gap-0.5 p-2 bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-soft">
       {/* Drawing tools group */}
-      <div className="flex items-center gap-0.5 bg-muted/40 rounded-lg p-0.5">
+      <div className="flex items-center gap-0.5 bg-gray-100/40 dark:bg-gray-700/40 rounded-lg p-0.5">
         <ToolButton active={mode === 'select'} onClick={() => setMode('select')} icon={<MousePointer size={18} />} label="Seleziona" shortcut="1" />
         <ToolButton active={mode === 'draw-room'} onClick={() => setMode('draw-room')} icon={<Square size={18} />} label="Disegna Stanza" shortcut="2" />
         <ToolButton active={mode === 'place-desk'} onClick={() => setMode('place-desk')} icon={<Monitor size={18} />} label="Posiziona Scrivania" shortcut="3" />
@@ -46,12 +46,12 @@ export const CanvasToolbar: React.FC<CanvasToolbarProps> = ({
           max={200}
           value={Math.round(zoom * 100)}
           onChange={(e) => setZoom(() => parseInt(e.target.value) / 100)}
-          className="w-20 h-1.5 accent-primary cursor-pointer"
+          className="w-20 h-1.5 accent-jnana-sage cursor-pointer"
           title="Zoom"
         />
         <button
           onClick={() => setZoom(() => 1)}
-          className="text-xs font-mono text-muted-foreground hover:text-foreground min-w-[3rem] text-center transition-colors"
+          className="text-xs font-mono text-gray-500 dark:text-gray-400 hover:text-jnana-text dark:hover:text-gray-100 min-w-[3rem] text-center transition-colors"
           title="Reset zoom a 100%"
         >
           {Math.round(zoom * 100)}%
@@ -78,7 +78,7 @@ export const CanvasToolbar: React.FC<CanvasToolbarProps> = ({
           {selectedDeskId && (
             <button
               onClick={onDeleteDesk}
-              className="flex items-center gap-1.5 px-2.5 py-2 text-xs font-medium text-destructive hover:bg-destructive/10 rounded-lg transition-colors"
+              className="flex items-center gap-1.5 px-2.5 py-2 text-xs font-medium text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
             >
               <Trash2 size={15} />
               <span className="hidden sm:inline">Scrivania</span>
@@ -87,7 +87,7 @@ export const CanvasToolbar: React.FC<CanvasToolbarProps> = ({
           {selectedRoomId && (
             <button
               onClick={onDeleteRoom}
-              className="flex items-center gap-1.5 px-2.5 py-2 text-xs font-medium text-destructive hover:bg-destructive/10 rounded-lg transition-colors"
+              className="flex items-center gap-1.5 px-2.5 py-2 text-xs font-medium text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
             >
               <Trash2 size={15} />
               <span className="hidden sm:inline">Stanza</span>
@@ -111,8 +111,8 @@ const ToolButton: React.FC<{
     title={`${label}${shortcut ? ` (${shortcut})` : ''}`}
     className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-all min-w-[36px] min-h-[36px] ${
       active
-        ? 'bg-primary text-primary-foreground shadow-md scale-[1.02]'
-        : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+        ? 'bg-jnana-sage text-white shadow-md scale-[1.02]'
+        : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-jnana-text dark:hover:text-gray-100'
     }`}
   >
     {icon}
@@ -122,7 +122,7 @@ const ToolButton: React.FC<{
 
 const Separator: React.FC<{ label?: string }> = ({ label }) => (
   <div className="flex flex-col items-center mx-1.5">
-    <div className="w-px h-6 bg-border" />
-    {label && <span className="text-[8px] text-muted-foreground/60 uppercase tracking-wider mt-0.5">{label}</span>}
+    <div className="w-px h-6 bg-gray-200 dark:bg-gray-700" />
+    {label && <span className="text-[8px] text-gray-400/60 dark:text-gray-500/60 uppercase tracking-wider mt-0.5">{label}</span>}
   </div>
 );
