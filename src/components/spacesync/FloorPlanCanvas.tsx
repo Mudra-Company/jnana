@@ -43,9 +43,25 @@ const ROOM_TYPE_LABELS: Record<RoomType, string> = {
 const DESK_SIZE = 32;
 const GRID_SIZE = 40;
 const MIN_ROOM_SIZE = 60;
+const DRAG_THRESHOLD = 5;
 
 function snap(val: number, shiftHeld: boolean): number {
   return shiftHeld ? val : Math.round(val / GRID_SIZE) * GRID_SIZE;
+}
+
+interface DraggingDeskState {
+  deskId: string;
+  deskRef: OfficeDesk;
+  originRoomId: string;
+  /** Offset from desk top-left to mouse, in absolute canvas coords */
+  offsetX: number;
+  offsetY: number;
+  /** Mouse position at mousedown (for click vs drag detection) */
+  startMouseX: number;
+  startMouseY: number;
+  /** Absolute position of desk on canvas during drag */
+  absX: number;
+  absY: number;
 }
 
 export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
@@ -58,9 +74,9 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
   const [mode, setMode] = useState<CanvasMode>('select');
   const [zoom, setZoom] = useState(1);
   const [drawing, setDrawing] = useState<{ startX: number; startY: number; currentX: number; currentY: number } | null>(null);
-  const [draggingDesk, setDraggingDesk] = useState<{ deskId: string; offsetX: number; offsetY: number; startMouseX: number; startMouseY: number; deskRef: OfficeDesk } | null>(null);
-  const [deskPositionOverride, setDeskPositionOverride] = useState<Map<string, { x: number; y: number }>>(new Map());
+  const [draggingDesk, setDraggingDesk] = useState<DraggingDeskState | null>(null);
   const [hasDragged, setHasDragged] = useState(false);
+  const [dragTargetRoomId, setDragTargetRoomId] = useState<string | null>(null);
   const [resizingRoom, setResizingRoom] = useState<ResizingRoom | null>(null);
   const [draggingRoom, setDraggingRoom] = useState<DraggingRoom | null>(null);
   const [hoveredDeskId, setHoveredDeskId] = useState<string | null>(null);
@@ -111,6 +127,18 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
     };
   }, [zoom]);
 
+  /** Find room containing a point */
+  const findRoomAtPoint = useCallback((px: number, py: number): OfficeRoom | undefined => {
+    // Check rooms in reverse order so topmost (last rendered) wins
+    for (let i = rooms.length - 1; i >= 0; i--) {
+      const r = rooms[i];
+      if (px >= r.x && px <= r.x + r.width && py >= r.y && py <= r.y + r.height) {
+        return r;
+      }
+    }
+    return undefined;
+  }, [rooms]);
+
   // --- MOUSE DOWN ---
   const handleMouseDown = (e: React.MouseEvent<SVGSVGElement>) => {
     if (mode === 'draw-room') {
@@ -118,10 +146,7 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
       setDrawing({ startX: pt.x, startY: pt.y, currentX: pt.x, currentY: pt.y });
     } else if (mode === 'place-desk') {
       const pt = getSVGPoint(e);
-      const targetRoom = rooms.find(r =>
-        pt.x >= r.x && pt.x <= r.x + r.width &&
-        pt.y >= r.y && pt.y <= r.y + r.height
-      );
+      const targetRoom = findRoomAtPoint(pt.x, pt.y);
       if (targetRoom) {
         const label = `D${deskCounter}`;
         onCreateDesk(targetRoom.id, {
@@ -143,17 +168,20 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
     }
 
     if (draggingDesk) {
-      const desk = draggingDesk.deskRef;
-      const room = rooms.find(r => r.id === desk.roomId);
-      if (!room) return;
-      // Check if we've moved enough to consider it a drag
       const distX = Math.abs(pt.x - draggingDesk.startMouseX);
       const distY = Math.abs(pt.y - draggingDesk.startMouseY);
-      if (distX > 5 || distY > 5) setHasDragged(true);
-      const newX = snap(Math.max(0, Math.min(room.width - DESK_SIZE, pt.x - room.x - draggingDesk.offsetX)), shiftHeld);
-      const newY = snap(Math.max(0, Math.min(room.height - DESK_SIZE, pt.y - room.y - draggingDesk.offsetY)), shiftHeld);
-      // Update local override only — no DB call
-      setDeskPositionOverride(prev => new Map(prev).set(desk.id, { x: newX, y: newY }));
+      if (distX > DRAG_THRESHOLD || distY > DRAG_THRESHOLD) setHasDragged(true);
+
+      // Absolute position on canvas
+      const newAbsX = pt.x - draggingDesk.offsetX;
+      const newAbsY = pt.y - draggingDesk.offsetY;
+      setDraggingDesk(prev => prev ? { ...prev, absX: newAbsX, absY: newAbsY } : null);
+
+      // Detect which room the desk center is over
+      const centerX = newAbsX + DESK_SIZE / 2;
+      const centerY = newAbsY + DESK_SIZE / 2;
+      const targetRoom = findRoomAtPoint(centerX, centerY);
+      setDragTargetRoomId(targetRoom?.id ?? null);
     }
 
     if (resizingRoom) {
@@ -192,22 +220,34 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
       setDrawing(null);
       setMode('select');
     }
-    // Desk drag/click resolution
+
     if (draggingDesk) {
       if (hasDragged) {
-        // Was a drag — persist final position to DB
-        const finalPos = deskPositionOverride.get(draggingDesk.deskId);
-        if (finalPos) {
-          onUpdateDesk(draggingDesk.deskId, { x: finalPos.x, y: finalPos.y });
+        const targetRoom = dragTargetRoomId ? rooms.find(r => r.id === dragTargetRoomId) : null;
+        if (targetRoom) {
+          // Calculate position relative to target room, snapped & clamped
+          let relX = snap(draggingDesk.absX - targetRoom.x, shiftHeld);
+          let relY = snap(draggingDesk.absY - targetRoom.y, shiftHeld);
+          relX = Math.max(0, Math.min(targetRoom.width - DESK_SIZE, relX));
+          relY = Math.max(0, Math.min(targetRoom.height - DESK_SIZE, relY));
+
+          const roomChanged = targetRoom.id !== draggingDesk.originRoomId;
+          if (roomChanged) {
+            onUpdateDesk(draggingDesk.deskId, { x: relX, y: relY, roomId: targetRoom.id });
+          } else {
+            onUpdateDesk(draggingDesk.deskId, { x: relX, y: relY });
+          }
         }
+        // If outside all rooms → cancel (no DB update, desk stays where it was)
       } else {
-        // Was a click — open the modal
+        // Was a click → open modal
         onSelectDesk(draggingDesk.deskRef);
       }
-      setDeskPositionOverride(prev => { const next = new Map(prev); next.delete(draggingDesk.deskId); return next; });
       setDraggingDesk(null);
       setHasDragged(false);
+      setDragTargetRoomId(null);
     }
+
     setResizingRoom(null);
     setDraggingRoom(null);
   };
@@ -240,21 +280,24 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
   };
 
   // --- DESK MOUSEDOWN ---
-  const handleDeskMouseDown = (e: React.MouseEvent, desk: OfficeDesk) => {
+  const handleDeskMouseDown = (e: React.MouseEvent, desk: OfficeDesk, room: OfficeRoom) => {
     e.stopPropagation();
     if (mode === 'select') {
-      const room = rooms.find(r => r.id === desk.roomId);
-      if (!room) return;
       const pt = getSVGPoint(e);
-      const currentPos = deskPositionOverride.get(desk.id) ?? { x: desk.x, y: desk.y };
+      // Absolute position of the desk on canvas
+      const absX = room.x + desk.x;
+      const absY = room.y + desk.y;
       setHasDragged(false);
       setDraggingDesk({
         deskId: desk.id,
-        offsetX: pt.x - room.x - currentPos.x,
-        offsetY: pt.y - room.y - currentPos.y,
+        deskRef: desk,
+        originRoomId: room.id,
+        offsetX: pt.x - absX,
+        offsetY: pt.y - absY,
         startMouseX: pt.x,
         startMouseY: pt.y,
-        deskRef: desk,
+        absX,
+        absY,
       });
     }
   };
@@ -267,6 +310,7 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
   } : null;
 
   const isInteracting = !!(draggingDesk || resizingRoom || draggingRoom);
+  const isDeskBeingDragged = (deskId: string) => draggingDesk?.deskId === deskId && hasDragged;
   const cursorClass = mode === 'draw-room' ? 'cursor-crosshair' : mode === 'place-desk' ? 'cursor-cell' : resizingRoom ? '' : draggingRoom ? 'cursor-grabbing' : 'cursor-default';
 
   return (
@@ -310,6 +354,7 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
           {/* Rooms */}
           {rooms.map(room => {
             const isSelected = selectedRoomId === room.id;
+            const isDragTarget = draggingDesk && hasDragged && dragTargetRoomId === room.id;
             return (
               <g key={room.id}>
                 <rect
@@ -318,13 +363,13 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
                   width={room.width}
                   height={room.height}
                   fill={ROOM_COLORS[room.roomType] || room.color}
-                  stroke={isSelected ? 'hsl(var(--primary))' : 'hsl(var(--border))'}
-                  strokeWidth={isSelected ? 2.5 : 1}
+                  stroke={isDragTarget ? '#22c55e' : isSelected ? 'hsl(var(--primary))' : 'hsl(var(--border))'}
+                  strokeWidth={isDragTarget ? 2.5 : isSelected ? 2.5 : 1}
                   rx={6}
                   className="transition-all"
                   style={{ cursor: mode === 'select' ? (draggingRoom?.roomId === room.id ? 'grabbing' : 'grab') : undefined }}
                   onMouseDown={(e) => handleRoomMouseDown(e, room)}
-                  opacity={isSelected ? 0.85 : 0.65}
+                  opacity={isDragTarget ? 0.9 : isSelected ? 0.85 : 0.65}
                 />
                 {/* Room label */}
                 <text
@@ -344,36 +389,39 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
                   {ROOM_TYPE_LABELS[room.roomType]}
                 </text>
 
-                {/* Desks */}
+                {/* Desks (skip the one being dragged — it renders at canvas level) */}
                 {desks.filter(d => d.roomId === room.id).map(desk => {
-                  const isDragging = draggingDesk?.deskId === desk.id;
+                  if (isDeskBeingDragged(desk.id)) {
+                    // Render ghost in original position
+                    return (
+                      <g key={desk.id}>
+                        <rect
+                          x={room.x + desk.x}
+                          y={room.y + desk.y}
+                          width={DESK_SIZE}
+                          height={DESK_SIZE}
+                          rx={5}
+                          fill="#94a3b8"
+                          opacity={0.25}
+                          strokeDasharray="3 2"
+                          stroke="#94a3b8"
+                          strokeWidth={1}
+                        />
+                      </g>
+                    );
+                  }
+
                   const isHovered = hoveredDeskId === desk.id;
                   const deskScore = deskScores?.get(desk.id);
-                  const deskPos = deskPositionOverride.get(desk.id) ?? { x: desk.x, y: desk.y };
                   return (
                     <g key={desk.id}>
                       <g
-                        transform={`translate(${room.x + deskPos.x}, ${room.y + deskPos.y})`}
-                        onMouseDown={(e) => handleDeskMouseDown(e, desk)}
+                        transform={`translate(${room.x + desk.x}, ${room.y + desk.y})`}
+                        onMouseDown={(e) => handleDeskMouseDown(e, desk, room)}
                         onMouseEnter={() => setHoveredDeskId(desk.id)}
                         onMouseLeave={() => setHoveredDeskId(null)}
                         className="cursor-grab active:cursor-grabbing"
                       >
-                        {/* Shadow when dragging */}
-                        {isDragging && (
-                          <rect
-                            width={DESK_SIZE + 4}
-                            height={DESK_SIZE + 4}
-                            x={-2}
-                            y={-2}
-                            rx={6}
-                            fill="none"
-                            stroke="hsl(var(--primary))"
-                            strokeWidth={2}
-                            strokeDasharray="4 2"
-                            opacity={0.5}
-                          />
-                        )}
                         <rect
                           width={DESK_SIZE}
                           height={DESK_SIZE}
@@ -382,10 +430,9 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
                             ? getProximityColor(deskScores.get(desk.id)!.avgScore)
                             : desk.companyMemberId ? '#3b82f6' : '#94a3b8'
                           }
-                          opacity={selectedDeskId === desk.id ? 1 : isDragging ? 0.9 : 0.8}
+                          opacity={selectedDeskId === desk.id ? 1 : 0.8}
                           stroke={selectedDeskId === desk.id ? 'hsl(var(--primary))' : 'transparent'}
                           strokeWidth={selectedDeskId === desk.id ? 2 : 0}
-                          style={{ transition: isDragging ? 'none' : 'all 0.15s', transform: isDragging ? 'scale(1.08)' : undefined, transformOrigin: 'center' }}
                         />
                         <text
                           x={DESK_SIZE / 2}
@@ -429,6 +476,67 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
               </g>
             );
           })}
+
+          {/* Desk being dragged — rendered at canvas level for cross-room movement */}
+          {draggingDesk && hasDragged && (
+            <g
+              transform={`translate(${draggingDesk.absX}, ${draggingDesk.absY})`}
+              className="pointer-events-none"
+            >
+              <rect
+                width={DESK_SIZE + 4}
+                height={DESK_SIZE + 4}
+                x={-2}
+                y={-2}
+                rx={7}
+                fill="none"
+                stroke={dragTargetRoomId ? '#22c55e' : '#ef4444'}
+                strokeWidth={2}
+                strokeDasharray="4 2"
+                opacity={0.7}
+              />
+              <rect
+                width={DESK_SIZE}
+                height={DESK_SIZE}
+                rx={5}
+                fill={draggingDesk.deskRef.companyMemberId ? '#3b82f6' : '#94a3b8'}
+                opacity={0.9}
+                style={{ filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.2))' }}
+              />
+              <text
+                x={DESK_SIZE / 2}
+                y={DESK_SIZE / 2 - 2}
+                textAnchor="middle"
+                className="pointer-events-none select-none"
+                style={{ fontSize: 8, fontWeight: 700, fill: 'white' }}
+              >
+                {draggingDesk.deskRef.label}
+              </text>
+              {draggingDesk.deskRef.assigneeName && (
+                <text
+                  x={DESK_SIZE / 2}
+                  y={DESK_SIZE / 2 + 8}
+                  textAnchor="middle"
+                  className="pointer-events-none select-none"
+                  style={{ fontSize: 6, fill: 'rgba(255,255,255,0.8)' }}
+                >
+                  {draggingDesk.deskRef.assigneeName.split(' ').map((n: string) => n[0]).join('')}
+                </text>
+              )}
+              {/* "No drop" indicator when outside all rooms */}
+              {!dragTargetRoomId && (
+                <text
+                  x={DESK_SIZE / 2}
+                  y={DESK_SIZE + 14}
+                  textAnchor="middle"
+                  className="pointer-events-none select-none"
+                  style={{ fontSize: 9, fontWeight: 600, fill: '#ef4444' }}
+                >
+                  ✕
+                </text>
+              )}
+            </g>
+          )}
 
           {/* Drawing preview */}
           {drawingRect && (
