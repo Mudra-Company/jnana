@@ -95,11 +95,12 @@ export const useOfficeDesks = () => {
     return data;
   }, [fetchDesks]);
 
-  const updateDesk = useCallback(async (id: string, updates: Partial<Pick<OfficeDesk, 'label' | 'x' | 'y' | 'companyMemberId' | 'companyRoleId'>>, locationId: string) => {
+  const updateDesk = useCallback(async (id: string, updates: Partial<Pick<OfficeDesk, 'label' | 'x' | 'y' | 'companyMemberId' | 'companyRoleId' | 'roomId'>>, locationId: string) => {
     const dbUpdates: Record<string, any> = {};
     if (updates.label !== undefined) dbUpdates.label = updates.label;
     if (updates.x !== undefined) dbUpdates.x = updates.x;
     if (updates.y !== undefined) dbUpdates.y = updates.y;
+    if (updates.roomId !== undefined) dbUpdates.room_id = updates.roomId;
     if (updates.companyMemberId !== undefined) dbUpdates.company_member_id = updates.companyMemberId || null;
     if (updates.companyRoleId !== undefined) dbUpdates.company_role_id = updates.companyRoleId || null;
 
