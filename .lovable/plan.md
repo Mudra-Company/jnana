@@ -1,58 +1,94 @@
 
+# Miglioramento Drag & Drop Scrivanie
 
-# Fix: Drag & Drop delle Scrivanie
+## Problemi Attuali
 
-## Problema
+### 1. Movimento strano / non segue il mouse
+La scrivania durante il drag e vincolata ai limiti della stanza originale (linee 153-154 del canvas). La posizione viene calcolata come `pt.x - room.x - offset` e poi clampata con `Math.min(room.width - DESK_SIZE, ...)`. Questo significa che se il mouse si muove fuori dalla stanza, la scrivania "si ferma" al bordo -- ed e per questo che il movimento sembra strano.
 
-Lo spostamento delle scrivanie ha **due bug critici** che lo rendono inutilizzabile:
+### 2. Non si puo spostare una scrivania tra stanze
+Le scrivanie sono renderizzate dentro il gruppo SVG della loro stanza (`desks.filter(d => d.roomId === room.id)`). Durante il drag, la scrivania resta sempre nel suo gruppo originale. Non esiste logica per cambiarle stanza.
 
-1. **Il click apre immediatamente il modale**: `handleDeskMouseDown` chiama `onSelectDesk(desk)` al mousedown, il che apre il `DeskAssignmentModal`. Il modale si sovrappone al canvas e "ruba" tutti gli eventi mouse, impedendo il drag.
-
-2. **Ogni pixel di movimento fa una query al database**: `onUpdateDesk` nella gestione del mousemove (linea 150) chiama `updateDesk` che fa un UPDATE su Supabase + un refetch completo di tutte le scrivanie ad ogni movimento del mouse. Questo rende il drag lentissimo e inaffidabile.
+### 3. Nessun feedback visivo sulla stanza di destinazione
+Non c'e nessuna indicazione visiva di quale stanza ricevera la scrivania quando la si rilascia.
 
 ## Soluzione
 
-### 1. Distinguere click da drag (FloorPlanCanvas.tsx)
+### A. Drag in coordinate assolute (canvas-level)
+Durante il drag, la scrivania verra renderizzata a livello di canvas (fuori dai gruppi delle stanze), usando coordinate assolute. Questo elimina il clamping ai bordi della stanza originale e fa seguire il mouse correttamente.
 
-- Al `mousedown` su una scrivania: **non** chiamare `onSelectDesk` subito. Salvare solo lo stato di drag.
-- Al `mouseup`: se il mouse si e mosso di meno di 5px, era un click -> aprire il modale (`onSelectDesk`). Se si e mosso di piu, era un drag -> persistere la posizione finale.
+### B. Rilevamento stanza di destinazione
+Ad ogni mousemove durante il drag, calcolare quale stanza contiene il centro della scrivania. Memorizzare questa "hoveredRoom" nello stato.
 
-### 2. Stato locale durante il drag (FloorPlanCanvas.tsx)
+### C. Feedback visivo
+- La stanza di destinazione viene evidenziata con un bordo verde e uno sfondo piu opaco
+- Se la scrivania e fuori da qualsiasi stanza, mostrare un indicatore rosso (non rilasciabile)
+- "Ghost" semitrasparente nella posizione originale della scrivania
 
-- Introdurre un `deskPositionOverride: Map<string, {x, y}>` nello stato locale.
-- Durante il drag, aggiornare solo questo stato locale (nessuna chiamata DB).
-- Usare le posizioni override per il rendering delle scrivanie nel canvas.
-- Al `mouseup` (fine drag), chiamare `onUpdateDesk` una sola volta con la posizione finale, poi svuotare l'override.
+### D. Rilascio con cambio stanza
+Al mouseup, se la stanza di destinazione e diversa da quella originale:
+- Calcolare la posizione relativa alla nuova stanza
+- Aggiornare `roomId`, `x`, `y` nel database
+- Se la scrivania e fuori da tutte le stanze, annullare e tornare alla posizione originale
 
-### 3. Aggiornare useOfficeDesks (opzionale, minor)
-
-- Rimuovere il `fetchDesks` dal `updateDesk` quando si aggiornano solo x/y, per evitare il flickering. Oppure, accettare l'approccio "optimistic" gia presente dato che il refetch ricarica i dati corretti.
+### E. Aggiornamento hook database
+Aggiungere supporto per `roomId` in `useOfficeDesks.updateDesk` per permettere il cambio stanza.
 
 ## File da Modificare
 
-### `src/components/spacesync/FloorPlanCanvas.tsx`
+### 1. `src/components/spacesync/FloorPlanCanvas.tsx`
 
-- Aggiungere stato `deskPositionOverride: Map<string, {x: number, y: number}>`
-- Aggiungere flag `hasDragged` per distinguere click da drag
-- Modificare `handleDeskMouseDown`: non chiamare `onSelectDesk`, solo inizializzare il drag
-- Modificare `handleMouseMove` (sezione draggingDesk): aggiornare solo `deskPositionOverride` locale invece di `onUpdateDesk`
-- Modificare `handleMouseUp`: se `hasDragged` -> `onUpdateDesk` con posizione finale; se non ha draggato -> `onSelectDesk`
-- Nel rendering delle scrivanie: usare `deskPositionOverride.get(desk.id) ?? {x: desk.x, y: desk.y}` per le coordinate
+**Nuovo stato:**
+- `dragTargetRoomId: string | null` -- stanza sotto il cursore durante il drag
+- `dragAbsolutePos: {x, y} | null` -- posizione assoluta della scrivania sul canvas durante il drag
+
+**Modifiche a handleMouseMove (sezione draggingDesk):**
+- Calcolare posizione assoluta (senza clamping alla stanza originale)
+- Rilevare la stanza sotto il centro della scrivania
+- Aggiornare `dragTargetRoomId` e `dragAbsolutePos`
+
+**Modifiche a handleMouseUp:**
+- Se `dragTargetRoomId` esiste e la scrivania si e mossa:
+  - Calcolare posizione relativa alla stanza di destinazione (con snap alla griglia)
+  - Clampare ai limiti della stanza di destinazione
+  - Chiamare `onUpdateDesk` con `{ x, y, roomId: nuovaStanza }` se la stanza e cambiata, oppure solo `{ x, y }` se e la stessa
+- Se il mouse e fuori da tutte le stanze, annullare il drag (nessun aggiornamento DB)
+
+**Modifiche al rendering:**
+- La scrivania in drag viene renderizzata in un gruppo SVG separato a livello canvas (fuori dalle stanze), con coordinate assolute
+- "Ghost" semitrasparente nella posizione originale
+- La stanza target viene evidenziata con bordo verde/blu
+
+### 2. `src/hooks/useOfficeDesks.ts`
+
+Aggiungere supporto per `roomId` nel metodo `updateDesk`:
+```
+if (updates.roomId !== undefined) dbUpdates.room_id = updates.roomId;
+```
+
+### 3. `src/types/spacesync.ts`
+
+Nessuna modifica necessaria -- `OfficeDesk` ha gia `roomId`.
 
 ## Dettagli Tecnici
 
 ```text
-Flusso attuale (rotto):
-  mousedown -> onSelectDesk (apre modale!) + inizia drag
-  mousemove -> onUpdateDesk (DB query per ogni pixel!)
-  mouseup   -> niente
+Flusso drag attuale:
+  mousedown -> salva offset relativo alla stanza originale
+  mousemove -> calcola pos relativa alla stanza originale, clampa ai bordi
+  mouseup   -> salva x,y (relativi alla stanza originale)
 
-Flusso corretto:
-  mousedown -> salva offset, inizia drag locale
-  mousemove -> aggiorna Map locale (zero DB calls, rendering fluido)
-  mouseup   -> se spostamento > 5px: onUpdateDesk(posizione finale) [1 sola DB call]
-              se spostamento < 5px: onSelectDesk (apre modale)
+Flusso drag migliorato:
+  mousedown -> salva offset e posizione assoluta iniziale
+  mousemove -> calcola pos assoluta sul canvas (nessun clamping)
+            -> rileva stanza sotto il centro della scrivania
+            -> evidenzia stanza target
+  mouseup   -> se dentro una stanza:
+                 calcola pos relativa alla stanza target + snap + clamp
+                 se stanza cambiata: onUpdateDesk({x, y, roomId})
+                 se stessa stanza:   onUpdateDesk({x, y})
+              se fuori da tutte le stanze:
+                 annulla (nessuna modifica)
 ```
 
-Solo 1 file da modificare. Nessuna modifica al database.
-
+Nessuna modifica al database. Solo 2 file da modificare.
