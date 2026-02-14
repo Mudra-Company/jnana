@@ -58,7 +58,9 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
   const [mode, setMode] = useState<CanvasMode>('select');
   const [zoom, setZoom] = useState(1);
   const [drawing, setDrawing] = useState<{ startX: number; startY: number; currentX: number; currentY: number } | null>(null);
-  const [draggingDesk, setDraggingDesk] = useState<{ deskId: string; offsetX: number; offsetY: number } | null>(null);
+  const [draggingDesk, setDraggingDesk] = useState<{ deskId: string; offsetX: number; offsetY: number; startMouseX: number; startMouseY: number; deskRef: OfficeDesk } | null>(null);
+  const [deskPositionOverride, setDeskPositionOverride] = useState<Map<string, { x: number; y: number }>>(new Map());
+  const [hasDragged, setHasDragged] = useState(false);
   const [resizingRoom, setResizingRoom] = useState<ResizingRoom | null>(null);
   const [draggingRoom, setDraggingRoom] = useState<DraggingRoom | null>(null);
   const [hoveredDeskId, setHoveredDeskId] = useState<string | null>(null);
@@ -141,13 +143,17 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
     }
 
     if (draggingDesk) {
-      const desk = desks.find(d => d.id === draggingDesk.deskId);
-      if (!desk) return;
+      const desk = draggingDesk.deskRef;
       const room = rooms.find(r => r.id === desk.roomId);
       if (!room) return;
+      // Check if we've moved enough to consider it a drag
+      const distX = Math.abs(pt.x - draggingDesk.startMouseX);
+      const distY = Math.abs(pt.y - draggingDesk.startMouseY);
+      if (distX > 5 || distY > 5) setHasDragged(true);
       const newX = snap(Math.max(0, Math.min(room.width - DESK_SIZE, pt.x - room.x - draggingDesk.offsetX)), shiftHeld);
       const newY = snap(Math.max(0, Math.min(room.height - DESK_SIZE, pt.y - room.y - draggingDesk.offsetY)), shiftHeld);
-      onUpdateDesk(desk.id, { x: newX, y: newY });
+      // Update local override only — no DB call
+      setDeskPositionOverride(prev => new Map(prev).set(desk.id, { x: newX, y: newY }));
     }
 
     if (resizingRoom) {
@@ -186,7 +192,22 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
       setDrawing(null);
       setMode('select');
     }
-    setDraggingDesk(null);
+    // Desk drag/click resolution
+    if (draggingDesk) {
+      if (hasDragged) {
+        // Was a drag — persist final position to DB
+        const finalPos = deskPositionOverride.get(draggingDesk.deskId);
+        if (finalPos) {
+          onUpdateDesk(draggingDesk.deskId, { x: finalPos.x, y: finalPos.y });
+        }
+      } else {
+        // Was a click — open the modal
+        onSelectDesk(draggingDesk.deskRef);
+      }
+      setDeskPositionOverride(prev => { const next = new Map(prev); next.delete(draggingDesk.deskId); return next; });
+      setDraggingDesk(null);
+      setHasDragged(false);
+    }
     setResizingRoom(null);
     setDraggingRoom(null);
   };
@@ -222,14 +243,18 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
   const handleDeskMouseDown = (e: React.MouseEvent, desk: OfficeDesk) => {
     e.stopPropagation();
     if (mode === 'select') {
-      onSelectDesk(desk);
       const room = rooms.find(r => r.id === desk.roomId);
       if (!room) return;
       const pt = getSVGPoint(e);
+      const currentPos = deskPositionOverride.get(desk.id) ?? { x: desk.x, y: desk.y };
+      setHasDragged(false);
       setDraggingDesk({
         deskId: desk.id,
-        offsetX: pt.x - room.x - desk.x,
-        offsetY: pt.y - room.y - desk.y,
+        offsetX: pt.x - room.x - currentPos.x,
+        offsetY: pt.y - room.y - currentPos.y,
+        startMouseX: pt.x,
+        startMouseY: pt.y,
+        deskRef: desk,
       });
     }
   };
@@ -324,10 +349,11 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
                   const isDragging = draggingDesk?.deskId === desk.id;
                   const isHovered = hoveredDeskId === desk.id;
                   const deskScore = deskScores?.get(desk.id);
+                  const deskPos = deskPositionOverride.get(desk.id) ?? { x: desk.x, y: desk.y };
                   return (
                     <g key={desk.id}>
                       <g
-                        transform={`translate(${room.x + desk.x}, ${room.y + desk.y})`}
+                        transform={`translate(${room.x + deskPos.x}, ${room.y + deskPos.y})`}
                         onMouseDown={(e) => handleDeskMouseDown(e, desk)}
                         onMouseEnter={() => setHoveredDeskId(desk.id)}
                         onMouseLeave={() => setHoveredDeskId(null)}
