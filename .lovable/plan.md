@@ -1,106 +1,100 @@
 
+# Redesign UX/UI SpaceSync: Sidebar, Header e Stats Bar
 
-# Miglioramento UX SpaceSync: Tooltip, Stats, Heatmap e Scrivanie
+## Analisi Problemi Attuali
 
-## Problemi Identificati
+Dallo screenshot emerge un'interfaccia piatta e anonima:
 
-### 1. Tooltip Score Illeggibile (immagine 1)
-Il `DeskTooltip` usa `hsl(var(--popover))` come sfondo e `hsl(var(--foreground))` per il testo -- le stesse classi shadcn non supportate dal progetto. Il risultato e uno sfondo nero/trasparente con testo quasi invisibile. Anche la dimensione del font (8-10px) e troppo piccola.
+1. **Header**: Testo semplice con icona generica, nessuna personalita visiva, il bottone "Simula Scambio" e isolato e poco visibile
+2. **Sidebar**: Card bianche piatte una dopo l'altra senza gerarchia visiva -- sembra una lista di debug, non un pannello di controllo professionale
+3. **Riepilogo**: Lista testo puro con numeri allineati a destra -- zero data visualization, nessun indicatore visivo del tasso di occupazione (la progress bar c'e ma e quasi invisibile)
+4. **Report Prossimita**: Card annodate dentro card (ProximityReport renderizza Card dentro Card gia wrappata nel parent) creando un effetto "scatola dentro scatola" bruttissimo
+5. **Suggerimenti AI**: Stesso problema di annidamento card + il bottone "Analizza" e troppo piccolo e anonimo
+6. **Stats Bar sul canvas**: Riga piatta con emoji (!) e testo grigio, zero appeal
+7. **Location header**: "DUOMO / Piazza Duomo Milano" appare come testo isolato sopra le card, senza contesto visivo
 
-### 2. Nessuna Informazione di Contesto (immagine 2)
-Nella vista canvas non c'e nessun indicatore rapido di:
-- Quante scrivanie ci sono e quante assegnate
-- Score medio di prossimita
-- Occupazione percentuale
+## Soluzione: Redesign Completo
 
-Il "Riepilogo" nella sidebar e troppo nascosto e non ha dati di matching.
+### A. Header Rinnovato (SpaceSyncView.tsx)
 
-### 3. Scrivanie Non Informative in Vista Base
-Nella vista normale (senza heatmap), le scrivanie sono quadratini blu/grigi da 32px con solo una sigla minuscola (D1, D2...). Non si capisce chi ci siede, ne il livello di compatibilita.
+Trasformare l'header in un componente hero compatto con:
+- Sfondo con gradiente sottile (jnana-sage -> sage/80) e bordo arrotondato
+- Icona in un cerchio con sfondo solido
+- Titolo + sottotitolo inline con la location selezionata (es. "SpaceSync -- DUOMO")
+- Badge con stats chiave (stanze, scrivanie, score) direttamente nell'header come pill colorate
+- Il bottone "Simula Scambio" integrato con stile coerente
 
-### 4. Heatmap Troppo Debole
-L'overlay heatmap sono semplici cerchi semitrasparenti (`r=40`, `alpha=0.35`). L'effetto e quasi invisibile. Inoltre l'heatmap dovrebbe essere la vista di default.
+### B. Sidebar con Gerarchia Visiva (SpaceSyncView.tsx)
 
-### 5. Canvas Wrapper Ancora con Classi Shadcn
-La riga 331 del canvas usa ancora `border-border bg-background` -- stessi colori rotti.
+Riprogettare la sidebar come pannello coeso:
+- **Location Selector**: Mantenere ma aggiungere un'icona edificio piu grande e uno sfondo colorato per la sede selezionata
+- **Dashboard Card (nuovo)**: Sostituire il "Riepilogo" noioso con una mini-dashboard visiva:
+  - Tre mini-stat con icone colorate (stanze, scrivanie, occupazione)
+  - Anello/gauge circolare SVG per il tasso di occupazione al posto della barra lineare
+  - Score di prossimita medio con colore e icona stella (se in modalita heatmap)
+- **Report e Suggerimenti**: Rimuovere l'annidamento Card-dentro-Card, usare sezioni con bordo laterale colorato invece di card separate
 
-## Soluzione
+### C. Mini-Dashboard Visiva (sostituzione Riepilogo)
 
-### A. Fix DeskTooltip (DeskTooltip.tsx)
-- Sfondo: `#ffffff` (bianco solido) con bordo `#e5e7eb`
-- Testo nome: `#1e293b`, font 11px bold
-- Testo ruolo: `#64748b`, font 9px
-- Testo score: colore dinamico basato sul punteggio, font 10px bold
-- Dimensioni aumentate per leggibilita (larghezza 160px, altezza adeguata)
-- Angolo/freccia verso la scrivania
+Creare un layout a griglia 2x2 con:
+- **Stanze**: Icona + numero grande + label piccola
+- **Scrivanie**: Icona + frazione (assegnate/totali)
+- **Occupazione**: Anello SVG circolare con percentuale al centro (colore dinamico)
+- **Score Medio**: Numero grande colorato con stella (visibile solo con heatmap attiva)
 
-### B. Barra Stats Informativa sul Canvas (FloorPlanCanvas.tsx)
-Aggiungere una barra info compatta sopra il canvas SVG (sotto la toolbar) con:
-- Icona stanze + conteggio
-- Icona scrivanie + assegnate/totali
-- Barra occupazione mini
-- Score medio prossimita (se disponibile) con colore indicativo
-Questo usa le props gia disponibili (`rooms`, `desks`, `deskScores`).
+### D. Fix ProximityReport (ProximityReport.tsx)
 
-### C. Scrivanie Piu Informative (FloorPlanCanvas.tsx)
-Nella vista base (senza heatmap):
-- Aumentare la dimensione a 36px per dare piu spazio al testo
-- Mostrare le iniziali del nome assegnato in modo piu visibile
-- Aggiungere un sottile bordo colorato basato sullo score (se calcolato) anche in vista normale
-- Colori piu morbidi e leggibili (non solo blu pieno)
+- Rimuovere i `<Card>` interni -- il componente e gia wrappato in una Card dal parent
+- Usare `<div>` con classi di styling diretto: bordi laterali colorati, sfondo leggero
+- Score Globale: numero grande a sinistra con gradiente di colore, dettagli a destra
+- Coppie critiche/ottimali: pill inline invece di card separate
+- Insight: lista compatta con icona e testo
 
-In modalita heatmap:
-- Colorare lo sfondo della scrivania in base allo score
-- Mostrare il valore dello score direttamente sulla scrivania
+### E. Fix OptimizationSuggestions (OptimizationSuggestions.tsx)
 
-### D. Heatmap Potenziata e Default (ProximityHeatmap.tsx + FloorPlanCanvas.tsx + SpaceSyncView.tsx)
-- Heatmap attiva di default quando ci sono scrivanie assegnate
-- Raggi glow piu grandi (60px invece di 40px)
-- Opacita piu alta (0.5 invece di 0.35)
-- Aggiungere linee di connessione tra scrivanie vicine, colorate per score
+- Rimuovere il `<Card>` interno (gia wrappato dal parent)
+- Bottone "Analizza" piu visibile: sfondo jnana-sage, icona fulmine, dimensione maggiore
+- Assessment AI: box con gradiente ambra leggero e icona AI
+- Suggerimenti: card con bordo laterale spesso colorato per impatto (verde/ambra/blu)
 
-### E. Fix Classi Shadcn Residue (FloorPlanCanvas.tsx)
-- `border-border` -> `border-gray-200`
-- `bg-background` -> `bg-white`
-- `hsl(var(--primary))` nei vari punti -> `#4a7c59` (jnana-sage)
-- `hsl(var(--border))` nella griglia SVG -> `#e5e7eb`
+### F. Stats Bar Canvas Migliorata (FloorPlanCanvas.tsx)
+
+- Sostituire le emoji con icone Lucide
+- Usare pill/badge con sfondo colorato per ogni stat
+- Aggiungere un mini indicatore colorato per lo score (dot + valore)
+- Border-radius piu arrotondato, sfondo con gradiente sottile
+
+### G. Fix Classi Shadcn Residue
+
+Nella sidebar e nei report ci sono ancora classi broken:
+- `text-muted-foreground` -> `text-gray-500`
+- `text-foreground` -> `text-jnana-text`
+- `text-primary` -> `text-jnana-sage`
+- `bg-primary/5` e `border-primary/10` -> `bg-jnana-sage/5` e `border-jnana-sage/10`
+- `text-destructive` e `bg-destructive/5` -> `text-red-500` e `bg-red-50`
+- `bg-muted` -> `bg-gray-100`
 
 ## File da Modificare
 
-### 1. `src/components/spacesync/canvas/DeskTooltip.tsx`
-Riscrittura completa con colori solidi, dimensioni maggiori e freccia direzionale.
+### 1. `views/admin/SpaceSyncView.tsx`
+- Ridisegnare header con gradiente e stats inline
+- Sostituire la card Riepilogo con mini-dashboard a griglia con anello SVG
+- Rimuovere duplicazione location header (gia visibile nel LocationSelector)
+- Fix tutte le classi shadcn residue
 
-### 2. `src/components/spacesync/FloorPlanCanvas.tsx`
-- Aggiungere barra info stats tra toolbar e canvas SVG
-- Modificare rendering scrivanie (dimensioni, colori, info visibili)
-- Fix classi shadcn residue nel wrapper e nella griglia SVG
-- Fix colori `hsl(var(--primary))` nei bordi stanze selezionate e nel drawing preview
+### 2. `src/components/spacesync/ProximityReport.tsx`
+- Rimuovere tutti i `<Card>` interni
+- Ridisegnare con div stilizzati, bordi laterali colorati
+- Score globale in layout hero con numero grande
+- Fix classi shadcn (`text-muted-foreground`, `text-foreground`, `text-primary`, `text-destructive`, `bg-destructive/5`)
 
-### 3. `src/components/spacesync/ProximityHeatmap.tsx`
-- Aumentare raggio glow e opacita
-- Aggiungere linee di connessione tra scrivanie vicine con colore basato sullo score
+### 3. `src/components/spacesync/OptimizationSuggestions.tsx`
+- Rimuovere il `<Card>` wrapper interno
+- Bottone Analizza piu prominente
+- Fix classi shadcn (`text-muted-foreground`)
 
-### 4. `views/admin/SpaceSyncView.tsx`
-- Attivare heatmap di default (`useState(true)`) quando ci sono scrivanie assegnate
-- Fix classi shadcn residue nell'header (`text-foreground`, `bg-primary/10`, `text-primary`, `text-muted-foreground`)
-- Aggiungere score medio di prossimita nella sidebar Riepilogo
-
-## Dettagli Tecnici
+### 4. `src/components/spacesync/FloorPlanCanvas.tsx`
+- Stats bar: sostituire emoji con icone Lucide, usare pill/badge colorati
+- Migliorare la presentazione visiva
 
 Nessuna modifica al database. Nessuna nuova dipendenza. 4 file da modificare.
-
-Mappatura colori per i fix residui:
-```text
-hsl(var(--primary))     -> #4a7c59 (jnana-sage)
-hsl(var(--border))      -> #e5e7eb (gray-200)
-hsl(var(--popover))     -> #ffffff (white)
-hsl(var(--foreground))  -> #1e293b (slate-800)
-hsl(var(--muted-foreground)) -> #64748b (slate-500)
-bg-background           -> bg-white
-border-border            -> border-gray-200
-text-foreground          -> text-jnana-text
-text-primary             -> text-jnana-sage
-bg-primary/10            -> bg-jnana-sage/10
-text-muted-foreground    -> text-gray-500
-```
-
