@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
-import { MapPin, ChevronDown, BarChart3, Sparkles, LayoutGrid } from 'lucide-react';
+import { MapPin, ChevronDown, BarChart3, Sparkles, LayoutGrid, DoorOpen, Monitor, Users, Star, ArrowLeftRight } from 'lucide-react';
 import { Card } from '../../components/Card';
+import { Button } from '../../components/Button';
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '../../src/components/ui/collapsible';
 import { useOfficeLocations } from '../../src/hooks/useOfficeLocations';
 import { useOfficeRooms } from '../../src/hooks/useOfficeRooms';
@@ -21,6 +22,31 @@ interface SpaceSyncViewProps {
   company: CompanyProfile;
   companyUsers: User[];
 }
+
+/* ─── SVG Occupancy Gauge ─── */
+const OccupancyGauge: React.FC<{ pct: number }> = ({ pct }) => {
+  const r = 28;
+  const stroke = 5;
+  const circ = 2 * Math.PI * r;
+  const offset = circ - (pct / 100) * circ;
+  const color = pct > 80 ? '#4a7c59' : pct > 50 ? '#d97706' : '#94a3b8';
+  return (
+    <svg width={72} height={72} viewBox="0 0 72 72">
+      <circle cx={36} cy={36} r={r} fill="none" stroke="#e5e7eb" strokeWidth={stroke} />
+      <circle
+        cx={36} cy={36} r={r} fill="none"
+        stroke={color} strokeWidth={stroke}
+        strokeLinecap="round"
+        strokeDasharray={circ}
+        strokeDashoffset={offset}
+        transform="rotate(-90 36 36)"
+        style={{ transition: 'stroke-dashoffset 0.6s ease' }}
+      />
+      <text x={36} y={33} textAnchor="middle" style={{ fontSize: 16, fontWeight: 800, fill: color }}>{pct}%</text>
+      <text x={36} y={46} textAnchor="middle" style={{ fontSize: 8, fontWeight: 500, fill: '#94a3b8' }}>occupaz.</text>
+    </svg>
+  );
+};
 
 export const SpaceSyncView: React.FC<SpaceSyncViewProps> = ({ company, companyUsers }) => {
   const { locations, isLoading: locLoading, fetchLocations, createLocation, updateLocation, deleteLocation } = useOfficeLocations();
@@ -128,44 +154,65 @@ export const SpaceSyncView: React.FC<SpaceSyncViewProps> = ({ company, companyUs
     setShowSimulation(true);
   }, []);
 
+  const scoreColor = globalAverage >= 70 ? '#16a34a' : globalAverage >= 40 ? '#d97706' : '#dc2626';
+
   return (
     <div className="max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-5">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2.5">
-            <div className="p-2 bg-primary/10 rounded-xl">
-              <MapPin className="text-primary" size={22} />
+      {/* ═══ HERO HEADER ═══ */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-jnana-sage to-jnana-sage/80 p-5 text-white shadow-lg">
+        <div className="flex items-center justify-between relative z-10">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center shadow-inner">
+              <MapPin size={24} className="text-white" />
             </div>
-            SpaceSync
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1 ml-12">
-            Ottimizza la disposizione spaziale del tuo team
-          </p>
+            <div>
+              <h1 className="text-xl font-bold tracking-tight flex items-center gap-2">
+                SpaceSync
+                {selectedLocation && (
+                  <span className="text-sm font-medium opacity-80">— {selectedLocation.name}</span>
+                )}
+              </h1>
+              <p className="text-xs text-white/70 mt-0.5">Ottimizza la disposizione spaziale del tuo team</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {/* Inline stat pills */}
+            {selectedLocation && (
+              <div className="hidden sm:flex items-center gap-1.5">
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-white/15 backdrop-blur-sm text-[11px] font-semibold">
+                  <DoorOpen size={12} /> {rooms.length} stanze
+                </span>
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-white/15 backdrop-blur-sm text-[11px] font-semibold">
+                  <Monitor size={12} /> {assignedCount}/{desks.length}
+                </span>
+                {heatmapMode && proximityPairs.length > 0 && (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-white/20 backdrop-blur-sm text-[11px] font-bold">
+                    <Star size={12} /> {globalAverage}%
+                  </span>
+                )}
+              </div>
+            )}
+            {heatmapMode && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowSimulation(true)}
+                className="!text-white !bg-white/15 hover:!bg-white/25 !border-0 !rounded-lg gap-1.5"
+              >
+                <ArrowLeftRight size={14} />
+                Simula Scambio
+              </Button>
+            )}
+          </div>
         </div>
-        {heatmapMode && (
-          <button
-            onClick={() => setShowSimulation(true)}
-            className="px-3 py-2 text-xs font-semibold rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors flex items-center gap-1.5"
-          >
-            🔄 Simula Scambio
-          </button>
-        )}
+        {/* Decorative circles */}
+        <div className="absolute -right-10 -top-10 w-40 h-40 rounded-full bg-white/5" />
+        <div className="absolute -right-5 -bottom-12 w-28 h-28 rounded-full bg-white/5" />
       </div>
 
       <div className="grid grid-cols-12 gap-5">
         {/* === SIDEBAR === */}
         <div className="col-span-12 lg:col-span-3 space-y-3">
-          {/* Header with location info */}
-          {selectedLocation && (
-            <div className="px-1">
-              <h2 className="text-sm font-bold text-foreground">{selectedLocation.name}</h2>
-              {selectedLocation.address && (
-                <p className="text-[11px] text-muted-foreground">{selectedLocation.address}</p>
-              )}
-            </div>
-          )}
-
           {/* Locations */}
           <Card padding="sm">
             <LocationSelector
@@ -178,7 +225,7 @@ export const SpaceSyncView: React.FC<SpaceSyncViewProps> = ({ company, companyUs
             />
           </Card>
 
-          {/* Room Editor - Collapsible */}
+          {/* Room Editor */}
           {selectedRoom && (
             <Card padding="sm">
               <RoomEditor
@@ -191,76 +238,82 @@ export const SpaceSyncView: React.FC<SpaceSyncViewProps> = ({ company, companyUs
             </Card>
           )}
 
-          {/* Stats with progress bar */}
+          {/* ═══ MINI DASHBOARD ═══ */}
           {selectedLocation && (
             <Card padding="sm">
-              <h3 className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-1.5">
-                <LayoutGrid size={12} />
-                Riepilogo
+              <h3 className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-3 flex items-center gap-1.5">
+                <LayoutGrid size={12} className="text-jnana-sage" />
+                Dashboard
               </h3>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Stanze</span>
-                  <span className="font-semibold">{rooms.length}</span>
+              <div className="grid grid-cols-2 gap-2">
+                {/* Rooms */}
+                <div className="rounded-xl bg-blue-50 dark:bg-blue-900/20 p-3 text-center">
+                  <DoorOpen size={18} className="mx-auto text-blue-500 mb-1" />
+                  <div className="text-xl font-extrabold text-gray-800 dark:text-gray-100">{rooms.length}</div>
+                  <div className="text-[10px] text-gray-500 uppercase tracking-wide">Stanze</div>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Scrivanie</span>
-                  <span className="font-semibold">{desks.length}</span>
+                {/* Desks */}
+                <div className="rounded-xl bg-emerald-50 dark:bg-emerald-900/20 p-3 text-center">
+                  <Monitor size={18} className="mx-auto text-emerald-500 mb-1" />
+                  <div className="text-xl font-extrabold text-gray-800 dark:text-gray-100">{assignedCount}<span className="text-sm font-normal text-gray-400">/{desks.length}</span></div>
+                  <div className="text-[10px] text-gray-500 uppercase tracking-wide">Scrivanie</div>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Assegnate</span>
-                  <span className="font-semibold text-primary">{assignedCount}</span>
+                {/* Occupancy Gauge */}
+                <div className="rounded-xl bg-gray-50 dark:bg-gray-800 p-2 flex items-center justify-center">
+                  {desks.length > 0 ? <OccupancyGauge pct={occupancyPct} /> : (
+                    <div className="text-center py-2">
+                      <div className="text-lg font-bold text-gray-300">—</div>
+                      <div className="text-[10px] text-gray-400">Nessuna scrivania</div>
+                    </div>
+                  )}
+                </div>
+                {/* Proximity Score */}
+                <div className="rounded-xl bg-amber-50 dark:bg-amber-900/20 p-3 text-center">
+                  <Star size={18} className="mx-auto text-amber-500 mb-1" />
+                  {heatmapMode && proximityPairs.length > 0 ? (
+                    <>
+                      <div className="text-xl font-extrabold" style={{ color: scoreColor }}>{globalAverage}%</div>
+                      <div className="text-[10px] text-gray-500 uppercase tracking-wide">Score Medio</div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="text-lg font-bold text-gray-300">—</div>
+                      <div className="text-[10px] text-gray-400">Attiva heatmap</div>
+                    </>
+                  )}
                 </div>
               </div>
-              {/* Occupancy bar */}
-              {desks.length > 0 && (
-                <div className="mt-3">
-                  <div className="flex justify-between text-[10px] text-muted-foreground mb-1">
-                    <span>Tasso occupazione</span>
-                    <span className="font-bold text-foreground">{occupancyPct}%</span>
-                  </div>
-                  <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
-                    <div
-                      className="h-full rounded-full transition-all duration-500"
-                      style={{
-                        width: `${occupancyPct}%`,
-                        background: occupancyPct > 80 ? 'hsl(var(--primary))' : occupancyPct > 50 ? '#f59e0b' : '#94a3b8',
-                      }}
-                    />
-                  </div>
-                </div>
-              )}
             </Card>
           )}
 
-          {/* Proximity Report - Collapsible */}
+          {/* Proximity Report */}
           {heatmapMode && proximityPairs.length > 0 && (
             <Collapsible defaultOpen>
               <Card padding="sm">
-                <CollapsibleTrigger className="w-full flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                <CollapsibleTrigger className="w-full flex items-center justify-between text-[10px] font-bold uppercase tracking-widest text-gray-400">
                   <span className="flex items-center gap-1.5">
-                    <BarChart3 size={12} />
+                    <BarChart3 size={12} className="text-jnana-sage" />
                     Report Prossimità
                   </span>
-                  <ChevronDown size={14} className="transition-transform data-[state=open]:rotate-180" />
+                  <ChevronDown size={14} className="transition-transform data-[state=open]:rotate-180 text-gray-400" />
                 </CollapsibleTrigger>
-                <CollapsibleContent className="mt-2">
+                <CollapsibleContent className="mt-3">
                   <ProximityReport pairs={proximityPairs} globalAverage={globalAverage} />
                 </CollapsibleContent>
               </Card>
             </Collapsible>
           )}
 
-          {/* AI Suggestions - Collapsible */}
+          {/* AI Suggestions */}
           {heatmapMode && proximityPairs.length > 0 && (
             <Collapsible defaultOpen>
               <Card padding="sm">
-                <CollapsibleTrigger className="w-full flex items-center justify-between text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2">
+                <CollapsibleTrigger className="w-full flex items-center justify-between text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-2">
                   <span className="flex items-center gap-1.5">
                     <Sparkles size={12} className="text-amber-500" />
                     Suggerimenti AI
                   </span>
-                  <ChevronDown size={14} className="transition-transform data-[state=open]:rotate-180" />
+                  <ChevronDown size={14} className="transition-transform data-[state=open]:rotate-180 text-gray-400" />
                 </CollapsibleTrigger>
                 <CollapsibleContent>
                   <OptimizationSuggestions
@@ -306,16 +359,16 @@ export const SpaceSyncView: React.FC<SpaceSyncViewProps> = ({ company, companyUs
             </Card>
           ) : (
             <Card padding="lg">
-              <div className="text-center py-20 text-muted-foreground">
-                <div className="mx-auto mb-6 w-20 h-20 rounded-2xl bg-primary/5 flex items-center justify-center">
-                  <MapPin size={36} className="text-primary/30" />
+              <div className="text-center py-20 text-gray-400">
+                <div className="mx-auto mb-6 w-20 h-20 rounded-2xl bg-jnana-sage/5 flex items-center justify-center">
+                  <MapPin size={36} className="text-jnana-sage/30" />
                 </div>
-                <h3 className="font-bold text-xl mb-2 text-foreground">Inizia con SpaceSync</h3>
-                <p className="text-sm max-w-md mx-auto leading-relaxed">
+                <h3 className="font-bold text-xl mb-2 text-gray-700 dark:text-gray-200">Inizia con SpaceSync</h3>
+                <p className="text-sm max-w-md mx-auto leading-relaxed text-gray-500">
                   Crea la prima sede per disegnare la planimetria del tuo ufficio
                   e posizionare le scrivanie del team.
                 </p>
-                <p className="text-xs mt-4 text-muted-foreground/60">
+                <p className="text-xs mt-4 text-gray-400">
                   Usa il pannello a sinistra per aggiungere una nuova sede →
                 </p>
               </div>

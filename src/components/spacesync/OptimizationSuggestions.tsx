@@ -1,7 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { Sparkles, ArrowLeftRight, Loader2, AlertTriangle, TrendingUp, Zap } from 'lucide-react';
 import { Button } from '../../../components/Button';
-import { Card } from '../../../components/Card';
 import { supabase } from '@/integrations/supabase/client';
 import type { DeskProximityPair } from '@/utils/proximityEngine';
 import type { OfficeDesk } from '@/types/spacesync';
@@ -30,21 +29,22 @@ interface OptimizationSuggestionsProps {
   onSimulateSwap: (deskLabelA: string, deskLabelB: string) => void;
 }
 
-const IMPROVEMENT_COLORS = {
-  high: 'text-green-600 bg-green-50 border-green-200 dark:text-green-400 dark:bg-green-900/20 dark:border-green-800/30',
-  medium: 'text-amber-600 bg-amber-50 border-amber-200 dark:text-amber-400 dark:bg-amber-900/20 dark:border-amber-800/30',
-  low: 'text-blue-600 bg-blue-50 border-blue-200 dark:text-blue-400 dark:bg-blue-900/20 dark:border-blue-800/30',
+const IMPROVEMENT_BORDER: Record<string, string> = {
+  high: '#16a34a',
+  medium: '#d97706',
+  low: '#3b82f6',
 };
 
-const IMPROVEMENT_LABELS = { high: 'Alto Impatto', medium: 'Medio Impatto', low: 'Basso Impatto' };
+const IMPROVEMENT_BG: Record<string, string> = {
+  high: 'bg-green-50 dark:bg-green-900/10',
+  medium: 'bg-amber-50 dark:bg-amber-900/10',
+  low: 'bg-blue-50 dark:bg-blue-900/10',
+};
+
+const IMPROVEMENT_LABELS: Record<string, string> = { high: 'Alto Impatto', medium: 'Medio Impatto', low: 'Basso Impatto' };
 
 export const OptimizationSuggestions: React.FC<OptimizationSuggestionsProps> = ({
-  pairs,
-  desks,
-  rooms,
-  globalAverage,
-  userDataMap,
-  onSimulateSwap,
+  pairs, desks, rooms, globalAverage, userDataMap, onSimulateSwap,
 }) => {
   const [result, setResult] = useState<AIResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -97,31 +97,29 @@ export const OptimizationSuggestions: React.FC<OptimizationSuggestionsProps> = (
   }, [pairs, desks, rooms, globalAverage, userDataMap]);
 
   return (
-    <Card padding="sm">
-      <div className="flex items-center justify-between mb-3">
-        <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-          <Sparkles size={14} className="text-amber-500" />
-          Suggerimenti AI
-        </h3>
+    <div>
+      {/* Analyze Button — prominent */}
+      <div className="mb-3">
         <Button
-          variant="outline"
+          variant="primary"
+          size="sm"
           onClick={fetchSuggestions}
           disabled={isLoading || pairs.length === 0}
-          className="text-xs h-7 px-2"
+          className="w-full gap-1.5"
         >
-          {isLoading ? <Loader2 size={12} className="animate-spin mr-1" /> : <Zap size={12} className="mr-1" />}
-          {isLoading ? 'Analisi...' : result ? 'Rigenera' : 'Analizza'}
+          {isLoading ? <Loader2 size={14} className="animate-spin" /> : <Zap size={14} />}
+          {isLoading ? 'Analisi in corso...' : result ? 'Rigenera Analisi' : 'Analizza Disposizione'}
         </Button>
       </div>
 
       {pairs.length === 0 && !result && (
-        <p className="text-xs text-muted-foreground py-4 text-center">
+        <p className="text-xs text-gray-400 py-4 text-center">
           Assegna almeno 2 persone a scrivanie vicine per generare suggerimenti.
         </p>
       )}
 
       {error && (
-        <div className="flex items-start gap-2 p-2 rounded-lg bg-destructive/10 border border-destructive/20 text-xs text-destructive mb-3">
+        <div className="flex items-start gap-2 p-2 rounded-lg bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-800/30 text-xs text-red-600 dark:text-red-400 mb-3">
           <AlertTriangle size={14} className="shrink-0 mt-0.5" />
           <span>{error}</span>
         </div>
@@ -129,40 +127,49 @@ export const OptimizationSuggestions: React.FC<OptimizationSuggestionsProps> = (
 
       {result && (
         <div className="space-y-3">
-          {/* Overall assessment */}
-          <p className="text-xs text-muted-foreground italic border-l-2 border-amber-400 pl-2">
-            {result.overallAssessment}
-          </p>
+          {/* AI Assessment */}
+          <div className="p-2.5 rounded-xl bg-amber-50 dark:bg-amber-900/10 border-l-4 border-amber-400">
+            <div className="flex items-start gap-2">
+              <Sparkles size={14} className="text-amber-500 mt-0.5 shrink-0" />
+              <p className="text-[11px] text-gray-600 dark:text-gray-300 italic leading-relaxed">
+                {result.overallAssessment}
+              </p>
+            </div>
+          </div>
 
           {/* Suggestions */}
           {result.suggestions.length === 0 ? (
             <div className="text-center py-4">
               <TrendingUp size={24} className="mx-auto text-green-500 mb-2" />
-              <p className="text-xs text-muted-foreground">La disposizione attuale è già ottimale!</p>
+              <p className="text-xs text-gray-500">La disposizione attuale è già ottimale!</p>
             </div>
           ) : (
             result.suggestions.map((sug, i) => (
               <div
                 key={i}
-                className={`p-2.5 rounded-lg border ${IMPROVEMENT_COLORS[sug.expectedImprovement]}`}
+                className={`p-2.5 rounded-xl ${IMPROVEMENT_BG[sug.expectedImprovement]} border-l-4`}
+                style={{ borderLeftColor: IMPROVEMENT_BORDER[sug.expectedImprovement] }}
               >
                 <div className="flex items-center justify-between mb-1">
-                  <div className="flex items-center gap-1.5 text-xs font-semibold">
+                  <div className="flex items-center gap-1.5 text-[11px] font-semibold text-gray-700 dark:text-gray-200">
                     <ArrowLeftRight size={12} />
                     <span>{sug.personA}</span>
-                    <span className="text-muted-foreground">↔</span>
+                    <span className="text-gray-400">↔</span>
                     <span>{sug.personB}</span>
                   </div>
-                  <span className="text-[10px] font-bold uppercase opacity-70">
+                  <span
+                    className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded-full"
+                    style={{ color: IMPROVEMENT_BORDER[sug.expectedImprovement], backgroundColor: `${IMPROVEMENT_BORDER[sug.expectedImprovement]}15` }}
+                  >
                     {IMPROVEMENT_LABELS[sug.expectedImprovement]}
                   </span>
                 </div>
-                <p className="text-[11px] opacity-80 mb-2">{sug.reason}</p>
+                <p className="text-[11px] text-gray-500 mb-2">{sug.reason}</p>
                 <div className="flex items-center gap-2 text-[10px]">
-                  <span className="opacity-60">{sug.deskA} ↔ {sug.deskB}</span>
+                  <span className="text-gray-400">{sug.deskA} ↔ {sug.deskB}</span>
                   <button
                     onClick={() => onSimulateSwap(sug.deskA, sug.deskB)}
-                    className="ml-auto px-2 py-0.5 rounded bg-white/50 dark:bg-white/10 border border-current/20 hover:bg-white/80 dark:hover:bg-white/20 transition-colors font-medium"
+                    className="ml-auto px-2.5 py-1 rounded-lg bg-jnana-sage/10 text-jnana-sage hover:bg-jnana-sage/20 transition-colors font-semibold text-[10px]"
                   >
                     Simula
                   </button>
@@ -172,6 +179,6 @@ export const OptimizationSuggestions: React.FC<OptimizationSuggestionsProps> = (
           )}
         </div>
       )}
-    </Card>
+    </div>
   );
 };
