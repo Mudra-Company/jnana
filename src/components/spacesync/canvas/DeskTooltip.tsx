@@ -11,48 +11,73 @@ interface DeskTooltipProps {
 
 export const DeskTooltip: React.FC<DeskTooltipProps> = ({ desk, roomX, roomY, deskSize, score }) => {
   const tooltipX = roomX + desk.x + deskSize / 2;
-  const tooltipY = roomY + desk.y - 8;
+  const tooltipY = roomY + desk.y - 12;
+
+  const hasScore = !!score;
+  const hasJobTitle = !!desk.assigneeJobTitle;
+  const lineHeight = 14;
+  const padding = 10;
+  const width = 170;
+  
+  let lines = 1; // name
+  if (hasJobTitle) lines++;
+  if (hasScore) lines++;
+  const height = lines * lineHeight + padding * 2;
+
+  const scoreColor = score
+    ? score.avgScore >= 70 ? '#16a34a' : score.avgScore >= 40 ? '#d97706' : '#dc2626'
+    : '#64748b';
 
   return (
     <g className="pointer-events-none">
-      <rect
-        x={tooltipX - 70}
-        y={tooltipY - 42}
-        width={140}
-        height={score ? 42 : 32}
-        rx={6}
-        fill="hsl(var(--popover))"
-        stroke="hsl(var(--border))"
-        strokeWidth={1}
-        opacity={0.95}
-        filter="drop-shadow(0 2px 4px rgba(0,0,0,0.15))"
+      {/* Arrow */}
+      <polygon
+        points={`${tooltipX - 5},${tooltipY} ${tooltipX + 5},${tooltipY} ${tooltipX},${tooltipY + 6}`}
+        fill="#ffffff"
+        stroke="#d1d5db"
+        strokeWidth={0.5}
       />
+      {/* Background */}
+      <rect
+        x={tooltipX - width / 2}
+        y={tooltipY - height}
+        width={width}
+        height={height}
+        rx={8}
+        fill="#ffffff"
+        stroke="#d1d5db"
+        strokeWidth={1}
+        style={{ filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.12))' }}
+      />
+      {/* Name */}
       <text
         x={tooltipX}
-        y={tooltipY - 26}
+        y={tooltipY - height + padding + 10}
         textAnchor="middle"
-        style={{ fontSize: 10, fontWeight: 700, fill: 'hsl(var(--foreground))' }}
+        style={{ fontSize: 11, fontWeight: 700, fill: '#1e293b' }}
       >
         {desk.assigneeName || desk.label}
       </text>
-      {desk.assigneeJobTitle && (
+      {/* Job title */}
+      {hasJobTitle && (
         <text
           x={tooltipX}
-          y={tooltipY - 14}
+          y={tooltipY - height + padding + 10 + lineHeight}
           textAnchor="middle"
-          style={{ fontSize: 8, fill: 'hsl(var(--muted-foreground))' }}
+          style={{ fontSize: 9, fill: '#64748b' }}
         >
           {desk.assigneeJobTitle}
         </text>
       )}
-      {score && (
+      {/* Score */}
+      {hasScore && (
         <text
           x={tooltipX}
-          y={tooltipY - 2}
+          y={tooltipY - height + padding + 10 + lineHeight * (hasJobTitle ? 2 : 1)}
           textAnchor="middle"
-          style={{ fontSize: 9, fontWeight: 600, fill: score.avgScore >= 60 ? '#22c55e' : '#f59e0b' }}
+          style={{ fontSize: 10, fontWeight: 600, fill: scoreColor }}
         >
-          Score: {score.avgScore}% ({score.pairCount} vicini)
+          ★ {score!.avgScore}% · {score!.pairCount} vicini
         </text>
       )}
     </g>
