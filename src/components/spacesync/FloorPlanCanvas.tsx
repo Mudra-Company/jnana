@@ -329,19 +329,35 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
       />
 
       {/* Stats bar */}
-      <div className="flex items-center gap-4 px-3 py-1.5 rounded-lg bg-gray-50 border border-gray-200 text-xs">
-        <span className="text-gray-500">🏠 <strong className="text-gray-700">{rooms.length}</strong> stanze</span>
-        <span className="text-gray-500">🪑 <strong className="text-gray-700">{desks.filter(d => d.companyMemberId).length}/{desks.length}</strong> assegnate</span>
+      <div className="flex items-center gap-3 px-3 py-2 rounded-xl bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-800/80 border border-gray-200 dark:border-gray-700 text-xs">
+        {/* Rooms */}
+        <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 font-semibold">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+          {rooms.length} stanze
+        </span>
+        {/* Desks */}
+        <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 font-semibold">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+          {desks.filter(d => d.companyMemberId).length}/{desks.length}
+        </span>
         {desks.length > 0 && (
           <>
-            <span className="text-gray-500">
-              Occupazione: <strong className="text-gray-700">{Math.round((desks.filter(d => d.companyMemberId).length / desks.length) * 100)}%</strong>
+            {/* Occupancy */}
+            <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 font-semibold">
+              {Math.round((desks.filter(d => d.companyMemberId).length / desks.length) * 100)}%
+              <span className="font-normal text-gray-400">occ.</span>
             </span>
+            {/* Score */}
             {heatmapMode && deskScores && deskScores.size > 0 && (() => {
               const scores = Array.from(deskScores.values());
               const avg = Math.round(scores.reduce((s, v) => s + v.avgScore, 0) / scores.length);
               const color = avg >= 70 ? '#16a34a' : avg >= 40 ? '#d97706' : '#dc2626';
-              return <span style={{ color }}>★ Score medio: <strong>{avg}%</strong></span>;
+              return (
+                <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg font-bold" style={{ color, backgroundColor: `${color}10` }}>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                  {avg}%
+                </span>
+              );
             })()}
           </>
         )}
