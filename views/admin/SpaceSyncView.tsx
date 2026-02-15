@@ -31,7 +31,7 @@ export const SpaceSyncView: React.FC<SpaceSyncViewProps> = ({ company, companyUs
   const [selectedLocationId, setSelectedLocationId] = useState<string | undefined>();
   const [selectedRoomId, setSelectedRoomId] = useState<string | undefined>();
   const [selectedDesk, setSelectedDesk] = useState<OfficeDesk | null>(null);
-  const [heatmapMode, setHeatmapMode] = useState(false);
+  const [heatmapMode, setHeatmapMode] = useState(true);
   const [showSimulation, setShowSimulation] = useState(false);
   const [roomPreviewOverrides, setRoomPreviewOverrides] = useState<Partial<OfficeRoom> | null>(null);
 

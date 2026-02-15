@@ -328,7 +328,26 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
         onDeleteDesk={() => { if (selectedDeskId) onDeleteDesk(selectedDeskId); }}
       />
 
-      <div className="overflow-auto rounded-xl border border-border bg-background shadow-inner" style={{ maxHeight: '60vh' }}>
+      {/* Stats bar */}
+      <div className="flex items-center gap-4 px-3 py-1.5 rounded-lg bg-gray-50 border border-gray-200 text-xs">
+        <span className="text-gray-500">🏠 <strong className="text-gray-700">{rooms.length}</strong> stanze</span>
+        <span className="text-gray-500">🪑 <strong className="text-gray-700">{desks.filter(d => d.companyMemberId).length}/{desks.length}</strong> assegnate</span>
+        {desks.length > 0 && (
+          <>
+            <span className="text-gray-500">
+              Occupazione: <strong className="text-gray-700">{Math.round((desks.filter(d => d.companyMemberId).length / desks.length) * 100)}%</strong>
+            </span>
+            {heatmapMode && deskScores && deskScores.size > 0 && (() => {
+              const scores = Array.from(deskScores.values());
+              const avg = Math.round(scores.reduce((s, v) => s + v.avgScore, 0) / scores.length);
+              const color = avg >= 70 ? '#16a34a' : avg >= 40 ? '#d97706' : '#dc2626';
+              return <span style={{ color }}>★ Score medio: <strong>{avg}%</strong></span>;
+            })()}
+          </>
+        )}
+      </div>
+
+      <div className="overflow-auto rounded-xl border border-gray-200 bg-white shadow-inner" style={{ maxHeight: '60vh' }}>
         <svg
           ref={svgRef}
           width={canvasWidth * zoom}
@@ -343,7 +362,7 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
           {/* Grid */}
           <defs>
             <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
-              <path d="M 40 0 L 0 0 0 40" fill="none" stroke="hsl(var(--border))" strokeWidth="0.3" opacity="0.5" />
+              <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#e5e7eb" strokeWidth="0.3" opacity="0.5" />
             </pattern>
           </defs>
           <rect width={canvasWidth} height={canvasHeight} fill="url(#grid)" />
@@ -363,7 +382,7 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
                   width={room.width}
                   height={room.height}
                   fill={ROOM_COLORS[room.roomType] || room.color}
-                  stroke={isDragTarget ? '#22c55e' : isSelected ? 'hsl(var(--primary))' : 'hsl(var(--border))'}
+                  stroke={isDragTarget ? '#22c55e' : isSelected ? '#4a7c59' : '#d1d5db'}
                   strokeWidth={isDragTarget ? 2.5 : isSelected ? 2.5 : 1}
                   rx={6}
                   className="transition-all"
@@ -422,38 +441,65 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
                         onMouseLeave={() => setHoveredDeskId(null)}
                         className="cursor-grab active:cursor-grabbing"
                       >
-                        <rect
-                          width={DESK_SIZE}
-                          height={DESK_SIZE}
-                          rx={5}
-                          fill={heatmapMode && desk.companyMemberId && deskScores?.has(desk.id)
-                            ? getProximityColor(deskScores.get(desk.id)!.avgScore)
-                            : desk.companyMemberId ? '#3b82f6' : '#94a3b8'
-                          }
-                          opacity={selectedDeskId === desk.id ? 1 : 0.8}
-                          stroke={selectedDeskId === desk.id ? 'hsl(var(--primary))' : 'transparent'}
-                          strokeWidth={selectedDeskId === desk.id ? 2 : 0}
-                        />
-                        <text
-                          x={DESK_SIZE / 2}
-                          y={DESK_SIZE / 2 - 2}
-                          textAnchor="middle"
-                          className="pointer-events-none select-none"
-                          style={{ fontSize: 8, fontWeight: 700, fill: 'white' }}
-                        >
-                          {desk.label}
-                        </text>
-                        {desk.assigneeName && (
-                          <text
-                            x={DESK_SIZE / 2}
-                            y={DESK_SIZE / 2 + 8}
-                            textAnchor="middle"
-                            className="pointer-events-none select-none"
-                            style={{ fontSize: 6, fill: 'rgba(255,255,255,0.8)' }}
-                          >
-                            {desk.assigneeName.split(' ').map((n: string) => n[0]).join('')}
-                          </text>
-                        )}
+                        {(() => {
+                          const deskScore = deskScores?.get(desk.id);
+                          const hasScore = heatmapMode && desk.companyMemberId && deskScore;
+                          const bgColor = hasScore
+                            ? getProximityColor(deskScore!.avgScore)
+                            : desk.companyMemberId ? '#4a7c59' : '#b0b8c4';
+                          const borderColor = selectedDeskId === desk.id ? '#4a7c59'
+                            : (deskScore && desk.companyMemberId)
+                              ? (deskScore.avgScore >= 70 ? '#16a34a' : deskScore.avgScore >= 40 ? '#d97706' : '#dc2626')
+                              : 'transparent';
+                          const initials = desk.assigneeName
+                            ? desk.assigneeName.split(' ').map((n: string) => n[0]).join('').slice(0, 2)
+                            : '';
+                          return (
+                            <>
+                              <rect
+                                width={DESK_SIZE}
+                                height={DESK_SIZE}
+                                rx={6}
+                                fill={bgColor}
+                                opacity={selectedDeskId === desk.id ? 1 : 0.85}
+                                stroke={borderColor}
+                                strokeWidth={borderColor !== 'transparent' ? 2 : 0}
+                              />
+                              {desk.assigneeName ? (
+                                <text
+                                  x={DESK_SIZE / 2}
+                                  y={hasScore ? DESK_SIZE / 2 - 2 : DESK_SIZE / 2 + 3}
+                                  textAnchor="middle"
+                                  className="pointer-events-none select-none"
+                                  style={{ fontSize: 10, fontWeight: 700, fill: 'white' }}
+                                >
+                                  {initials}
+                                </text>
+                              ) : (
+                                <text
+                                  x={DESK_SIZE / 2}
+                                  y={DESK_SIZE / 2 + 3}
+                                  textAnchor="middle"
+                                  className="pointer-events-none select-none"
+                                  style={{ fontSize: 8, fontWeight: 600, fill: 'white' }}
+                                >
+                                  {desk.label}
+                                </text>
+                              )}
+                              {hasScore && (
+                                <text
+                                  x={DESK_SIZE / 2}
+                                  y={DESK_SIZE / 2 + 10}
+                                  textAnchor="middle"
+                                  className="pointer-events-none select-none"
+                                  style={{ fontSize: 7, fontWeight: 700, fill: 'rgba(255,255,255,0.9)' }}
+                                >
+                                  {deskScore!.avgScore}%
+                                </text>
+                              )}
+                            </>
+                          );
+                        })()}
                       </g>
                       {/* Tooltip on hover */}
                       {isHovered && !isInteracting && desk.companyMemberId && (
@@ -546,8 +592,8 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
                 y={drawingRect.y}
                 width={drawingRect.width}
                 height={drawingRect.height}
-                fill="hsl(var(--primary) / 0.12)"
-                stroke="hsl(var(--primary))"
+                fill="rgba(74,124,89,0.12)"
+                stroke="#4a7c59"
                 strokeWidth={2}
                 strokeDasharray="6 3"
                 rx={6}
@@ -558,7 +604,7 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
                 textAnchor="middle"
                 dominantBaseline="middle"
                 className="pointer-events-none select-none"
-                style={{ fontSize: 11, fontWeight: 600, fill: 'hsl(var(--primary))' }}
+                style={{ fontSize: 11, fontWeight: 600, fill: '#4a7c59' }}
               >
                 {Math.round(drawingRect.width)}×{Math.round(drawingRect.height)}
               </text>
