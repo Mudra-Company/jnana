@@ -1,100 +1,67 @@
 
-# Redesign UX/UI SpaceSync: Sidebar, Header e Stats Bar
 
-## Analisi Problemi Attuali
+# Rendere Modificabile il Ruolo dall'Organigramma
 
-Dallo screenshot emerge un'interfaccia piatta e anonima:
+## Problema
 
-1. **Header**: Testo semplice con icona generica, nessuna personalita visiva, il bottone "Simula Scambio" e isolato e poco visibile
-2. **Sidebar**: Card bianche piatte una dopo l'altra senza gerarchia visiva -- sembra una lista di debug, non un pannello di controllo professionale
-3. **Riepilogo**: Lista testo puro con numeri allineati a destra -- zero data visualization, nessun indicatore visivo del tasso di occupazione (la progress bar c'e ma e quasi invisibile)
-4. **Report Prossimita**: Card annodate dentro card (ProximityReport renderizza Card dentro Card gia wrappata nel parent) creando un effetto "scatola dentro scatola" bruttissimo
-5. **Suggerimenti AI**: Stesso problema di annidamento card + il bottone "Analizza" e troppo piccolo e anonimo
-6. **Stats Bar sul canvas**: Riga piatta con emoji (!) e testo grigio, zero appeal
-7. **Location header**: "DUOMO / Piazza Duomo Milano" appare come testo isolato sopra le card, senza contesto visivo
+Dallo screenshot si vede che la modale mostra "Ruolo implicito" -- questo significa che il ruolo non e stato creato formalmente nel sistema, ma generato automaticamente dal job title del dipendente. I ruoli impliciti hanno un ID che inizia con `implicit-` e la logica attuale li rende NON modificabili: il bottone "Modifica Ruolo" e nascosto perche `canEdit = false`.
 
-## Soluzione: Redesign Completo
+Il bottone "Profilo Completo" in basso serve solo per aprire il profilo della persona, non per modificare il ruolo.
 
-### A. Header Rinnovato (SpaceSyncView.tsx)
+## Soluzione: Bottone "Promuovi a Ruolo Formale"
 
-Trasformare l'header in un componente hero compatto con:
-- Sfondo con gradiente sottile (jnana-sage -> sage/80) e bordo arrotondato
-- Icona in un cerchio con sfondo solido
-- Titolo + sottotitolo inline con la location selezionata (es. "SpaceSync -- DUOMO")
-- Badge con stats chiave (stanze, scrivanie, score) direttamente nell'header come pill colorate
-- Il bottone "Simula Scambio" integrato con stile coerente
+Per i ruoli impliciti, aggiungere un'azione che permetta di convertirli in ruoli formali (salvati nel database), rendendoli poi modificabili.
 
-### B. Sidebar con Gerarchia Visiva (SpaceSyncView.tsx)
+### Flusso Utente
 
-Riprogettare la sidebar come pannello coeso:
-- **Location Selector**: Mantenere ma aggiungere un'icona edificio piu grande e uno sfondo colorato per la sede selezionata
-- **Dashboard Card (nuovo)**: Sostituire il "Riepilogo" noioso con una mini-dashboard visiva:
-  - Tre mini-stat con icone colorate (stanze, scrivanie, occupazione)
-  - Anello/gauge circolare SVG per il tasso di occupazione al posto della barra lineare
-  - Score di prossimita medio con colore e icona stella (se in modalita heatmap)
-- **Report e Suggerimenti**: Rimuovere l'annidamento Card-dentro-Card, usare sezioni con bordo laterale colorato invece di card separate
+1. L'utente apre la card nell'organigramma
+2. Vede "Ruolo implicito" con i campi vuoti
+3. In basso appare un bottone "Crea Ruolo Formale" (al posto di "Modifica Ruolo")
+4. Click sul bottone: il sistema crea un nuovo `company_role` nel DB con i dati base (titolo dal job title, company_id, org_node_id)
+5. La modale si ricarica con il ruolo formale appena creato, e ora il bottone "Modifica Ruolo" e visibile
+6. L'utente puo editare descrizione, responsabilita, skill, KPI, etc.
 
-### C. Mini-Dashboard Visiva (sostituzione Riepilogo)
+### File da Modificare
 
-Creare un layout a griglia 2x2 con:
-- **Stanze**: Icona + numero grande + label piccola
-- **Scrivanie**: Icona + frazione (assegnate/totali)
-- **Occupazione**: Anello SVG circolare con percentuale al centro (colore dinamico)
-- **Score Medio**: Numero grande colorato con stella (visibile solo con heatmap attiva)
+#### 1. `src/components/roles/UnifiedDetailModal.tsx`
+- Nella sezione Actions (footer), quando `isImplicitRole` e `true`, mostrare un bottone "Crea Ruolo Formale" con icona e stile prominente
+- Aggiungere una nuova prop `onPromoteToFormalRole` che accetta il ruolo implicito e lo converte
+- Aggiungere un banner informativo nel tab "Ruolo" quando e implicito: "Questo ruolo e stato generato automaticamente. Crealo come ruolo formale per modificarlo."
 
-### D. Fix ProximityReport (ProximityReport.tsx)
+#### 2. `views/admin/CompanyOrgView.tsx`
+- Passare la nuova prop `onPromoteToFormalRole` alla `UnifiedDetailModal`
+- Implementare la logica: chiamare `createRole()` con i dati del ruolo implicito (titolo, companyId, orgNodeId), poi aggiornare il `company_member` con il nuovo `role_id`
+- Dopo la creazione, ricaricare la posizione unificata con il ruolo formale
 
-- Rimuovere i `<Card>` interni -- il componente e gia wrappato in una Card dal parent
-- Usare `<div>` con classi di styling diretto: bordi laterali colorati, sfondo leggero
-- Score Globale: numero grande a sinistra con gradiente di colore, dettagli a destra
-- Coppie critiche/ottimali: pill inline invece di card separate
-- Insight: lista compatta con icona e testo
+#### 3. Fix Errori di Build Pre-esistenti
+I seguenti errori di build non sono legati a questa feature ma devono essere risolti per far compilare il progetto:
 
-### E. Fix OptimizationSuggestions (OptimizationSuggestions.tsx)
+- **`CompanyOrgView.tsx:2099`**: Firma `onEdit` incompatibile -- il tipo atteso e `() => void` ma viene passata una funzione con parametro
+- **`CompanyOrgView.tsx:2149`**: `updateRole` chiamato con 3 argomenti invece di 2
+- Vari errori di tipo in altri file (PositionMatchingView, KarmaProfileEdit, riasecService, etc.) che sono pre-esistenti
 
-- Rimuovere il `<Card>` interno (gia wrappato dal parent)
-- Bottone "Analizza" piu visibile: sfondo jnana-sage, icona fulmine, dimensione maggiore
-- Assessment AI: box con gradiente ambra leggero e icona AI
-- Suggerimenti: card con bordo laterale spesso colorato per impatto (verde/ambra/blu)
+### Dettagli Tecnici
 
-### F. Stats Bar Canvas Migliorata (FloorPlanCanvas.tsx)
+Nuovo bottone nel footer della modale:
+```text
+Se isImplicitRole:
+  [Crea Ruolo Formale]  -- bottone verde prominente
+  [Profilo Completo]     -- se assegnee presente
 
-- Sostituire le emoji con icone Lucide
-- Usare pill/badge con sfondo colorato per ogni stat
-- Aggiungere un mini indicatore colorato per lo score (dot + valore)
-- Border-radius piu arrotondato, sfondo con gradiente sottile
+Se !isImplicitRole:
+  [Modifica Ruolo]       -- come oggi
+  [Elimina]              -- come oggi
+  [Profilo Completo]     -- se assegnee presente
+```
 
-### G. Fix Classi Shadcn Residue
+Banner nel tab Ruolo per ruoli impliciti:
+```text
++----------------------------------------------+
+| (i) Questo ruolo e generato dal job title.   |
+|     Crea un ruolo formale per modificare      |
+|     mansionario, KPI e requisiti.             |
+|                          [Crea Ruolo Formale] |
++----------------------------------------------+
+```
 
-Nella sidebar e nei report ci sono ancora classi broken:
-- `text-muted-foreground` -> `text-gray-500`
-- `text-foreground` -> `text-jnana-text`
-- `text-primary` -> `text-jnana-sage`
-- `bg-primary/5` e `border-primary/10` -> `bg-jnana-sage/5` e `border-jnana-sage/10`
-- `text-destructive` e `bg-destructive/5` -> `text-red-500` e `bg-red-50`
-- `bg-muted` -> `bg-gray-100`
-
-## File da Modificare
-
-### 1. `views/admin/SpaceSyncView.tsx`
-- Ridisegnare header con gradiente e stats inline
-- Sostituire la card Riepilogo con mini-dashboard a griglia con anello SVG
-- Rimuovere duplicazione location header (gia visibile nel LocationSelector)
-- Fix tutte le classi shadcn residue
-
-### 2. `src/components/spacesync/ProximityReport.tsx`
-- Rimuovere tutti i `<Card>` interni
-- Ridisegnare con div stilizzati, bordi laterali colorati
-- Score globale in layout hero con numero grande
-- Fix classi shadcn (`text-muted-foreground`, `text-foreground`, `text-primary`, `text-destructive`, `bg-destructive/5`)
-
-### 3. `src/components/spacesync/OptimizationSuggestions.tsx`
-- Rimuovere il `<Card>` wrapper interno
-- Bottone Analizza piu prominente
-- Fix classi shadcn (`text-muted-foreground`)
-
-### 4. `src/components/spacesync/FloorPlanCanvas.tsx`
-- Stats bar: sostituire emoji con icone Lucide, usare pill/badge colorati
-- Migliorare la presentazione visiva
-
-Nessuna modifica al database. Nessuna nuova dipendenza. 4 file da modificare.
+Nessuna modifica al database. 2 file principali da modificare.
