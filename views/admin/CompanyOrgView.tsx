@@ -2093,42 +2093,10 @@ export const CompanyOrgView: React.FC<{
             {/* Role Detail Modal */}
             {selectedRole && (
                 <RoleDetailModal
-                    isOpen={!!selectedRole}
                     role={selectedRole}
                     onClose={() => setSelectedRole(null)}
-                    onEdit={async (updatedRole) => {
-                        const result = await updateRole(selectedRole.id, updatedRole);
-                        if (result.success) {
-                            toast({
-                                title: "Ruolo aggiornato",
-                                description: "Il ruolo è stato modificato con successo",
-                            });
-                            // Refresh the role data
-                            const refreshed = await fetchRoleWithAssignments(selectedRole.id);
-                            if (refreshed) setSelectedRole(refreshed);
-                        } else {
-                            toast({
-                                title: "Errore",
-                                description: result.error || "Impossibile aggiornare il ruolo",
-                                variant: "destructive",
-                            });
-                        }
-                    }}
-                    onDelete={async () => {
-                        const result = await deleteRole(selectedRole.id);
-                        if (result.success) {
-                            toast({
-                                title: "Ruolo eliminato",
-                                description: "Il ruolo è stato rimosso con successo",
-                            });
-                            setSelectedRole(null);
-                        } else {
-                            toast({
-                                title: "Errore",
-                                description: result.error || "Impossibile eliminare il ruolo",
-                                variant: "destructive",
-                            });
-                        }
+                    onEdit={() => {
+                        // Placeholder - edit handled via other modals
                     }}
                 />
             )}
@@ -2146,7 +2114,7 @@ export const CompanyOrgView: React.FC<{
                         setSelectedUnifiedPosition(null);
                     } : undefined}
                     onSaveRole={!selectedUnifiedPosition.role.id.startsWith('implicit-') ? async (roleId, updatedRole) => {
-                        const result = await updateRole(roleId, updatedRole, selectedUnifiedPosition.role);
+                        const result = await updateRole(roleId, updatedRole);
                         if (result.success) {
                             toast({
                                 title: "Ruolo aggiornato",
@@ -2182,6 +2150,35 @@ export const CompanyOrgView: React.FC<{
                             });
                         }
                         return result;
+                    } : undefined}
+                    onPromoteToFormalRole={selectedUnifiedPosition.role.id.startsWith('implicit-') ? async () => {
+                        const pos = selectedUnifiedPosition;
+                        const result = await createRole({
+                            companyId: company.id,
+                            title: pos.role.title,
+                            orgNodeId: pos.role.orgNodeId || undefined,
+                        });
+                        if (result.success && result.role) {
+                            // If there's an assignee with a memberId, update the member's department
+                            toast({
+                                title: "Ruolo creato",
+                                description: `"${pos.role.title}" è ora un ruolo formale modificabile`,
+                            });
+                            // Reload unified position with the new formal role
+                            const refreshed = await fetchRoleWithAssignments(result.role.id);
+                            if (refreshed) {
+                                setSelectedUnifiedPosition(prev => prev ? {
+                                    ...prev,
+                                    role: refreshed,
+                                } : null);
+                            }
+                        } else {
+                            toast({
+                                title: "Errore",
+                                description: result.error || "Impossibile creare il ruolo formale",
+                                variant: "destructive",
+                            });
+                        }
                     } : undefined}
                 />
             )}

@@ -44,7 +44,9 @@ import {
   Save,
   Loader2,
   Trash2,
-  AlertTriangle
+  AlertTriangle,
+  Sparkles,
+  Info
 } from 'lucide-react';
 import { Button } from '../../../components/Button';
 import { GenerationBadge } from '../GenerationBadge';
@@ -86,6 +88,7 @@ interface UnifiedDetailModalProps {
   onDeleteRole?: (roleId: string) => Promise<{ success: boolean; error?: string }>;
   // Legacy props (kept for compatibility)
   onEditRole?: (updates: UpdateRoleInput) => Promise<void>;
+  onPromoteToFormalRole?: () => Promise<void>;
   onViewFullProfile?: () => void;
   onProposeRotation?: () => void;
   onOpenMatching?: () => void;
@@ -161,6 +164,7 @@ export const UnifiedDetailModal: React.FC<UnifiedDetailModalProps> = ({
   onSaveRole,
   onDeleteRole,
   onEditRole,
+  onPromoteToFormalRole,
   onViewFullProfile,
   onProposeRotation,
   onOpenMatching
@@ -173,6 +177,7 @@ export const UnifiedDetailModal: React.FC<UnifiedDetailModalProps> = ({
   // Edit mode state
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isPromoting, setIsPromoting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [editedRole, setEditedRole] = useState<Partial<UpdateRoleInput>>({});
   
@@ -463,6 +468,34 @@ export const UnifiedDetailModal: React.FC<UnifiedDetailModalProps> = ({
 
     return (
       <div className="space-y-6">
+        {/* BANNER RUOLO IMPLICITO */}
+        {isImplicitRole && (
+          <div className="flex items-start gap-3 p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl">
+            <Info size={20} className="text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
+                Questo ruolo è generato automaticamente dal job title.
+              </p>
+              <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+                Crea un ruolo formale per modificare mansionario, KPI e requisiti.
+              </p>
+            </div>
+            {onPromoteToFormalRole && (
+              <button
+                onClick={async () => {
+                  setIsPromoting(true);
+                  try { await onPromoteToFormalRole(); } finally { setIsPromoting(false); }
+                }}
+                disabled={isPromoting}
+                className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white transition-colors disabled:opacity-50"
+              >
+                {isPromoting ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+                Crea Ruolo
+              </button>
+            )}
+          </div>
+        )}
+
         {/* TITOLO (solo in edit mode) */}
         {isEditing && (
           <Section title="Titolo Ruolo" icon={<Briefcase size={16} />}>
@@ -989,6 +1022,19 @@ export const UnifiedDetailModal: React.FC<UnifiedDetailModalProps> = ({
           ) : (
             <>
               {/* View Mode Actions */}
+              {isImplicitRole && onPromoteToFormalRole && (
+                <Button 
+                  onClick={async () => {
+                    setIsPromoting(true);
+                    try { await onPromoteToFormalRole(); } finally { setIsPromoting(false); }
+                  }}
+                  disabled={isPromoting}
+                  className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white"
+                >
+                  {isPromoting ? <Loader2 size={16} className="animate-spin mr-1" /> : <Sparkles size={16} className="mr-1" />}
+                  Crea Ruolo Formale
+                </Button>
+              )}
               {canEdit && (
                 <Button variant="outline" onClick={() => setIsEditing(true)} className="flex-1">
                   <Edit size={16} className="mr-1" /> Modifica Ruolo
