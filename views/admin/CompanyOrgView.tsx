@@ -115,7 +115,7 @@ const calculateCandidateMatch = (candidate: User, required: RequiredProfile | un
   
   // Calculate overall score (50% soft skills, 50% seniority)
   const softSkillScore = (required.softSkills?.length || 0) > 0 
-    ? (softMatches.length / required.softSkills.length) * 100 
+    ? (softMatches.length / (required.softSkills?.length || 1)) * 100 
     : 100;
   
   const finalScore = Math.round(
@@ -202,7 +202,7 @@ const calculateMatchScore = (user: User): { score: number; hardMatches: string[]
   
   // Calculate overall score (50% soft skills, 50% seniority)
   const softSkillScore = (required?.softSkills?.length || 0) > 0 
-    ? (softMatches.length / required.softSkills.length) * 100 
+    ? (softMatches.length / (required?.softSkills?.length || 1)) * 100 
     : 100;
   
   const finalScore = Math.round(
@@ -707,7 +707,7 @@ const RoleComparisonModal: React.FC<RoleComparisonModalProps> = ({
                         hardSkillsMatched: candidate.skillsOverlap,
                         hardSkillsMissing: candidate.missingSkills,
                         candidateProfileCode: candidate.profile.profileCode,
-                        targetProfileCode: user.requiredProfile?.riasecCode,
+                        targetProfileCode: undefined,
                         candidateSeniority: candidate.profile.karmaData?.seniorityAssessment,
                         requiredSeniority: user.requiredProfile?.seniority,
                         seniorityMatch: getSeniorityMatch(),
@@ -2106,6 +2106,7 @@ export const CompanyOrgView: React.FC<{
                     isOpen={!!selectedUnifiedPosition}
                     position={selectedUnifiedPosition}
                     companyValues={company.cultureValues}
+                    companyMembers={users}
                     onClose={() => setSelectedUnifiedPosition(null)}
                     onViewFullProfile={selectedUnifiedPosition.assignee ? () => {
                         if (selectedUnifiedPosition.assignee) {
@@ -2113,15 +2114,33 @@ export const CompanyOrgView: React.FC<{
                         }
                         setSelectedUnifiedPosition(null);
                     } : undefined}
-                    onSaveRole={!selectedUnifiedPosition.role.id.startsWith('implicit-') ? async (roleId, updatedRole) => {
-                        const result = await updateRole(roleId, updatedRole);
+                    onSaveRole={async (roleId, updatedRole) => {
+                        let actualRoleId = roleId;
+                        // Auto-promote implicit roles silently
+                        if (roleId.startsWith('implicit-')) {
+                            const pos = selectedUnifiedPosition;
+                            const createResult = await createRole({
+                                companyId: company.id,
+                                title: pos.role.title,
+                                orgNodeId: pos.role.orgNodeId || undefined,
+                            });
+                            if (!createResult.success || !createResult.role) {
+                                toast({
+                                    title: "Errore",
+                                    description: createResult.error || "Impossibile creare il ruolo",
+                                    variant: "destructive",
+                                });
+                                return { success: false, error: createResult.error };
+                            }
+                            actualRoleId = createResult.role.id;
+                        }
+                        const result = await updateRole(actualRoleId, updatedRole);
                         if (result.success) {
                             toast({
                                 title: "Ruolo aggiornato",
                                 description: "Il ruolo è stato modificato con successo",
                             });
-                            // Refresh the role data
-                            const refreshed = await fetchRoleWithAssignments(roleId);
+                            const refreshed = await fetchRoleWithAssignments(actualRoleId);
                             if (refreshed) {
                                 setSelectedUnifiedPosition(prev => prev ? { ...prev, role: refreshed } : null);
                             }
@@ -2133,7 +2152,7 @@ export const CompanyOrgView: React.FC<{
                             });
                         }
                         return result;
-                    } : undefined}
+                    }}
                     onDeleteRole={!selectedUnifiedPosition.role.id.startsWith('implicit-') ? async (roleId) => {
                         const result = await deleteRole(roleId);
                         if (result.success) {
@@ -2150,35 +2169,6 @@ export const CompanyOrgView: React.FC<{
                             });
                         }
                         return result;
-                    } : undefined}
-                    onPromoteToFormalRole={selectedUnifiedPosition.role.id.startsWith('implicit-') ? async () => {
-                        const pos = selectedUnifiedPosition;
-                        const result = await createRole({
-                            companyId: company.id,
-                            title: pos.role.title,
-                            orgNodeId: pos.role.orgNodeId || undefined,
-                        });
-                        if (result.success && result.role) {
-                            // If there's an assignee with a memberId, update the member's department
-                            toast({
-                                title: "Ruolo creato",
-                                description: `"${pos.role.title}" è ora un ruolo formale modificabile`,
-                            });
-                            // Reload unified position with the new formal role
-                            const refreshed = await fetchRoleWithAssignments(result.role.id);
-                            if (refreshed) {
-                                setSelectedUnifiedPosition(prev => prev ? {
-                                    ...prev,
-                                    role: refreshed,
-                                } : null);
-                            }
-                        } else {
-                            toast({
-                                title: "Errore",
-                                description: result.error || "Impossibile creare il ruolo formale",
-                                variant: "destructive",
-                            });
-                        }
                     } : undefined}
                 />
             )}
