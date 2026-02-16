@@ -1,67 +1,107 @@
 
+# Editing Completo dei Ruoli dall'Organigramma
 
-# Rendere Modificabile il Ruolo dall'Organigramma
+## Cosa cambia
 
-## Problema
+### 1. Eliminazione del concetto "Ruolo Implicito" dalla UX
+Il bottone "Crea Ruolo Formale" e il banner informativo vengono rimossi. Quando un utente clicca su una card con ruolo implicito, il sistema crea automaticamente il ruolo formale nel database in background (silenziosamente), cosi il ruolo diventa subito modificabile senza step intermedi. L'utente vede direttamente la modale con il bottone "Modifica" attivo.
 
-Dallo screenshot si vede che la modale mostra "Ruolo implicito" -- questo significa che il ruolo non e stato creato formalmente nel sistema, ma generato automaticamente dal job title del dipendente. I ruoli impliciti hanno un ID che inizia con `implicit-` e la logica attuale li rende NON modificabili: il bottone "Modifica Ruolo" e nascosto perche `canEdit = false`.
+### 2. Editing su TUTTI i tab (Requisiti + Contratto)
+Attualmente solo il tab "Ruolo" supporta l'editing. I tab "Requisiti" e "Contratto" rimangono sempre in sola lettura. Con questa modifica:
 
-Il bottone "Profilo Completo" in basso serve solo per aprire il profilo della persona, non per modificare il ruolo.
+**Tab Requisiti (edit mode):**
+- Hard Skills: lista editabile con nome, livello (1-5), flag obbligatorio, bottone "+ Aggiungi"
+- Soft Skills: stessa struttura delle hard skills
+- Seniority: select dropdown (Junior/Mid/Senior/Lead/C-Level)
+- Anni di esperienza: due campi numerici (min/max)
+- Formazione: lista editabile con titolo, campo di studio, flag obbligatorio
+- Certificazioni: lista editabile di stringhe
+- Lingue: lista editabile con lingua + livello (base/intermedio/avanzato/madrelingua)
 
-## Soluzione: Bottone "Promuovi a Ruolo Formale"
+**Tab Contratto (edit mode):**
+- Tipo Contratto: select dropdown
+- Orario: select dropdown (Full-time/Part-time/Flessibile)
+- Modalita Lavoro: select dropdown (In sede/Ibrido/Full remote/A scelta)
+- Livello CCNL: campo testo
+- Range RAL: due campi numerici (min/max)
 
-Per i ruoli impliciti, aggiungere un'azione che permetta di convertirli in ruoli formali (salvati nel database), rendendoli poi modificabili.
+### 3. Gestione Persona Assegnata (tab Persona in edit mode)
+In modalita editing, il tab Persona mostra:
+- Se c'e un assegnatario: il nome attuale con un bottone "Rimuovi Assegnazione"
+- Un campo di ricerca/selezione per assegnare un membro dell'azienda
+- Questo utilizza la lista `companyMembers` gia disponibile nel parent
 
-### Flusso Utente
+## File da Modificare
 
-1. L'utente apre la card nell'organigramma
-2. Vede "Ruolo implicito" con i campi vuoti
-3. In basso appare un bottone "Crea Ruolo Formale" (al posto di "Modifica Ruolo")
-4. Click sul bottone: il sistema crea un nuovo `company_role` nel DB con i dati base (titolo dal job title, company_id, org_node_id)
-5. La modale si ricarica con il ruolo formale appena creato, e ora il bottone "Modifica Ruolo" e visibile
-6. L'utente puo editare descrizione, responsabilita, skill, KPI, etc.
+### 1. `src/components/roles/UnifiedDetailModal.tsx`
+- Rimuovere il banner "ruolo implicito" e il bottone "Crea Ruolo Formale"
+- Rimuovere la prop `onPromoteToFormalRole` e la logica di promozione
+- Rimuovere la variabile `isImplicitRole` come blocco all'editing -- `canEdit` diventa sempre `true` quando `onSaveRole` e presente
+- Aggiungere edit mode al tab Requisiti: form per hard skills, soft skills, seniority, esperienza, formazione, certificazioni, lingue
+- Aggiungere edit mode al tab Contratto: select per tipo contratto, orario, remote policy; campi per CCNL e RAL
+- Aggiungere gestione assegnazione persona nel tab Persona (nuova prop `companyMembers` e `onAssignPerson`)
 
-### File da Modificare
+### 2. `views/admin/CompanyOrgView.tsx`
+- Rimuovere la logica `onPromoteToFormalRole`
+- Modificare `onSaveRole` per gestire anche i ruoli impliciti: prima di salvare, se il ruolo e implicito, creare automaticamente il ruolo formale e poi salvare le modifiche
+- Passare sempre `onSaveRole` e `onDeleteRole` (senza il check `startsWith('implicit-')`)
+- Passare la lista `companyMembers` e il callback `onAssignPerson` alla modale
 
-#### 1. `src/components/roles/UnifiedDetailModal.tsx`
-- Nella sezione Actions (footer), quando `isImplicitRole` e `true`, mostrare un bottone "Crea Ruolo Formale" con icona e stile prominente
-- Aggiungere una nuova prop `onPromoteToFormalRole` che accetta il ruolo implicito e lo converte
-- Aggiungere un banner informativo nel tab "Ruolo" quando e implicito: "Questo ruolo e stato generato automaticamente. Crealo come ruolo formale per modificarlo."
+### 3. Fix errori di build pre-esistenti
+Correggere i numerosi errori TypeScript elencati nei build errors per permettere la compilazione.
 
-#### 2. `views/admin/CompanyOrgView.tsx`
-- Passare la nuova prop `onPromoteToFormalRole` alla `UnifiedDetailModal`
-- Implementare la logica: chiamare `createRole()` con i dati del ruolo implicito (titolo, companyId, orgNodeId), poi aggiornare il `company_member` con il nuovo `role_id`
-- Dopo la creazione, ricaricare la posizione unificata con il ruolo formale
+## Dettagli Tecnici
 
-#### 3. Fix Errori di Build Pre-esistenti
-I seguenti errori di build non sono legati a questa feature ma devono essere risolti per far compilare il progetto:
-
-- **`CompanyOrgView.tsx:2099`**: Firma `onEdit` incompatibile -- il tipo atteso e `() => void` ma viene passata una funzione con parametro
-- **`CompanyOrgView.tsx:2149`**: `updateRole` chiamato con 3 argomenti invece di 2
-- Vari errori di tipo in altri file (PositionMatchingView, KarmaProfileEdit, riasecService, etc.) che sono pre-esistenti
-
-### Dettagli Tecnici
-
-Nuovo bottone nel footer della modale:
+Flusso auto-promozione per ruoli impliciti:
 ```text
-Se isImplicitRole:
-  [Crea Ruolo Formale]  -- bottone verde prominente
-  [Profilo Completo]     -- se assegnee presente
-
-Se !isImplicitRole:
-  [Modifica Ruolo]       -- come oggi
-  [Elimina]              -- come oggi
-  [Profilo Completo]     -- se assegnee presente
+Utente clicca "Modifica" su ruolo implicito
+  -> onSaveRole viene chiamato
+  -> CompanyOrgView controlla se role.id.startsWith('implicit-')
+  -> Se si: createRole() in background, ottiene il nuovo ID
+  -> Poi updateRole() con le modifiche dell'utente
+  -> Aggiorna la posizione con il ruolo formale
+  -> L'utente non vede nulla di tutto questo
 ```
 
-Banner nel tab Ruolo per ruoli impliciti:
+Struttura editing Requisiti:
 ```text
-+----------------------------------------------+
-| (i) Questo ruolo e generato dal job title.   |
-|     Crea un ruolo formale per modificare      |
-|     mansionario, KPI e requisiti.             |
-|                          [Crea Ruolo Formale] |
-+----------------------------------------------+
+[HARD SKILLS]
+  Nome: [input]  Livello: [1-5]  Obbligatorio: [checkbox]  [X]
+  + Aggiungi hard skill
+
+[SOFT SKILLS]  
+  Nome: [input]  Obbligatorio: [checkbox]  [X]
+  + Aggiungi soft skill
+
+[SENIORITY]
+  [Dropdown: Junior | Mid | Senior | Lead | C-Level]
+
+[ESPERIENZA]
+  Da [min] a [max] anni
+
+[FORMAZIONE]
+  Titolo: [input]  Campo: [input]  Obbligatorio: [checkbox]  [X]
+  + Aggiungi titolo di studio
+
+[CERTIFICAZIONI]
+  [input] [X]
+  + Aggiungi certificazione
+
+[LINGUE]
+  Lingua: [input]  Livello: [dropdown]  [X]
+  + Aggiungi lingua
 ```
 
-Nessuna modifica al database. 2 file principali da modificare.
+Struttura editing Contratto:
+```text
+[TIPOLOGIA]
+  Tipo Contratto: [dropdown]
+  Orario: [dropdown]
+  Modalita: [dropdown]
+
+[INQUADRAMENTO]
+  Livello CCNL: [input testo]
+  RAL Min: [input numerico]  RAL Max: [input numerico]
+```
+
+Nessuna modifica al database. 2 file principali da modificare + fix build errors in file secondari.
