@@ -1,199 +1,101 @@
 
+# Redesign Collegamenti di Collaborazione: Team-First con Breakdown Membri
 
-# Evoluzione Proximity Engine: Collaboration Profile
+## Cosa cambia
 
-## Panoramica
+Attualmente il selettore permette di scegliere "Team" o "Persona" come entita indipendenti. Questo non riflette la realta organizzativa: le persone fanno parte di team.
 
-Questa feature aggiunge un sistema di profilazione collaborativa per ogni ruolo/membro, collegando matematicamente l'organigramma alla disposizione fisica degli uffici in SpaceSync. I dati di collaborazione vengono salvati a livello di `company_role` (come JSONB) e consumati dal Proximity Engine per ottimizzare le scrivanie.
+### Nuovo flusso
 
----
+1. L'utente clicca "+ Aggiungi Connessione"
+2. Appare un dropdown con i **Team** disponibili (org nodes)
+3. Selezionato un Team, il sistema carica automaticamente tutti i **membri** di quel team (trovati tramite i ruoli assegnati a quel `org_node_id`)
+4. Per ogni membro del team, l'utente puo specificare:
+   - **% Collaborazione** individuale (slider)
+   - **Affinita Personale** (stelle 1-5)
+5. La **% totale del team** e la somma delle % dei singoli membri
+6. L'utente puo deselezionare membri con cui non collabora
 
-## 1. Database: Nuova colonna su `company_roles`
+### Struttura dati (invariata)
 
-Aggiungere una colonna JSONB `collaboration_profile` alla tabella `company_roles`:
+Il `CollaborationLink` rimane con `targetType: 'team'`, e il campo `memberBreakdown` gia previsto viene utilizzato pienamente:
 
-```sql
-ALTER TABLE public.company_roles
-ADD COLUMN collaboration_profile jsonb DEFAULT '{"links":[],"environmentalImpact":3,"operationalFluidity":3}'::jsonb;
-```
-
-Struttura del JSONB:
 ```text
 {
-  "links": [
-    {
-      "targetType": "team" | "member",
-      "targetId": "<org_node_id o company_member_id>",
-      "targetLabel": "Sales Team",
-      "collaborationPercentage": 40,
-      "personalAffinity": 4,
-      "memberBreakdown": [           // solo per targetType "team"
-        { "memberId": "xxx", "memberLabel": "Mario Rossi", "percentage": 60 },
-        { "memberId": "yyy", "memberLabel": "Luigi Bianchi", "percentage": 40 }
-      ]
-    }
-  ],
-  "environmentalImpact": 3,    // 1-5 Likert (rumore/disturbo)
-  "operationalFluidity": 3     // 1-5 Likert (call/uscite/interruzioni)
+  targetType: 'team',
+  targetId: '<org_node_id>',
+  targetLabel: 'Sales Team',
+  collaborationPercentage: 45,   // somma automatica dei breakdown
+  personalAffinity: 3,           // media dei breakdown (o non usato)
+  memberBreakdown: [
+    { memberId: 'xxx', memberLabel: 'Mario Rossi', percentage: 30, affinity: 4 },
+    { memberId: 'yyy', memberLabel: 'Luigi Bianchi', percentage: 15, affinity: 3 }
+  ]
 }
 ```
 
-Le policy RLS esistenti su `company_roles` coprono gia lettura/scrittura per admin, HR e super_admin.
+Piccola estensione: aggiungere `affinity` al tipo `CollaborationMemberBreakdown` per tracciare l'affinita per singolo membro.
 
----
+## File da modificare
 
-## 2. Types (src/types/roles.ts)
+### 1. `src/types/roles.ts`
+- Aggiungere `affinity?: number` (1-5) a `CollaborationMemberBreakdown`
 
-Aggiungere le nuove interfacce:
+### 2. `src/components/roles/UnifiedDetailModal.tsx`
+
+**Edit mode (sezione Collegamenti):**
+- Rimuovere il selettore "Persona/Team" -- ora si seleziona solo un Team
+- Selezionato un team, fare lookup dei membri: filtrare `companyMembers` i cui ruoli appartengono a quel `org_node_id` (serve passare anche i ruoli, oppure una mappa `orgNodeId -> membri`)
+- Mostrare la lista dei membri del team come righe espandibili, ognuna con slider % e stelle affinita
+- La `collaborationPercentage` del link viene calcolata automaticamente come somma dei breakdown
+- `personalAffinity` del link diventa la media delle affinita dei breakdown
+
+**Nuova prop necessaria:**
+- `rolesByOrgNode?: Record<string, string[]>` -- mappa da `org_node_id` a lista di `user_id` o `member_id` dei membri assegnati a ruoli in quel nodo. Oppure piu semplice: passare l'intera lista `roles` con le assignments per fare il lookup nel componente.
+
+Alternativa piu pragmatica: passare una prop `membersByOrgNode?: Record<string, {id: string, label: string}[]>` gia calcolata dal parent.
+
+**View mode:**
+- Mostrare ogni connessione come card Team con i membri espansi sotto, ognuno con la sua % e stelle
+
+### 3. `views/admin/CompanyOrgView.tsx`
+- Calcolare `membersByOrgNode` dalla lista dei ruoli e assignments (o dalla `company_members` con i loro `org_node_id` se disponibile) e passarla alla modale
+- Se i dati non sono facilmente derivabili lato client, fare una query ai ruoli per `org_node_id` con join sulle assignments
+
+## Dettagli Tecnici
+
+### Lookup membri per team
+Per sapere chi appartiene a un team, il sistema:
+1. Prende tutti i `company_roles` con `org_node_id = X`
+2. Per ogni ruolo, prende le `company_role_assignments` attive
+3. Mappa gli `user_id` delle assignments ai `companyMembers` per ottenere nome/cognome
+
+Questo viene pre-calcolato nel parent (`CompanyOrgView`) e passato come prop `membersByOrgNode`.
+
+### UI del singolo collegamento (edit mode)
 
 ```text
-CollaborationLink {
-  targetType: 'team' | 'member'
-  targetId: string
-  targetLabel: string
-  collaborationPercentage: number  // 0-100
-  personalAffinity: number         // 1-5
-  memberBreakdown?: { memberId, memberLabel, percentage }[]
-}
-
-CollaborationProfile {
-  links: CollaborationLink[]
-  environmentalImpact: number      // 1-5
-  operationalFluidity: number      // 1-5
-}
++----------------------------------------------+
+| Team: [Dropdown Team]                    [X]  |
+| Collab totale: 45%                            |
++----------------------------------------------+
+|  Mario Rossi                                  |
+|  Collab: [===|=========] 30%  Affinita: ***   |
+|  Luigi Bianchi                                |
+|  Collab: [==|==========] 15%  Affinita: **    |
+|  Anna Verdi (deselezionato/0%)                |
+|  Collab: [|============]  0%  Affinita: -     |
++----------------------------------------------+
 ```
 
-Aggiungere `collaborationProfile?: CollaborationProfile` a `CompanyRole`, `CreateRoleInput` e `UpdateRoleInput`.
+### UI del singolo collegamento (view mode)
 
----
-
-## 3. Hook: useCompanyRoles (src/hooks/useCompanyRoles.ts)
-
-- Aggiungere `collaboration_profile` nel mapping `mapDbRowToRole` e `mapInputToDbRow`
-- I dati vengono letti/scritti come parte del normale CRUD dei ruoli (nessun endpoint aggiuntivo)
-
----
-
-## 4. UI: Nuovo Tab "Collaborazione" in UnifiedDetailModal
-
-Aggiungere un sesto tab alla modale con id `collaborazione`:
-
-**Sezione A - Parametri Personali (Sliders)**
-- Impatto Ambientale (1-5): slider con icona Volume2, labels da "Silenzioso" a "Molto rumoroso"
-- Fluidita Operativa (1-5): slider con icona Activity, labels da "Stabile/fisso" a "Molto dinamico"
-
-**Sezione B - Collegamenti di Collaborazione**
-- Lista delle connessioni esistenti con % e affinita
-- Bottone "+ Aggiungi Connessione" che apre un selettore:
-  - Tipo: Team (org_node) o Persona (company_member)
-  - Target: dropdown con ricerca tra i nodi/membri dell'azienda
-  - % Collaborazione: slider numerico
-  - Affinita Personale: slider 1-5
-- Per connessioni di tipo "Team": opzione di espandere e distribuire la % tra singoli membri del team
-- Barra di validazione: mostra la somma totale delle % (con warning se supera 100%)
-- Ogni connessione ha un bottone di rimozione
-
-**Props necessarie:**
-- `orgNodes` (lista dei nodi organizzativi per il selettore Team)
-- I `companyMembers` gia passati vengono riusati per il selettore Persona
-
----
-
-## 5. Proximity Engine (src/utils/proximityEngine.ts)
-
-### 5A. Aggiornare ProximityUserData
-Aggiungere:
 ```text
-collaborationProfile?: CollaborationProfile
++----------------------------------------------+
+| [TEAM] Sales Team                  45%  ***   |
+|   Mario Rossi            30%      ****        |
+|   Luigi Bianchi          15%      ***         |
++----------------------------------------------+
 ```
 
-### 5B. Nuova funzione: calculateCollaborationFlow
-Sostituisce `calculateCommunicationFlow`. Calcola uno score 0-100 basato su:
-- Se A ha un link verso il team/membro di B (o viceversa), lo score e proporzionale alla % di collaborazione
-- Bonus per alta affinita personale (Likert 4-5)
-- Fallback a 40 se non ci sono link diretti
-
-### 5C. Nuova funzione: calculateEnvironmentalFriction
-Aggiunge una penalita (0-100) quando:
-- Un utente ha alto Impatto Ambientale (4-5) e l'altro ha un profilo Karma con need di focus/silenzio (rilevato dai riskFactors o softSkills come "Concentrazione", "Analytical Thinking")
-- Due utenti con Fluidita Operativa molto diversa (delta >= 3)
-- Due utenti entrambi con Impatto Ambientale 5 (amplificazione rumore)
-
-### 5D. Aggiornare pesi
-```text
-RIASEC_COMPLEMENTARITY: 0.15  (era 0.20)
-SOFT_SKILLS_OVERLAP:    0.10  (era 0.15)
-VALUES_ALIGNMENT:       0.10  (era 0.15)
-COLLABORATION_FLOW:     0.30  (resta 0.30, ma ora basato su %)
-GENERATION_SYNERGY:     0.10  (resta 0.10)
-CONFLICT_RISK:          0.10  (resta 0.10)
-ENVIRONMENTAL_FRICTION: 0.15  (NUOVO)
-```
-
-### 5E. Aggiornare ProximityResult.breakdown
-Aggiungere `collaborationFlow` (rinominato da `communicationFlow`) e `environmentalFriction`.
-
-### 5F. Nuovi insight
-- "Alto flusso collaborativo (X%) -- ottimo averli vicini"
-- "Rischio Frizione Ambientale: stili operativi incompatibili"
-- "Attenzione: potenziale disturbo sonoro per il vicino"
-
----
-
-## 6. Hook useProximityScoring (src/hooks/useProximityScoring.ts)
-
-Aggiornare `loadUserData` per:
-- Fetch dei `company_roles` con `collaboration_profile` per ogni membro assegnato
-- Popolare `collaborationProfile` nel `ProximityUserData`
-
----
-
-## 7. Visual Feedback in SpaceSync
-
-### 7A. Heatmap Alerts (src/components/spacesync/ProximityReport.tsx)
-- Nella lista delle coppie critiche, aggiungere icone specifiche:
-  - `Volume2` (rosso) se c'e frizione ambientale
-  - `Activity` (ambra) se c'e incompatibilita di fluidita operativa
-- Insight testuale dedicato nel report
-
-### 7B. OptimizationSuggestions (src/components/spacesync/OptimizationSuggestions.tsx)
-- Passare i dati di environmental friction all'AI per suggerimenti piu mirati
-- Mostrare alert visivi nei suggerimenti quando il motivo e ambientale
-
-### 7C. Canvas DeskTooltip (src/components/spacesync/canvas/DeskTooltip.tsx)
-- Mostrare piccole icone (Volume2, Activity) nel tooltip della scrivania se il profilo ha valori estremi (4-5) di impatto ambientale o fluidita
-
----
-
-## 8. Fix Build Errors Pre-esistenti
-
-Correggere tutti gli errori TypeScript elencati nei build errors per permettere la compilazione, inclusi:
-- `riasecService.ts`: cast corretto per evitare `never`
-- `OrgChartPrintView.tsx`: default boolean
-- `useProfiles.ts`: filtrare null prima di `.in()`
-- `useQuestionnaires.ts`: null vs undefined e overload
-- `useUnifiedOrgData.ts`: `notes: string | null` vs `string | undefined`
-- `questionnaireImportExport.ts`: null vs undefined
-- `OrgNodeCard.tsx` e `PositionMatchingView.tsx`: optional chaining
-- `KarmaProfileEdit.tsx`: tipo proficiency e campi mancanti
-- `QuestionnaireEditorView.tsx`: tipo ritorno Promise
-
----
-
-## File da Modificare
-
-| File | Modifica |
-|---|---|
-| **Migration SQL** | Nuova colonna `collaboration_profile` su `company_roles` |
-| `src/types/roles.ts` | Nuove interfacce + campo in CompanyRole/Input |
-| `src/hooks/useCompanyRoles.ts` | Mapping collaboration_profile |
-| `src/components/roles/UnifiedDetailModal.tsx` | Nuovo tab "Collaborazione" con sliders e link editor |
-| `src/utils/proximityEngine.ts` | Nuove funzioni scoring, nuovi pesi, nuovi insight |
-| `src/hooks/useProximityScoring.ts` | Fetch collaboration_profile nei dati utente |
-| `src/components/spacesync/ProximityReport.tsx` | Icone alert frizione |
-| `src/components/spacesync/OptimizationSuggestions.tsx` | Dati ambientali nel prompt AI |
-| `src/components/spacesync/canvas/DeskTooltip.tsx` | Icone impatto nel tooltip |
-| + ~10 file per fix build errors |
-
-Nessuna nuova dipendenza. 1 migrazione DB (aggiunta colonna JSONB). ~12-15 file da modificare.
-
+Nessuna migrazione DB necessaria (il campo `memberBreakdown` esiste gia). 3 file da modificare, di cui 1 minimo (`types`).
