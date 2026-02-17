@@ -42,6 +42,7 @@ export interface CollaborationMemberBreakdown {
   memberId: string;
   memberLabel: string;
   percentage: number;
+  affinity?: number; // 1-5 personal affinity per member
 }
 
 export interface CollaborationLink {
