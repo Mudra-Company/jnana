@@ -1,107 +1,199 @@
 
-# Editing Completo dei Ruoli dall'Organigramma
 
-## Cosa cambia
+# Evoluzione Proximity Engine: Collaboration Profile
 
-### 1. Eliminazione del concetto "Ruolo Implicito" dalla UX
-Il bottone "Crea Ruolo Formale" e il banner informativo vengono rimossi. Quando un utente clicca su una card con ruolo implicito, il sistema crea automaticamente il ruolo formale nel database in background (silenziosamente), cosi il ruolo diventa subito modificabile senza step intermedi. L'utente vede direttamente la modale con il bottone "Modifica" attivo.
+## Panoramica
 
-### 2. Editing su TUTTI i tab (Requisiti + Contratto)
-Attualmente solo il tab "Ruolo" supporta l'editing. I tab "Requisiti" e "Contratto" rimangono sempre in sola lettura. Con questa modifica:
+Questa feature aggiunge un sistema di profilazione collaborativa per ogni ruolo/membro, collegando matematicamente l'organigramma alla disposizione fisica degli uffici in SpaceSync. I dati di collaborazione vengono salvati a livello di `company_role` (come JSONB) e consumati dal Proximity Engine per ottimizzare le scrivanie.
 
-**Tab Requisiti (edit mode):**
-- Hard Skills: lista editabile con nome, livello (1-5), flag obbligatorio, bottone "+ Aggiungi"
-- Soft Skills: stessa struttura delle hard skills
-- Seniority: select dropdown (Junior/Mid/Senior/Lead/C-Level)
-- Anni di esperienza: due campi numerici (min/max)
-- Formazione: lista editabile con titolo, campo di studio, flag obbligatorio
-- Certificazioni: lista editabile di stringhe
-- Lingue: lista editabile con lingua + livello (base/intermedio/avanzato/madrelingua)
+---
 
-**Tab Contratto (edit mode):**
-- Tipo Contratto: select dropdown
-- Orario: select dropdown (Full-time/Part-time/Flessibile)
-- Modalita Lavoro: select dropdown (In sede/Ibrido/Full remote/A scelta)
-- Livello CCNL: campo testo
-- Range RAL: due campi numerici (min/max)
+## 1. Database: Nuova colonna su `company_roles`
 
-### 3. Gestione Persona Assegnata (tab Persona in edit mode)
-In modalita editing, il tab Persona mostra:
-- Se c'e un assegnatario: il nome attuale con un bottone "Rimuovi Assegnazione"
-- Un campo di ricerca/selezione per assegnare un membro dell'azienda
-- Questo utilizza la lista `companyMembers` gia disponibile nel parent
+Aggiungere una colonna JSONB `collaboration_profile` alla tabella `company_roles`:
+
+```sql
+ALTER TABLE public.company_roles
+ADD COLUMN collaboration_profile jsonb DEFAULT '{"links":[],"environmentalImpact":3,"operationalFluidity":3}'::jsonb;
+```
+
+Struttura del JSONB:
+```text
+{
+  "links": [
+    {
+      "targetType": "team" | "member",
+      "targetId": "<org_node_id o company_member_id>",
+      "targetLabel": "Sales Team",
+      "collaborationPercentage": 40,
+      "personalAffinity": 4,
+      "memberBreakdown": [           // solo per targetType "team"
+        { "memberId": "xxx", "memberLabel": "Mario Rossi", "percentage": 60 },
+        { "memberId": "yyy", "memberLabel": "Luigi Bianchi", "percentage": 40 }
+      ]
+    }
+  ],
+  "environmentalImpact": 3,    // 1-5 Likert (rumore/disturbo)
+  "operationalFluidity": 3     // 1-5 Likert (call/uscite/interruzioni)
+}
+```
+
+Le policy RLS esistenti su `company_roles` coprono gia lettura/scrittura per admin, HR e super_admin.
+
+---
+
+## 2. Types (src/types/roles.ts)
+
+Aggiungere le nuove interfacce:
+
+```text
+CollaborationLink {
+  targetType: 'team' | 'member'
+  targetId: string
+  targetLabel: string
+  collaborationPercentage: number  // 0-100
+  personalAffinity: number         // 1-5
+  memberBreakdown?: { memberId, memberLabel, percentage }[]
+}
+
+CollaborationProfile {
+  links: CollaborationLink[]
+  environmentalImpact: number      // 1-5
+  operationalFluidity: number      // 1-5
+}
+```
+
+Aggiungere `collaborationProfile?: CollaborationProfile` a `CompanyRole`, `CreateRoleInput` e `UpdateRoleInput`.
+
+---
+
+## 3. Hook: useCompanyRoles (src/hooks/useCompanyRoles.ts)
+
+- Aggiungere `collaboration_profile` nel mapping `mapDbRowToRole` e `mapInputToDbRow`
+- I dati vengono letti/scritti come parte del normale CRUD dei ruoli (nessun endpoint aggiuntivo)
+
+---
+
+## 4. UI: Nuovo Tab "Collaborazione" in UnifiedDetailModal
+
+Aggiungere un sesto tab alla modale con id `collaborazione`:
+
+**Sezione A - Parametri Personali (Sliders)**
+- Impatto Ambientale (1-5): slider con icona Volume2, labels da "Silenzioso" a "Molto rumoroso"
+- Fluidita Operativa (1-5): slider con icona Activity, labels da "Stabile/fisso" a "Molto dinamico"
+
+**Sezione B - Collegamenti di Collaborazione**
+- Lista delle connessioni esistenti con % e affinita
+- Bottone "+ Aggiungi Connessione" che apre un selettore:
+  - Tipo: Team (org_node) o Persona (company_member)
+  - Target: dropdown con ricerca tra i nodi/membri dell'azienda
+  - % Collaborazione: slider numerico
+  - Affinita Personale: slider 1-5
+- Per connessioni di tipo "Team": opzione di espandere e distribuire la % tra singoli membri del team
+- Barra di validazione: mostra la somma totale delle % (con warning se supera 100%)
+- Ogni connessione ha un bottone di rimozione
+
+**Props necessarie:**
+- `orgNodes` (lista dei nodi organizzativi per il selettore Team)
+- I `companyMembers` gia passati vengono riusati per il selettore Persona
+
+---
+
+## 5. Proximity Engine (src/utils/proximityEngine.ts)
+
+### 5A. Aggiornare ProximityUserData
+Aggiungere:
+```text
+collaborationProfile?: CollaborationProfile
+```
+
+### 5B. Nuova funzione: calculateCollaborationFlow
+Sostituisce `calculateCommunicationFlow`. Calcola uno score 0-100 basato su:
+- Se A ha un link verso il team/membro di B (o viceversa), lo score e proporzionale alla % di collaborazione
+- Bonus per alta affinita personale (Likert 4-5)
+- Fallback a 40 se non ci sono link diretti
+
+### 5C. Nuova funzione: calculateEnvironmentalFriction
+Aggiunge una penalita (0-100) quando:
+- Un utente ha alto Impatto Ambientale (4-5) e l'altro ha un profilo Karma con need di focus/silenzio (rilevato dai riskFactors o softSkills come "Concentrazione", "Analytical Thinking")
+- Due utenti con Fluidita Operativa molto diversa (delta >= 3)
+- Due utenti entrambi con Impatto Ambientale 5 (amplificazione rumore)
+
+### 5D. Aggiornare pesi
+```text
+RIASEC_COMPLEMENTARITY: 0.15  (era 0.20)
+SOFT_SKILLS_OVERLAP:    0.10  (era 0.15)
+VALUES_ALIGNMENT:       0.10  (era 0.15)
+COLLABORATION_FLOW:     0.30  (resta 0.30, ma ora basato su %)
+GENERATION_SYNERGY:     0.10  (resta 0.10)
+CONFLICT_RISK:          0.10  (resta 0.10)
+ENVIRONMENTAL_FRICTION: 0.15  (NUOVO)
+```
+
+### 5E. Aggiornare ProximityResult.breakdown
+Aggiungere `collaborationFlow` (rinominato da `communicationFlow`) e `environmentalFriction`.
+
+### 5F. Nuovi insight
+- "Alto flusso collaborativo (X%) -- ottimo averli vicini"
+- "Rischio Frizione Ambientale: stili operativi incompatibili"
+- "Attenzione: potenziale disturbo sonoro per il vicino"
+
+---
+
+## 6. Hook useProximityScoring (src/hooks/useProximityScoring.ts)
+
+Aggiornare `loadUserData` per:
+- Fetch dei `company_roles` con `collaboration_profile` per ogni membro assegnato
+- Popolare `collaborationProfile` nel `ProximityUserData`
+
+---
+
+## 7. Visual Feedback in SpaceSync
+
+### 7A. Heatmap Alerts (src/components/spacesync/ProximityReport.tsx)
+- Nella lista delle coppie critiche, aggiungere icone specifiche:
+  - `Volume2` (rosso) se c'e frizione ambientale
+  - `Activity` (ambra) se c'e incompatibilita di fluidita operativa
+- Insight testuale dedicato nel report
+
+### 7B. OptimizationSuggestions (src/components/spacesync/OptimizationSuggestions.tsx)
+- Passare i dati di environmental friction all'AI per suggerimenti piu mirati
+- Mostrare alert visivi nei suggerimenti quando il motivo e ambientale
+
+### 7C. Canvas DeskTooltip (src/components/spacesync/canvas/DeskTooltip.tsx)
+- Mostrare piccole icone (Volume2, Activity) nel tooltip della scrivania se il profilo ha valori estremi (4-5) di impatto ambientale o fluidita
+
+---
+
+## 8. Fix Build Errors Pre-esistenti
+
+Correggere tutti gli errori TypeScript elencati nei build errors per permettere la compilazione, inclusi:
+- `riasecService.ts`: cast corretto per evitare `never`
+- `OrgChartPrintView.tsx`: default boolean
+- `useProfiles.ts`: filtrare null prima di `.in()`
+- `useQuestionnaires.ts`: null vs undefined e overload
+- `useUnifiedOrgData.ts`: `notes: string | null` vs `string | undefined`
+- `questionnaireImportExport.ts`: null vs undefined
+- `OrgNodeCard.tsx` e `PositionMatchingView.tsx`: optional chaining
+- `KarmaProfileEdit.tsx`: tipo proficiency e campi mancanti
+- `QuestionnaireEditorView.tsx`: tipo ritorno Promise
+
+---
 
 ## File da Modificare
 
-### 1. `src/components/roles/UnifiedDetailModal.tsx`
-- Rimuovere il banner "ruolo implicito" e il bottone "Crea Ruolo Formale"
-- Rimuovere la prop `onPromoteToFormalRole` e la logica di promozione
-- Rimuovere la variabile `isImplicitRole` come blocco all'editing -- `canEdit` diventa sempre `true` quando `onSaveRole` e presente
-- Aggiungere edit mode al tab Requisiti: form per hard skills, soft skills, seniority, esperienza, formazione, certificazioni, lingue
-- Aggiungere edit mode al tab Contratto: select per tipo contratto, orario, remote policy; campi per CCNL e RAL
-- Aggiungere gestione assegnazione persona nel tab Persona (nuova prop `companyMembers` e `onAssignPerson`)
+| File | Modifica |
+|---|---|
+| **Migration SQL** | Nuova colonna `collaboration_profile` su `company_roles` |
+| `src/types/roles.ts` | Nuove interfacce + campo in CompanyRole/Input |
+| `src/hooks/useCompanyRoles.ts` | Mapping collaboration_profile |
+| `src/components/roles/UnifiedDetailModal.tsx` | Nuovo tab "Collaborazione" con sliders e link editor |
+| `src/utils/proximityEngine.ts` | Nuove funzioni scoring, nuovi pesi, nuovi insight |
+| `src/hooks/useProximityScoring.ts` | Fetch collaboration_profile nei dati utente |
+| `src/components/spacesync/ProximityReport.tsx` | Icone alert frizione |
+| `src/components/spacesync/OptimizationSuggestions.tsx` | Dati ambientali nel prompt AI |
+| `src/components/spacesync/canvas/DeskTooltip.tsx` | Icone impatto nel tooltip |
+| + ~10 file per fix build errors |
 
-### 2. `views/admin/CompanyOrgView.tsx`
-- Rimuovere la logica `onPromoteToFormalRole`
-- Modificare `onSaveRole` per gestire anche i ruoli impliciti: prima di salvare, se il ruolo e implicito, creare automaticamente il ruolo formale e poi salvare le modifiche
-- Passare sempre `onSaveRole` e `onDeleteRole` (senza il check `startsWith('implicit-')`)
-- Passare la lista `companyMembers` e il callback `onAssignPerson` alla modale
+Nessuna nuova dipendenza. 1 migrazione DB (aggiunta colonna JSONB). ~12-15 file da modificare.
 
-### 3. Fix errori di build pre-esistenti
-Correggere i numerosi errori TypeScript elencati nei build errors per permettere la compilazione.
-
-## Dettagli Tecnici
-
-Flusso auto-promozione per ruoli impliciti:
-```text
-Utente clicca "Modifica" su ruolo implicito
-  -> onSaveRole viene chiamato
-  -> CompanyOrgView controlla se role.id.startsWith('implicit-')
-  -> Se si: createRole() in background, ottiene il nuovo ID
-  -> Poi updateRole() con le modifiche dell'utente
-  -> Aggiorna la posizione con il ruolo formale
-  -> L'utente non vede nulla di tutto questo
-```
-
-Struttura editing Requisiti:
-```text
-[HARD SKILLS]
-  Nome: [input]  Livello: [1-5]  Obbligatorio: [checkbox]  [X]
-  + Aggiungi hard skill
-
-[SOFT SKILLS]  
-  Nome: [input]  Obbligatorio: [checkbox]  [X]
-  + Aggiungi soft skill
-
-[SENIORITY]
-  [Dropdown: Junior | Mid | Senior | Lead | C-Level]
-
-[ESPERIENZA]
-  Da [min] a [max] anni
-
-[FORMAZIONE]
-  Titolo: [input]  Campo: [input]  Obbligatorio: [checkbox]  [X]
-  + Aggiungi titolo di studio
-
-[CERTIFICAZIONI]
-  [input] [X]
-  + Aggiungi certificazione
-
-[LINGUE]
-  Lingua: [input]  Livello: [dropdown]  [X]
-  + Aggiungi lingua
-```
-
-Struttura editing Contratto:
-```text
-[TIPOLOGIA]
-  Tipo Contratto: [dropdown]
-  Orario: [dropdown]
-  Modalita: [dropdown]
-
-[INQUADRAMENTO]
-  Livello CCNL: [input testo]
-  RAL Min: [input numerico]  RAL Max: [input numerico]
-```
-
-Nessuna modifica al database. 2 file principali da modificare + fix build errors in file secondari.
