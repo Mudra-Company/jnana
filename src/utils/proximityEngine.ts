@@ -6,6 +6,7 @@
 // dimensional psychometric and organizational data.
 
 import type { RiasecScore } from '../../types';
+import type { CollaborationProfile } from '../types/roles';
 import { analyzeSynergy, type UserWithGeneration, type SynergyResult } from '../../services/generationService';
 
 // --- TYPES ---
@@ -32,6 +33,8 @@ export interface ProximityUserData {
     softSkills?: string[];
     seniorityAssessment?: any;
   };
+  // Collaboration profile from role
+  collaborationProfile?: CollaborationProfile;
 }
 
 export interface ProximityResult {
@@ -40,9 +43,10 @@ export interface ProximityResult {
     riasecComplementarity: number;
     softSkillsOverlap: number;
     valuesAlignment: number;
-    communicationFlow: number;
+    collaborationFlow: number;
     generationSynergy: number;
     conflictRisk: number;
+    environmentalFriction: number;
   };
   synergyResult?: SynergyResult;
   insights: string[];
@@ -69,38 +73,31 @@ export interface OptimizationSuggestion {
 
 // --- WEIGHTS ---
 const WEIGHTS = {
-  RIASEC_COMPLEMENTARITY: 0.20,
-  SOFT_SKILLS_OVERLAP: 0.15,
-  VALUES_ALIGNMENT: 0.15,
-  COMMUNICATION_FLOW: 0.30,
+  RIASEC_COMPLEMENTARITY: 0.15,
+  SOFT_SKILLS_OVERLAP: 0.10,
+  VALUES_ALIGNMENT: 0.10,
+  COLLABORATION_FLOW: 0.30,
   GENERATION_SYNERGY: 0.10,
   CONFLICT_RISK: 0.10,
+  ENVIRONMENTAL_FRICTION: 0.15,
 };
 
 // --- RIASEC COMPLEMENTARITY ---
 
 // Complementary pairs (work well together)
 const RIASEC_COMPLEMENTARY_PAIRS: [string, string][] = [
-  ['R', 'I'], // Realistic + Investigative
-  ['I', 'A'], // Investigative + Artistic
-  ['S', 'E'], // Social + Enterprising
-  ['E', 'C'], // Enterprising + Conventional
-  ['R', 'C'], // Realistic + Conventional
-  ['A', 'S'], // Artistic + Social
+  ['R', 'I'], ['I', 'A'], ['S', 'E'], ['E', 'C'], ['R', 'C'], ['A', 'S'],
 ];
 
 function calculateRiasecComplementarity(scoresA?: RiasecScore, scoresB?: RiasecScore): number {
-  if (!scoresA || !scoresB) return 50; // neutral when no data
+  if (!scoresA || !scoresB) return 50;
 
   const dims: (keyof RiasecScore)[] = ['R', 'I', 'A', 'S', 'E', 'C'];
-  
-  // Get top 3 dimensions for each
   const sortedA = dims.slice().sort((a, b) => (scoresB![b] ?? 0) - (scoresA![a] ?? 0));
   const sortedB = dims.slice().sort((a, b) => (scoresB![b] ?? 0) - (scoresA![a] ?? 0));
   const topA = sortedA.slice(0, 3);
   const topB = sortedB.slice(0, 3);
 
-  // Check complementary pairs
   let complementaryBonus = 0;
   for (const [d1, d2] of RIASEC_COMPLEMENTARY_PAIRS) {
     if (
@@ -111,18 +108,14 @@ function calculateRiasecComplementarity(scoresA?: RiasecScore, scoresB?: RiasecS
     }
   }
 
-  // Penalize too-similar profiles slightly (less diversity of thought)
   const overlap = topA.filter(d => topB.includes(d)).length;
   const similarityPenalty = overlap === 3 ? -10 : overlap === 2 ? -5 : 0;
 
-  // Calculate cosine similarity for nuance
   const dotProduct = dims.reduce((sum, d) => sum + (scoresA[d] ?? 0) * (scoresB[d] ?? 0), 0);
   const magA = Math.sqrt(dims.reduce((sum, d) => sum + (scoresA[d] ?? 0) ** 2, 0));
   const magB = Math.sqrt(dims.reduce((sum, d) => sum + (scoresB[d] ?? 0) ** 2, 0));
   const cosineSim = magA && magB ? dotProduct / (magA * magB) : 0;
 
-  // Balance: not too similar, not too different
-  // Optimal is ~0.5-0.7 cosine similarity
   const optimalDiff = Math.abs(cosineSim - 0.6);
   const cosineScore = Math.max(0, 100 - optimalDiff * 150);
 
@@ -140,15 +133,12 @@ function calculateSoftSkillsOverlap(skillsA?: string[], skillsB?: string[]): num
   const intersection = normalizedA.filter(s => normalizedB.includes(s));
   const union = new Set([...normalizedA, ...normalizedB]);
 
-  // Jaccard similarity
   const jaccard = union.size > 0 ? intersection.length / union.size : 0;
 
-  // Some overlap is good (communication), too much is redundant
-  // Optimal: 30-60% overlap
   if (jaccard >= 0.3 && jaccard <= 0.6) return 90;
-  if (jaccard > 0.6) return 70; // too similar
+  if (jaccard > 0.6) return 70;
   if (jaccard > 0.1) return 60;
-  return 30; // very different soft skills
+  return 30;
 }
 
 // --- VALUES ALIGNMENT ---
@@ -162,42 +152,113 @@ function calculateValuesAlignment(valuesA?: string[], valuesB?: string[]): numbe
   const shared = normalizedA.filter(v => normalizedB.includes(v));
   const shareRatio = shared.length / Math.max(normalizedA.length, normalizedB.length);
 
-  // Higher alignment = less friction
   return Math.round(30 + shareRatio * 70);
 }
 
-// --- COMMUNICATION FLOW ---
+// --- COLLABORATION FLOW (replaces binary communication flow) ---
 
-function calculateCommunicationFlow(
-  roleIdA?: string,
-  roleIdB?: string,
-  communicatingRolePairs?: Set<string>
+function calculateCollaborationFlow(
+  userA: ProximityUserData,
+  userB: ProximityUserData,
 ): number {
-  if (!roleIdA || !roleIdB || !communicatingRolePairs) return 50;
+  const profileA = userA.collaborationProfile;
+  const profileB = userB.collaborationProfile;
 
-  const key1 = `${roleIdA}:${roleIdB}`;
-  const key2 = `${roleIdB}:${roleIdA}`;
+  // If no collaboration profiles, fallback to 40
+  if (!profileA && !profileB) return 40;
 
-  if (communicatingRolePairs.has(key1) || communicatingRolePairs.has(key2)) {
-    return 100; // These roles need to communicate frequently
+  let maxCollabScore = 0;
+
+  // Check if A has a link to B (by member or team)
+  if (profileA?.links) {
+    for (const link of profileA.links) {
+      if (link.targetType === 'member' && link.targetId === userB.memberId) {
+        maxCollabScore = Math.max(maxCollabScore, link.collaborationPercentage);
+        // Bonus for high affinity
+        if (link.personalAffinity >= 4) maxCollabScore = Math.min(100, maxCollabScore + 10);
+      }
+      if (link.targetType === 'team') {
+        // Check if B has a role in this team (via memberBreakdown)
+        const memberEntry = link.memberBreakdown?.find(mb => mb.memberId === userB.memberId);
+        if (memberEntry) {
+          const effectivePct = (link.collaborationPercentage * memberEntry.percentage) / 100;
+          maxCollabScore = Math.max(maxCollabScore, effectivePct);
+          if (link.personalAffinity >= 4) maxCollabScore = Math.min(100, maxCollabScore + 5);
+        }
+      }
+    }
   }
 
-  return 40; // No known communication flow
+  // Check if B has a link to A
+  if (profileB?.links) {
+    for (const link of profileB.links) {
+      if (link.targetType === 'member' && link.targetId === userA.memberId) {
+        maxCollabScore = Math.max(maxCollabScore, link.collaborationPercentage);
+        if (link.personalAffinity >= 4) maxCollabScore = Math.min(100, maxCollabScore + 10);
+      }
+      if (link.targetType === 'team') {
+        const memberEntry = link.memberBreakdown?.find(mb => mb.memberId === userA.memberId);
+        if (memberEntry) {
+          const effectivePct = (link.collaborationPercentage * memberEntry.percentage) / 100;
+          maxCollabScore = Math.max(maxCollabScore, effectivePct);
+          if (link.personalAffinity >= 4) maxCollabScore = Math.min(100, maxCollabScore + 5);
+        }
+      }
+    }
+  }
+
+  return Math.min(100, Math.max(0, maxCollabScore || 40));
+}
+
+// --- ENVIRONMENTAL FRICTION ---
+
+const FOCUS_KEYWORDS = [
+  'concentrazione', 'analytical thinking', 'focus', 'detail oriented',
+  'precisione', 'ricerca', 'analisi', 'introversione', 'silenzio',
+];
+
+function calculateEnvironmentalFriction(userA: ProximityUserData, userB: ProximityUserData): number {
+  const impactA = userA.collaborationProfile?.environmentalImpact ?? 3;
+  const impactB = userB.collaborationProfile?.environmentalImpact ?? 3;
+  const fluidityA = userA.collaborationProfile?.operationalFluidity ?? 3;
+  const fluidityB = userB.collaborationProfile?.operationalFluidity ?? 3;
+
+  let friction = 0;
+
+  // 1. High noise + focus profile neighbor
+  const allSkillsA = [...(userA.softSkills || []), ...(userA.riskFactors || [])].map(s => s.toLowerCase());
+  const allSkillsB = [...(userB.softSkills || []), ...(userB.riskFactors || [])].map(s => s.toLowerCase());
+
+  const needsFocusA = allSkillsA.some(s => FOCUS_KEYWORDS.some(kw => s.includes(kw)));
+  const needsFocusB = allSkillsB.some(s => FOCUS_KEYWORDS.some(kw => s.includes(kw)));
+
+  if (impactA >= 4 && needsFocusB) friction += 35;
+  if (impactB >= 4 && needsFocusA) friction += 35;
+
+  // 2. Very different operational fluidity (delta >= 3)
+  const fluidityDelta = Math.abs(fluidityA - fluidityB);
+  if (fluidityDelta >= 3) friction += 25;
+  else if (fluidityDelta >= 2) friction += 10;
+
+  // 3. Both high noise amplification
+  if (impactA >= 5 && impactB >= 5) friction += 20;
+  else if (impactA >= 4 && impactB >= 4) friction += 10;
+
+  return Math.min(100, friction);
 }
 
 // --- CONFLICT RISK ---
 
 function calculateConflictRisk(riskA?: string[], riskB?: string[]): number {
-  if (!riskA?.length && !riskB?.length) return 0; // no risk factors = no penalty
+  if (!riskA?.length && !riskB?.length) return 0;
 
   const allRisks = [...(riskA || []), ...(riskB || [])];
 
-  // Known conflicting risk factor patterns
   const conflictPatterns = [
     ['Micromanagement', 'Autonomia'],
     ['Control', 'Creativity'],
     ['Rigidity', 'Flexibility'],
-    ['Burnout Risk', 'Burnout Risk'], // Two burned-out people together is bad
+    ['Burnout Risk', 'Burnout Risk'],
   ];
 
   let conflictScore = 0;
@@ -244,24 +305,33 @@ export function calculateProximityScore(
   const riasec = calculateRiasecComplementarity(userA.riasecScores, userB.riasecScores);
   const softSkills = calculateSoftSkillsOverlap(userA.softSkills, userB.softSkills);
   const values = calculateValuesAlignment(userA.primaryValues, userB.primaryValues);
-  const commFlow = calculateCommunicationFlow(userA.roleId, userB.roleId, communicatingRolePairs);
+  const collabFlow = calculateCollaborationFlow(userA, userB);
   const { score: genScore, synergy: synergyResult } = calculateGenerationSynergy(userA, userB);
   const conflict = calculateConflictRisk(userA.riskFactors, userB.riskFactors);
+  const envFriction = calculateEnvironmentalFriction(userA, userB);
 
   const weightedScore =
     riasec * WEIGHTS.RIASEC_COMPLEMENTARITY +
     softSkills * WEIGHTS.SOFT_SKILLS_OVERLAP +
     values * WEIGHTS.VALUES_ALIGNMENT +
-    commFlow * WEIGHTS.COMMUNICATION_FLOW +
+    collabFlow * WEIGHTS.COLLABORATION_FLOW +
     genScore * WEIGHTS.GENERATION_SYNERGY -
-    conflict * WEIGHTS.CONFLICT_RISK;
+    conflict * WEIGHTS.CONFLICT_RISK -
+    envFriction * WEIGHTS.ENVIRONMENTAL_FRICTION;
 
   const finalScore = Math.round(Math.max(0, Math.min(100, weightedScore)));
 
   // Generate insights
   const insights: string[] = [];
-  if (commFlow === 100) {
-    insights.push('I loro ruoli comunicano frequentemente – ottimo averli vicini.');
+  if (collabFlow >= 70) {
+    insights.push(`Alto flusso collaborativo (${Math.round(collabFlow)}%) — ottimo averli vicini.`);
+  } else if (collabFlow === 40) {
+    insights.push('Nessun flusso di collaborazione diretto mappato.');
+  }
+  if (envFriction >= 50) {
+    insights.push('⚠️ Rischio Frizione Ambientale: stili operativi incompatibili.');
+  } else if (envFriction >= 30) {
+    insights.push('⚠️ Attenzione: potenziale disturbo sonoro per il vicino.');
   }
   if (riasec >= 75) {
     insights.push('Profili RIASEC altamente complementari.');
@@ -289,9 +359,10 @@ export function calculateProximityScore(
       riasecComplementarity: Math.round(riasec),
       softSkillsOverlap: Math.round(softSkills),
       valuesAlignment: Math.round(values),
-      communicationFlow: Math.round(commFlow),
+      collaborationFlow: Math.round(collabFlow),
       generationSynergy: Math.round(genScore),
       conflictRisk: Math.round(conflict),
+      environmentalFriction: Math.round(envFriction),
     },
     synergyResult,
     insights,
@@ -302,10 +373,10 @@ export function calculateProximityScore(
 // --- HEATMAP COLOR HELPERS ---
 
 export function getProximityColor(score: number): string {
-  if (score >= 75) return '#22c55e'; // green
-  if (score >= 55) return '#84cc16'; // lime
-  if (score >= 35) return '#f59e0b'; // amber
-  return '#ef4444'; // red
+  if (score >= 75) return '#22c55e';
+  if (score >= 55) return '#84cc16';
+  if (score >= 35) return '#f59e0b';
+  return '#ef4444';
 }
 
 export function getProximityColorAlpha(score: number, alpha: number = 0.3): string {
@@ -323,7 +394,6 @@ export function calculateDeskDistance(
   roomA?: { x: number; y: number },
   roomB?: { x: number; y: number }
 ): number {
-  // Convert to absolute canvas coordinates
   const absAx = (roomA?.x ?? 0) + deskA.x;
   const absAy = (roomA?.y ?? 0) + deskA.y;
   const absBx = (roomB?.x ?? 0) + deskB.x;
@@ -333,7 +403,6 @@ export function calculateDeskDistance(
 }
 
 // --- ADJACENCY THRESHOLD ---
-// Desks within this pixel distance are considered "neighbors"
 export const ADJACENCY_THRESHOLD = 200;
 
 export function areDesksAdjacent(distance: number): boolean {

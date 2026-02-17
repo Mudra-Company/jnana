@@ -455,6 +455,7 @@ export type Database = {
         Row: {
           ccnl_level: string | null
           code: string | null
+          collaboration_profile: Json | null
           company_id: string
           contract_type: Database["public"]["Enums"]["contract_type"] | null
           created_at: string
@@ -488,6 +489,7 @@ export type Database = {
         Insert: {
           ccnl_level?: string | null
           code?: string | null
+          collaboration_profile?: Json | null
           company_id: string
           contract_type?: Database["public"]["Enums"]["contract_type"] | null
           created_at?: string
@@ -523,6 +525,7 @@ export type Database = {
         Update: {
           ccnl_level?: string | null
           code?: string | null
+          collaboration_profile?: Json | null
           company_id?: string
           contract_type?: Database["public"]["Enums"]["contract_type"] | null
           created_at?: string

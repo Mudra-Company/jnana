@@ -267,7 +267,7 @@ export const OrgNodeCard: React.FC<OrgNodeCardProps> = ({
     
     // Calculate score
     const softSkillScore = (required.softSkills?.length || 0) > 0 
-      ? (softMatches.length / required.softSkills.length) * 100 
+      ? (softMatches.length / (required.softSkills?.length || 1)) * 100 
       : 100;
     
     const finalScore = Math.round((softSkillScore * 0.5) + (seniorityScore * 0.5));

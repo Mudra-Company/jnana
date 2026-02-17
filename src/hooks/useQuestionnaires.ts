@@ -128,13 +128,13 @@ export const useQuestionnaires = () => {
         id: qData.id,
         slug: qData.slug,
         title: qData.title,
-        description: qData.description,
+        description: qData.description ?? undefined,
         uiStyle: qData.ui_style as QuestionnaireUIStyle,
         version: qData.version,
         isPublished: qData.is_published,
         isSystem: qData.is_system,
         config: qData.config as QuestionnaireConfig | undefined,
-        createdBy: qData.created_by,
+        createdBy: qData.created_by ?? undefined,
         createdAt: qData.created_at,
         updatedAt: qData.updated_at,
         dimensions: (qData.scoring_dimensions || []).map((d: any): ScoringDimension => ({
@@ -369,8 +369,8 @@ export const useQuestionnaires = () => {
 
       // Duplicate sections, questions, options
       for (const section of original.sections || []) {
-        const { data: newSection } = await supabase
-          .from('questionnaire_sections')
+        const { data: newSection } = await (supabase
+          .from('questionnaire_sections') as any)
           .insert({
             questionnaire_id: newId,
             title: section.title,
@@ -385,8 +385,8 @@ export const useQuestionnaires = () => {
         if (!newSection) continue;
 
         for (const question of section.questions || []) {
-          const { data: newQuestion } = await supabase
-            .from('questions')
+          const { data: newQuestion } = await (supabase
+            .from('questions') as any)
             .insert({
               section_id: newSection.id,
               question_text: question.text,
@@ -403,8 +403,8 @@ export const useQuestionnaires = () => {
           if (!newQuestion) continue;
 
           for (const option of question.options || []) {
-            const { data: newOption } = await supabase
-              .from('question_options')
+            const { data: newOption } = await (supabase
+              .from('question_options') as any)
               .insert({
                 question_id: newQuestion.id,
                 option_text: option.text,

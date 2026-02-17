@@ -46,6 +46,7 @@ const mapDbRowToRole = (row: Record<string, unknown>): CompanyRole => ({
   isHiring: (row.is_hiring as boolean) || false,
   createdAt: row.created_at as string,
   updatedAt: row.updated_at as string,
+  collaborationProfile: row.collaboration_profile as CompanyRole['collaborationProfile'] || { links: [], environmentalImpact: 3, operationalFluidity: 3 },
 });
 
 // Helper to convert camelCase input to snake_case for DB
@@ -78,6 +79,7 @@ const mapInputToDbRow = (input: CreateRoleInput | UpdateRoleInput): Record<strin
   if ('status' in input) result.status = input.status || 'active';
   if ('headcount' in input) result.headcount = input.headcount ?? 1;
   if ('isHiring' in input) result.is_hiring = input.isHiring ?? false;
+  if ('collaborationProfile' in input) result.collaboration_profile = input.collaborationProfile || { links: [], environmentalImpact: 3, operationalFluidity: 3 };
   
   return result;
 };

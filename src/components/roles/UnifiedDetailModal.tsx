@@ -13,49 +13,18 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import {
-  X,
-  User,
-  Briefcase,
-  FileText,
-  Scale,
-  History,
-  Target,
-  Handshake,
-  Building,
-  CheckCircle,
-  XCircle,
-  TrendingUp,
-  TrendingDown,
-  Star,
-  Award,
-  Crown,
-  Clock,
-  MapPin,
-  Laptop,
-  Banknote,
-  GraduationCap,
-  Languages,
-  Calendar,
-  ChevronRight,
-  Edit,
-  Eye,
-  Shuffle,
-  Users,
-  FileSearch,
-  Save,
-  Loader2,
-  Trash2,
-  AlertTriangle,
-  Plus,
-  Search,
-  UserMinus
+  X, User, Briefcase, FileText, Scale, History, Target, Handshake, Building,
+  CheckCircle, XCircle, TrendingUp, TrendingDown, Star, Award, Crown, Clock,
+  MapPin, Laptop, Banknote, GraduationCap, Languages, Calendar, ChevronRight,
+  Edit, Eye, Shuffle, Users, FileSearch, Save, Loader2, Trash2, AlertTriangle,
+  Plus, Search, UserMinus, Volume2, Activity, Link2
 } from 'lucide-react';
 import { Button } from '../../../components/Button';
 import { GenerationBadge } from '../GenerationBadge';
 import { useUnifiedOrgData } from '../../hooks/useUnifiedOrgData';
 import type { UnifiedPosition, DetailedMetrics, AssignmentHistoryEntry, UserHardSkillDisplay } from '../../types/unified-org';
-import type { CompanyRole, UpdateRoleInput, RequiredSkill, EducationRequirement, LanguageRequirement, ContractType, WorkHoursType, RemotePolicy } from '../../types/roles';
-import type { User as UserType, SeniorityLevel } from '../../../types';
+import type { CompanyRole, UpdateRoleInput, RequiredSkill, EducationRequirement, LanguageRequirement, ContractType, WorkHoursType, RemotePolicy, CollaborationProfile, CollaborationLink } from '../../types/roles';
+import type { User as UserType, SeniorityLevel, OrgNode } from '../../../types';
 import {
   CONTRACT_TYPE_LABELS,
   WORK_HOURS_LABELS,
@@ -63,7 +32,7 @@ import {
   ASSIGNMENT_TYPE_LABELS
 } from '../../types/roles';
 
-type TabId = 'persona' | 'ruolo' | 'requisiti' | 'contratto' | 'storia';
+type TabId = 'persona' | 'ruolo' | 'requisiti' | 'contratto' | 'collaborazione' | 'storia';
 
 interface TabConfig {
   id: TabId;
@@ -76,6 +45,7 @@ const TABS: TabConfig[] = [
   { id: 'ruolo', label: 'Ruolo', icon: <FileText size={16} /> },
   { id: 'requisiti', label: 'Requisiti', icon: <Target size={16} /> },
   { id: 'contratto', label: 'Contratto', icon: <Scale size={16} /> },
+  { id: 'collaborazione', label: 'Collaborazione', icon: <Link2 size={16} /> },
   { id: 'storia', label: 'Storia', icon: <History size={16} /> },
 ];
 

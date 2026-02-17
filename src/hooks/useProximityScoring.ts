@@ -48,8 +48,8 @@ export const useProximityScoring = () => {
       // Get user IDs for psychometric data
       const userIds = members.filter(m => m.user_id).map(m => m.user_id!);
 
-      // Fetch RIASEC, Karma, role assignments in parallel
-      const [riasecRes, karmaRes, assignmentsRes] = await Promise.all([
+      // Fetch RIASEC, Karma, role assignments, and roles with collaboration_profile in parallel
+      const [riasecRes, karmaRes, assignmentsRes, rolesRes] = await Promise.all([
         userIds.length > 0
           ? supabase.from('riasec_results').select('user_id, score_r, score_i, score_a, score_s, score_e, score_c').in('user_id', userIds)
           : { data: [] },
@@ -57,6 +57,7 @@ export const useProximityScoring = () => {
           ? supabase.from('karma_sessions').select('user_id, soft_skills, primary_values, risk_factors, seniority_assessment').in('user_id', userIds)
           : { data: [] },
         supabase.from('company_role_assignments').select('company_member_id, role_id').in('company_member_id', memberIds),
+        supabase.from('company_roles').select('id, collaboration_profile, title'),
       ]);
 
       // Build lookup maps
@@ -68,6 +69,12 @@ export const useProximityScoring = () => {
 
       const roleMap = new Map<string, string>();
       (assignmentsRes.data || []).forEach((a: any) => roleMap.set(a.company_member_id, a.role_id));
+
+      // Build collaboration profile map keyed by role_id
+      const collabMap = new Map<string, any>();
+      (rolesRes.data || []).forEach((r: any) => {
+        if (r.collaboration_profile) collabMap.set(r.id, r.collaboration_profile);
+      });
 
       // Build ProximityUserData map keyed by company_member_id
       const map = new Map<string, ProximityUserData>();
@@ -81,13 +88,16 @@ export const useProximityScoring = () => {
         const firstName = profile?.first_name || member.placeholder_first_name || '';
         const lastName = profile?.last_name || member.placeholder_last_name || '';
 
+        const roleId = roleMap.get(member.id);
+        const collabProfile = roleId ? collabMap.get(roleId) : undefined;
+
         map.set(member.id, {
           id: userId || member.id,
           memberId: member.id,
           firstName,
           lastName,
           jobTitle: member.job_title || undefined,
-          roleId: roleMap.get(member.id),
+          roleId,
           riasecScores: riasec ? {
             R: riasec.score_r, I: riasec.score_i, A: riasec.score_a,
             S: riasec.score_s, E: riasec.score_e, C: riasec.score_c,
@@ -98,6 +108,7 @@ export const useProximityScoring = () => {
           birthDate: profile?.birth_date || undefined,
           age: profile?.age || undefined,
           karmaData: karma ? { softSkills: karma.soft_skills, seniorityAssessment: karma.seniority_assessment } : undefined,
+          collaborationProfile: collabProfile || undefined,
         });
       }
 

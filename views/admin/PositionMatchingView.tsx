@@ -104,7 +104,7 @@ const calculateInternalMatch = (candidate: LegacyUser, required: RequiredProfile
   const seniorityWeight = 0.5;
   
   const softSkillScore = (required.softSkills?.length || 0) > 0 
-    ? (softMatches.length / required.softSkills.length) * 100 
+    ? (softMatches.length / (required.softSkills?.length || 1)) * 100 
     : 100;
   
   const finalScore = Math.round(
@@ -284,13 +284,13 @@ export const PositionMatchingView: React.FC<PositionMatchingViewProps> = ({
       firstName: u.firstName,
       lastName: u.lastName,
       email: u.email,
-      avatarUrl: u.avatarUrl,
+      avatarUrl: (u as any).avatarUrl,
       jobTitle: u.jobTitle,
       seniority: u.karmaData?.seniorityAssessment,
-      yearsExperience: u.yearsExperience,
-      location: u.location,
+      yearsExperience: (u as any).yearsExperience,
+      location: (u as any).location,
       profileCode: u.profileCode,
-      riasecScore: u.riasecScore,
+      riasecScore: (u as any).riasecScore,
       karmaData: u.karmaData
     }));
     return buildUnifiedCandidates(shortlistCandidates, internalUsersMap);
@@ -303,10 +303,10 @@ export const PositionMatchingView: React.FC<PositionMatchingViewProps> = ({
       firstName: candidate.user.firstName,
       lastName: candidate.user.lastName,
       email: candidate.user.email,
-      avatarUrl: candidate.user.avatarUrl,
+      avatarUrl: (candidate.user as any).avatarUrl,
       jobTitle: candidate.user.jobTitle,
       seniority: candidate.user.karmaData?.seniorityAssessment,
-      riasecScore: candidate.user.riasecScore,
+      riasecScore: (candidate.user as any).riasecScore,
       profileCode: candidate.user.profileCode,
       karmaData: candidate.user.karmaData
     };
@@ -377,9 +377,8 @@ export const PositionMatchingView: React.FC<PositionMatchingViewProps> = ({
 
   // Get hiring manager for synergy calculation (if position has one)
   const hiringManager = useMemo((): UserWithGeneration | null => {
-    // Try to find the manager associated with this position's org node
-    if (!position?.nodeId) return null;
-    const manager = companyUsers.find(u => u.departmentId === position.nodeId && u.isHiring);
+    if (!(position as any)?.nodeId) return null;
+    const manager = companyUsers.find(u => u.departmentId === (position as any).nodeId && u.isHiring);
     if (!manager) return null;
     return {
       birthDate: manager.birthDate,
@@ -419,7 +418,7 @@ export const PositionMatchingView: React.FC<PositionMatchingViewProps> = ({
           <div>
             <div className="text-sm font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
               {candidate.user.firstName} {candidate.user.lastName}
-              <GenerationBadge birthDate={candidate.user.birthDate} age={candidate.user.age} size="xs" />
+              <GenerationBadge birthDate={candidate.user.birthDate} age={candidate.user.age} size="sm" />
             </div>
             <div className="text-[10px] text-gray-500 flex items-center gap-2">
               <span>{candidate.user.karmaData?.seniorityAssessment || 'N/A'} - {candidate.user.jobTitle}</span>
@@ -434,7 +433,7 @@ export const PositionMatchingView: React.FC<PositionMatchingViewProps> = ({
             </div>
             {synergyResult && synergyResult.type !== 'None' && (
               <div className="mt-1">
-                <SynergyBadge synergyResult={synergyResult} size="xs" />
+                <SynergyBadge synergy={synergyResult} size="sm" />
               </div>
             )}
           </div>
@@ -535,7 +534,7 @@ export const PositionMatchingView: React.FC<PositionMatchingViewProps> = ({
               )}
               {synergyResult && synergyResult.type !== 'None' && (
                 <div className="mt-1.5">
-                  <SynergyBadge synergyResult={synergyResult} size="sm" showReason />
+                  <SynergyBadge synergy={synergyResult} size="sm" showDetails />
                 </div>
               )}
             </div>

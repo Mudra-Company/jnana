@@ -262,8 +262,8 @@ const PrintNodeCard: React.FC<PrintNodeCardProps> = ({
       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
         {nodeUsers.length > 0 ? (
           nodeUsers.map(u => {
-            const isHiring = u.isHiring;
-            const isLeader = currentNodeManagers.some(m => m.id === u.id);
+            const isHiring = u.isHiring || false;
+            const isLeader: boolean = currentNodeManagers.some(m => m.id === u.id);
             
             // Calculate cultural fit
             let cultureFitScore = 0;
@@ -306,7 +306,7 @@ const PrintNodeCard: React.FC<PrintNodeCardProps> = ({
                 {/* User Header Row */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                   {/* Avatar */}
-                  <div style={avatarStyle(isLeader && node.isCulturalDriver, isHiring)}>
+                  <div style={avatarStyle(isLeader && (node.isCulturalDriver || false), isHiring)}>
                     {isHiring ? (
                       <span style={{ fontSize: '14px', fontWeight: 'bold' }}>{ICONS.hiring}</span>
                     ) : (
