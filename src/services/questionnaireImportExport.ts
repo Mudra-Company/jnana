@@ -460,7 +460,7 @@ export async function importQuestionnaireData(
         // Get or create section
         let sectionId = sectionIdMap.get(sectionName);
         if (!sectionId) {
-          sectionId = await hooks.addSection(questionnaireId, {
+          sectionId = await (hooks as any).addSection(questionnaireId, {
             title: sectionName,
             type: 'forced_choice',
           });
@@ -555,7 +555,7 @@ export async function importQuestionnaireData(
         // Get or create section
         let sectionId = sectionIdMap.get(sectionName);
         if (!sectionId) {
-          sectionId = await hooks.addSection(questionnaireId, {
+          sectionId = await (hooks as any).addSection(questionnaireId, {
             title: sectionName,
             type: sectionType,
           });

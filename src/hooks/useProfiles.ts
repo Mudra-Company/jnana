@@ -40,7 +40,7 @@ export const useProfiles = (companyId?: string) => {
           return;
         }
         
-        query = query.in('id', userIds);
+        query = query.in('id', userIds.filter((id): id is string => id !== null));
       }
 
       const { data, error } = await query.order('last_name');

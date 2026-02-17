@@ -36,6 +36,29 @@ export type AssignmentType =
   | 'backup'    // Backup/Sostituto
   | 'training'; // In formazione
 
+// ============= Collaboration Profile =============
+
+export interface CollaborationMemberBreakdown {
+  memberId: string;
+  memberLabel: string;
+  percentage: number;
+}
+
+export interface CollaborationLink {
+  targetType: 'team' | 'member';
+  targetId: string;
+  targetLabel: string;
+  collaborationPercentage: number; // 0-100
+  personalAffinity: number; // 1-5
+  memberBreakdown?: CollaborationMemberBreakdown[];
+}
+
+export interface CollaborationProfile {
+  links: CollaborationLink[];
+  environmentalImpact: number; // 1-5 Likert (noise/disturbance)
+  operationalFluidity: number; // 1-5 Likert (calls/exits/interruptions)
+}
+
 // ============= Sub-types for JSONB fields =============
 
 export interface RequiredSkill {
@@ -114,6 +137,9 @@ export interface CompanyRole {
   headcount: number;
   isHiring: boolean;
   
+  // Collaboration Profile
+  collaborationProfile?: CollaborationProfile;
+  
   // Timestamps
   createdAt: string;
   updatedAt: string;
@@ -184,6 +210,7 @@ export interface CreateRoleInput {
   status?: RoleStatus;
   headcount?: number;
   isHiring?: boolean;
+  collaborationProfile?: CollaborationProfile;
 }
 
 export interface UpdateRoleInput {
@@ -212,6 +239,7 @@ export interface UpdateRoleInput {
   status?: RoleStatus;
   headcount?: number;
   isHiring?: boolean;
+  collaborationProfile?: CollaborationProfile;
 }
 
 export interface CreateAssignmentInput {

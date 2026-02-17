@@ -694,8 +694,8 @@ export const calculateOrgContext = (
     .map(pm => `${pm.firstName || ''} ${pm.lastName || ''}`.trim());
 
   return {
-    orgNodeName: foundNode.name,
-    orgNodeType: foundNode.type,
+    orgNodeName: (foundNode as any).name,
+    orgNodeType: (foundNode as any).type,
     directReports,
     teamSize,
     orgLevel: nodeLevel,

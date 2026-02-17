@@ -299,7 +299,7 @@ export const KarmaProfileEdit: React.FC<KarmaProfileEditProps> = ({ onBack, onSa
         experiences: selectedData.experiences,
         education: selectedData.education,
         certifications: selectedData.certifications,
-        languages: selectedData.languages,
+        languages: selectedData.languages.map((l: any) => ({ ...l, proficiency: l.proficiency as any })),
         skills: selectedData.skills,
       });
       
@@ -395,6 +395,10 @@ export const KarmaProfileEdit: React.FC<KarmaProfileEditProps> = ({ onBack, onSa
                     yearsExperience: data.profileData?.yearsExperience || formData.yearsExperience,
                     lookingForWork: formData.lookingForWork,
                     preferredWorkType: formData.preferredWorkType,
+                    region: formData.region,
+                    profileVisibility: formData.profileVisibility,
+                    wantsKarmaVisibility: formData.wantsKarmaVisibility,
+                    birthDate: formData.birthDate,
                   };
                   setFormData(newFormData);
                   

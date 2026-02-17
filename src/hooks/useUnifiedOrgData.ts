@@ -428,7 +428,7 @@ export const useUnifiedOrgData = (): UseUnifiedOrgDataResult => {
         startDate: row.start_date,
         endDate: row.end_date,
         ftePercentage: row.fte_percentage,
-        notes: row.notes
+        notes: row.notes ?? undefined
       }));
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to fetch history';

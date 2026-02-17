@@ -326,7 +326,7 @@ export const QuestionnaireEditorView: React.FC<QuestionnaireEditorViewProps> = (
       addSection: (qId, data) => addSection(qId, data),
       addQuestion: (sId, data) => addQuestion(sId, data),
       addOption: (qId, data) => addOption(qId, data),
-      setOptionWeight: (oId, dId, w) => setOptionWeight(oId, dId, w),
+      setOptionWeight: async (oId, dId, w) => { await setOptionWeight(oId, dId, w); },
     };
 
     const result = await importQuestionnaireData(
