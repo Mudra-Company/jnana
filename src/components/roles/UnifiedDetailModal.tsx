@@ -23,7 +23,7 @@ import { Button } from '../../../components/Button';
 import { GenerationBadge } from '../GenerationBadge';
 import { useUnifiedOrgData } from '../../hooks/useUnifiedOrgData';
 import type { UnifiedPosition, DetailedMetrics, AssignmentHistoryEntry, UserHardSkillDisplay } from '../../types/unified-org';
-import type { CompanyRole, UpdateRoleInput, RequiredSkill, EducationRequirement, LanguageRequirement, ContractType, WorkHoursType, RemotePolicy, CollaborationProfile, CollaborationLink } from '../../types/roles';
+import type { CompanyRole, UpdateRoleInput, RequiredSkill, EducationRequirement, LanguageRequirement, ContractType, WorkHoursType, RemotePolicy, CollaborationProfile, CollaborationLink, CollaborationMemberBreakdown } from '../../types/roles';
 import type { User as UserType, SeniorityLevel, OrgNode } from '../../../types';
 import {
   CONTRACT_TYPE_LABELS,
@@ -58,6 +58,11 @@ const LANGUAGE_LEVEL_LABELS: Record<string, string> = {
   native: 'Madrelingua',
 };
 
+export interface OrgNodeMember {
+  id: string;
+  label: string;
+}
+
 interface UnifiedDetailModalProps {
   isOpen: boolean;
   position: UnifiedPosition;
@@ -65,6 +70,7 @@ interface UnifiedDetailModalProps {
   parentManagers?: UserType[];
   companyMembers?: UserType[];
   orgNodes?: OrgNode[];
+  membersByOrgNode?: Record<string, OrgNodeMember[]>;
   onClose: () => void;
   onSaveRole?: (roleId: string, updates: UpdateRoleInput) => Promise<{ success: boolean; error?: string }>;
   onDeleteRole?: (roleId: string) => Promise<{ success: boolean; error?: string }>;
@@ -171,6 +177,7 @@ export const UnifiedDetailModal: React.FC<UnifiedDetailModalProps> = ({
   parentManagers,
   companyMembers,
   orgNodes,
+  membersByOrgNode,
   onClose,
   onSaveRole,
   onDeleteRole,
@@ -1241,9 +1248,49 @@ export const UnifiedDetailModal: React.FC<UnifiedDetailModalProps> = ({
       updateProfile({ links: currentLinks.filter((_, i) => i !== index) });
     };
 
-    const addLink = () => {
-      updateProfile({ links: [...currentLinks, { targetType: 'member', targetId: '', targetLabel: '', collaborationPercentage: 10, personalAffinity: 3 }] });
+    const addTeamLink = (orgNodeId: string) => {
+      const node = (orgNodes || []).find(n => n.id === orgNodeId);
+      if (!node) return;
+      // Pre-populate with all members of the team
+      const members = (membersByOrgNode || {})[orgNodeId] || [];
+      const breakdown: CollaborationMemberBreakdown[] = members.map(m => ({
+        memberId: m.id,
+        memberLabel: m.label,
+        percentage: 0,
+        affinity: 3,
+      }));
+      const newLink: CollaborationLink = {
+        targetType: 'team',
+        targetId: orgNodeId,
+        targetLabel: node.name,
+        collaborationPercentage: 0,
+        personalAffinity: 3,
+        memberBreakdown: breakdown,
+      };
+      updateProfile({ links: [...currentLinks, newLink] });
     };
+
+    const updateMemberBreakdown = (linkIndex: number, memberIndex: number, changes: Partial<CollaborationMemberBreakdown>) => {
+      const link = currentLinks[linkIndex];
+      if (!link.memberBreakdown) return;
+      const updatedBreakdown = [...link.memberBreakdown];
+      updatedBreakdown[memberIndex] = { ...updatedBreakdown[memberIndex], ...changes };
+      // Recalculate totals
+      const totalCollab = updatedBreakdown.reduce((s, m) => s + (m.percentage || 0), 0);
+      const withAffinity = updatedBreakdown.filter(m => m.affinity && m.percentage > 0);
+      const avgAffinity = withAffinity.length > 0
+        ? Math.round(withAffinity.reduce((s, m) => s + (m.affinity || 3), 0) / withAffinity.length)
+        : 3;
+      updateLink(linkIndex, {
+        memberBreakdown: updatedBreakdown,
+        collaborationPercentage: totalCollab,
+        personalAffinity: avgAffinity,
+      });
+    };
+
+    // Teams already added
+    const addedTeamIds = new Set(currentLinks.map(l => l.targetId));
+    const availableTeams = (orgNodes || []).filter(n => !addedTeamIds.has(n.id));
 
     const ENV_LABELS = ['', 'Silenzioso', 'Tranquillo', 'Normale', 'Rumoroso', 'Molto rumoroso'];
     const FLUID_LABELS = ['', 'Stabile', 'Poco mobile', 'Normale', 'Dinamico', 'Molto dinamico'];
@@ -1267,6 +1314,7 @@ export const UnifiedDetailModal: React.FC<UnifiedDetailModalProps> = ({
       </div>
     );
 
+    // ===== VIEW MODE =====
     if (!isEditing) {
       return (
         <div className="space-y-6">
@@ -1278,23 +1326,37 @@ export const UnifiedDetailModal: React.FC<UnifiedDetailModalProps> = ({
             {currentLinks.length === 0 ? (
               <p className="text-sm text-gray-400 italic">Nessun collegamento definito</p>
             ) : (
-              <div className="space-y-2">
+              <div className="space-y-3">
                 {currentLinks.map((link, i) => (
-                  <div key={i} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-900/30 rounded-lg">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className={`text-xs font-bold uppercase px-1.5 py-0.5 rounded ${link.targetType === 'team' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' : 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300'}`}>
-                        {link.targetType === 'team' ? 'Team' : 'Persona'}
-                      </span>
-                      <span className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">{link.targetLabel || '—'}</span>
-                    </div>
-                    <div className="flex items-center gap-3 shrink-0">
-                      <span className="text-xs font-bold text-indigo-600">{link.collaborationPercentage}%</span>
-                      <div className="flex gap-0.5">
-                        {[1,2,3,4,5].map(n => (
-                          <Star key={n} size={10} className={n <= link.personalAffinity ? 'text-amber-500 fill-amber-500' : 'text-gray-300'} />
-                        ))}
+                  <div key={i} className="rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+                    {/* Team header */}
+                    <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-900/30">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="text-xs font-bold uppercase px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">Team</span>
+                        <span className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">{link.targetLabel || '—'}</span>
+                      </div>
+                      <div className="flex items-center gap-3 shrink-0">
+                        <span className="text-xs font-bold text-indigo-600">{link.collaborationPercentage}%</span>
                       </div>
                     </div>
+                    {/* Member breakdown */}
+                    {link.memberBreakdown && link.memberBreakdown.filter(m => m.percentage > 0).length > 0 && (
+                      <div className="divide-y divide-gray-100 dark:divide-gray-800">
+                        {link.memberBreakdown.filter(m => m.percentage > 0).map((member, j) => (
+                          <div key={j} className="flex items-center justify-between px-4 py-2 text-xs">
+                            <span className="text-gray-700 dark:text-gray-300">{member.memberLabel}</span>
+                            <div className="flex items-center gap-3">
+                              <span className="font-bold text-indigo-600">{member.percentage}%</span>
+                              <div className="flex gap-0.5">
+                                {[1,2,3,4,5].map(n => (
+                                  <Star key={n} size={10} className={n <= (member.affinity || 0) ? 'text-amber-500 fill-amber-500' : 'text-gray-300'} />
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 ))}
                 <div className="flex items-center gap-2 text-xs text-gray-500 pt-1">
@@ -1307,7 +1369,7 @@ export const UnifiedDetailModal: React.FC<UnifiedDetailModalProps> = ({
       );
     }
 
-    // EDIT MODE
+    // ===== EDIT MODE =====
     return (
       <div className="space-y-6">
         <Section title="Parametri Ambientali" icon={<Volume2 size={16} />}>
@@ -1324,54 +1386,65 @@ export const UnifiedDetailModal: React.FC<UnifiedDetailModalProps> = ({
             Collaborazione totale: {totalPct}% {totalPct > 100 && '(supera il 100%)'}
           </div>
 
-          <div className="space-y-3">
+          <div className="space-y-4">
             {currentLinks.map((link, i) => (
-              <div key={i} className="p-3 bg-gray-50 dark:bg-gray-900/30 rounded-xl space-y-2 border border-gray-200 dark:border-gray-700">
-                <div className="flex items-center gap-2">
-                  {/* Type selector */}
-                  <select value={link.targetType} onChange={e => updateLink(i, { targetType: e.target.value as 'team' | 'member', targetId: '', targetLabel: '' })}
-                    className="text-xs font-bold px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800">
-                    <option value="member">Persona</option>
-                    <option value="team">Team</option>
-                  </select>
-                  {/* Target selector */}
-                  <select value={link.targetId} onChange={e => {
-                    const opt = e.target.options[e.target.selectedIndex];
-                    updateLink(i, { targetId: e.target.value, targetLabel: opt.text });
-                  }} className="flex-1 text-sm px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 min-w-0">
-                    <option value="">-- Seleziona --</option>
-                    {link.targetType === 'team' ? (
-                      (orgNodes || []).map(n => <option key={n.id} value={n.id}>{n.name}</option>)
-                    ) : (
-                      (companyMembers || []).map(m => <option key={m.memberId || m.id} value={m.memberId || m.id}>{m.firstName} {m.lastName}</option>)
-                    )}
-                  </select>
+              <div key={i} className="rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+                {/* Team header */}
+                <div className="flex items-center justify-between p-3 bg-gray-100 dark:bg-gray-800">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Building size={14} className="text-blue-500 shrink-0" />
+                    <span className="text-sm font-bold text-gray-800 dark:text-gray-200 truncate">{link.targetLabel}</span>
+                    <span className="text-xs font-bold text-indigo-600 shrink-0">{link.collaborationPercentage}%</span>
+                  </div>
                   <button onClick={() => removeLink(i)} className="p-1 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded"><X size={14} /></button>
                 </div>
-                {/* Percentage + Affinity */}
-                <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-2 flex-1">
-                    <span className="text-xs text-gray-500 shrink-0">Collab:</span>
-                    <input type="range" min={0} max={100} step={5} value={link.collaborationPercentage}
-                      onChange={e => updateLink(i, { collaborationPercentage: parseInt(e.target.value) })}
-                      className="flex-1 h-1.5 bg-gray-200 rounded appearance-none cursor-pointer accent-indigo-500" />
-                    <span className="text-xs font-bold text-indigo-600 w-8 text-right">{link.collaborationPercentage}%</span>
-                  </div>
-                  <div className="flex items-center gap-1 shrink-0">
-                    <span className="text-xs text-gray-500">Affinità:</span>
-                    {[1,2,3,4,5].map(n => (
-                      <button key={n} onClick={() => updateLink(i, { personalAffinity: n })}
-                        className="p-0.5"><Star size={12} className={n <= link.personalAffinity ? 'text-amber-500 fill-amber-500' : 'text-gray-300'} /></button>
-                    ))}
-                  </div>
+
+                {/* Member breakdown rows */}
+                <div className="divide-y divide-gray-100 dark:divide-gray-800">
+                  {(link.memberBreakdown || []).map((member, j) => (
+                    <div key={j} className="px-4 py-2.5 space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-700 dark:text-gray-300 font-medium">{member.memberLabel}</span>
+                        <span className="text-xs font-bold text-indigo-600 w-10 text-right">{member.percentage}%</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2 flex-1">
+                          <span className="text-xs text-gray-400 shrink-0">Collab:</span>
+                          <input type="range" min={0} max={100} step={5} value={member.percentage}
+                            onChange={e => updateMemberBreakdown(i, j, { percentage: parseInt(e.target.value) })}
+                            className="flex-1 h-1.5 bg-gray-200 rounded appearance-none cursor-pointer accent-indigo-500" />
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <span className="text-xs text-gray-400">Affinità:</span>
+                          {[1,2,3,4,5].map(n => (
+                            <button key={n} onClick={() => updateMemberBreakdown(i, j, { affinity: n })}
+                              className="p-0.5"><Star size={12} className={n <= (member.affinity || 0) ? 'text-amber-500 fill-amber-500' : 'text-gray-300'} /></button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  {(!link.memberBreakdown || link.memberBreakdown.length === 0) && (
+                    <div className="px-4 py-3 text-xs text-gray-400 italic">Nessun membro trovato in questo team</div>
+                  )}
                 </div>
               </div>
             ))}
           </div>
 
-          <button onClick={addLink} className="text-sm text-indigo-600 hover:text-indigo-700 font-medium flex items-center gap-1">
-            <Plus size={14} /> Aggiungi Connessione
-          </button>
+          {/* Add team selector */}
+          {availableTeams.length > 0 && (
+            <div className="flex items-center gap-2">
+              <select
+                defaultValue=""
+                onChange={e => { if (e.target.value) { addTeamLink(e.target.value); e.target.value = ''; } }}
+                className="flex-1 text-sm px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800"
+              >
+                <option value="" disabled>+ Aggiungi Team...</option>
+                {availableTeams.map(n => <option key={n.id} value={n.id}>{n.name}</option>)}
+              </select>
+            </div>
+          )}
         </Section>
       </div>
     );
