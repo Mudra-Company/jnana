@@ -1,5 +1,5 @@
 import React from 'react';
-import { Users, ArrowRight, AlertTriangle, Sparkles, TrendingUp } from 'lucide-react';
+import { Users, ArrowRight, AlertTriangle, Sparkles, TrendingUp, Volume2, Activity } from 'lucide-react';
 import type { DeskProximityPair } from '@/utils/proximityEngine';
 import { getProximityColor } from '@/utils/proximityEngine';
 
@@ -26,8 +26,12 @@ export const ProximityReport: React.FC<ProximityReportProps> = ({ pairs, globalA
       userA: `${p.userA.firstName} ${p.userA.lastName}`,
       userB: `${p.userB.firstName} ${p.userB.lastName}`,
       score: p.proximityResult.score,
+      breakdown: p.proximityResult.breakdown,
     })))
     .slice(0, 5);
+
+  // Detect friction pairs
+  const frictionPairs = pairs.filter(p => p.proximityResult.breakdown.environmentalFriction >= 30);
 
   return (
     <div className="space-y-3">
@@ -49,6 +53,31 @@ export const ProximityReport: React.FC<ProximityReportProps> = ({ pairs, globalA
           </div>
         </div>
       </div>
+
+      {/* Environmental Friction Alerts */}
+      {frictionPairs.length > 0 && (
+        <div>
+          <h4 className="text-[10px] font-bold uppercase tracking-wider text-orange-500 mb-1.5 flex items-center gap-1">
+            <Volume2 size={11} />
+            Frizioni Ambientali
+          </h4>
+          <div className="space-y-1">
+            {frictionPairs.slice(0, 3).map((pair, i) => {
+              const bd = pair.proximityResult.breakdown;
+              const hasNoise = bd.environmentalFriction >= 35;
+              return (
+                <div key={i} className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-orange-50 dark:bg-orange-900/10 border-l-3 border-orange-400">
+                  {hasNoise ? <Volume2 size={11} className="text-red-500 shrink-0" /> : <Activity size={11} className="text-amber-500 shrink-0" />}
+                  <span className="text-[11px] font-medium text-gray-700 dark:text-gray-200">{pair.userA.firstName} {pair.userA.lastName[0]}.</span>
+                  <ArrowRight size={10} className="text-gray-400" />
+                  <span className="text-[11px] font-medium text-gray-700 dark:text-gray-200">{pair.userB.firstName} {pair.userB.lastName[0]}.</span>
+                  <span className="ml-auto text-[10px] font-bold text-orange-600">{bd.environmentalFriction}%</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Critical pairs */}
       {poor.length > 0 && (
