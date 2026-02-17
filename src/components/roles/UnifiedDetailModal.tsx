@@ -64,6 +64,7 @@ interface UnifiedDetailModalProps {
   companyValues?: string[];
   parentManagers?: UserType[];
   companyMembers?: UserType[];
+  orgNodes?: OrgNode[];
   onClose: () => void;
   onSaveRole?: (roleId: string, updates: UpdateRoleInput) => Promise<{ success: boolean; error?: string }>;
   onDeleteRole?: (roleId: string) => Promise<{ success: boolean; error?: string }>;
@@ -169,6 +170,7 @@ export const UnifiedDetailModal: React.FC<UnifiedDetailModalProps> = ({
   companyValues,
   parentManagers,
   companyMembers,
+  orgNodes,
   onClose,
   onSaveRole,
   onDeleteRole,
@@ -1218,6 +1220,163 @@ export const UnifiedDetailModal: React.FC<UnifiedDetailModalProps> = ({
     );
   };
 
+  const renderCollaborazioneTab = () => {
+    const currentProfile: CollaborationProfile = (getValue('collaborationProfile') as CollaborationProfile) || { links: [], environmentalImpact: 3, operationalFluidity: 3 };
+    const currentLinks = currentProfile.links || [];
+    const envImpact = currentProfile.environmentalImpact ?? 3;
+    const opFluidity = currentProfile.operationalFluidity ?? 3;
+    const totalPct = currentLinks.reduce((s, l) => s + (l.collaborationPercentage || 0), 0);
+
+    const updateProfile = (partial: Partial<CollaborationProfile>) => {
+      updateValue('collaborationProfile', { ...currentProfile, ...partial });
+    };
+
+    const updateLink = (index: number, changes: Partial<CollaborationLink>) => {
+      const updated = [...currentLinks];
+      updated[index] = { ...updated[index], ...changes };
+      updateProfile({ links: updated });
+    };
+
+    const removeLink = (index: number) => {
+      updateProfile({ links: currentLinks.filter((_, i) => i !== index) });
+    };
+
+    const addLink = () => {
+      updateProfile({ links: [...currentLinks, { targetType: 'member', targetId: '', targetLabel: '', collaborationPercentage: 10, personalAffinity: 3 }] });
+    };
+
+    const ENV_LABELS = ['', 'Silenzioso', 'Tranquillo', 'Normale', 'Rumoroso', 'Molto rumoroso'];
+    const FLUID_LABELS = ['', 'Stabile', 'Poco mobile', 'Normale', 'Dinamico', 'Molto dinamico'];
+
+    const SliderRow: React.FC<{ icon: React.ReactNode; label: string; value: number; labels: string[]; onChange: (v: number) => void }> = ({ icon, label, value, labels, onChange }) => (
+      <div className="p-3 bg-gray-50 dark:bg-gray-900/30 rounded-xl space-y-2">
+        <div className="flex items-center justify-between">
+          <span className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-2">{icon} {label}</span>
+          <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300">{value}/5 — {labels[value]}</span>
+        </div>
+        {isEditing ? (
+          <input type="range" min={1} max={5} value={value} onChange={e => onChange(parseInt(e.target.value))}
+            className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-indigo-500" />
+        ) : (
+          <div className="flex gap-1">
+            {[1,2,3,4,5].map(n => (
+              <div key={n} className={`h-2 flex-1 rounded-full ${n <= value ? 'bg-indigo-500' : 'bg-gray-200 dark:bg-gray-700'}`} />
+            ))}
+          </div>
+        )}
+      </div>
+    );
+
+    if (!isEditing) {
+      return (
+        <div className="space-y-6">
+          <Section title="Parametri Ambientali" icon={<Volume2 size={16} />}>
+            <SliderRow icon={<Volume2 size={14} />} label="Impatto Ambientale" value={envImpact} labels={ENV_LABELS} onChange={() => {}} />
+            <SliderRow icon={<Activity size={14} />} label="Fluidità Operativa" value={opFluidity} labels={FLUID_LABELS} onChange={() => {}} />
+          </Section>
+          <Section title="Collegamenti di Collaborazione" icon={<Link2 size={16} />}>
+            {currentLinks.length === 0 ? (
+              <p className="text-sm text-gray-400 italic">Nessun collegamento definito</p>
+            ) : (
+              <div className="space-y-2">
+                {currentLinks.map((link, i) => (
+                  <div key={i} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-900/30 rounded-lg">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className={`text-xs font-bold uppercase px-1.5 py-0.5 rounded ${link.targetType === 'team' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' : 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300'}`}>
+                        {link.targetType === 'team' ? 'Team' : 'Persona'}
+                      </span>
+                      <span className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">{link.targetLabel || '—'}</span>
+                    </div>
+                    <div className="flex items-center gap-3 shrink-0">
+                      <span className="text-xs font-bold text-indigo-600">{link.collaborationPercentage}%</span>
+                      <div className="flex gap-0.5">
+                        {[1,2,3,4,5].map(n => (
+                          <Star key={n} size={10} className={n <= link.personalAffinity ? 'text-amber-500 fill-amber-500' : 'text-gray-300'} />
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                <div className="flex items-center gap-2 text-xs text-gray-500 pt-1">
+                  <span>Totale: <strong className={totalPct > 100 ? 'text-red-500' : 'text-green-600'}>{totalPct}%</strong></span>
+                </div>
+              </div>
+            )}
+          </Section>
+        </div>
+      );
+    }
+
+    // EDIT MODE
+    return (
+      <div className="space-y-6">
+        <Section title="Parametri Ambientali" icon={<Volume2 size={16} />}>
+          <SliderRow icon={<Volume2 size={14} />} label="Impatto Ambientale" value={envImpact} labels={ENV_LABELS}
+            onChange={v => updateProfile({ environmentalImpact: v })} />
+          <SliderRow icon={<Activity size={14} />} label="Fluidità Operativa" value={opFluidity} labels={FLUID_LABELS}
+            onChange={v => updateProfile({ operationalFluidity: v })} />
+        </Section>
+
+        <Section title="Collegamenti di Collaborazione" icon={<Link2 size={16} />}>
+          {/* Validation bar */}
+          <div className={`flex items-center gap-2 p-2 rounded-lg text-xs font-medium ${totalPct > 100 ? 'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400' : 'bg-green-50 text-green-600 dark:bg-green-900/20 dark:text-green-400'}`}>
+            {totalPct > 100 ? <AlertTriangle size={12} /> : <CheckCircle size={12} />}
+            Collaborazione totale: {totalPct}% {totalPct > 100 && '(supera il 100%)'}
+          </div>
+
+          <div className="space-y-3">
+            {currentLinks.map((link, i) => (
+              <div key={i} className="p-3 bg-gray-50 dark:bg-gray-900/30 rounded-xl space-y-2 border border-gray-200 dark:border-gray-700">
+                <div className="flex items-center gap-2">
+                  {/* Type selector */}
+                  <select value={link.targetType} onChange={e => updateLink(i, { targetType: e.target.value as 'team' | 'member', targetId: '', targetLabel: '' })}
+                    className="text-xs font-bold px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800">
+                    <option value="member">Persona</option>
+                    <option value="team">Team</option>
+                  </select>
+                  {/* Target selector */}
+                  <select value={link.targetId} onChange={e => {
+                    const opt = e.target.options[e.target.selectedIndex];
+                    updateLink(i, { targetId: e.target.value, targetLabel: opt.text });
+                  }} className="flex-1 text-sm px-2 py-1 border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-800 min-w-0">
+                    <option value="">-- Seleziona --</option>
+                    {link.targetType === 'team' ? (
+                      (orgNodes || []).map(n => <option key={n.id} value={n.id}>{n.name}</option>)
+                    ) : (
+                      (companyMembers || []).map(m => <option key={m.memberId || m.id} value={m.memberId || m.id}>{m.firstName} {m.lastName}</option>)
+                    )}
+                  </select>
+                  <button onClick={() => removeLink(i)} className="p-1 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded"><X size={14} /></button>
+                </div>
+                {/* Percentage + Affinity */}
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2 flex-1">
+                    <span className="text-xs text-gray-500 shrink-0">Collab:</span>
+                    <input type="range" min={0} max={100} step={5} value={link.collaborationPercentage}
+                      onChange={e => updateLink(i, { collaborationPercentage: parseInt(e.target.value) })}
+                      className="flex-1 h-1.5 bg-gray-200 rounded appearance-none cursor-pointer accent-indigo-500" />
+                    <span className="text-xs font-bold text-indigo-600 w-8 text-right">{link.collaborationPercentage}%</span>
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <span className="text-xs text-gray-500">Affinità:</span>
+                    {[1,2,3,4,5].map(n => (
+                      <button key={n} onClick={() => updateLink(i, { personalAffinity: n })}
+                        className="p-0.5"><Star size={12} className={n <= link.personalAffinity ? 'text-amber-500 fill-amber-500' : 'text-gray-300'} /></button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <button onClick={addLink} className="text-sm text-indigo-600 hover:text-indigo-700 font-medium flex items-center gap-1">
+            <Plus size={14} /> Aggiungi Connessione
+          </button>
+        </Section>
+      </div>
+    );
+  };
+
   const renderStoriaTab = () => (
     <div className="space-y-4">
       {isLoadingHistory ? (
@@ -1378,6 +1537,7 @@ export const UnifiedDetailModal: React.FC<UnifiedDetailModalProps> = ({
           {activeTab === 'ruolo' && renderRuoloTab()}
           {activeTab === 'requisiti' && renderRequisitiTab()}
           {activeTab === 'contratto' && renderContrattoTab()}
+          {activeTab === 'collaborazione' && renderCollaborazioneTab()}
           {activeTab === 'storia' && renderStoriaTab()}
         </div>
 

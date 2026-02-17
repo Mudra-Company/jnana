@@ -2107,6 +2107,7 @@ export const CompanyOrgView: React.FC<{
                     position={selectedUnifiedPosition}
                     companyValues={company.cultureValues}
                     companyMembers={users}
+                    orgNodes={(() => { const flat: OrgNode[] = []; const walk = (n: OrgNode) => { flat.push(n); n.children?.forEach(walk); }; walk(company.structure); return flat; })()}
                     onClose={() => setSelectedUnifiedPosition(null)}
                     onViewFullProfile={selectedUnifiedPosition.assignee ? () => {
                         if (selectedUnifiedPosition.assignee) {

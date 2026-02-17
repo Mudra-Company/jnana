@@ -1,5 +1,6 @@
 import React from 'react';
 import type { OfficeDesk } from '@/types/spacesync';
+import type { ProximityUserData } from '@/utils/proximityEngine';
 
 interface DeskTooltipProps {
   desk: OfficeDesk;
@@ -7,14 +8,21 @@ interface DeskTooltipProps {
   roomY: number;
   deskSize: number;
   score?: { avgScore: number; pairCount: number };
+  userData?: ProximityUserData;
 }
 
-export const DeskTooltip: React.FC<DeskTooltipProps> = ({ desk, roomX, roomY, deskSize, score }) => {
+export const DeskTooltip: React.FC<DeskTooltipProps> = ({ desk, roomX, roomY, deskSize, score, userData }) => {
   const tooltipX = roomX + desk.x + deskSize / 2;
   const tooltipY = roomY + desk.y - 12;
 
   const hasScore = !!score;
   const hasJobTitle = !!desk.assigneeJobTitle;
+  const envImpact = userData?.collaborationProfile?.environmentalImpact ?? 0;
+  const opFluidity = userData?.collaborationProfile?.operationalFluidity ?? 0;
+  const hasEnvAlert = envImpact >= 4;
+  const hasFluidAlert = opFluidity >= 4;
+  const hasAlerts = hasEnvAlert || hasFluidAlert;
+
   const lineHeight = 14;
   const padding = 10;
   const width = 170;
@@ -22,6 +30,7 @@ export const DeskTooltip: React.FC<DeskTooltipProps> = ({ desk, roomX, roomY, de
   let lines = 1; // name
   if (hasJobTitle) lines++;
   if (hasScore) lines++;
+  if (hasAlerts) lines++;
   const height = lines * lineHeight + padding * 2;
 
   const scoreColor = score
@@ -78,6 +87,17 @@ export const DeskTooltip: React.FC<DeskTooltipProps> = ({ desk, roomX, roomY, de
           style={{ fontSize: 10, fontWeight: 600, fill: scoreColor }}
         >
           ★ {score!.avgScore}% · {score!.pairCount} vicini
+        </text>
+      )}
+      {/* Environmental alerts */}
+      {hasAlerts && (
+        <text
+          x={tooltipX}
+          y={tooltipY - height + padding + 10 + lineHeight * ((hasJobTitle ? 1 : 0) + (hasScore ? 1 : 0) + 1)}
+          textAnchor="middle"
+          style={{ fontSize: 9, fontWeight: 600, fill: '#d97706' }}
+        >
+          {hasEnvAlert ? `🔊 Imp.Amb: ${envImpact}/5` : ''}{hasEnvAlert && hasFluidAlert ? ' · ' : ''}{hasFluidAlert ? `⚡ Fluid: ${opFluidity}/5` : ''}
         </text>
       )}
     </g>
