@@ -16,38 +16,63 @@ import type {
 } from '../types/roles';
 
 // Helper to convert snake_case DB row to camelCase CompanyRole
-const mapDbRowToRole = (row: Record<string, unknown>): CompanyRole => ({
-  id: row.id as string,
-  companyId: row.company_id as string,
-  orgNodeId: row.org_node_id as string | null,
-  title: row.title as string,
-  code: row.code as string | null,
-  description: row.description as string | null,
-  responsibilities: (row.responsibilities as string[]) || [],
-  dailyTasks: (row.daily_tasks as string[]) || [],
-  kpis: (row.kpis as CompanyRole['kpis']) || [],
-  requiredHardSkills: (row.required_hard_skills as CompanyRole['requiredHardSkills']) || [],
-  requiredSoftSkills: (row.required_soft_skills as CompanyRole['requiredSoftSkills']) || [],
-  requiredSeniority: row.required_seniority as CompanyRole['requiredSeniority'],
-  requiredEducation: (row.required_education as CompanyRole['requiredEducation']) || [],
-  requiredCertifications: (row.required_certifications as string[]) || [],
-  requiredLanguages: (row.required_languages as CompanyRole['requiredLanguages']) || [],
-  yearsExperienceMin: row.years_experience_min as number | null,
-  yearsExperienceMax: row.years_experience_max as number | null,
-  ccnlLevel: row.ccnl_level as string | null,
-  ralRangeMin: row.ral_range_min as number | null,
-  ralRangeMax: row.ral_range_max as number | null,
-  contractType: row.contract_type as CompanyRole['contractType'],
-  workHoursType: (row.work_hours_type as CompanyRole['workHoursType']) || 'full_time',
-  remotePolicy: (row.remote_policy as CompanyRole['remotePolicy']) || 'on_site',
-  reportsToRoleId: row.reports_to_role_id as string | null,
-  status: (row.status as CompanyRole['status']) || 'active',
-  headcount: (row.headcount as number) || 1,
-  isHiring: (row.is_hiring as boolean) || false,
-  createdAt: row.created_at as string,
-  updatedAt: row.updated_at as string,
-  collaborationProfile: row.collaboration_profile as CompanyRole['collaborationProfile'] || { links: [], environmentalImpact: 3, operationalFluidity: 3 },
-});
+const mapDbRowToRole = (row: Record<string, unknown>): CompanyRole => {
+  const role: CompanyRole = {
+    id: row.id as string,
+    companyId: row.company_id as string,
+    orgNodeId: row.org_node_id as string | null,
+    title: row.title as string,
+    code: row.code as string | null,
+    description: row.description as string | null,
+    responsibilities: (row.responsibilities as string[]) || [],
+    dailyTasks: (row.daily_tasks as string[]) || [],
+    kpis: (row.kpis as CompanyRole['kpis']) || [],
+    requiredHardSkills: (row.required_hard_skills as CompanyRole['requiredHardSkills']) || [],
+    requiredSoftSkills: (row.required_soft_skills as CompanyRole['requiredSoftSkills']) || [],
+    requiredSeniority: row.required_seniority as CompanyRole['requiredSeniority'],
+    requiredEducation: (row.required_education as CompanyRole['requiredEducation']) || [],
+    requiredCertifications: (row.required_certifications as string[]) || [],
+    requiredLanguages: (row.required_languages as CompanyRole['requiredLanguages']) || [],
+    yearsExperienceMin: row.years_experience_min as number | null,
+    yearsExperienceMax: row.years_experience_max as number | null,
+    ccnlLevel: row.ccnl_level as string | null,
+    ralRangeMin: row.ral_range_min as number | null,
+    ralRangeMax: row.ral_range_max as number | null,
+    contractType: row.contract_type as CompanyRole['contractType'],
+    workHoursType: (row.work_hours_type as CompanyRole['workHoursType']) || 'full_time',
+    remotePolicy: (row.remote_policy as CompanyRole['remotePolicy']) || 'on_site',
+    reportsToRoleId: row.reports_to_role_id as string | null,
+    status: (row.status as CompanyRole['status']) || 'active',
+    headcount: (row.headcount as number) || 1,
+    isHiring: (row.is_hiring as boolean) || false,
+    createdAt: row.created_at as string,
+    updatedAt: row.updated_at as string,
+    collaborationProfile: row.collaboration_profile as CompanyRole['collaborationProfile'] || { links: [], environmentalImpact: 3, operationalFluidity: 3 },
+  };
+
+  // Populate currentAssignee from joined company_role_assignments
+  const assignments = row.company_role_assignments as Array<{
+    id: string;
+    user_id: string | null;
+    company_member_id: string | null;
+    assignment_type: string;
+    end_date: string | null;
+    company_members: { user_id: string | null } | null;
+  }> | null;
+
+  if (assignments && Array.isArray(assignments)) {
+    const activeAssignments = assignments.filter(a => a.end_date === null);
+    const primary = activeAssignments.find(a => a.assignment_type === 'primary') || activeAssignments[0];
+    if (primary) {
+      const userId = primary.user_id || primary.company_members?.user_id;
+      if (userId) {
+        role.currentAssignee = { id: userId } as any;
+      }
+    }
+  }
+
+  return role;
+};
 
 // Helper to convert camelCase input to snake_case for DB
 const mapInputToDbRow = (input: CreateRoleInput | UpdateRoleInput): Record<string, unknown> => {
@@ -112,7 +137,13 @@ export const useCompanyRoles = (): UseCompanyRolesResult => {
     try {
       const { data, error: fetchError } = await supabase
         .from('company_roles')
-        .select('*')
+        .select(`
+          *,
+          company_role_assignments!role_id (
+            id, user_id, company_member_id, assignment_type, end_date,
+            company_members!company_member_id ( user_id )
+          )
+        `)
         .eq('company_id', companyId)
         .order('title');
 
@@ -140,7 +171,13 @@ export const useCompanyRoles = (): UseCompanyRolesResult => {
     try {
       const { data, error: fetchError } = await supabase
         .from('company_roles')
-        .select('*')
+        .select(`
+          *,
+          company_role_assignments!role_id (
+            id, user_id, company_member_id, assignment_type, end_date,
+            company_members!company_member_id ( user_id )
+          )
+        `)
         .eq('org_node_id', orgNodeId)
         .order('title');
 
