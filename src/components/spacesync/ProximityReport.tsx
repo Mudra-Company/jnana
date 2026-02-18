@@ -1,14 +1,15 @@
 import React from 'react';
-import { Users, ArrowRight, AlertTriangle, Sparkles, TrendingUp, Volume2, Activity } from 'lucide-react';
-import type { DeskProximityPair } from '@/utils/proximityEngine';
+import { Users, ArrowRight, AlertTriangle, Sparkles, TrendingUp, Volume2, Activity, GitBranch } from 'lucide-react';
+import type { DeskProximityPair, ProximityUserData } from '@/utils/proximityEngine';
 import { getProximityColor } from '@/utils/proximityEngine';
 
 interface ProximityReportProps {
   pairs: DeskProximityPair[];
   globalAverage: number;
+  userDataMap?: Map<string, ProximityUserData>;
 }
 
-export const ProximityReport: React.FC<ProximityReportProps> = ({ pairs, globalAverage }) => {
+export const ProximityReport: React.FC<ProximityReportProps> = ({ pairs, globalAverage, userDataMap }) => {
   if (pairs.length === 0) {
     return (
       <div className="text-center py-6 text-gray-400">
@@ -145,6 +146,75 @@ export const ProximityReport: React.FC<ProximityReportProps> = ({ pairs, globalA
           </ul>
         </div>
       )}
+
+      {/* Collaboration Detail for key pairs */}
+      {userDataMap && (poor.length > 0 || excellent.length > 0) && (() => {
+        const keyPairs = [...poor, ...excellent].slice(0, 5);
+        const details = keyPairs.map(pair => {
+          const collabFlow = pair.proximityResult.breakdown.collaborationFlow;
+          // Find specific collaboration link info
+          const profileA = pair.userA.collaborationProfile;
+          const profileB = pair.userB.collaborationProfile;
+          let collabPct = 0;
+          let affinity = 0;
+          let hasBidi = false;
+
+          const findLink = (profile: typeof profileA, targetMemberId: string) => {
+            if (!profile?.links) return null;
+            for (const link of profile.links) {
+              if (link.targetType === 'member' && link.targetId === targetMemberId)
+                return { pct: link.collaborationPercentage, aff: link.personalAffinity };
+              if (link.targetType === 'team' && link.memberBreakdown) {
+                const mb = link.memberBreakdown.find(m => m.memberId === targetMemberId);
+                if (mb) return { pct: Math.round((link.collaborationPercentage * mb.percentage) / 100), aff: mb.affinity ?? link.personalAffinity };
+              }
+            }
+            return null;
+          };
+
+          const linkAB = findLink(profileA, pair.userB.memberId);
+          const linkBA = findLink(profileB, pair.userA.memberId);
+          if (linkAB) { collabPct = linkAB.pct; affinity = linkAB.aff; }
+          if (linkBA) { collabPct = Math.max(collabPct, linkBA.pct); affinity = Math.max(affinity, linkBA.aff); hasBidi = !!linkAB; }
+
+          if (collabPct === 0 && affinity === 0) return null;
+
+          const score = pair.proximityResult.score;
+          const mismatch = (collabPct >= 25 && score < 40) || (collabPct < 10 && score >= 75);
+
+          return { pair, collabPct, affinity, hasBidi, collabFlow, mismatch, score };
+        }).filter(Boolean) as Array<{ pair: DeskProximityPair; collabPct: number; affinity: number; hasBidi: boolean; collabFlow: number; mismatch: boolean; score: number }>;
+
+        if (details.length === 0) return null;
+
+        return (
+          <div>
+            <h4 className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1.5 flex items-center gap-1">
+              <GitBranch size={11} />
+              Dettaglio Collaborazione
+            </h4>
+            <div className="space-y-1">
+              {details.map((d, i) => (
+                <div key={i} className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-gray-50 dark:bg-gray-800/50 border-l-3" style={{ borderLeftColor: d.affinity >= 4 ? '#22c55e' : d.affinity >= 3 ? '#64748b' : '#d97706' }}>
+                  <span className="text-[11px] font-medium text-gray-700 dark:text-gray-200">
+                    {d.pair.userA.firstName} {d.pair.userA.lastName[0]}.
+                  </span>
+                  <ArrowRight size={10} className="text-gray-400" />
+                  <span className="text-[11px] font-medium text-gray-700 dark:text-gray-200">
+                    {d.pair.userB.firstName} {d.pair.userB.lastName[0]}.
+                  </span>
+                  <span className="ml-auto flex items-center gap-1">
+                    <span className="text-[10px] font-bold text-jnana-sage">{d.collabPct}%</span>
+                    <span className="text-[9px] text-amber-500">{'★'.repeat(d.affinity)}</span>
+                    {d.hasBidi && <span className="text-[8px] px-1 py-0.5 rounded bg-blue-100 dark:bg-blue-900/30 text-blue-600 font-bold">↔</span>}
+                    {d.mismatch && <span className="text-[8px] px-1 py-0.5 rounded bg-red-100 dark:bg-red-900/30 text-red-600 font-bold">⚠</span>}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 };

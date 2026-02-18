@@ -23,6 +23,9 @@ interface FloorPlanCanvasProps {
   heatmapMode?: boolean;
   onToggleHeatmap?: () => void;
   heatmapOverlay?: React.ReactNode;
+  flowMode?: boolean;
+  onToggleFlow?: () => void;
+  flowOverlay?: React.ReactNode;
   deskScores?: Map<string, { avgScore: number; pairCount: number }>;
 }
 
@@ -69,7 +72,9 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
   onCreateRoom, onUpdateRoom, onDeleteRoom,
   onCreateDesk, onUpdateDesk, onDeleteDesk, onSelectDesk,
   selectedRoomId, selectedDeskId, onSelectRoom,
-  heatmapMode, onToggleHeatmap, heatmapOverlay, deskScores,
+  heatmapMode, onToggleHeatmap, heatmapOverlay,
+  flowMode, onToggleFlow, flowOverlay,
+  deskScores,
 }) => {
   const [mode, setMode] = useState<CanvasMode>('select');
   const [zoom, setZoom] = useState(1);
@@ -322,6 +327,8 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
         setZoom={setZoom}
         heatmapMode={heatmapMode}
         onToggleHeatmap={onToggleHeatmap}
+        flowMode={flowMode}
+        onToggleFlow={onToggleFlow}
         selectedRoomId={selectedRoomId}
         selectedDeskId={selectedDeskId}
         onDeleteRoom={() => { if (selectedRoomId) { onDeleteRoom(selectedRoomId); onSelectRoom(undefined); } }}
@@ -385,6 +392,9 @@ export const FloorPlanCanvas: React.FC<FloorPlanCanvasProps> = ({
 
           {/* Heatmap overlay */}
           {heatmapMode && heatmapOverlay}
+
+          {/* Flow overlay */}
+          {flowMode && flowOverlay}
 
           {/* Rooms */}
           {rooms.map(room => {

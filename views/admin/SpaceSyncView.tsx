@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
-import { MapPin, ChevronDown, BarChart3, Sparkles, LayoutGrid, DoorOpen, Monitor, Users, Star, ArrowLeftRight } from 'lucide-react';
+import { MapPin, ChevronDown, BarChart3, Sparkles, LayoutGrid, DoorOpen, Monitor, Users, Star, ArrowLeftRight, GitBranch } from 'lucide-react';
 import { Card } from '../../components/Card';
 import { Button } from '../../components/Button';
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '../../src/components/ui/collapsible';
@@ -15,6 +15,8 @@ import { ProximityHeatmap } from '../../src/components/spacesync/ProximityHeatma
 import { ProximityReport } from '../../src/components/spacesync/ProximityReport';
 import { SwapSimulationModal } from '../../src/components/spacesync/SwapSimulationModal';
 import { OptimizationSuggestions } from '../../src/components/spacesync/OptimizationSuggestions';
+import { CollaborationFlowOverlay, buildFlowConnections } from '../../src/components/spacesync/CollaborationFlowOverlay';
+import { CollaborationFlowReport } from '../../src/components/spacesync/CollaborationFlowReport';
 import type { CompanyProfile, User } from '../../types';
 import type { OfficeDesk, OfficeRoom } from '../../src/types/spacesync';
 
@@ -58,6 +60,7 @@ export const SpaceSyncView: React.FC<SpaceSyncViewProps> = ({ company, companyUs
   const [selectedRoomId, setSelectedRoomId] = useState<string | undefined>();
   const [selectedDesk, setSelectedDesk] = useState<OfficeDesk | null>(null);
   const [heatmapMode, setHeatmapMode] = useState(true);
+  const [flowMode, setFlowMode] = useState(false);
   const [showSimulation, setShowSimulation] = useState(false);
   const [roomPreviewOverrides, setRoomPreviewOverrides] = useState<Partial<OfficeRoom> | null>(null);
 
@@ -88,6 +91,25 @@ export const SpaceSyncView: React.FC<SpaceSyncViewProps> = ({ company, companyUs
   const assignedMemberIds = useMemo(() => desks.filter(d => d.companyMemberId).map(d => d.companyMemberId!), [desks]);
   const assignedCount = useMemo(() => desks.filter(d => d.companyMemberId).length, [desks]);
   const occupancyPct = desks.length > 0 ? Math.round((assignedCount / desks.length) * 100) : 0;
+
+  // Flow connections
+  const flowConnections = useMemo(() => buildFlowConnections(desks, rooms, userDataMap), [desks, rooms, userDataMap]);
+  const flowMissingCount = useMemo(() => {
+    const deskMemberIds = new Set(desks.filter(d => d.companyMemberId).map(d => d.companyMemberId!));
+    let missing = 0;
+    for (const [, ud] of userDataMap) {
+      if (!ud.collaborationProfile?.links) continue;
+      for (const link of ud.collaborationProfile.links) {
+        if (link.targetType === 'member' && !deskMemberIds.has(link.targetId)) missing++;
+        if (link.targetType === 'team' && link.memberBreakdown) {
+          for (const mb of link.memberBreakdown) {
+            if (!deskMemberIds.has(mb.memberId)) missing++;
+          }
+        }
+      }
+    }
+    return missing;
+  }, [desks, userDataMap]);
   const selectedRoomDeskCount = useMemo(() =>
     selectedRoom ? desks.filter(d => d.roomId === selectedRoom.id).length : 0
   , [selectedRoom, desks]);
@@ -298,7 +320,25 @@ export const SpaceSyncView: React.FC<SpaceSyncViewProps> = ({ company, companyUs
                   <ChevronDown size={14} className="transition-transform data-[state=open]:rotate-180 text-gray-400" />
                 </CollapsibleTrigger>
                 <CollapsibleContent className="mt-3">
-                  <ProximityReport pairs={proximityPairs} globalAverage={globalAverage} />
+                  <ProximityReport pairs={proximityPairs} globalAverage={globalAverage} userDataMap={userDataMap} />
+                </CollapsibleContent>
+              </Card>
+            </Collapsible>
+          )}
+
+          {/* Flow Report */}
+          {flowMode && flowConnections.length > 0 && (
+            <Collapsible defaultOpen>
+              <Card padding="sm">
+                <CollapsibleTrigger className="w-full flex items-center justify-between text-[10px] font-bold uppercase tracking-widest text-gray-400">
+                  <span className="flex items-center gap-1.5">
+                    <GitBranch size={12} className="text-jnana-sage" />
+                    Report Flussi
+                  </span>
+                  <ChevronDown size={14} className="transition-transform data-[state=open]:rotate-180 text-gray-400" />
+                </CollapsibleTrigger>
+                <CollapsibleContent className="mt-3">
+                  <CollaborationFlowReport connections={flowConnections} missingCount={flowMissingCount} />
                 </CollapsibleContent>
               </Card>
             </Collapsible>
@@ -350,9 +390,14 @@ export const SpaceSyncView: React.FC<SpaceSyncViewProps> = ({ company, companyUs
                 selectedDeskId={selectedDesk?.id}
                 onSelectRoom={setSelectedRoomId}
                 heatmapMode={heatmapMode}
-                onToggleHeatmap={() => setHeatmapMode(prev => !prev)}
+                onToggleHeatmap={() => { setHeatmapMode(prev => !prev); if (!heatmapMode) setFlowMode(false); }}
                 heatmapOverlay={
                   <ProximityHeatmap deskScores={deskScores} desks={desks} rooms={rooms} />
+                }
+                flowMode={flowMode}
+                onToggleFlow={() => { setFlowMode(prev => !prev); if (!flowMode) setHeatmapMode(false); }}
+                flowOverlay={
+                  <CollaborationFlowOverlay desks={desks} rooms={rooms} userDataMap={userDataMap} />
                 }
                 deskScores={deskScores}
               />
