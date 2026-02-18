@@ -53,6 +53,7 @@ import type { ShortlistUser } from '../../src/types/shortlist';
 
 // Role-centric imports
 import { useCompanyRoles } from '../../src/hooks/useCompanyRoles';
+import { supabase } from '../../src/integrations/supabase/client';
 import { RoleCreationModal } from '../../src/components/roles/RoleCreationModal';
 import { RoleDetailModal } from '../../src/components/roles/RoleDetailModal';
 import { UnifiedDetailModal } from '../../src/components/roles/UnifiedDetailModal';
@@ -2148,6 +2149,21 @@ export const CompanyOrgView: React.FC<{
                                 return { success: false, error: createResult.error };
                             }
                             actualRoleId = createResult.role.id;
+                            
+                            // Assign the current person to the newly created role
+                            if (pos.assignee) {
+                                const memberId = pos.assignee.memberId || pos.assignee.id;
+                                const { error: assignError } = await supabase
+                                    .from('company_role_assignments')
+                                    .insert({
+                                        role_id: actualRoleId,
+                                        company_member_id: memberId,
+                                        assignment_type: 'primary' as const,
+                                    });
+                                if (assignError) {
+                                    console.error('Failed to assign person to promoted role:', assignError);
+                                }
+                            }
                         }
                         const result = await updateRole(actualRoleId, updatedRole);
                         if (result.success) {
