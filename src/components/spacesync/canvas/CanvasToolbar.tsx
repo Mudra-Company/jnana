@@ -1,5 +1,5 @@
 import React from 'react';
-import { MousePointer, Square, Monitor, Trash2, Thermometer, RotateCcw } from 'lucide-react';
+import { MousePointer, Square, Monitor, Trash2, Thermometer, GitBranch } from 'lucide-react';
 import type { CanvasMode } from '@/types/spacesync';
 
 interface CanvasToolbarProps {
@@ -9,6 +9,8 @@ interface CanvasToolbarProps {
   setZoom: (fn: (z: number) => number) => void;
   heatmapMode?: boolean;
   onToggleHeatmap?: () => void;
+  flowMode?: boolean;
+  onToggleFlow?: () => void;
   selectedRoomId?: string;
   selectedDeskId?: string;
   onDeleteRoom: () => void;
@@ -22,6 +24,8 @@ export const CanvasToolbar: React.FC<CanvasToolbarProps> = ({
   setZoom,
   heatmapMode,
   onToggleHeatmap,
+  flowMode,
+  onToggleFlow,
   selectedRoomId,
   selectedDeskId,
   onDeleteRoom,
@@ -58,16 +62,26 @@ export const CanvasToolbar: React.FC<CanvasToolbarProps> = ({
         </button>
       </div>
 
-      {/* Heatmap */}
-      {onToggleHeatmap && (
+      {/* Heatmap & Flows */}
+      {(onToggleHeatmap || onToggleFlow) && (
         <>
           <Separator label="Vista" />
-          <ToolButton
-            active={heatmapMode}
-            onClick={onToggleHeatmap}
-            icon={<Thermometer size={18} />}
-            label="Heatmap"
-          />
+          {onToggleHeatmap && (
+            <ToolButton
+              active={heatmapMode}
+              onClick={onToggleHeatmap}
+              icon={<Thermometer size={18} />}
+              label="Heatmap"
+            />
+          )}
+          {onToggleFlow && (
+            <ToolButton
+              active={flowMode}
+              onClick={onToggleFlow}
+              icon={<GitBranch size={18} />}
+              label="Flussi"
+            />
+          )}
         </>
       )}
 
