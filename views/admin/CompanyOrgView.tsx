@@ -2109,20 +2109,15 @@ export const CompanyOrgView: React.FC<{
                     companyMembers={users}
                     orgNodes={(() => { const flat: OrgNode[] = []; const walk = (n: OrgNode) => { flat.push(n); n.children?.forEach(walk); }; walk(company.structure); return flat; })()}
                     membersByOrgNode={(() => {
-                      // Build a map: org_node_id -> members assigned to roles in that node
+                      // Build map from users' departmentId (always populated, unlike roles.assignments)
                       const map: Record<string, {id: string; label: string}[]> = {};
-                      for (const r of roles) {
-                        if (!r.orgNodeId) continue;
-                        const members: {id: string; label: string}[] = [];
-                        for (const a of (r.assignments || [])) {
-                          if (a.endDate) continue; // skip ended
-                          const u = users.find(u => u.id === a.userId || u.memberId === a.companyMemberId);
-                          if (u) members.push({ id: u.memberId || u.id, label: `${u.firstName || ''} ${u.lastName || ''}`.trim() || u.email });
-                        }
-                        if (!map[r.orgNodeId]) map[r.orgNodeId] = [];
-                        // Avoid duplicates
-                        for (const m of members) {
-                          if (!map[r.orgNodeId].some(x => x.id === m.id)) map[r.orgNodeId].push(m);
+                      for (const u of users) {
+                        if (!u.departmentId || u.isHiring) continue;
+                        if (!map[u.departmentId]) map[u.departmentId] = [];
+                        const label = `${u.firstName || ''} ${u.lastName || ''}`.trim() || u.email;
+                        const id = u.memberId || u.id;
+                        if (!map[u.departmentId].some(x => x.id === id)) {
+                          map[u.departmentId].push({ id, label });
                         }
                       }
                       return map;
