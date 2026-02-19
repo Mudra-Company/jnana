@@ -1,81 +1,112 @@
 
-# Compilazione profili di collaborazione per tutti i ruoli Dürr Dental
+# Miglioramento Gestione Sedi/Piani e Flussi Cross-Location in SpaceSync
 
-## Obiettivo
-Aggiornare tutti i 18 ruoli con profili di collaborazione completi: `environmentalImpact`, `operationalFluidity` e `links` (collegamenti verso team/membri con % di tempo e affinita).
+## Situazione attuale
 
-## Approccio
-Aggiornare la edge function `seed-company-roles` per includere il campo `collaboration_profile` in ogni ruolo, poi ri-eseguirla. Il profilo di Mauro Dorigo (gia compilato manualmente) verra preservato.
+Oggi ogni "location" e un'entita piatta con campi opzionali `buildingName`, `address`, `floorNumber`. Le due sedi esistenti sono:
+- **HQ** (Via tal dei tali, Concorrezzo) - Piano 1
+- **DUOMO** (Piazza Duomo Milano)
 
-## Profili di collaborazione progettati
+Il sistema mostra solo i flussi di collaborazione tra persone sullo **stesso piano/sede**. Se un collaboratore e su un altro piano o in un'altra sede, la connessione e completamente invisibile.
 
-### Legenda valori
-- **Impatto Ambientale** (1=silenzioso, 5=molto rumoroso)
-- **Fluidita Operativa** (1=stanziale, 5=sempre in movimento)
-- **% Collaborazione**: tempo lavorativo dedicato all'interazione con quel team
-- **Affinita**: 1-5 (qualita relazionale tipica del ruolo)
+## Cosa cambia
 
-### Mapping completo
+### 1. Ristrutturazione UI del LocationSelector (Sede > Piani)
 
-| Ruolo | Env.Imp | Op.Fluid | Collegamenti principali |
-|---|---|---|---|
-| **CEO** (Bertolotto) | 2 | 4 | Dir.Sales 30%, Dir.Service 20%, Dir.Amm 20%, Dir.Logistica 10% |
-| **Head of Sales** (Dorigo) | 3 | 3 | GIA COMPILATO - preservare |
-| **Resp. Service** (Venturini) | 3 | 3 | Service Trad 35%, Installazioni 15%, Service Digital 15%, Dir.Logistica 10% |
-| **Resp. Logistica** (Dose) | 2 | 3 | Magazzino 40%, Gestione Ordini 20%, Service Trad 15% |
-| **Resp. Amministrativo** (Sangalli) | 1 | 1 | Supp.Amm 35%, General Mgmt 20%, Dir.Logistica 10% |
-| **Area Manager** (Cassano) | 4 | 5 | Dir.Sales 25%, Gestione Ordini 20%, Team Marketing 10%, Service Trad 10% |
-| **Sales Specialist** (Fabio) | 4 | 5 | Dir.Sales 25%, Gestione Ordini 25%, Team Marketing 10% |
-| **Mktg Specialist** (Bartoli) | 2 | 2 | Dir.Sales 25%, Team Sales 20%, Gestione Ordini 10% |
-| **Mktg Specialist** (Cerati) | 2 | 2 | Dir.Sales 25%, Team Sales 20%, Gestione Ordini 10% |
-| **Commerciale Interno** (Pasqualini) | 3 | 1 | Team Sales 25%, Dir.Sales 20%, Dir.Logistica 15%, Supp.Amm 10% |
-| **Tecnico Service** (Romano) | 4 | 5 | Dir.Service 20%, Installazioni 15%, Service Digital 10%, Magazzino 10% |
-| **Tecnico Service** (Griffini) | 4 | 5 | Dir.Service 20%, Installazioni 15%, Service Digital 10%, Magazzino 10% |
-| **Tecnico Service** (Piani) | 4 | 5 | Dir.Service 20%, Installazioni 15%, Service Digital 10%, Magazzino 10% |
-| **Tecnico Service** (Luppichini) | 4 | 5 | Dir.Service 20%, Installazioni 15%, Service Digital 10%, Magazzino 10% |
-| **Product Specialist** (Pagnini) | 2 | 3 | Service Trad 25%, Dir.Service 20%, Team Marketing 15% |
-| **Tecnico Repair** (Scudier) | 4 | 5 | Service Trad 25%, Dir.Service 20%, Magazzino 15% |
-| **Magazziniere** (Tompetrini) | 3 | 3 | Dir.Logistica 30%, Service Trad 20%, Gestione Ordini 15%, Installazioni 10% |
-| **Segreteria** (Ciceri) | 2 | 1 | Dir.Amm 40%, General Mgmt 15%, Dir.Sales 10% |
+Trasformare il selettore da lista piatta a **gerarchia a due livelli**: Sede (raggruppata per `address`) > Piano.
+
+```text
+SEDI E PIANI
+  
+  [Sede] HQ - Via tal dei tali, Concorrezzo
+    > Piano Terra        [selezionato]
+    > Piano 1
+    + Aggiungi Piano
+  
+  [Sede] DUOMO - Piazza Duomo Milano  
+    > Piano Unico
+    + Aggiungi Piano
+
+  + Nuova Sede
+```
+
+- "Nuova Sede" chiede solo nome sede e indirizzo, poi crea automaticamente il primo piano
+- "Aggiungi Piano" dentro una sede crea una nuova location con lo stesso `address`/`buildingName` e il `floorNumber` successivo
+- Il raggruppamento usa il campo `address` come chiave di sede (gia presente nel DB)
+
+### 2. Flussi Cross-Location nel Canvas (frecce "verso l'esterno")
+
+Quando la vista Flussi e attiva, per ogni collaboratore che ha link verso qualcuno NON presente nel piano corrente:
+
+```text
+                    ┌─────────────────────────┐
+                    │  [Canvas Piano Terra]    │
+                    │                          │
+  ← Piano 1        │   [Desk A] ──────────>   │──→ DUOMO
+  Claudio V. 20%   │                          │   Michele C. 25%
+                    │   [Desk B]               │
+                    └─────────────────────────┘
+```
+
+- Una freccia tratteggiata parte dal desk dell'utente e va verso il **bordo del canvas**
+- Al bordo, un **badge/etichetta** mostra: nome del collaboratore, sede/piano, percentuale
+- Colore della freccia basato sull'affinita (come i flussi interni)
+- Le frecce esterne sono raggruppate per direzione (sinistra/destra) per evitare sovrapposizioni
+
+### 3. Dati cross-location: caricare la mappa globale dei desk
+
+Per sapere dove si trova ogni collaboratore, serve una **mappa globale** `memberId -> locationInfo` che carichi i desk di TUTTE le sedi dell'azienda (non solo quella selezionata).
+
+### 4. Report Flussi: sezione "Collaborazioni Esterne"
+
+Nel report laterale dei flussi, aggiungere una sezione dedicata:
+
+```text
+COLLABORAZIONI ESTERNE
+  Stesso edificio, piano diverso (3)
+    Claudio V. ↔ Paolo R. — 20% — Piano 1
+    ...
+  Sede diversa (2)  
+    Michele C. ↔ Barbara P. — 25% — DUOMO
+    ...
+```
 
 ## Dettagli tecnici
 
 ### File da modificare
-**`supabase/functions/seed-company-roles/index.ts`**
 
-Per ogni ruolo in `ROLES_TO_CREATE`, aggiungere il campo `collaboration_profile` con la struttura:
+| File | Modifiche |
+|---|---|
+| `src/components/spacesync/LocationSelector.tsx` | Ristrutturare UI con gerarchia Sede > Piano, aggiungere "Aggiungi Piano" |
+| `src/hooks/useOfficeDesks.ts` | Aggiungere `fetchAllDesks(companyId)` che carica desk di tutte le sedi |
+| `src/types/spacesync.ts` | Aggiungere `ExternalCollaborator` type per i flussi cross-location |
+| `src/components/spacesync/CollaborationFlowOverlay.tsx` | Aggiungere rendering frecce esterne verso il bordo canvas con badge |
+| `src/components/spacesync/CollaborationFlowReport.tsx` | Aggiungere sezione "Collaborazioni Esterne" con distinzione stesso-edificio / sede-diversa |
+| `views/admin/SpaceSyncView.tsx` | Passare `allDesks`, `locations` al flow overlay; caricare dati globali |
+
+### Nessuna migrazione DB necessaria
+
+Il modello dati attuale (`address` + `floorNumber` in `office_locations`) e gia sufficiente. Il raggruppamento per sede avviene nel frontend usando il campo `address` come chiave.
+
+### Logica per le frecce esterne
 
 ```text
-collaboration_profile: {
-  environmentalImpact: <numero>,
-  operationalFluidity: <numero>,
-  links: [
-    {
-      targetType: "team",
-      targetId: "<org_node_id>",
-      targetLabel: "<nome nodo>",
-      collaborationPercentage: <0-100>,
-      personalAffinity: <1-5>,
-      memberBreakdown: [
-        {
-          memberId: "<company_member_id>",
-          memberLabel: "<Nome Cognome>",
-          percentage: <0-100>,
-          affinity: <1-5>
-        }
-      ]
-    }
-  ]
-}
+Per ogni desk assegnato nel piano corrente:
+  Per ogni link di collaborazione:
+    Se il target member NON ha un desk nel piano corrente:
+      Cerca il target in allDesks (tutte le sedi)
+      Se trovato:
+        locationTarget = locations.find(l => l.id === targetDesk.locationId)
+        sameBuilding = locationTarget.address === currentLocation.address
+        label = sameBuilding 
+          ? "Piano " + locationTarget.floorNumber
+          : locationTarget.name
+        Disegna freccia tratteggiata dal desk al bordo canvas
+        Mostra badge con: nomeTarget, label, percentuale
+      Se NON trovato (non ha scrivania):
+        Mostra nel report come "non posizionato"
 ```
 
-### Logica per il memberBreakdown
-Ogni link verso un team include il breakdown per membro con:
-- La `percentage` indica quanto del tempo di collaborazione col team va a quel specifico membro
-- L'`affinity` e una stima realistica della relazione tipica per quei ruoli
+### Posizionamento badge sul bordo
 
-### Caso speciale: Head of Sales (Dorigo)
-Il suo profilo e gia stato compilato manualmente dall'utente. La edge function NON deve sovrascriverlo: nella logica di update del ruolo esistente, il campo `collaboration_profile` va escluso dall'UPDATE oppure va preservato il valore attuale.
-
-### Ri-esecuzione
-Dopo l'aggiornamento della funzione, l'utente clicca "Seed Company Roles" dalla pagina admin per applicare i dati. La funzione e idempotente (cancella e ricrea i ruoli, eccetto Dorigo che viene solo aggiornato).
+I badge esterni vengono distribuiti lungo il bordo destro (o sinistro) del canvas, distanziati verticalmente di 40px l'uno dall'altro per evitare sovrapposizioni. Badge per "stesso edificio" hanno bordo blu, badge per "sede diversa" hanno bordo arancione.
