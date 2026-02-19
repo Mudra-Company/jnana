@@ -1,138 +1,81 @@
 
-# Popolamento completo organigramma Dürr Dental con dati dal mansionario
+# Compilazione profili di collaborazione per tutti i ruoli Dürr Dental
 
 ## Obiettivo
-Creare tutti i ruoli nel database con mansionario completo (responsabilita, KPI, competenze, requisiti) estratto dal PDF allegato, e assegnare ogni ruolo alla persona corretta. L'unico ruolo gia esistente nel DB e "Head of Sales" (Mauro Dorigo) che verra aggiornato.
+Aggiornare tutti i 18 ruoli con profili di collaborazione completi: `environmentalImpact`, `operationalFluidity` e `links` (collegamenti verso team/membri con % di tempo e affinita).
 
-## Analisi del documento
+## Approccio
+Aggiornare la edge function `seed-company-roles` per includere il campo `collaboration_profile` in ogni ruolo, poi ri-eseguirla. Il profilo di Mauro Dorigo (gia compilato manualmente) verra preservato.
 
-Il PDF contiene i mansionari dettagliati per le seguenti figure:
+## Profili di collaborazione progettati
 
-| Mansionario dal PDF | Persona/e nell'organigramma | Nodo organizzativo |
-|---|---|---|
-| Magazziniere | Andrea Tompetrini | Magazzino |
-| Segreteria e Amministrazione | Alessandra Ciceri | Supporto Amministrativo |
-| Responsabile Amministrativo | Tessa Sangalli | Direzione Amministrativa |
-| Commerciale Interno (Gestione Ordini) | Barbara Pasqualini | Gestione Ordini |
-| Service & Technical Support | Paolo Romano, Matteo Griffini, Gabriele Piani, Alberto Luppichini | Service Tradizionale / Service Digital |
-| Service & Repair | Alberto Scudier | Installazioni |
-| Responsabile Service | Claudio Venturini | Direzione Service |
-| Area Manager | Michele Cassano | Team Sales |
-| Product Specialist | Ivan Carlo Pagnini | Service Digital & R&D |
-| Marketing (Addetto) | Giulia Bartoli, Massimiliano Cerati | Team Marketing |
+### Legenda valori
+- **Impatto Ambientale** (1=silenzioso, 5=molto rumoroso)
+- **Fluidita Operativa** (1=stanziale, 5=sempre in movimento)
+- **% Collaborazione**: tempo lavorativo dedicato all'interazione con quel team
+- **Affinita**: 1-5 (qualita relazionale tipica del ruolo)
 
-Ruoli NON presenti nel PDF ma presenti nell'organigramma (da compilare con dati sensati):
-- **CEO / AD** (Nicola Bertolotto) -- General Management
-- **Head of Sales & Marketing** (Mauro Dorigo) -- gia in DB, da aggiornare
-- **Sales Specialist** (Marco Fabio) -- Team Sales
+### Mapping completo
 
-## Piano di implementazione
-
-### 1. Creare un edge function `seed-company-roles`
-
-Una funzione backend che:
-- Per il ruolo gia esistente di Mauro Dorigo: esegue un UPDATE con tutti i campi dal mansionario
-- Per tutti gli altri 17 utenti: crea un nuovo record in `company_roles` e il corrispondente record in `company_role_assignments`
-- Tutti i dati (responsibilities, daily_tasks, kpis, required_hard_skills, required_soft_skills, required_languages, required_education, required_certifications) sono hardcoded nella funzione direttamente dal PDF
-
-### 2. Dati per ogni ruolo
-
-Per ogni ruolo verra popolato:
-- `title`: titolo dal mansionario
-- `org_node_id`: nodo organizzativo corretto (UUID dal DB)
-- `responsibilities`: lista responsabilita dal PDF
-- `daily_tasks`: funzioni e compiti principali dal PDF
-- `kpis`: KPI con nome, descrizione e target dal PDF
-- `required_hard_skills`: competenze tecniche dal PDF (con livello 3-5)
-- `required_soft_skills`: competenze trasversali dal PDF (con livello 3-5)
-- `required_languages`: lingue richieste dal PDF (con livello)
-- `required_education`: requisiti formativi dal PDF
-- `required_certifications`: certificazioni dal PDF
-- `required_seniority`: seniority appropriata
-- `contract_type`: "permanent" (indeterminato per tutti)
-- `work_hours_type`: "full_time"
-- `remote_policy`: "on_site"
-- `status`: "active"
-
-### 3. Aggiungere bottone nel SeedDataView
-
-Aggiungere un terzo bottone "Seed Company Roles (19)" nella pagina di seed che chiama la nuova edge function.
-
-### 4. Ruoli senza mansionario nel PDF
-
-Per CEO, Head of Sales e Sales Specialist, creo mansionari sensati basati sul contesto aziendale e le best practices per quei ruoli nel settore dental/medicale B2B.
+| Ruolo | Env.Imp | Op.Fluid | Collegamenti principali |
+|---|---|---|---|
+| **CEO** (Bertolotto) | 2 | 4 | Dir.Sales 30%, Dir.Service 20%, Dir.Amm 20%, Dir.Logistica 10% |
+| **Head of Sales** (Dorigo) | 3 | 3 | GIA COMPILATO - preservare |
+| **Resp. Service** (Venturini) | 3 | 3 | Service Trad 35%, Installazioni 15%, Service Digital 15%, Dir.Logistica 10% |
+| **Resp. Logistica** (Dose) | 2 | 3 | Magazzino 40%, Gestione Ordini 20%, Service Trad 15% |
+| **Resp. Amministrativo** (Sangalli) | 1 | 1 | Supp.Amm 35%, General Mgmt 20%, Dir.Logistica 10% |
+| **Area Manager** (Cassano) | 4 | 5 | Dir.Sales 25%, Gestione Ordini 20%, Team Marketing 10%, Service Trad 10% |
+| **Sales Specialist** (Fabio) | 4 | 5 | Dir.Sales 25%, Gestione Ordini 25%, Team Marketing 10% |
+| **Mktg Specialist** (Bartoli) | 2 | 2 | Dir.Sales 25%, Team Sales 20%, Gestione Ordini 10% |
+| **Mktg Specialist** (Cerati) | 2 | 2 | Dir.Sales 25%, Team Sales 20%, Gestione Ordini 10% |
+| **Commerciale Interno** (Pasqualini) | 3 | 1 | Team Sales 25%, Dir.Sales 20%, Dir.Logistica 15%, Supp.Amm 10% |
+| **Tecnico Service** (Romano) | 4 | 5 | Dir.Service 20%, Installazioni 15%, Service Digital 10%, Magazzino 10% |
+| **Tecnico Service** (Griffini) | 4 | 5 | Dir.Service 20%, Installazioni 15%, Service Digital 10%, Magazzino 10% |
+| **Tecnico Service** (Piani) | 4 | 5 | Dir.Service 20%, Installazioni 15%, Service Digital 10%, Magazzino 10% |
+| **Tecnico Service** (Luppichini) | 4 | 5 | Dir.Service 20%, Installazioni 15%, Service Digital 10%, Magazzino 10% |
+| **Product Specialist** (Pagnini) | 2 | 3 | Service Trad 25%, Dir.Service 20%, Team Marketing 15% |
+| **Tecnico Repair** (Scudier) | 4 | 5 | Service Trad 25%, Dir.Service 20%, Magazzino 15% |
+| **Magazziniere** (Tompetrini) | 3 | 3 | Dir.Logistica 30%, Service Trad 20%, Gestione Ordini 15%, Installazioni 10% |
+| **Segreteria** (Ciceri) | 2 | 1 | Dir.Amm 40%, General Mgmt 15%, Dir.Sales 10% |
 
 ## Dettagli tecnici
 
-### Mapping persona -> ruolo -> nodo
+### File da modificare
+**`supabase/functions/seed-company-roles/index.ts`**
+
+Per ogni ruolo in `ROLES_TO_CREATE`, aggiungere il campo `collaboration_profile` con la struttura:
 
 ```text
-Nicola Bertolotto  -> CEO / AD                    -> d0000001-...-000000000001 (General Management)
-Mauro Dorigo       -> Head of Sales & Marketing   -> d0000001-...-000000000002 (Dir. Sales) [UPDATE]
-Claudio Venturini  -> Resp. Service               -> d0000001-...-000000000003 (Dir. Service)
-Fabrizio Dose      -> Resp. Logistica             -> d0000001-...-000000000004 (Dir. Logistica)
-Tessa Sangalli     -> Resp. Amministrativo        -> d0000001-...-000000000005 (Dir. Amm.)
-Michele Cassano    -> Area Manager                -> d0000001-...-000000000006 (Team Sales)
-Marco Fabio        -> Sales Specialist            -> d0000001-...-000000000006 (Team Sales)
-Giulia Bartoli     -> Marketing Specialist        -> d0000001-...-000000000007 (Team Marketing)
-Massimiliano Cerati-> Marketing Specialist        -> d0000001-...-000000000007 (Team Marketing)
-Barbara Pasqualini -> Commerciale Interno         -> d0000001-...-000000000008 (Gestione Ordini)
-Paolo Romano       -> Tecnico Service Trad.       -> d0000001-...-000000000009 (Service Trad.)
-Matteo Griffini    -> Tecnico Service             -> d0000001-...-000000000009 (Service Trad.)
-Gabriele Piani     -> Tecnico Service             -> d0000001-...-000000000009 (Service Trad.)
-Alberto Luppichini -> Tecnico Service             -> d0000001-...-000000000009 (Service Trad.)
-Ivan Carlo Pagnini -> Product Specialist          -> d0000001-...-000000000010 (Service Digital)
-Alberto Scudier    -> Installatore / Service Rep. -> d0000001-...-000000000011 (Installazioni)
-Andrea Tompetrini  -> Magazziniere                -> d0000001-...-000000000012 (Magazzino)
-Alessandra Ciceri  -> Segreteria e Amm.           -> d0000001-...-000000000013 (Supp. Amm.)
-```
-
-### File da creare/modificare
-
-| File | Azione |
-|---|---|
-| `supabase/functions/seed-company-roles/index.ts` | Nuovo - Edge function con tutti i dati |
-| `src/views/admin/SeedDataView.tsx` | Aggiungere bottone per chiamare la funzione |
-| `supabase/config.toml` | NON toccare (auto-gestito) |
-
-### Struttura dati di esempio per un ruolo
-
-```text
-{
-  title: "Magazziniere",
-  company_id: "11111111-...",
-  org_node_id: "d0000001-...-000000000012",
-  responsibilities: ["Integrita fisica e conservazione della merce", ...],
-  daily_tasks: ["Ricevimento e controllo merce", "Stoccaggio prodotti", ...],
-  kpis: [
-    { name: "Accuratezza inventariale", target: ">98%" },
-    { name: "Tempo medio evasione ordini", target: "<24h" },
-    ...
-  ],
-  required_hard_skills: [
-    { name: "Gestionale magazzino IFS", level: 4 },
-    { name: "Movimentazione merci", level: 4 },
-    ...
-  ],
-  required_soft_skills: [
-    { name: "Precisione e attenzione ai dettagli", level: 4 },
-    ...
-  ],
-  required_languages: [
-    { language: "Italiano", level: "native" }
-  ],
-  required_education: [
-    { degree: "Diploma scuola secondaria superiore", mandatory: false }
-  ],
-  required_certifications: ["Patentino carrelli elevatori"],
-  required_seniority: "Mid",
-  contract_type: "permanent",
-  work_hours_type: "full_time",
-  remote_policy: "on_site",
-  status: "active",
-  headcount: 1,
-  is_hiring: false
+collaboration_profile: {
+  environmentalImpact: <numero>,
+  operationalFluidity: <numero>,
+  links: [
+    {
+      targetType: "team",
+      targetId: "<org_node_id>",
+      targetLabel: "<nome nodo>",
+      collaborationPercentage: <0-100>,
+      personalAffinity: <1-5>,
+      memberBreakdown: [
+        {
+          memberId: "<company_member_id>",
+          memberLabel: "<Nome Cognome>",
+          percentage: <0-100>,
+          affinity: <1-5>
+        }
+      ]
+    }
+  ]
 }
 ```
 
-Nessuna migrazione DB necessaria. 1 edge function nuova, 1 file UI modificato.
+### Logica per il memberBreakdown
+Ogni link verso un team include il breakdown per membro con:
+- La `percentage` indica quanto del tempo di collaborazione col team va a quel specifico membro
+- L'`affinity` e una stima realistica della relazione tipica per quei ruoli
+
+### Caso speciale: Head of Sales (Dorigo)
+Il suo profilo e gia stato compilato manualmente dall'utente. La edge function NON deve sovrascriverlo: nella logica di update del ruolo esistente, il campo `collaboration_profile` va escluso dall'UPDATE oppure va preservato il valore attuale.
+
+### Ri-esecuzione
+Dopo l'aggiornamento della funzione, l'utente clicca "Seed Company Roles" dalla pagina admin per applicare i dati. La funzione e idempotente (cancella e ricrea i ruoli, eccetto Dorigo che viene solo aggiornato).
