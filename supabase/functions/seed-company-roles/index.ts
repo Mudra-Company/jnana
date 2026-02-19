@@ -1051,6 +1051,417 @@ const ROLES_TO_CREATE = [
   },
 ];
 
+// ===================== COLLABORATION PROFILES =====================
+// Keyed by memberId - these get merged into roles during insertion
+// Dorigo (Head of Sales) is excluded - his profile was manually configured
+
+const SERVICE_TECH_COLLAB_PROFILE = {
+  environmentalImpact: 4,
+  operationalFluidity: 5,
+  links: [
+    {
+      targetType: "team", targetId: NODES.dirService, targetLabel: "Direzione Service",
+      collaborationPercentage: 20, personalAffinity: 4,
+      memberBreakdown: [{ memberId: MEMBERS.venturini.memberId, memberLabel: "Claudio Venturini", percentage: 100, affinity: 4 }]
+    },
+    {
+      targetType: "team", targetId: NODES.installazioni, targetLabel: "Installazioni",
+      collaborationPercentage: 15, personalAffinity: 4,
+      memberBreakdown: [{ memberId: MEMBERS.scudier.memberId, memberLabel: "Alberto Scudier", percentage: 100, affinity: 4 }]
+    },
+    {
+      targetType: "team", targetId: NODES.serviceDigital, targetLabel: "Service Digital & R&D",
+      collaborationPercentage: 10, personalAffinity: 3,
+      memberBreakdown: [{ memberId: MEMBERS.pagnini.memberId, memberLabel: "Ivan Carlo Pagnini", percentage: 100, affinity: 3 }]
+    },
+    {
+      targetType: "team", targetId: NODES.magazzino, targetLabel: "Magazzino",
+      collaborationPercentage: 10, personalAffinity: 3,
+      memberBreakdown: [{ memberId: MEMBERS.tompetrini.memberId, memberLabel: "Andrea Tompetrini", percentage: 100, affinity: 3 }]
+    },
+  ]
+};
+
+const COLLABORATION_PROFILES: Record<string, any> = {
+  // CEO (Bertolotto)
+  [MEMBERS.bertolotto.memberId]: {
+    environmentalImpact: 2,
+    operationalFluidity: 4,
+    links: [
+      {
+        targetType: "team", targetId: NODES.dirSales, targetLabel: "Direzione Sales & Marketing",
+        collaborationPercentage: 30, personalAffinity: 4,
+        memberBreakdown: [{ memberId: MEMBERS.dorigo.memberId, memberLabel: "Mauro Dorigo", percentage: 100, affinity: 4 }]
+      },
+      {
+        targetType: "team", targetId: NODES.dirService, targetLabel: "Direzione Service",
+        collaborationPercentage: 20, personalAffinity: 4,
+        memberBreakdown: [{ memberId: MEMBERS.venturini.memberId, memberLabel: "Claudio Venturini", percentage: 100, affinity: 4 }]
+      },
+      {
+        targetType: "team", targetId: NODES.dirAmm, targetLabel: "Direzione Amministrativa",
+        collaborationPercentage: 20, personalAffinity: 4,
+        memberBreakdown: [{ memberId: MEMBERS.sangalli.memberId, memberLabel: "Tessa Sangalli", percentage: 100, affinity: 4 }]
+      },
+      {
+        targetType: "team", targetId: NODES.dirLogistica, targetLabel: "Direzione Logistica",
+        collaborationPercentage: 10, personalAffinity: 3,
+        memberBreakdown: [{ memberId: MEMBERS.dose.memberId, memberLabel: "Fabrizio Dose", percentage: 100, affinity: 3 }]
+      },
+    ]
+  },
+
+  // Resp. Service (Venturini)
+  [MEMBERS.venturini.memberId]: {
+    environmentalImpact: 3,
+    operationalFluidity: 3,
+    links: [
+      {
+        targetType: "team", targetId: NODES.serviceTrad, targetLabel: "Service Tradizionale",
+        collaborationPercentage: 35, personalAffinity: 4,
+        memberBreakdown: [
+          { memberId: MEMBERS.romano.memberId, memberLabel: "Paolo Romano", percentage: 25, affinity: 4 },
+          { memberId: MEMBERS.griffini.memberId, memberLabel: "Matteo Griffini", percentage: 25, affinity: 4 },
+          { memberId: MEMBERS.piani.memberId, memberLabel: "Gabriele Piani", percentage: 25, affinity: 4 },
+          { memberId: MEMBERS.luppichini.memberId, memberLabel: "Alberto Luppichini", percentage: 25, affinity: 4 },
+        ]
+      },
+      {
+        targetType: "team", targetId: NODES.installazioni, targetLabel: "Installazioni",
+        collaborationPercentage: 15, personalAffinity: 4,
+        memberBreakdown: [{ memberId: MEMBERS.scudier.memberId, memberLabel: "Alberto Scudier", percentage: 100, affinity: 4 }]
+      },
+      {
+        targetType: "team", targetId: NODES.serviceDigital, targetLabel: "Service Digital & R&D",
+        collaborationPercentage: 15, personalAffinity: 4,
+        memberBreakdown: [{ memberId: MEMBERS.pagnini.memberId, memberLabel: "Ivan Carlo Pagnini", percentage: 100, affinity: 4 }]
+      },
+      {
+        targetType: "team", targetId: NODES.dirLogistica, targetLabel: "Direzione Logistica",
+        collaborationPercentage: 10, personalAffinity: 3,
+        memberBreakdown: [{ memberId: MEMBERS.dose.memberId, memberLabel: "Fabrizio Dose", percentage: 100, affinity: 3 }]
+      },
+    ]
+  },
+
+  // Resp. Logistica (Dose)
+  [MEMBERS.dose.memberId]: {
+    environmentalImpact: 2,
+    operationalFluidity: 3,
+    links: [
+      {
+        targetType: "team", targetId: NODES.magazzino, targetLabel: "Magazzino",
+        collaborationPercentage: 40, personalAffinity: 4,
+        memberBreakdown: [{ memberId: MEMBERS.tompetrini.memberId, memberLabel: "Andrea Tompetrini", percentage: 100, affinity: 4 }]
+      },
+      {
+        targetType: "team", targetId: NODES.gestioneOrdini, targetLabel: "Gestione Ordini",
+        collaborationPercentage: 20, personalAffinity: 4,
+        memberBreakdown: [{ memberId: MEMBERS.pasqualini.memberId, memberLabel: "Barbara Pasqualini", percentage: 100, affinity: 4 }]
+      },
+      {
+        targetType: "team", targetId: NODES.serviceTrad, targetLabel: "Service Tradizionale",
+        collaborationPercentage: 15, personalAffinity: 3,
+        memberBreakdown: [
+          { memberId: MEMBERS.romano.memberId, memberLabel: "Paolo Romano", percentage: 25, affinity: 3 },
+          { memberId: MEMBERS.griffini.memberId, memberLabel: "Matteo Griffini", percentage: 25, affinity: 3 },
+          { memberId: MEMBERS.piani.memberId, memberLabel: "Gabriele Piani", percentage: 25, affinity: 3 },
+          { memberId: MEMBERS.luppichini.memberId, memberLabel: "Alberto Luppichini", percentage: 25, affinity: 3 },
+        ]
+      },
+    ]
+  },
+
+  // Resp. Amministrativo (Sangalli)
+  [MEMBERS.sangalli.memberId]: {
+    environmentalImpact: 1,
+    operationalFluidity: 1,
+    links: [
+      {
+        targetType: "team", targetId: NODES.suppAmm, targetLabel: "Supporto Amministrativo",
+        collaborationPercentage: 35, personalAffinity: 5,
+        memberBreakdown: [{ memberId: MEMBERS.ciceri.memberId, memberLabel: "Alessandra Ciceri", percentage: 100, affinity: 5 }]
+      },
+      {
+        targetType: "team", targetId: NODES.generalMgmt, targetLabel: "General Management",
+        collaborationPercentage: 20, personalAffinity: 4,
+        memberBreakdown: [{ memberId: MEMBERS.bertolotto.memberId, memberLabel: "Nicola Bertolotto", percentage: 100, affinity: 4 }]
+      },
+      {
+        targetType: "team", targetId: NODES.dirLogistica, targetLabel: "Direzione Logistica",
+        collaborationPercentage: 10, personalAffinity: 3,
+        memberBreakdown: [{ memberId: MEMBERS.dose.memberId, memberLabel: "Fabrizio Dose", percentage: 100, affinity: 3 }]
+      },
+    ]
+  },
+
+  // Area Manager (Cassano)
+  [MEMBERS.cassano.memberId]: {
+    environmentalImpact: 4,
+    operationalFluidity: 5,
+    links: [
+      {
+        targetType: "team", targetId: NODES.dirSales, targetLabel: "Direzione Sales & Marketing",
+        collaborationPercentage: 25, personalAffinity: 4,
+        memberBreakdown: [{ memberId: MEMBERS.dorigo.memberId, memberLabel: "Mauro Dorigo", percentage: 100, affinity: 4 }]
+      },
+      {
+        targetType: "team", targetId: NODES.gestioneOrdini, targetLabel: "Gestione Ordini",
+        collaborationPercentage: 20, personalAffinity: 4,
+        memberBreakdown: [{ memberId: MEMBERS.pasqualini.memberId, memberLabel: "Barbara Pasqualini", percentage: 100, affinity: 4 }]
+      },
+      {
+        targetType: "team", targetId: NODES.teamMarketing, targetLabel: "Team Marketing",
+        collaborationPercentage: 10, personalAffinity: 3,
+        memberBreakdown: [
+          { memberId: MEMBERS.bartoli.memberId, memberLabel: "Giulia Bartoli", percentage: 50, affinity: 3 },
+          { memberId: MEMBERS.cerati.memberId, memberLabel: "Massimiliano Cerati", percentage: 50, affinity: 3 },
+        ]
+      },
+      {
+        targetType: "team", targetId: NODES.serviceTrad, targetLabel: "Service Tradizionale",
+        collaborationPercentage: 10, personalAffinity: 3,
+        memberBreakdown: [
+          { memberId: MEMBERS.romano.memberId, memberLabel: "Paolo Romano", percentage: 25, affinity: 3 },
+          { memberId: MEMBERS.griffini.memberId, memberLabel: "Matteo Griffini", percentage: 25, affinity: 3 },
+          { memberId: MEMBERS.piani.memberId, memberLabel: "Gabriele Piani", percentage: 25, affinity: 3 },
+          { memberId: MEMBERS.luppichini.memberId, memberLabel: "Alberto Luppichini", percentage: 25, affinity: 3 },
+        ]
+      },
+    ]
+  },
+
+  // Sales Specialist (Fabio)
+  [MEMBERS.fabio.memberId]: {
+    environmentalImpact: 4,
+    operationalFluidity: 5,
+    links: [
+      {
+        targetType: "team", targetId: NODES.dirSales, targetLabel: "Direzione Sales & Marketing",
+        collaborationPercentage: 25, personalAffinity: 4,
+        memberBreakdown: [{ memberId: MEMBERS.dorigo.memberId, memberLabel: "Mauro Dorigo", percentage: 100, affinity: 4 }]
+      },
+      {
+        targetType: "team", targetId: NODES.gestioneOrdini, targetLabel: "Gestione Ordini",
+        collaborationPercentage: 25, personalAffinity: 4,
+        memberBreakdown: [{ memberId: MEMBERS.pasqualini.memberId, memberLabel: "Barbara Pasqualini", percentage: 100, affinity: 4 }]
+      },
+      {
+        targetType: "team", targetId: NODES.teamMarketing, targetLabel: "Team Marketing",
+        collaborationPercentage: 10, personalAffinity: 3,
+        memberBreakdown: [
+          { memberId: MEMBERS.bartoli.memberId, memberLabel: "Giulia Bartoli", percentage: 50, affinity: 3 },
+          { memberId: MEMBERS.cerati.memberId, memberLabel: "Massimiliano Cerati", percentage: 50, affinity: 3 },
+        ]
+      },
+    ]
+  },
+
+  // Marketing Specialist (Bartoli)
+  [MEMBERS.bartoli.memberId]: {
+    environmentalImpact: 2,
+    operationalFluidity: 2,
+    links: [
+      {
+        targetType: "team", targetId: NODES.dirSales, targetLabel: "Direzione Sales & Marketing",
+        collaborationPercentage: 25, personalAffinity: 4,
+        memberBreakdown: [{ memberId: MEMBERS.dorigo.memberId, memberLabel: "Mauro Dorigo", percentage: 100, affinity: 4 }]
+      },
+      {
+        targetType: "team", targetId: NODES.teamSales, targetLabel: "Team Sales",
+        collaborationPercentage: 20, personalAffinity: 3,
+        memberBreakdown: [
+          { memberId: MEMBERS.cassano.memberId, memberLabel: "Michele Cassano", percentage: 50, affinity: 3 },
+          { memberId: MEMBERS.fabio.memberId, memberLabel: "Marco Fabio", percentage: 50, affinity: 3 },
+        ]
+      },
+      {
+        targetType: "team", targetId: NODES.gestioneOrdini, targetLabel: "Gestione Ordini",
+        collaborationPercentage: 10, personalAffinity: 3,
+        memberBreakdown: [{ memberId: MEMBERS.pasqualini.memberId, memberLabel: "Barbara Pasqualini", percentage: 100, affinity: 3 }]
+      },
+    ]
+  },
+
+  // Marketing Specialist (Cerati)
+  [MEMBERS.cerati.memberId]: {
+    environmentalImpact: 2,
+    operationalFluidity: 2,
+    links: [
+      {
+        targetType: "team", targetId: NODES.dirSales, targetLabel: "Direzione Sales & Marketing",
+        collaborationPercentage: 25, personalAffinity: 4,
+        memberBreakdown: [{ memberId: MEMBERS.dorigo.memberId, memberLabel: "Mauro Dorigo", percentage: 100, affinity: 4 }]
+      },
+      {
+        targetType: "team", targetId: NODES.teamSales, targetLabel: "Team Sales",
+        collaborationPercentage: 20, personalAffinity: 3,
+        memberBreakdown: [
+          { memberId: MEMBERS.cassano.memberId, memberLabel: "Michele Cassano", percentage: 50, affinity: 3 },
+          { memberId: MEMBERS.fabio.memberId, memberLabel: "Marco Fabio", percentage: 50, affinity: 3 },
+        ]
+      },
+      {
+        targetType: "team", targetId: NODES.gestioneOrdini, targetLabel: "Gestione Ordini",
+        collaborationPercentage: 10, personalAffinity: 3,
+        memberBreakdown: [{ memberId: MEMBERS.pasqualini.memberId, memberLabel: "Barbara Pasqualini", percentage: 100, affinity: 3 }]
+      },
+    ]
+  },
+
+  // Commerciale Interno (Pasqualini)
+  [MEMBERS.pasqualini.memberId]: {
+    environmentalImpact: 3,
+    operationalFluidity: 1,
+    links: [
+      {
+        targetType: "team", targetId: NODES.teamSales, targetLabel: "Team Sales",
+        collaborationPercentage: 25, personalAffinity: 4,
+        memberBreakdown: [
+          { memberId: MEMBERS.cassano.memberId, memberLabel: "Michele Cassano", percentage: 50, affinity: 4 },
+          { memberId: MEMBERS.fabio.memberId, memberLabel: "Marco Fabio", percentage: 50, affinity: 4 },
+        ]
+      },
+      {
+        targetType: "team", targetId: NODES.dirSales, targetLabel: "Direzione Sales & Marketing",
+        collaborationPercentage: 20, personalAffinity: 4,
+        memberBreakdown: [{ memberId: MEMBERS.dorigo.memberId, memberLabel: "Mauro Dorigo", percentage: 100, affinity: 4 }]
+      },
+      {
+        targetType: "team", targetId: NODES.dirLogistica, targetLabel: "Direzione Logistica",
+        collaborationPercentage: 15, personalAffinity: 3,
+        memberBreakdown: [{ memberId: MEMBERS.dose.memberId, memberLabel: "Fabrizio Dose", percentage: 100, affinity: 3 }]
+      },
+      {
+        targetType: "team", targetId: NODES.suppAmm, targetLabel: "Supporto Amministrativo",
+        collaborationPercentage: 10, personalAffinity: 3,
+        memberBreakdown: [{ memberId: MEMBERS.ciceri.memberId, memberLabel: "Alessandra Ciceri", percentage: 100, affinity: 3 }]
+      },
+    ]
+  },
+
+  // 4x Tecnico Service (Romano, Griffini, Piani, Luppichini) - same profile
+  [MEMBERS.romano.memberId]: SERVICE_TECH_COLLAB_PROFILE,
+  [MEMBERS.griffini.memberId]: SERVICE_TECH_COLLAB_PROFILE,
+  [MEMBERS.piani.memberId]: SERVICE_TECH_COLLAB_PROFILE,
+  [MEMBERS.luppichini.memberId]: SERVICE_TECH_COLLAB_PROFILE,
+
+  // Product Specialist (Pagnini)
+  [MEMBERS.pagnini.memberId]: {
+    environmentalImpact: 2,
+    operationalFluidity: 3,
+    links: [
+      {
+        targetType: "team", targetId: NODES.serviceTrad, targetLabel: "Service Tradizionale",
+        collaborationPercentage: 25, personalAffinity: 4,
+        memberBreakdown: [
+          { memberId: MEMBERS.romano.memberId, memberLabel: "Paolo Romano", percentage: 25, affinity: 4 },
+          { memberId: MEMBERS.griffini.memberId, memberLabel: "Matteo Griffini", percentage: 25, affinity: 4 },
+          { memberId: MEMBERS.piani.memberId, memberLabel: "Gabriele Piani", percentage: 25, affinity: 4 },
+          { memberId: MEMBERS.luppichini.memberId, memberLabel: "Alberto Luppichini", percentage: 25, affinity: 4 },
+        ]
+      },
+      {
+        targetType: "team", targetId: NODES.dirService, targetLabel: "Direzione Service",
+        collaborationPercentage: 20, personalAffinity: 4,
+        memberBreakdown: [{ memberId: MEMBERS.venturini.memberId, memberLabel: "Claudio Venturini", percentage: 100, affinity: 4 }]
+      },
+      {
+        targetType: "team", targetId: NODES.teamMarketing, targetLabel: "Team Marketing",
+        collaborationPercentage: 15, personalAffinity: 3,
+        memberBreakdown: [
+          { memberId: MEMBERS.bartoli.memberId, memberLabel: "Giulia Bartoli", percentage: 50, affinity: 3 },
+          { memberId: MEMBERS.cerati.memberId, memberLabel: "Massimiliano Cerati", percentage: 50, affinity: 3 },
+        ]
+      },
+    ]
+  },
+
+  // Tecnico Repair (Scudier)
+  [MEMBERS.scudier.memberId]: {
+    environmentalImpact: 4,
+    operationalFluidity: 5,
+    links: [
+      {
+        targetType: "team", targetId: NODES.serviceTrad, targetLabel: "Service Tradizionale",
+        collaborationPercentage: 25, personalAffinity: 4,
+        memberBreakdown: [
+          { memberId: MEMBERS.romano.memberId, memberLabel: "Paolo Romano", percentage: 25, affinity: 4 },
+          { memberId: MEMBERS.griffini.memberId, memberLabel: "Matteo Griffini", percentage: 25, affinity: 4 },
+          { memberId: MEMBERS.piani.memberId, memberLabel: "Gabriele Piani", percentage: 25, affinity: 4 },
+          { memberId: MEMBERS.luppichini.memberId, memberLabel: "Alberto Luppichini", percentage: 25, affinity: 4 },
+        ]
+      },
+      {
+        targetType: "team", targetId: NODES.dirService, targetLabel: "Direzione Service",
+        collaborationPercentage: 20, personalAffinity: 4,
+        memberBreakdown: [{ memberId: MEMBERS.venturini.memberId, memberLabel: "Claudio Venturini", percentage: 100, affinity: 4 }]
+      },
+      {
+        targetType: "team", targetId: NODES.magazzino, targetLabel: "Magazzino",
+        collaborationPercentage: 15, personalAffinity: 3,
+        memberBreakdown: [{ memberId: MEMBERS.tompetrini.memberId, memberLabel: "Andrea Tompetrini", percentage: 100, affinity: 3 }]
+      },
+    ]
+  },
+
+  // Magazziniere (Tompetrini)
+  [MEMBERS.tompetrini.memberId]: {
+    environmentalImpact: 3,
+    operationalFluidity: 3,
+    links: [
+      {
+        targetType: "team", targetId: NODES.dirLogistica, targetLabel: "Direzione Logistica",
+        collaborationPercentage: 30, personalAffinity: 4,
+        memberBreakdown: [{ memberId: MEMBERS.dose.memberId, memberLabel: "Fabrizio Dose", percentage: 100, affinity: 4 }]
+      },
+      {
+        targetType: "team", targetId: NODES.serviceTrad, targetLabel: "Service Tradizionale",
+        collaborationPercentage: 20, personalAffinity: 3,
+        memberBreakdown: [
+          { memberId: MEMBERS.romano.memberId, memberLabel: "Paolo Romano", percentage: 25, affinity: 3 },
+          { memberId: MEMBERS.griffini.memberId, memberLabel: "Matteo Griffini", percentage: 25, affinity: 3 },
+          { memberId: MEMBERS.piani.memberId, memberLabel: "Gabriele Piani", percentage: 25, affinity: 3 },
+          { memberId: MEMBERS.luppichini.memberId, memberLabel: "Alberto Luppichini", percentage: 25, affinity: 3 },
+        ]
+      },
+      {
+        targetType: "team", targetId: NODES.gestioneOrdini, targetLabel: "Gestione Ordini",
+        collaborationPercentage: 15, personalAffinity: 4,
+        memberBreakdown: [{ memberId: MEMBERS.pasqualini.memberId, memberLabel: "Barbara Pasqualini", percentage: 100, affinity: 4 }]
+      },
+      {
+        targetType: "team", targetId: NODES.installazioni, targetLabel: "Installazioni",
+        collaborationPercentage: 10, personalAffinity: 3,
+        memberBreakdown: [{ memberId: MEMBERS.scudier.memberId, memberLabel: "Alberto Scudier", percentage: 100, affinity: 3 }]
+      },
+    ]
+  },
+
+  // Segreteria (Ciceri)
+  [MEMBERS.ciceri.memberId]: {
+    environmentalImpact: 2,
+    operationalFluidity: 1,
+    links: [
+      {
+        targetType: "team", targetId: NODES.dirAmm, targetLabel: "Direzione Amministrativa",
+        collaborationPercentage: 40, personalAffinity: 5,
+        memberBreakdown: [{ memberId: MEMBERS.sangalli.memberId, memberLabel: "Tessa Sangalli", percentage: 100, affinity: 5 }]
+      },
+      {
+        targetType: "team", targetId: NODES.generalMgmt, targetLabel: "General Management",
+        collaborationPercentage: 15, personalAffinity: 3,
+        memberBreakdown: [{ memberId: MEMBERS.bertolotto.memberId, memberLabel: "Nicola Bertolotto", percentage: 100, affinity: 3 }]
+      },
+      {
+        targetType: "team", targetId: NODES.dirSales, targetLabel: "Direzione Sales & Marketing",
+        collaborationPercentage: 10, personalAffinity: 3,
+        memberBreakdown: [{ memberId: MEMBERS.dorigo.memberId, memberLabel: "Mauro Dorigo", percentage: 100, affinity: 3 }]
+      },
+    ]
+  },
+};
+
 // Update data for the existing Head of Sales role (Mauro Dorigo)
 const HEAD_OF_SALES_UPDATE = {
   title: "Head of Sales & Marketing",
@@ -1171,11 +1582,15 @@ Deno.serve(async (req) => {
       // Remove non-DB fields
       delete roleData.years_experience_min;
 
+      // Merge collaboration profile if available
+      const collabProfile = COLLABORATION_PROFILES[item.member.memberId];
+
       const { data: newRole, error: roleError } = await supabase
         .from("company_roles")
         .insert({
           ...roleData,
           years_experience_min: item.role.years_experience_min,
+          ...(collabProfile ? { collaboration_profile: collabProfile } : {}),
         })
         .select("id")
         .single();
