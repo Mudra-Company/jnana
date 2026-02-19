@@ -73,3 +73,31 @@ export interface CanvasState {
   selectedDeskId?: string;
   drawingRect?: { startX: number; startY: number; currentX: number; currentY: number };
 }
+
+/** Desk with location info for cross-location mapping */
+export interface GlobalDeskEntry {
+  deskId: string;
+  memberId: string;
+  memberName: string;
+  locationId: string;
+  locationName: string;
+  locationAddress?: string;
+  floorNumber?: number;
+  roomId: string;
+  absX: number;
+  absY: number;
+}
+
+/** External collaboration arrow data */
+export interface ExternalFlowArrow {
+  key: string;
+  fromDeskAbsX: number;
+  fromDeskAbsY: number;
+  fromMemberName: string;
+  targetMemberName: string;
+  targetLocationName: string;
+  targetFloorNumber?: number;
+  sameBuilding: boolean;
+  percentage: number;
+  affinity: number;
+}

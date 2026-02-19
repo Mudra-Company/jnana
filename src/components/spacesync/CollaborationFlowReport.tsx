@@ -1,10 +1,12 @@
 import React from 'react';
-import { GitBranch, ArrowRight, AlertTriangle, Star, Users } from 'lucide-react';
+import { GitBranch, ArrowRight, AlertTriangle, Star, Users, Building, Layers } from 'lucide-react';
 import type { FlowConnection } from './CollaborationFlowOverlay';
+import type { ExternalFlowArrow } from '@/types/spacesync';
 
 interface CollaborationFlowReportProps {
   connections: FlowConnection[];
   missingCount: number;
+  externalArrows?: ExternalFlowArrow[];
 }
 
 function getAffinityColor(a: number): string {
@@ -15,8 +17,8 @@ function getAffinityColor(a: number): string {
 
 const DISTANCE_ALERT_THRESHOLD = 200;
 
-export const CollaborationFlowReport: React.FC<CollaborationFlowReportProps> = ({ connections, missingCount }) => {
-  if (connections.length === 0) {
+export const CollaborationFlowReport: React.FC<CollaborationFlowReportProps> = ({ connections, missingCount, externalArrows = [] }) => {
+  if (connections.length === 0 && externalArrows.length === 0) {
     return (
       <div className="text-center py-6 text-gray-400">
         <GitBranch size={32} className="mx-auto mb-2 opacity-30" />
@@ -27,7 +29,7 @@ export const CollaborationFlowReport: React.FC<CollaborationFlowReportProps> = (
 
   const sorted = [...connections].sort((a, b) => Math.max(b.pctAB, b.pctBA) - Math.max(a.pctAB, a.pctBA));
 
-  const avgPct = Math.round(sorted.reduce((s, c) => s + Math.max(c.pctAB, c.pctBA), 0) / sorted.length);
+  const avgPct = sorted.length > 0 ? Math.round(sorted.reduce((s, c) => s + Math.max(c.pctAB, c.pctBA), 0) / sorted.length) : 0;
   const avgAffinity = sorted.length > 0
     ? (sorted.reduce((s, c) => s + Math.max(c.affinityAB, c.affinityBA), 0) / sorted.length).toFixed(1)
     : '0';
@@ -39,22 +41,90 @@ export const CollaborationFlowReport: React.FC<CollaborationFlowReportProps> = (
     return Math.max(c.pctAB, c.pctBA) >= 20 && dist > DISTANCE_ALERT_THRESHOLD;
   });
 
+  // Split external arrows
+  const sameBuildingExternal = externalArrows.filter(a => a.sameBuilding).sort((a, b) => b.percentage - a.percentage);
+  const diffBuildingExternal = externalArrows.filter(a => !a.sameBuilding).sort((a, b) => b.percentage - a.percentage);
+
+  const totalConnections = connections.length + externalArrows.length;
+
   return (
     <div className="space-y-3">
       {/* Global stats */}
       <div className="flex items-center gap-4 p-3 rounded-xl bg-gray-50 dark:bg-gray-800 border-l-4 border-jnana-sage">
-        <div className="text-3xl font-extrabold leading-none text-jnana-sage">{connections.length}</div>
+        <div className="text-3xl font-extrabold leading-none text-jnana-sage">{totalConnections}</div>
         <div className="flex-1">
           <div className="text-[11px] font-bold text-gray-700 dark:text-gray-200 flex items-center gap-1">
             <GitBranch size={12} />
-            Connessioni Attive
+            Connessioni Totali
           </div>
           <div className="text-[10px] text-gray-500 mt-0.5">
-            Media: {avgPct}% · Affinità: {avgAffinity}★ · {biCount} bidirezionali
+            {connections.length} interne · {externalArrows.length} esterne
+            {sorted.length > 0 && <> · Media: {avgPct}% · Affinità: {avgAffinity}★</>}
+            {biCount > 0 && <> · {biCount} bidirez.</>}
             {missingCount > 0 && <span className="text-amber-500"> · {missingCount} mancanti</span>}
           </div>
         </div>
       </div>
+
+      {/* External collaborations section */}
+      {externalArrows.length > 0 && (
+        <div>
+          <h4 className="text-[10px] font-bold uppercase tracking-wider text-blue-600 mb-1.5 flex items-center gap-1">
+            <Building size={11} />
+            Collaborazioni Esterne ({externalArrows.length})
+          </h4>
+
+          {/* Same building, different floor */}
+          {sameBuildingExternal.length > 0 && (
+            <div className="mb-2">
+              <div className="text-[9px] font-bold uppercase tracking-wider text-blue-500/70 mb-1 flex items-center gap-1 px-1">
+                <Layers size={9} />
+                Stesso edificio, piano diverso ({sameBuildingExternal.length})
+              </div>
+              <div className="space-y-1">
+                {sameBuildingExternal.slice(0, 5).map(a => (
+                  <div key={a.key} className="px-2.5 py-1.5 rounded-lg bg-blue-50 dark:bg-blue-900/10 border-l-3 border-blue-400 text-[11px]">
+                    <span className="font-medium text-gray-700 dark:text-gray-200">
+                      {a.fromMemberName.split(' ')[0]} {a.fromMemberName.split(' ')[1]?.[0]}.
+                    </span>
+                    <span className="text-gray-400 mx-1">↔</span>
+                    <span className="font-medium text-gray-700 dark:text-gray-200">
+                      {a.targetMemberName.split(' ')[0]} {a.targetMemberName.split(' ')[1]?.[0]}.
+                    </span>
+                    <span className="ml-1 font-bold text-blue-600">{a.percentage}%</span>
+                    <span className="text-gray-400 ml-1">— Piano {a.targetFloorNumber ?? '?'}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Different building */}
+          {diffBuildingExternal.length > 0 && (
+            <div className="mb-2">
+              <div className="text-[9px] font-bold uppercase tracking-wider text-orange-500/70 mb-1 flex items-center gap-1 px-1">
+                <Building size={9} />
+                Sede diversa ({diffBuildingExternal.length})
+              </div>
+              <div className="space-y-1">
+                {diffBuildingExternal.slice(0, 5).map(a => (
+                  <div key={a.key} className="px-2.5 py-1.5 rounded-lg bg-orange-50 dark:bg-orange-900/10 border-l-3 border-orange-400 text-[11px]">
+                    <span className="font-medium text-gray-700 dark:text-gray-200">
+                      {a.fromMemberName.split(' ')[0]} {a.fromMemberName.split(' ')[1]?.[0]}.
+                    </span>
+                    <span className="text-gray-400 mx-1">↔</span>
+                    <span className="font-medium text-gray-700 dark:text-gray-200">
+                      {a.targetMemberName.split(' ')[0]} {a.targetMemberName.split(' ')[1]?.[0]}.
+                    </span>
+                    <span className="ml-1 font-bold text-orange-600">{a.percentage}%</span>
+                    <span className="text-gray-400 ml-1">— {a.targetLocationName}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Distant collaborators alert */}
       {distantPairs.length > 0 && (
@@ -84,37 +154,39 @@ export const CollaborationFlowReport: React.FC<CollaborationFlowReportProps> = (
         </div>
       )}
 
-      {/* Connection list */}
-      <div>
-        <h4 className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1.5 flex items-center gap-1">
-          <Users size={11} />
-          Connessioni per Intensità
-        </h4>
-        <div className="space-y-1">
-          {sorted.slice(0, 8).map(c => {
-            const maxPct = Math.max(c.pctAB, c.pctBA);
-            const maxAff = Math.max(c.affinityAB, c.affinityBA);
-            return (
-              <div key={c.key} className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-gray-50 dark:bg-gray-800/50 border-l-3" style={{ borderLeftColor: getAffinityColor(maxAff) }}>
-                <span className="text-[11px] font-medium text-gray-700 dark:text-gray-200">
-                  {c.fromName.split(' ')[0]} {c.fromName.split(' ')[1]?.[0]}.
-                </span>
-                <ArrowRight size={10} className="text-gray-400" />
-                <span className="text-[11px] font-medium text-gray-700 dark:text-gray-200">
-                  {c.toName.split(' ')[0]} {c.toName.split(' ')[1]?.[0]}.
-                </span>
-                <span className="ml-auto flex items-center gap-1">
-                  <span className="text-[10px] font-bold" style={{ color: getAffinityColor(maxAff) }}>{maxPct}%</span>
-                  <span className="text-[9px] text-amber-500">{'★'.repeat(maxAff)}</span>
-                  {c.bidirectional && (
-                    <span className="text-[8px] px-1 py-0.5 rounded bg-blue-100 dark:bg-blue-900/30 text-blue-600 font-bold">↔</span>
-                  )}
-                </span>
-              </div>
-            );
-          })}
+      {/* Connection list (internal) */}
+      {sorted.length > 0 && (
+        <div>
+          <h4 className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1.5 flex items-center gap-1">
+            <Users size={11} />
+            Connessioni Interne per Intensità
+          </h4>
+          <div className="space-y-1">
+            {sorted.slice(0, 8).map(c => {
+              const maxPct = Math.max(c.pctAB, c.pctBA);
+              const maxAff = Math.max(c.affinityAB, c.affinityBA);
+              return (
+                <div key={c.key} className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-gray-50 dark:bg-gray-800/50 border-l-3" style={{ borderLeftColor: getAffinityColor(maxAff) }}>
+                  <span className="text-[11px] font-medium text-gray-700 dark:text-gray-200">
+                    {c.fromName.split(' ')[0]} {c.fromName.split(' ')[1]?.[0]}.
+                  </span>
+                  <ArrowRight size={10} className="text-gray-400" />
+                  <span className="text-[11px] font-medium text-gray-700 dark:text-gray-200">
+                    {c.toName.split(' ')[0]} {c.toName.split(' ')[1]?.[0]}.
+                  </span>
+                  <span className="ml-auto flex items-center gap-1">
+                    <span className="text-[10px] font-bold" style={{ color: getAffinityColor(maxAff) }}>{maxPct}%</span>
+                    <span className="text-[9px] text-amber-500">{'★'.repeat(maxAff)}</span>
+                    {c.bidirectional && (
+                      <span className="text-[8px] px-1 py-0.5 rounded bg-blue-100 dark:bg-blue-900/30 text-blue-600 font-bold">↔</span>
+                    )}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };

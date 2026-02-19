@@ -1,11 +1,14 @@
 import React, { useMemo, useState } from 'react';
-import type { OfficeDesk, OfficeRoom } from '@/types/spacesync';
+import type { OfficeDesk, OfficeRoom, ExternalFlowArrow } from '@/types/spacesync';
 import type { ProximityUserData } from '@/utils/proximityEngine';
 
 interface CollaborationFlowOverlayProps {
   desks: OfficeDesk[];
   rooms: OfficeRoom[];
   userDataMap: Map<string, ProximityUserData>;
+  canvasWidth?: number;
+  canvasHeight?: number;
+  externalArrows?: ExternalFlowArrow[];
 }
 
 interface FlowConnection {
@@ -38,7 +41,9 @@ function getStrokeWidth(pct: number): number {
   return 1.2;
 }
 
-export const CollaborationFlowOverlay: React.FC<CollaborationFlowOverlayProps> = ({ desks, rooms, userDataMap }) => {
+export const CollaborationFlowOverlay: React.FC<CollaborationFlowOverlayProps> = ({
+  desks, rooms, userDataMap, canvasWidth = 1200, canvasHeight = 800, externalArrows = [],
+}) => {
   const [hoveredKey, setHoveredKey] = useState<string | null>(null);
   const roomMap = useMemo(() => new Map(rooms.map(r => [r.id, r])), [rooms]);
 
@@ -61,7 +66,7 @@ export const CollaborationFlowOverlay: React.FC<CollaborationFlowOverlayProps> =
     return map;
   }, [desks, rooms, roomMap, userDataMap]);
 
-  // Build connections
+  // Build connections (internal only)
   const connections = useMemo(() => {
     const connMap = new Map<string, FlowConnection>();
 
@@ -76,7 +81,6 @@ export const CollaborationFlowOverlay: React.FC<CollaborationFlowOverlayProps> =
           const key = [memberId, link.targetId].sort().join('::');
           const existing = connMap.get(key);
           if (existing) {
-            // Add reverse direction
             if (existing.fromName === entry.userData.firstName + ' ' + entry.userData.lastName) {
               existing.pctAB = Math.max(existing.pctAB, link.collaborationPercentage);
               existing.affinityAB = Math.max(existing.affinityAB, link.personalAffinity);
@@ -137,7 +141,20 @@ export const CollaborationFlowOverlay: React.FC<CollaborationFlowOverlayProps> =
     return Array.from(connMap.values());
   }, [memberDeskMap]);
 
-  if (connections.length === 0) return null;
+  // Distribute external arrows along the right edge
+  const externalBadges = useMemo(() => {
+    if (externalArrows.length === 0) return [];
+    const sorted = [...externalArrows].sort((a, b) => b.percentage - a.percentage);
+    const badgeHeight = 44;
+    const startY = 40;
+    return sorted.map((arrow, i) => ({
+      ...arrow,
+      edgeX: canvasWidth - 10,
+      edgeY: startY + i * badgeHeight,
+    }));
+  }, [externalArrows, canvasWidth]);
+
+  if (connections.length === 0 && externalBadges.length === 0) return null;
 
   return (
     <g className="collaboration-flow-overlay">
@@ -151,8 +168,15 @@ export const CollaborationFlowOverlay: React.FC<CollaborationFlowOverlayProps> =
         <marker id="flow-arrow-amber" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
           <path d="M 0 0 L 10 5 L 0 10 z" fill="#d97706" />
         </marker>
+        <marker id="flow-arrow-ext-blue" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M 0 0 L 10 5 L 0 10 z" fill="#3b82f6" />
+        </marker>
+        <marker id="flow-arrow-ext-orange" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M 0 0 L 10 5 L 0 10 z" fill="#f97316" />
+        </marker>
       </defs>
 
+      {/* Internal connections */}
       {connections.map(conn => {
         const maxPct = Math.max(conn.pctAB, conn.pctBA);
         const maxAffinity = Math.max(conn.affinityAB, conn.affinityBA);
@@ -163,7 +187,6 @@ export const CollaborationFlowOverlay: React.FC<CollaborationFlowOverlayProps> =
         const midY = (conn.fromY + conn.toY) / 2;
         const markerId = maxAffinity >= 4 ? 'flow-arrow-green' : maxAffinity >= 3 ? 'flow-arrow-gray' : 'flow-arrow-amber';
 
-        // Offset line slightly to not overlap desks
         const dx = conn.toX - conn.fromX;
         const dy = conn.toY - conn.fromY;
         const dist = Math.hypot(dx, dy);
@@ -173,7 +196,6 @@ export const CollaborationFlowOverlay: React.FC<CollaborationFlowOverlayProps> =
 
         return (
           <g key={conn.key}>
-            {/* Hit area */}
             <line
               x1={conn.fromX + ux * offsetPx} y1={conn.fromY + uy * offsetPx}
               x2={conn.toX - ux * offsetPx} y2={conn.toY - uy * offsetPx}
@@ -182,7 +204,6 @@ export const CollaborationFlowOverlay: React.FC<CollaborationFlowOverlayProps> =
               onMouseEnter={() => setHoveredKey(conn.key)}
               onMouseLeave={() => setHoveredKey(null)}
             />
-            {/* Visible line */}
             <line
               x1={conn.fromX + ux * offsetPx} y1={conn.fromY + uy * offsetPx}
               x2={conn.toX - ux * offsetPx} y2={conn.toY - uy * offsetPx}
@@ -192,7 +213,6 @@ export const CollaborationFlowOverlay: React.FC<CollaborationFlowOverlayProps> =
               markerEnd={conn.bidirectional ? undefined : `url(#${markerId})`}
               className="pointer-events-none transition-all"
             />
-            {/* Label */}
             <text
               x={midX} y={midY - 6}
               textAnchor="middle"
@@ -202,7 +222,6 @@ export const CollaborationFlowOverlay: React.FC<CollaborationFlowOverlayProps> =
               {conn.bidirectional ? `${conn.pctAB}%↔${conn.pctBA}%` : `${maxPct}%`}
             </text>
 
-            {/* Hover tooltip */}
             {isHovered && (
               <g>
                 <rect
@@ -225,6 +244,54 @@ export const CollaborationFlowOverlay: React.FC<CollaborationFlowOverlayProps> =
                 )}
               </g>
             )}
+          </g>
+        );
+      })}
+
+      {/* External arrows (cross-location) */}
+      {externalBadges.map(arrow => {
+        const color = arrow.sameBuilding ? '#3b82f6' : '#f97316';
+        const markerId = arrow.sameBuilding ? 'flow-arrow-ext-blue' : 'flow-arrow-ext-orange';
+        const badgeW = 140;
+        const badgeH = 36;
+        const badgeX = arrow.edgeX - badgeW - 4;
+        const badgeY = arrow.edgeY - badgeH / 2;
+
+        return (
+          <g key={arrow.key}>
+            {/* Dashed line from desk to edge */}
+            <line
+              x1={arrow.fromDeskAbsX} y1={arrow.fromDeskAbsY}
+              x2={badgeX} y2={arrow.edgeY}
+              stroke={color}
+              strokeWidth={1.5}
+              strokeDasharray="6 3"
+              strokeOpacity={0.6}
+              markerEnd={`url(#${markerId})`}
+              className="pointer-events-none"
+            />
+            {/* Badge background */}
+            <rect
+              x={badgeX} y={badgeY}
+              width={badgeW} height={badgeH}
+              rx={6}
+              fill="white" fillOpacity={0.95}
+              stroke={color} strokeWidth={1.5}
+              style={{ filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.1))' }}
+            />
+            {/* Badge: target name */}
+            <text x={badgeX + 8} y={badgeY + 14} style={{ fontSize: 10, fontWeight: 700, fill: '#334155' }}>
+              {arrow.targetMemberName.split(' ')[0]} {arrow.targetMemberName.split(' ')[1]?.[0]}.
+              <tspan style={{ fontWeight: 800, fill: color }}> {arrow.percentage}%</tspan>
+            </text>
+            {/* Badge: location label */}
+            <text x={badgeX + 8} y={badgeY + 28} style={{ fontSize: 9, fill: '#64748b' }}>
+              {arrow.sameBuilding
+                ? `↕ Piano ${arrow.targetFloorNumber ?? '?'}`
+                : `→ ${arrow.targetLocationName}`
+              }
+              <tspan style={{ fill: '#94a3b8' }}> · {'★'.repeat(arrow.affinity)}</tspan>
+            </text>
           </g>
         );
       })}
