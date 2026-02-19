@@ -1,68 +1,138 @@
 
-# Fix: Ruolo duplicato nell'organigramma dopo salvataggio collaborazione
+# Popolamento completo organigramma Dürr Dental con dati dal mansionario
 
-## Problema reale
+## Obiettivo
+Creare tutti i ruoli nel database con mansionario completo (responsabilita, KPI, competenze, requisiti) estratto dal PDF allegato, e assegnare ogni ruolo alla persona corretta. L'unico ruolo gia esistente nel DB e "Head of Sales" (Mauro Dorigo) che verra aggiornato.
 
-Il bug non e nella promozione del ruolo implicito -- quella parte funziona e crea correttamente il ruolo + assignment nel DB. Il problema e che **dopo il refresh**, l'organigramma non sa che Mauro Dorigo e assegnato al ruolo esplicito "Head of Sales", quindi lo mostra DUE volte:
+## Analisi del documento
 
-1. **Ruolo DB "Head of Sales"** (senza persona, perche `currentAssignee` e vuoto)
-2. **Ruolo implicito "Head of Sales"** (generato dal job title di Mauro, perche risulta "non assegnato")
+Il PDF contiene i mansionari dettagliati per le seguenti figure:
 
-**Causa tecnica**: `fetchRoles()` esegue solo `select('*')` sulla tabella `company_roles` senza il join con `company_role_assignments`. Quindi `role.currentAssignee` e sempre `null`. Di conseguenza, in `OrgNodeCard`, il set `assignedUserIds` e sempre vuoto e tutti gli utenti finiscono come "non assegnati a nessun ruolo esplicito", generando ruoli impliciti duplicati.
+| Mansionario dal PDF | Persona/e nell'organigramma | Nodo organizzativo |
+|---|---|---|
+| Magazziniere | Andrea Tompetrini | Magazzino |
+| Segreteria e Amministrazione | Alessandra Ciceri | Supporto Amministrativo |
+| Responsabile Amministrativo | Tessa Sangalli | Direzione Amministrativa |
+| Commerciale Interno (Gestione Ordini) | Barbara Pasqualini | Gestione Ordini |
+| Service & Technical Support | Paolo Romano, Matteo Griffini, Gabriele Piani, Alberto Luppichini | Service Tradizionale / Service Digital |
+| Service & Repair | Alberto Scudier | Installazioni |
+| Responsabile Service | Claudio Venturini | Direzione Service |
+| Area Manager | Michele Cassano | Team Sales |
+| Product Specialist | Ivan Carlo Pagnini | Service Digital & R&D |
+| Marketing (Addetto) | Giulia Bartoli, Massimiliano Cerati | Team Marketing |
 
-## Soluzione
+Ruoli NON presenti nel PDF ma presenti nell'organigramma (da compilare con dati sensati):
+- **CEO / AD** (Nicola Bertolotto) -- General Management
+- **Head of Sales & Marketing** (Mauro Dorigo) -- gia in DB, da aggiornare
+- **Sales Specialist** (Marco Fabio) -- Team Sales
 
-Modificare `fetchRoles()` in `useCompanyRoles.ts` per eseguire il join con `company_role_assignments` e `company_members`, cosi da popolare `currentAssignee` per ogni ruolo. Questo e il fix strutturale: una volta che il fetch restituisce chi e assegnato a ogni ruolo, `OrgNodeCard` lo esclude automaticamente dagli "unassigned users" e non genera piu duplicati.
+## Piano di implementazione
 
-## File da modificare
+### 1. Creare un edge function `seed-company-roles`
 
-### 1. `src/hooks/useCompanyRoles.ts`
+Una funzione backend che:
+- Per il ruolo gia esistente di Mauro Dorigo: esegue un UPDATE con tutti i campi dal mansionario
+- Per tutti gli altri 17 utenti: crea un nuovo record in `company_roles` e il corrispondente record in `company_role_assignments`
+- Tutti i dati (responsibilities, daily_tasks, kpis, required_hard_skills, required_soft_skills, required_languages, required_education, required_certifications) sono hardcoded nella funzione direttamente dal PDF
 
-Modificare il metodo `fetchRoles()` e `fetchRolesByOrgNode()`:
+### 2. Dati per ogni ruolo
 
-**Prima:**
-```
-select('*')
-```
+Per ogni ruolo verra popolato:
+- `title`: titolo dal mansionario
+- `org_node_id`: nodo organizzativo corretto (UUID dal DB)
+- `responsibilities`: lista responsabilita dal PDF
+- `daily_tasks`: funzioni e compiti principali dal PDF
+- `kpis`: KPI con nome, descrizione e target dal PDF
+- `required_hard_skills`: competenze tecniche dal PDF (con livello 3-5)
+- `required_soft_skills`: competenze trasversali dal PDF (con livello 3-5)
+- `required_languages`: lingue richieste dal PDF (con livello)
+- `required_education`: requisiti formativi dal PDF
+- `required_certifications`: certificazioni dal PDF
+- `required_seniority`: seniority appropriata
+- `contract_type`: "permanent" (indeterminato per tutti)
+- `work_hours_type`: "full_time"
+- `remote_policy`: "on_site"
+- `status`: "active"
 
-**Dopo:**
-```
-select(`
-  *,
-  company_role_assignments!role_id (
-    id, user_id, company_member_id, assignment_type, end_date,
-    company_members!company_member_id ( user_id )
-  )
-`)
-```
+### 3. Aggiungere bottone nel SeedDataView
 
-Dopo il fetch, per ogni ruolo con un assignment attivo (`end_date IS NULL`), estrarre lo `user_id` (direttamente dall'assignment o tramite `company_members`) e impostare `role.currentAssignee = { id: userId }`. Questo basta perche `OrgNodeCard` usa `users.find(u => u.id === role.currentAssignee?.id)` per arricchire i dati.
+Aggiungere un terzo bottone "Seed Company Roles (19)" nella pagina di seed che chiama la nuova edge function.
 
-### 2. Pulizia dati orfani
+### 4. Ruoli senza mansionario nel PDF
 
-Verificare e cancellare eventuali ruoli "Head of Sales" duplicati rimasti nel DB da tentativi precedenti (senza assignment valido).
+Per CEO, Head of Sales e Sales Specialist, creo mansionari sensati basati sul contesto aziendale e le best practices per quei ruoli nel settore dental/medicale B2B.
 
 ## Dettagli tecnici
 
-La logica post-fetch per popolare currentAssignee:
+### Mapping persona -> ruolo -> nodo
 
 ```text
-for each role:
-  assignments = role's joined assignment rows where end_date is null
-  primaryAssignment = first assignment with type 'primary'
-  if primaryAssignment:
-    userId = primaryAssignment.user_id 
-             || primaryAssignment.company_members?.user_id
-    if userId:
-      role.currentAssignee = { id: userId }
+Nicola Bertolotto  -> CEO / AD                    -> d0000001-...-000000000001 (General Management)
+Mauro Dorigo       -> Head of Sales & Marketing   -> d0000001-...-000000000002 (Dir. Sales) [UPDATE]
+Claudio Venturini  -> Resp. Service               -> d0000001-...-000000000003 (Dir. Service)
+Fabrizio Dose      -> Resp. Logistica             -> d0000001-...-000000000004 (Dir. Logistica)
+Tessa Sangalli     -> Resp. Amministrativo        -> d0000001-...-000000000005 (Dir. Amm.)
+Michele Cassano    -> Area Manager                -> d0000001-...-000000000006 (Team Sales)
+Marco Fabio        -> Sales Specialist            -> d0000001-...-000000000006 (Team Sales)
+Giulia Bartoli     -> Marketing Specialist        -> d0000001-...-000000000007 (Team Marketing)
+Massimiliano Cerati-> Marketing Specialist        -> d0000001-...-000000000007 (Team Marketing)
+Barbara Pasqualini -> Commerciale Interno         -> d0000001-...-000000000008 (Gestione Ordini)
+Paolo Romano       -> Tecnico Service Trad.       -> d0000001-...-000000000009 (Service Trad.)
+Matteo Griffini    -> Tecnico Service             -> d0000001-...-000000000009 (Service Trad.)
+Gabriele Piani     -> Tecnico Service             -> d0000001-...-000000000009 (Service Trad.)
+Alberto Luppichini -> Tecnico Service             -> d0000001-...-000000000009 (Service Trad.)
+Ivan Carlo Pagnini -> Product Specialist          -> d0000001-...-000000000010 (Service Digital)
+Alberto Scudier    -> Installatore / Service Rep. -> d0000001-...-000000000011 (Installazioni)
+Andrea Tompetrini  -> Magazziniere                -> d0000001-...-000000000012 (Magazzino)
+Alessandra Ciceri  -> Segreteria e Amm.           -> d0000001-...-000000000013 (Supp. Amm.)
 ```
 
-In `OrgNodeCard` (riga 358-361), il codice gia esistente:
+### File da creare/modificare
+
+| File | Azione |
+|---|---|
+| `supabase/functions/seed-company-roles/index.ts` | Nuovo - Edge function con tutti i dati |
+| `src/views/admin/SeedDataView.tsx` | Aggiungere bottone per chiamare la funzione |
+| `supabase/config.toml` | NON toccare (auto-gestito) |
+
+### Struttura dati di esempio per un ruolo
+
 ```text
-const assignedUserIds = new Set(
-  nodeRoles.filter(r => r.currentAssignee?.id).map(r => r.currentAssignee!.id)
-);
+{
+  title: "Magazziniere",
+  company_id: "11111111-...",
+  org_node_id: "d0000001-...-000000000012",
+  responsibilities: ["Integrita fisica e conservazione della merce", ...],
+  daily_tasks: ["Ricevimento e controllo merce", "Stoccaggio prodotti", ...],
+  kpis: [
+    { name: "Accuratezza inventariale", target: ">98%" },
+    { name: "Tempo medio evasione ordini", target: "<24h" },
+    ...
+  ],
+  required_hard_skills: [
+    { name: "Gestionale magazzino IFS", level: 4 },
+    { name: "Movimentazione merci", level: 4 },
+    ...
+  ],
+  required_soft_skills: [
+    { name: "Precisione e attenzione ai dettagli", level: 4 },
+    ...
+  ],
+  required_languages: [
+    { language: "Italiano", level: "native" }
+  ],
+  required_education: [
+    { degree: "Diploma scuola secondaria superiore", mandatory: false }
+  ],
+  required_certifications: ["Patentino carrelli elevatori"],
+  required_seniority: "Mid",
+  contract_type: "permanent",
+  work_hours_type: "full_time",
+  remote_policy: "on_site",
+  status: "active",
+  headcount: 1,
+  is_hiring: false
+}
 ```
-...funzionera automaticamente una volta che `currentAssignee` e popolato.
 
-Nessuna migrazione DB. Nessun file nuovo. Fix su 1 file (`useCompanyRoles.ts`).
+Nessuna migrazione DB necessaria. 1 edge function nuova, 1 file UI modificato.
