@@ -7,6 +7,8 @@ const SeedDataView: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isDemoLoading, setIsDemoLoading] = useState(false);
   const [demoStatus, setDemoStatus] = useState<string>('');
+  const [isRolesLoading, setIsRolesLoading] = useState(false);
+  const [rolesStatus, setRolesStatus] = useState<string>('');
 
   const handleSeed = async () => {
     setIsLoading(true);
@@ -54,6 +56,34 @@ const SeedDataView: React.FC = () => {
       setDemoStatus(`❌ Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setIsDemoLoading(false);
+    }
+  };
+
+  const handleSeedRoles = async () => {
+    setIsRolesLoading(true);
+    setRolesStatus('Creating 18 roles with full mansionario data...');
+    
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/seed-company-roles`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+        }
+      );
+      
+      const data = await response.json();
+      
+      if (response.ok) {
+        const successCount = data.results?.filter((r: any) => r.success !== false).length || 0;
+        setRolesStatus(`✅ ${data.message || `Processed ${successCount} roles`}`);
+      } else {
+        setRolesStatus(`❌ Error: ${data.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      setRolesStatus(`❌ Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setIsRolesLoading(false);
     }
   };
 
@@ -130,6 +160,46 @@ const SeedDataView: React.FC = () => {
             {demoStatus && (
               <div className={`p-4 rounded-lg ${demoStatus.includes('✅') ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' : demoStatus.includes('❌') ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300' : 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'}`}>
                 {demoStatus}
+              </div>
+            )}
+          </div>
+        </div>
+        {/* Company Roles Section */}
+        <div className="bg-card border border-border rounded-lg p-6">
+          <h1 className="text-2xl font-bold text-foreground mb-4">3. Seed Company Roles (18)</h1>
+          <p className="text-muted-foreground mb-6">
+            Create all 18 company roles with full mansionario data (responsibilities, KPIs, skills) from the PDF and assign each to the correct person.
+          </p>
+          
+          <div className="space-y-4">
+            <div className="bg-muted p-4 rounded-lg">
+              <h3 className="font-semibold text-foreground mb-2">Roles Include:</h3>
+              <ul className="text-sm text-muted-foreground space-y-1">
+                <li>• CEO, Head of Sales (update), Resp. Service, Resp. Logistica, Resp. Amm.</li>
+                <li>• Area Manager, Sales Specialist, 2x Marketing Specialist</li>
+                <li>• Commerciale Interno, 4x Tecnico Service, Product Specialist</li>
+                <li>• Tecnico Service & Repair, Magazziniere, Segreteria e Amm.</li>
+                <li>• Full mansionario: responsabilità, KPI, hard/soft skills, lingue, formazione</li>
+              </ul>
+            </div>
+
+            <div className="bg-amber-100 dark:bg-amber-900/30 p-4 rounded-lg">
+              <p className="text-sm text-amber-800 dark:text-amber-300">
+                ⚠️ Run this AFTER seeding demo users. This is idempotent: re-running will clean up and recreate all roles (except Head of Sales which is updated).
+              </p>
+            </div>
+
+            <button 
+              onClick={handleSeedRoles} 
+              disabled={isRolesLoading}
+              className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50"
+            >
+              {isRolesLoading ? 'Creating roles...' : 'Seed Company Roles (18)'}
+            </button>
+
+            {rolesStatus && (
+              <div className={`p-4 rounded-lg ${rolesStatus.includes('✅') ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' : rolesStatus.includes('❌') ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300' : 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'}`}>
+                {rolesStatus}
               </div>
             )}
           </div>
