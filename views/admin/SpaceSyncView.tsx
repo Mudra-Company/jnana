@@ -18,7 +18,7 @@ import { OptimizationSuggestions } from '../../src/components/spacesync/Optimiza
 import { CollaborationFlowOverlay, buildFlowConnections } from '../../src/components/spacesync/CollaborationFlowOverlay';
 import { CollaborationFlowReport } from '../../src/components/spacesync/CollaborationFlowReport';
 import type { CompanyProfile, User } from '../../types';
-import type { OfficeDesk, OfficeRoom } from '../../src/types/spacesync';
+import type { OfficeDesk, OfficeRoom, ExternalFlowArrow, GlobalDeskEntry } from '../../src/types/spacesync';
 
 interface SpaceSyncViewProps {
   company: CompanyProfile;
@@ -53,7 +53,7 @@ const OccupancyGauge: React.FC<{ pct: number }> = ({ pct }) => {
 export const SpaceSyncView: React.FC<SpaceSyncViewProps> = ({ company, companyUsers }) => {
   const { locations, isLoading: locLoading, fetchLocations, createLocation, updateLocation, deleteLocation } = useOfficeLocations();
   const { rooms, fetchRooms, createRoom, updateRoom, deleteRoom } = useOfficeRooms();
-  const { desks, fetchDesks, createDesk, updateDesk, deleteDesk } = useOfficeDesks();
+  const { desks, fetchDesks, fetchAllDesks, createDesk, updateDesk, deleteDesk } = useOfficeDesks();
   const { userDataMap, isLoading: proximityLoading, loadUserData, calculateAllPairs, getDeskScores } = useProximityScoring();
 
   const [selectedLocationId, setSelectedLocationId] = useState<string | undefined>();
@@ -63,6 +63,7 @@ export const SpaceSyncView: React.FC<SpaceSyncViewProps> = ({ company, companyUs
   const [flowMode, setFlowMode] = useState(false);
   const [showSimulation, setShowSimulation] = useState(false);
   const [roomPreviewOverrides, setRoomPreviewOverrides] = useState<Partial<OfficeRoom> | null>(null);
+  const [allDesksGlobal, setAllDesksGlobal] = useState<GlobalDeskEntry[]>([]);
 
   const selectedLocation = useMemo(() => locations.find(l => l.id === selectedLocationId), [locations, selectedLocationId]);
   const selectedRoom = useMemo(() => rooms.find(r => r.id === selectedRoomId), [rooms, selectedRoomId]);
@@ -81,6 +82,13 @@ export const SpaceSyncView: React.FC<SpaceSyncViewProps> = ({ company, companyUs
   }, [selectedLocationId, fetchRooms, fetchDesks]);
   useEffect(() => { loadUserData(desks); }, [desks, loadUserData]);
 
+  // Load all desks globally for cross-location flows
+  useEffect(() => {
+    if (company.id && flowMode) {
+      fetchAllDesks(company.id).then(setAllDesksGlobal);
+    }
+  }, [company.id, flowMode, fetchAllDesks]);
+
   const proximityPairs = useMemo(() => calculateAllPairs(desks, rooms), [desks, rooms, calculateAllPairs]);
   const deskScores = useMemo(() => getDeskScores(proximityPairs), [proximityPairs, getDeskScores]);
   const globalAverage = useMemo(() => {
@@ -92,24 +100,99 @@ export const SpaceSyncView: React.FC<SpaceSyncViewProps> = ({ company, companyUs
   const assignedCount = useMemo(() => desks.filter(d => d.companyMemberId).length, [desks]);
   const occupancyPct = desks.length > 0 ? Math.round((assignedCount / desks.length) * 100) : 0;
 
-  // Flow connections
+  // Flow connections (internal)
   const flowConnections = useMemo(() => buildFlowConnections(desks, rooms, userDataMap), [desks, rooms, userDataMap]);
+  
+  // External flow arrows (cross-location)
+  const externalArrows = useMemo<ExternalFlowArrow[]>(() => {
+    if (!flowMode || !selectedLocation || allDesksGlobal.length === 0) return [];
+    
+    const currentMemberIds = new Set(desks.filter(d => d.companyMemberId).map(d => d.companyMemberId!));
+    const globalMemberMap = new Map(allDesksGlobal.map(d => [d.memberId, d]));
+    const roomMap = new Map(rooms.map(r => [r.id, r]));
+    const DESK_SIZE = 32;
+    const arrows: ExternalFlowArrow[] = [];
+    const seen = new Set<string>();
+
+    for (const desk of desks) {
+      if (!desk.companyMemberId) continue;
+      const userData = userDataMap.get(desk.companyMemberId);
+      if (!userData?.collaborationProfile?.links) continue;
+
+      const room = roomMap.get(desk.roomId);
+      if (!room) continue;
+      const fromAbsX = room.x + desk.x + DESK_SIZE / 2;
+      const fromAbsY = room.y + desk.y + DESK_SIZE / 2;
+      const fromName = `${userData.firstName} ${userData.lastName}`;
+
+      for (const link of userData.collaborationProfile.links) {
+        const targets: Array<{ memberId: string; pct: number; affinity: number }> = [];
+
+        if (link.targetType === 'member' && !currentMemberIds.has(link.targetId)) {
+          targets.push({ memberId: link.targetId, pct: link.collaborationPercentage, affinity: link.personalAffinity });
+        }
+        if (link.targetType === 'team' && link.memberBreakdown) {
+          for (const mb of link.memberBreakdown) {
+            if (!currentMemberIds.has(mb.memberId)) {
+              const effectivePct = Math.round((link.collaborationPercentage * mb.percentage) / 100);
+              if (effectivePct >= 3) {
+                targets.push({ memberId: mb.memberId, pct: effectivePct, affinity: mb.affinity ?? link.personalAffinity });
+              }
+            }
+          }
+        }
+
+        for (const t of targets) {
+          const targetGlobal = globalMemberMap.get(t.memberId);
+          if (!targetGlobal) continue;
+          
+          const key = [desk.companyMemberId, t.memberId].sort().join('::ext');
+          if (seen.has(key)) continue;
+          seen.add(key);
+
+          const sameBuilding = Boolean(
+            selectedLocation.address &&
+            targetGlobal.locationAddress &&
+            selectedLocation.address === targetGlobal.locationAddress
+          );
+
+          arrows.push({
+            key,
+            fromDeskAbsX: fromAbsX,
+            fromDeskAbsY: fromAbsY,
+            fromMemberName: fromName,
+            targetMemberName: targetGlobal.memberName,
+            targetLocationName: targetGlobal.locationName,
+            targetFloorNumber: targetGlobal.floorNumber,
+            sameBuilding,
+            percentage: t.pct,
+            affinity: t.affinity,
+          });
+        }
+      }
+    }
+
+    return arrows.sort((a, b) => b.percentage - a.percentage);
+  }, [flowMode, selectedLocation, allDesksGlobal, desks, userDataMap, rooms]);
+
   const flowMissingCount = useMemo(() => {
     const deskMemberIds = new Set(desks.filter(d => d.companyMemberId).map(d => d.companyMemberId!));
+    const globalMemberIds = new Set(allDesksGlobal.map(d => d.memberId));
     let missing = 0;
     for (const [, ud] of userDataMap) {
       if (!ud.collaborationProfile?.links) continue;
       for (const link of ud.collaborationProfile.links) {
-        if (link.targetType === 'member' && !deskMemberIds.has(link.targetId)) missing++;
+        if (link.targetType === 'member' && !deskMemberIds.has(link.targetId) && !globalMemberIds.has(link.targetId)) missing++;
         if (link.targetType === 'team' && link.memberBreakdown) {
           for (const mb of link.memberBreakdown) {
-            if (!deskMemberIds.has(mb.memberId)) missing++;
+            if (!deskMemberIds.has(mb.memberId) && !globalMemberIds.has(mb.memberId)) missing++;
           }
         }
       }
     }
     return missing;
-  }, [desks, userDataMap]);
+  }, [desks, userDataMap, allDesksGlobal]);
+
   const selectedRoomDeskCount = useMemo(() =>
     selectedRoom ? desks.filter(d => d.roomId === selectedRoom.id).length : 0
   , [selectedRoom, desks]);
@@ -198,7 +281,6 @@ export const SpaceSyncView: React.FC<SpaceSyncViewProps> = ({ company, companyUs
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {/* Inline stat pills */}
             {selectedLocation && (
               <div className="hidden sm:flex items-center gap-1.5">
                 <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-white/15 backdrop-blur-sm text-[11px] font-semibold">
@@ -227,7 +309,6 @@ export const SpaceSyncView: React.FC<SpaceSyncViewProps> = ({ company, companyUs
             )}
           </div>
         </div>
-        {/* Decorative circles */}
         <div className="absolute -right-10 -top-10 w-40 h-40 rounded-full bg-white/5" />
         <div className="absolute -right-5 -bottom-12 w-28 h-28 rounded-full bg-white/5" />
       </div>
@@ -235,7 +316,6 @@ export const SpaceSyncView: React.FC<SpaceSyncViewProps> = ({ company, companyUs
       <div className="grid grid-cols-12 gap-5">
         {/* === SIDEBAR === */}
         <div className="col-span-12 lg:col-span-3 space-y-3">
-          {/* Locations */}
           <Card padding="sm">
             <LocationSelector
               locations={locations}
@@ -247,7 +327,6 @@ export const SpaceSyncView: React.FC<SpaceSyncViewProps> = ({ company, companyUs
             />
           </Card>
 
-          {/* Room Editor */}
           {selectedRoom && (
             <Card padding="sm">
               <RoomEditor
@@ -268,19 +347,16 @@ export const SpaceSyncView: React.FC<SpaceSyncViewProps> = ({ company, companyUs
                 Dashboard
               </h3>
               <div className="grid grid-cols-2 gap-2">
-                {/* Rooms */}
                 <div className="rounded-xl bg-blue-50 dark:bg-blue-900/20 p-3 text-center">
                   <DoorOpen size={18} className="mx-auto text-blue-500 mb-1" />
                   <div className="text-xl font-extrabold text-gray-800 dark:text-gray-100">{rooms.length}</div>
                   <div className="text-[10px] text-gray-500 uppercase tracking-wide">Stanze</div>
                 </div>
-                {/* Desks */}
                 <div className="rounded-xl bg-emerald-50 dark:bg-emerald-900/20 p-3 text-center">
                   <Monitor size={18} className="mx-auto text-emerald-500 mb-1" />
                   <div className="text-xl font-extrabold text-gray-800 dark:text-gray-100">{assignedCount}<span className="text-sm font-normal text-gray-400">/{desks.length}</span></div>
                   <div className="text-[10px] text-gray-500 uppercase tracking-wide">Scrivanie</div>
                 </div>
-                {/* Occupancy Gauge */}
                 <div className="rounded-xl bg-gray-50 dark:bg-gray-800 p-2 flex items-center justify-center">
                   {desks.length > 0 ? <OccupancyGauge pct={occupancyPct} /> : (
                     <div className="text-center py-2">
@@ -289,7 +365,6 @@ export const SpaceSyncView: React.FC<SpaceSyncViewProps> = ({ company, companyUs
                     </div>
                   )}
                 </div>
-                {/* Proximity Score */}
                 <div className="rounded-xl bg-amber-50 dark:bg-amber-900/20 p-3 text-center">
                   <Star size={18} className="mx-auto text-amber-500 mb-1" />
                   {heatmapMode && proximityPairs.length > 0 ? (
@@ -327,7 +402,7 @@ export const SpaceSyncView: React.FC<SpaceSyncViewProps> = ({ company, companyUs
           )}
 
           {/* Flow Report */}
-          {flowMode && flowConnections.length > 0 && (
+          {flowMode && (flowConnections.length > 0 || externalArrows.length > 0) && (
             <Collapsible defaultOpen>
               <Card padding="sm">
                 <CollapsibleTrigger className="w-full flex items-center justify-between text-[10px] font-bold uppercase tracking-widest text-gray-400">
@@ -338,7 +413,7 @@ export const SpaceSyncView: React.FC<SpaceSyncViewProps> = ({ company, companyUs
                   <ChevronDown size={14} className="transition-transform data-[state=open]:rotate-180 text-gray-400" />
                 </CollapsibleTrigger>
                 <CollapsibleContent className="mt-3">
-                  <CollaborationFlowReport connections={flowConnections} missingCount={flowMissingCount} />
+                  <CollaborationFlowReport connections={flowConnections} missingCount={flowMissingCount} externalArrows={externalArrows} />
                 </CollapsibleContent>
               </Card>
             </Collapsible>
@@ -397,7 +472,14 @@ export const SpaceSyncView: React.FC<SpaceSyncViewProps> = ({ company, companyUs
                 flowMode={flowMode}
                 onToggleFlow={() => { setFlowMode(prev => !prev); if (!flowMode) setHeatmapMode(false); }}
                 flowOverlay={
-                  <CollaborationFlowOverlay desks={desks} rooms={rooms} userDataMap={userDataMap} />
+                  <CollaborationFlowOverlay
+                    desks={desks}
+                    rooms={rooms}
+                    userDataMap={userDataMap}
+                    canvasWidth={selectedLocation.canvasWidth}
+                    canvasHeight={selectedLocation.canvasHeight}
+                    externalArrows={externalArrows}
+                  />
                 }
                 deskScores={deskScores}
               />

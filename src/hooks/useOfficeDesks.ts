@@ -131,5 +131,76 @@ export const useOfficeDesks = () => {
     return true;
   }, [fetchDesks]);
 
-  return { desks, isLoading, fetchDesks, createDesk, updateDesk, deleteDesk };
+  const fetchAllDesks = useCallback(async (companyId: string) => {
+    const { data: allLocations } = await supabase
+      .from('office_locations')
+      .select('id, name, address, floor_number')
+      .eq('company_id', companyId);
+
+    if (!allLocations || allLocations.length === 0) return [];
+
+    const locationIds = allLocations.map((l: any) => l.id);
+    const { data: allRooms } = await supabase
+      .from('office_rooms')
+      .select('id, location_id, x, y')
+      .in('location_id', locationIds);
+
+    if (!allRooms || allRooms.length === 0) return [];
+
+    const roomIds = allRooms.map((r: any) => r.id);
+    const { data: allDesksData } = await supabase
+      .from('office_desks')
+      .select(`
+        id, room_id, label, x, y, company_member_id,
+        member:company_member_id(
+          id, placeholder_first_name, placeholder_last_name, user_id,
+          profiles:user_id(first_name, last_name)
+        )
+      `)
+      .in('room_id', roomIds);
+
+    if (!allDesksData) return [];
+
+    const roomMap = new Map(allRooms.map((r: any) => [r.id, r]));
+    const locMap = new Map(allLocations.map((l: any) => [l.id, l]));
+
+    const result: Array<{
+      deskId: string; memberId: string; memberName: string;
+      locationId: string; locationName: string; locationAddress?: string;
+      floorNumber?: number; roomId: string; absX: number; absY: number;
+    }> = [];
+
+    for (const d of allDesksData as any[]) {
+      if (!d.company_member_id) continue;
+      const room = roomMap.get(d.room_id);
+      if (!room) continue;
+      const loc = locMap.get(room.location_id);
+      if (!loc) continue;
+
+      const member = d.member as any;
+      let name = '';
+      if (member?.profiles) {
+        name = `${member.profiles.first_name || ''} ${member.profiles.last_name || ''}`.trim();
+      } else if (member) {
+        name = `${member.placeholder_first_name || ''} ${member.placeholder_last_name || ''}`.trim();
+      }
+
+      result.push({
+        deskId: d.id,
+        memberId: d.company_member_id,
+        memberName: name || d.label,
+        locationId: loc.id,
+        locationName: loc.name,
+        locationAddress: loc.address ?? undefined,
+        floorNumber: loc.floor_number ?? undefined,
+        roomId: d.room_id,
+        absX: room.x + d.x + 16,
+        absY: room.y + d.y + 16,
+      });
+    }
+
+    return result;
+  }, []);
+
+  return { desks, isLoading, fetchDesks, fetchAllDesks, createDesk, updateDesk, deleteDesk };
 };
