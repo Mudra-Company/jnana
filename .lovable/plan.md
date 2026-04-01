@@ -1,112 +1,46 @@
 
-# Miglioramento Gestione Sedi/Piani e Flussi Cross-Location in SpaceSync
 
-## Situazione attuale
+# Export PDF Report dell'Analisi RIASEC
 
-Oggi ogni "location" e un'entita piatta con campi opzionali `buildingName`, `address`, `floorNumber`. Le due sedi esistenti sono:
-- **HQ** (Via tal dei tali, Concorrezzo) - Piano 1
-- **DUOMO** (Piazza Duomo Milano)
+## Cosa viene esportato
 
-Il sistema mostra solo i flussi di collaborazione tra persone sullo **stesso piano/sede**. Se un collaboratore e su un altro piano o in un'altra sede, la connessione e completamente invisibile.
+Il PDF conterrà tutte le sezioni visibili nella tab "Analisi RIASEC":
+1. **Header** con nome utente, profilo (es. R-S-A), azienda e data
+2. **Mappa Attitudinale** (radar chart) — catturata come immagine dal canvas Recharts
+3. **Intensità Tratti** (bar chart orizzontale) — catturata come immagine
+4. **Report dettagliato** — tutte le sezioni testuali (descrizioni dimensioni, lavori suggeriti, tratti distintivi)
 
-## Cosa cambia
+## Approccio tecnico
 
-### 1. Ristrutturazione UI del LocationSelector (Sede > Piani)
+Creare un servizio `src/services/riasecPdfExportService.ts` che usa **jsPDF** (già installato nel progetto) per generare il PDF programmaticamente, senza html2canvas. I grafici verranno renderizzati come immagini PNG tramite il metodo nativo di Recharts/SVG (`canvas.toDataURL`).
 
-Trasformare il selettore da lista piatta a **gerarchia a due livelli**: Sede (raggruppata per `address`) > Piano.
+### Flusso
+1. L'utente clicca un bottone "Esporta PDF" nella tab RIASEC
+2. Il servizio riceve i dati già calcolati (scores, adjData, report, user info)
+3. I due grafici SVG vengono convertiti in PNG via un `<canvas>` temporaneo
+4. jsPDF compone il documento: header colorato, grafici affiancati, poi sezioni testuali con impaginazione automatica multi-pagina
 
-```text
-SEDI E PIANI
-  
-  [Sede] HQ - Via tal dei tali, Concorrezzo
-    > Piano Terra        [selezionato]
-    > Piano 1
-    + Aggiungi Piano
-  
-  [Sede] DUOMO - Piazza Duomo Milano  
-    > Piano Unico
-    + Aggiungi Piano
+### File da creare/modificare
 
-  + Nuova Sede
-```
-
-- "Nuova Sede" chiede solo nome sede e indirizzo, poi crea automaticamente il primo piano
-- "Aggiungi Piano" dentro una sede crea una nuova location con lo stesso `address`/`buildingName` e il `floorNumber` successivo
-- Il raggruppamento usa il campo `address` come chiave di sede (gia presente nel DB)
-
-### 2. Flussi Cross-Location nel Canvas (frecce "verso l'esterno")
-
-Quando la vista Flussi e attiva, per ogni collaboratore che ha link verso qualcuno NON presente nel piano corrente:
-
-```text
-                    ┌─────────────────────────┐
-                    │  [Canvas Piano Terra]    │
-                    │                          │
-  ← Piano 1        │   [Desk A] ──────────>   │──→ DUOMO
-  Claudio V. 20%   │                          │   Michele C. 25%
-                    │   [Desk B]               │
-                    └─────────────────────────┘
-```
-
-- Una freccia tratteggiata parte dal desk dell'utente e va verso il **bordo del canvas**
-- Al bordo, un **badge/etichetta** mostra: nome del collaboratore, sede/piano, percentuale
-- Colore della freccia basato sull'affinita (come i flussi interni)
-- Le frecce esterne sono raggruppate per direzione (sinistra/destra) per evitare sovrapposizioni
-
-### 3. Dati cross-location: caricare la mappa globale dei desk
-
-Per sapere dove si trova ogni collaboratore, serve una **mappa globale** `memberId -> locationInfo` che carichi i desk di TUTTE le sedi dell'azienda (non solo quella selezionata).
-
-### 4. Report Flussi: sezione "Collaborazioni Esterne"
-
-Nel report laterale dei flussi, aggiungere una sezione dedicata:
-
-```text
-COLLABORAZIONI ESTERNE
-  Stesso edificio, piano diverso (3)
-    Claudio V. ↔ Paolo R. — 20% — Piano 1
-    ...
-  Sede diversa (2)  
-    Michele C. ↔ Barbara P. — 25% — DUOMO
-    ...
-```
-
-## Dettagli tecnici
-
-### File da modificare
-
-| File | Modifiche |
+| File | Azione |
 |---|---|
-| `src/components/spacesync/LocationSelector.tsx` | Ristrutturare UI con gerarchia Sede > Piano, aggiungere "Aggiungi Piano" |
-| `src/hooks/useOfficeDesks.ts` | Aggiungere `fetchAllDesks(companyId)` che carica desk di tutte le sedi |
-| `src/types/spacesync.ts` | Aggiungere `ExternalCollaborator` type per i flussi cross-location |
-| `src/components/spacesync/CollaborationFlowOverlay.tsx` | Aggiungere rendering frecce esterne verso il bordo canvas con badge |
-| `src/components/spacesync/CollaborationFlowReport.tsx` | Aggiungere sezione "Collaborazioni Esterne" con distinzione stesso-edificio / sede-diversa |
-| `views/admin/SpaceSyncView.tsx` | Passare `allDesks`, `locations` al flow overlay; caricare dati globali |
+| `src/services/riasecPdfExportService.ts` | Nuovo — genera il PDF con jsPDF |
+| `views/user/UserResultView.tsx` | Aggiungere bottone "Esporta PDF" nella tab RIASEC + refs ai container SVG dei grafici |
 
-### Nessuna migrazione DB necessaria
+### Dettaglio del PDF generato
 
-Il modello dati attuale (`address` + `floorNumber` in `office_locations`) e gia sufficiente. Il raggruppamento per sede avviene nel frontend usando il campo `address` come chiave.
+- **Pagina 1**: Header con gradient indigo, nome + cognome, job title, azienda, codice profilo, data. Sotto: i due grafici affiancati (radar a sinistra, bar chart a destra), convertiti da SVG a PNG.
+- **Pagina 2+**: Report testuale completo — titoli sezioni in bold, lista lavori suggeriti, tratti distintivi come tags, citazioni in corsivo. Gestione automatica page break.
 
-### Logica per le frecce esterne
+### Conversione grafici SVG → PNG
 
-```text
-Per ogni desk assegnato nel piano corrente:
-  Per ogni link di collaborazione:
-    Se il target member NON ha un desk nel piano corrente:
-      Cerca il target in allDesks (tutte le sedi)
-      Se trovato:
-        locationTarget = locations.find(l => l.id === targetDesk.locationId)
-        sameBuilding = locationTarget.address === currentLocation.address
-        label = sameBuilding 
-          ? "Piano " + locationTarget.floorNumber
-          : locationTarget.name
-        Disegna freccia tratteggiata dal desk al bordo canvas
-        Mostra badge con: nomeTarget, label, percentuale
-      Se NON trovato (non ha scrivania):
-        Mostra nel report come "non posizionato"
-```
+Per catturare i grafici Recharts senza html2canvas, aggiungerò due `ref` ai container dei grafici. Al momento dell'export:
+1. Trovo l'elemento `<svg>` dentro il container
+2. Serializzo con `XMLSerializer`
+3. Disegno su un `<canvas>` temporaneo via `Image` + `data:image/svg+xml`
+4. Estraggo con `canvas.toDataURL('image/png')`
 
-### Posizionamento badge sul bordo
+### Bottone UI
 
-I badge esterni vengono distribuiti lungo il bordo destro (o sinistro) del canvas, distanziati verticalmente di 40px l'uno dall'altro per evitare sovrapposizioni. Badge per "stesso edificio" hanno bordo blu, badge per "sede diversa" hanno bordo arancione.
+Nella tab RIASEC, in alto a destra accanto al titolo "Mappa Attitudinale", un bottone con icona `FileDown` e testo "Esporta PDF".
+
