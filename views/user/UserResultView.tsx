@@ -235,6 +235,32 @@ interface UserResultViewProps {
 
 export const UserResultView: React.FC<UserResultViewProps> = ({ user, jobDb, company, companyUsers, onLogout, onStartClimate, onStartKarma, isReadOnly, onClose }) => {
     const [activeTab, setActiveTab] = useState<'overview' | 'riasec' | 'karma' | 'climate'>('overview');
+    const [isExporting, setIsExporting] = useState(false);
+    const radarChartRef = useRef<HTMLDivElement>(null);
+    const barChartRef = useRef<HTMLDivElement>(null);
+
+    const handleExportPdf = async () => {
+      setIsExporting(true);
+      try {
+        await exportRiasecPdf(
+          {
+            userName: `${user.firstName} ${user.lastName}`,
+            jobTitle: user.jobTitle,
+            companyName: company?.name,
+            profileCode: activeProfileCode,
+            scores: finalScores,
+            adjData,
+            reportSections: report,
+          },
+          radarChartRef.current,
+          barChartRef.current
+        );
+      } catch (e) {
+        console.error('PDF export failed', e);
+      } finally {
+        setIsExporting(false);
+      }
+    };
 
     // --- SINGLE SOURCE OF TRUTH ---
     // 1. Normalize Scores immediately
