@@ -37,8 +37,10 @@ import {
   Palette, // A
   HeartHandshake, // S
   ClipboardList, // C
-  FileText
+   FileText,
+   FileDown
 } from 'lucide-react';
+import { exportRiasecPdf } from '../src/services/riasecPdfExportService';
 import { Card } from '../../components/Card';
 import { Button } from '../../components/Button';
 import { User, JobDatabase, CompanyProfile, RiasecScore, RiasecDimension } from '../../types';
