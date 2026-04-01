@@ -554,7 +554,7 @@ export const UserResultView: React.FC<UserResultViewProps> = ({ user, jobDb, com
                          </Card>
                          <Card className="flex flex-col items-center justify-center min-h-[450px]">
                              <h3 className="text-sm font-bold text-gray-400 uppercase mb-4 flex items-center gap-2"><Target size={16}/> Intensità Tratti</h3>
-                             <div className="w-full h-[350px]">
+                             <div ref={barChartRef} className="w-full h-[350px]">
                                  <ResponsiveContainer width="100%" height="100%">
                                      <BarChart layout="vertical" data={adjData} margin={{ left: 40, right: 20 }}>
                                          <XAxis type="number" domain={[0, 5]} hide />
