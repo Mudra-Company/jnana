@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { 
   Radar, 
   RadarChart, 
@@ -37,8 +37,10 @@ import {
   Palette, // A
   HeartHandshake, // S
   ClipboardList, // C
-  FileText
+   FileText,
+   FileDown
 } from 'lucide-react';
+import { exportRiasecPdf } from '../../src/services/riasecPdfExportService';
 import { Card } from '../../components/Card';
 import { Button } from '../../components/Button';
 import { User, JobDatabase, CompanyProfile, RiasecScore, RiasecDimension } from '../../types';
@@ -233,6 +235,32 @@ interface UserResultViewProps {
 
 export const UserResultView: React.FC<UserResultViewProps> = ({ user, jobDb, company, companyUsers, onLogout, onStartClimate, onStartKarma, isReadOnly, onClose }) => {
     const [activeTab, setActiveTab] = useState<'overview' | 'riasec' | 'karma' | 'climate'>('overview');
+    const [isExporting, setIsExporting] = useState(false);
+    const radarChartRef = useRef<HTMLDivElement>(null);
+    const barChartRef = useRef<HTMLDivElement>(null);
+
+    const handleExportPdf = async () => {
+      setIsExporting(true);
+      try {
+        await exportRiasecPdf(
+          {
+            userName: `${user.firstName} ${user.lastName}`,
+            jobTitle: user.jobTitle,
+            companyName: company?.name,
+            profileCode: activeProfileCode,
+            scores: finalScores,
+            adjData,
+            reportSections: report,
+          },
+          radarChartRef.current,
+          barChartRef.current
+        );
+      } catch (e) {
+        console.error('PDF export failed', e);
+      } finally {
+        setIsExporting(false);
+      }
+    };
 
     // --- SINGLE SOURCE OF TRUTH ---
     // 1. Normalize Scores immediately
@@ -503,10 +531,16 @@ export const UserResultView: React.FC<UserResultViewProps> = ({ user, jobDb, com
 
              {activeTab === 'riasec' && (
                  <div className="space-y-8 animate-fade-in">
+                     <div className="flex justify-end mb-2">
+                       <Button variant="outline" size="sm" onClick={handleExportPdf} disabled={isExporting} className="flex items-center gap-2">
+                         <FileDown size={16} />
+                         {isExporting ? 'Generazione...' : 'Esporta PDF'}
+                       </Button>
+                     </div>
                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                          <Card className="flex flex-col items-center justify-center min-h-[450px]">
                              <h3 className="text-sm font-bold text-gray-400 uppercase mb-6 flex items-center gap-2"><Hexagon size={16}/> Mappa Attitudinale</h3>
-                             <div className="w-full h-[400px]">
+                             <div ref={radarChartRef} className="w-full h-[400px]">
                                  <ResponsiveContainer width="100%" height="100%">
                                      <RadarChart cx="50%" cy="50%" outerRadius="65%" data={radarData}>
                                          <PolarGrid gridType="polygon" stroke="#e5e7eb" />
@@ -520,7 +554,7 @@ export const UserResultView: React.FC<UserResultViewProps> = ({ user, jobDb, com
                          </Card>
                          <Card className="flex flex-col items-center justify-center min-h-[450px]">
                              <h3 className="text-sm font-bold text-gray-400 uppercase mb-4 flex items-center gap-2"><Target size={16}/> Intensità Tratti</h3>
-                             <div className="w-full h-[350px]">
+                             <div ref={barChartRef} className="w-full h-[350px]">
                                  <ResponsiveContainer width="100%" height="100%">
                                      <BarChart layout="vertical" data={adjData} margin={{ left: 40, right: 20 }}>
                                          <XAxis type="number" domain={[0, 5]} hide />
