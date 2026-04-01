@@ -40,7 +40,7 @@ import {
    FileText,
    FileDown
 } from 'lucide-react';
-import { exportRiasecPdf } from '../src/services/riasecPdfExportService';
+import { exportRiasecPdf } from '../../src/services/riasecPdfExportService';
 import { Card } from '../../components/Card';
 import { Button } from '../../components/Button';
 import { User, JobDatabase, CompanyProfile, RiasecScore, RiasecDimension } from '../../types';
