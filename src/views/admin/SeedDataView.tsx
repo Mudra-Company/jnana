@@ -9,6 +9,29 @@ const SeedDataView: React.FC = () => {
   const [demoStatus, setDemoStatus] = useState<string>('');
   const [isRolesLoading, setIsRolesLoading] = useState(false);
   const [rolesStatus, setRolesStatus] = useState<string>('');
+  const [isAmaeruLoading, setIsAmaeruLoading] = useState(false);
+  const [amaeruStatus, setAmaeruStatus] = useState<string>('');
+
+  const handleSeedAmaeru = async () => {
+    setIsAmaeruLoading(true);
+    setAmaeruStatus('Popolamento completo Amaeru in corso (60-120s)...');
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/seed-amaeru-full`,
+        { method: 'POST', headers: { 'Content-Type': 'application/json' } }
+      );
+      const data = await response.json();
+      if (response.ok) {
+        setAmaeruStatus(`✅ ${data.message}\n\nLog:\n${(data.log || []).join('\n')}`);
+      } else {
+        setAmaeruStatus(`❌ ${data.error || 'Errore'}\n${(data.log || []).join('\n')}`);
+      }
+    } catch (error) {
+      setAmaeruStatus(`❌ ${error instanceof Error ? error.message : 'Errore'}`);
+    } finally {
+      setIsAmaeruLoading(false);
+    }
+  };
 
   const handleSeed = async () => {
     setIsLoading(true);
@@ -200,6 +223,43 @@ const SeedDataView: React.FC = () => {
             {rolesStatus && (
               <div className={`p-4 rounded-lg ${rolesStatus.includes('✅') ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' : rolesStatus.includes('❌') ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300' : 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'}`}>
                 {rolesStatus}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Amaeru Demo Section */}
+        <div className="bg-card border border-border rounded-lg p-6">
+          <h1 className="text-2xl font-bold text-foreground mb-4">4. Seed Amaeru Full Demo</h1>
+          <p className="text-muted-foreground mb-6">
+            Popola completamente il tenant Amaeru: 22 utenti reali con profili completi, RIASEC, Karma, Climate, hard skills, esperienze, formazione, lingue, certificazioni. SpaceSync su 2 piani Milano HQ. Compliance con CCNL Commercio.
+          </p>
+          <div className="space-y-4">
+            <div className="bg-muted p-4 rounded-lg">
+              <h3 className="font-semibold text-foreground mb-2">Cosa viene creato:</h3>
+              <ul className="text-sm text-muted-foreground space-y-1">
+                <li>• 22 account auth reali (CDA, CEO, CTO, AI, Marketing, Vet, CS, Finance...)</li>
+                <li>• Profili con bio, headline, skill, esperienze, formazione, lingue, certificazioni</li>
+                <li>• Risultati RIASEC + Karma session + Climate response per ognuno</li>
+                <li>• SpaceSync Piano 1 (Engineering) + Piano 2 (CEO/Marketing/Vet/CS/Finance)</li>
+                <li>• CCNL Commercio + ~25 obblighi compliance con stati misti</li>
+              </ul>
+            </div>
+            <div className="bg-amber-100 dark:bg-amber-900/30 p-4 rounded-lg">
+              <p className="text-sm text-amber-800 dark:text-amber-300">
+                ⚠️ Idempotente: cancella e ricrea. Password unica per tutti: <code className="bg-amber-200 dark:bg-amber-800 px-1 rounded">Amaeru2026!</code>
+              </p>
+            </div>
+            <button
+              onClick={handleSeedAmaeru}
+              disabled={isAmaeruLoading}
+              className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50"
+            >
+              {isAmaeruLoading ? 'Popolamento in corso...' : 'Seed Amaeru Full Demo'}
+            </button>
+            {amaeruStatus && (
+              <div className={`p-4 rounded-lg whitespace-pre-wrap text-sm ${amaeruStatus.includes('✅') ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' : amaeruStatus.includes('❌') ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300' : 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'}`}>
+                {amaeruStatus}
               </div>
             )}
           </div>

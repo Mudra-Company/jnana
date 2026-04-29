@@ -1,115 +1,124 @@
-# Popolamento completo tenant demo "Amaeru"
+
+# Popolamento completo Amaeru: 22 account auth reali + SpaceSync multi-piano + Compliance + Survey
 
 ## Obiettivo
-Trasformare il tenant Amaeru (oggi vuoto: solo nodi "CDA" e "Nuovo Dipartimento") in un ambiente demo completo, coerente con la landing https://amaeru.eu/landing (app freemium AI-powered per la salute di cani e gatti, team italiano, valori: Trasparenza, Innovazione, Amore per gli animali, Rispetto per l'ambiente, Goal Oriented).
+Trasformare i 22 placeholder Amaeru in account utente reali navigabili, con profilo completo, hard/soft skills, esperienze, formazione, lingue, certificazioni, RIASEC, sessione Karma e risposta Climate. Espandere SpaceSync su 2 piani con stanze e scrivanie ridistribuite. Popolare Compliance con CCNL Commercio e mix di stati documenti.
 
 ## Approccio tecnico
-Tutto via una nuova edge function **`seed-amaeru-demo`** (sul modello dell'esistente `seed-company-roles`), idempotente, che:
-1. Pulisce/aggiorna org_nodes, company_roles, company_role_assignments e company_members del tenant Amaeru
-2. Crea profili, ruoli, persone, sedi/scrivanie e profili di collaborazione
-3. Lanciabile dalla pagina `SeedDataView` con un nuovo bottone "Seed Amaeru Demo"
+Una nuova edge function **`seed-amaeru-full`** orchestrerà tutto in modo idempotente. Userà `service_role_key` per creare gli auth user e bypassare le RLS. Lanciabile dal bottone già presente in `SeedDataView` (rinominato "Seed Amaeru Full").
 
-Nessuna modifica allo schema DB.
+## 1. Account auth reali (22 utenti)
 
-## 1. Organigramma (org_nodes)
+Per ognuno dei 22 membri:
+1. `supabase.auth.admin.createUser` con email `nome.cognome@amaeru.eu`, password demo unica `Amaeru2026!`, `email_confirm: true`
+2. Il trigger `handle_new_user` crea automaticamente il record in `profiles` e in `user_roles` (default `user`)
+3. UPDATE `company_members` settando `user_id` = nuovo auth uid, e svuotando i campi `placeholder_*`
+4. UPDATE `profiles` con tutti i campi: `first_name`, `last_name`, `gender` (M/F coerente col nome), `birth_date` (età 28-58 distribuite), `age`, `job_title`, `bio` (3-4 righe descrittive del ruolo), `headline`, `location` (Milano/Roma/remoto), `region`, `years_experience` (3-25), `is_karma_profile: false`, `looking_for_work: false`
 
-```text
-CDA (root)
-├── CEO Office (department)
-│   └── Executive Assistant (team)
-├── Sviluppo Prodotto (department)
-│   ├── Engineering (team)
-│   ├── AI & Data (team)
-│   └── Mobile & Web (team)
-├── Marketing & Growth (department)
-│   ├── Brand & Content (team)
-│   └── Performance & SEO (team)
-├── Veterinary & Scientific Advisory (department)
-├── Customer Success & Community (department)
-└── Operations & Finance (department)
-    ├── Finance & Admin (team)
-    └── People & Legal (team)
-```
+## 2. Dati professionali per ogni utente
 
-## 2. Persone (company_members)
+Per ognuno dei 22 utenti popolare:
 
-### CDA
-- **Giuseppe Ciniero** — Presidente CDA & CEO (tu)
-- **Chiara Tacco** — Membro CDA
-- **Carlotta Silvestrini** — Membro CDA
-- **Diego Barbisan** — Membro CDA
+### Hard skills (`user_hard_skills`)
+4-8 skill da `hard_skills_catalog` coerenti col ruolo + 1-2 custom. Livelli 3-5.
+Esempi: CTO → Python, AWS, System Design, Team Leadership; Vet Lead → Veterinary Medicine, Pet Nutrition, Clinical Research.
 
-### Sviluppo Prodotto (~7 persone)
-- **Lorenzo Marchetti** — CTO / Head of Engineering
-- **Sara Bianchi** — Lead AI Engineer (AI & Data)
-- **Matteo Greco** — Senior Backend Engineer
-- **Federico Romano** — iOS / Mobile Engineer
-- **Alessia Conti** — Frontend / Web Engineer
-- **Davide Russo** — ML / Computer Vision Engineer (riconoscimento etichette)
-- **Elena Marini** — Product Designer (UX/UI)
+### Soft skills (campo nel profilo / `user_hard_skills` con flag) 
+3-5 soft skill testuali coerenti.
 
-### Marketing & Growth (guidato da Giulia Ruggi, ~4 persone)
-- **Giulia Ruggi** — Head of Marketing
-- **Marco Galli** — Content & Brand Manager
-- **Sofia De Luca** — Performance & SEO Specialist
-- **Luca Ferrari** — Social Media & Community Manager
+### Esperienze (`user_experiences`)
+2-3 esperienze passate per ognuno (azienda fittizia ma plausibile, ruolo, date, descrizione).
 
-### Veterinary & Scientific Advisory (2)
-- **Dr.ssa Valentina Rossi** — Veterinary Lead (consulenza scientifica, WSAVA)
-- **Dr. Andrea Pozzi** — Pet Nutrition Specialist
+### Formazione (`user_education`)
+1-2 titoli (es. CTO → MSc Computer Science Politecnico Milano; Vet → Laurea Medicina Veterinaria UniMi).
 
-### Customer Success & Community (2)
-- **Martina Gallo** — Customer Success Lead
-- **Riccardo Esposito** — Community & Support Specialist
+### Lingue (`user_languages`)
+Italiano (native) + Inglese (professional/fluent). Alcuni con Spagnolo o Francese (intermediate).
 
-### Operations & Finance (3)
-- **Paola Neri** — CFO / Head of Operations
-- **Stefano Lombardi** — Finance & Admin
-- **Francesca Moretti** — People & Legal
+### Certificazioni (`user_certifications`)
+0-3 a seconda del ruolo (AWS Certified, PMP, WSAVA, Google Ads, ecc.).
 
-**Totale:** ~22 persone, tutte con email demo `nome.cognome@amaeru.eu`, job_title e department_id valorizzati. Membri come placeholder (no auth user reale) — pattern già usato nel seed Dürr.
+### Social links (`social_links`)
+LinkedIn per tutti, GitHub per ingegneri, portfolio per Designer/Marketing.
 
-## 3. Ruoli (company_roles)
+## 3. Risultati test per ogni utente
 
-Per ogni persona viene creato un ruolo formale collegato al nodo organizzativo, con:
-- `title`, `description`, `responsibilities[]`, `daily_tasks[]`, `kpis[]`
-- `required_hard_skills[]` e `required_soft_skills[]` con livelli
-- `required_seniority`, `years_experience_min/max`
-- `contract_type`, `ral_range_min/max`, `remote_policy` (mix di hybrid/remote/on_site)
-- `reports_to_role_id` (gerarchia: CEO→department head→team member)
-- `collaboration_profile`: `environmentalImpact` (1-5), `operationalFluidity` (1-5), `links[]` con collegamenti realistici tra ruoli (es. CTO ↔ Lead AI 80%, Head of Marketing ↔ Content 70%, CEO ↔ tutti i department head ~30-50%)
+### RIASEC (`riasec_results`)
+Punteggi R/I/A/S/E/C plausibili e differenziati per ruolo:
+- Ingegneri: I/R/C dominanti
+- Designer: A/I/S
+- Marketing: E/A/S
+- Vet: I/S/R
+- CFO/Finance: C/E/I
+- CEO/CDA: E/S/I
+`profile_code` calcolato dai 3 più alti.
 
-Mansionari coerenti con il prodotto (app pet-tech, AI ingredient analysis, Bristol scale, smart pantry, vet PDF reports).
+### Karma session (`karma_sessions`)
+Per ognuno: trascrizione minima 3 messaggi (placeholder), `summary` di 2 righe, `soft_skills[]` 4-5 voci, `primary_values[]` 3 voci coerenti coi valori Amaeru (Trasparenza, Innovazione, Amore animali, Rispetto ambiente, Goal Oriented), `risk_factors[]` 1-2 voci, `seniority_assessment` (Junior/Mid/Senior/Lead/C-Level), `completed_at` = now.
 
-## 4. Assegnazioni (company_role_assignments)
-Una assegnazione `primary` per ogni ruolo → company_member, FTE 100%, start_date 2024-01-01.
+### Climate (`climate_responses`)
+9 sezioni con punteggi 60-95 differenziati per ruolo (i C-level più alti, i junior leggermente più bassi). `overall_average` calcolato. `raw_scores` placeholder JSONB.
 
-## 5. Profilo azienda (companies)
-Aggiornare i campi già esistenti se vuoti, ma **NON sovrascrivere** ciò che l'utente ha già impostato:
-- `description`: già ok
-- `culture_values`: già ok
-- `size_range`: aggiornare a "11-50" (più realistico col team proposto)
+## 4. SpaceSync multi-piano
 
-## 6. SpaceSync — Sedi e scrivanie
-Creare:
-- **Sede Milano HQ** (Via Cavour 1, Milano) — Piano 1 con sala open-space (Engineering+AI), sala Marketing, ufficio CEO, sala riunioni
-- ~15 scrivanie (`office_desks`) assegnate ai membri on-site/hybrid; veterinari e alcuni ingegneri remote (no desk)
+Aggiornare la location esistente "Milano HQ" e aggiungere il **Piano 2**:
 
-Questo permette di mostrare la mappa SpaceSync con flussi di collaborazione attivi.
+### Piano 1 (esistente, ridistribuito) — Engineering & Product
+- Open Space Engineering (8 scrivanie)
+- AI/ML Lab (3 scrivanie)
+- Sala riunioni "Bristol"
+- Phone booth × 2
 
-## 7. Pagina di lancio
-In `src/views/admin/SeedDataView.tsx` aggiungere un bottone **"Seed Amaeru Demo"** che chiama l'edge function. La funzione è idempotente (svuota e ricrea).
+### Piano 2 (NUOVO `office_locations` con `floor_number=2`, stesso `building_name="Milano HQ"`, stesso indirizzo)
+Canvas 1200×800. Stanze:
+- Ufficio CEO (Giuseppe)
+- Sala CDA (no scrivanie permanenti)
+- Open Space Marketing (4 scrivanie: Giulia, Marco, Sofia, Luca)
+- Vet Lab (2 scrivanie: Valentina, Andrea)
+- Customer Success Hub (2 scrivanie: Martina, Riccardo)
+- Operations & Finance (3 scrivanie: Paola, Stefano, Francesca)
+- Lounge / Sala caffè (no scrivanie)
+- Sala riunioni "Duomo"
+
+Totale ~22 scrivanie con label = `Nome Cognome` e `company_member_id` valorizzato. CDA non operativi (Chiara, Carlotta, Diego) restano senza scrivania.
+
+Questo permette di mostrare flussi cross-piano (CEO ↔ CTO, Marketing ↔ Engineering) usando la feature `ExternalFlowArrow` già esistente.
+
+## 5. Compliance
+
+### CCNL
+INSERT in `company_ccnl_selections`: CCNL Commercio Confcommercio (`is_primary: true`).
+
+### Stati compliance
+Per OGNI riga di `compliance_requirements` con `ccnl_scope` matching ('all' o 'commercio'):
+INSERT in `company_compliance_status` con mix realistico:
+- 60% `compliant` (con `valid_from`/`valid_until` futuri)
+- 25% `expiring_soon` (scadenza nei prossimi 30gg)
+- 10% `expired`
+- 5% `missing`
+
+Aggiungere 5-10 righe in `company_compliance_history` per mostrare attività recente.
+
+## 6. UI
+
+Modificare `src/views/admin/SeedDataView.tsx`: il bottone esistente "Seed Amaeru Demo" diventa "Seed Amaeru Full" e chiama la nuova function `seed-amaeru-full`. Mostra loader e toast con conteggio finale (es. "22 utenti, 22 ruoli, 22 scrivanie, 18 documenti compliance").
 
 ## File coinvolti
 
 | File | Azione |
 |---|---|
-| `supabase/functions/seed-amaeru-demo/index.ts` | NUOVO — logica completa di seeding |
-| `src/views/admin/SeedDataView.tsx` | MODIFICATO — bottone di lancio |
-| `supabase/config.toml` | (eventuale) registrazione function se necessario |
+| `supabase/functions/seed-amaeru-full/index.ts` | NUOVO — orchestrazione completa |
+| `src/views/admin/SeedDataView.tsx` | MODIFICATO — bottone aggiornato |
 
-## Esecuzione
-1. Deploy automatico della edge function
-2. L'utente apre la SeedDataView → click "Seed Amaeru Demo"
-3. Refresh dell'organigramma per vedere i risultati
-4. Esplorabili: Organigramma, Dashboard, Identity Hub, SpaceSync, Compliance
+## Note operative
+- Function idempotente: prima cancella i dati Amaeru esistenti (auth user via `auth.admin.deleteUser` su email `*@amaeru.eu`, poi righe nelle tabelle dipendenti) e ricrea tutto da zero
+- Password demo unica: `Amaeru2026!` per tutti — comunicata in toast finale
+- Tempi di esecuzione attesi: 60-120 sec (22 createUser sequenziali + INSERT batch)
+- Nessuna modifica a schema DB necessaria
+- Le RLS sono bypassate dal service_role_key, nessun problema di permessi
+
+## Cosa potrai fare in demo dopo
+- Login come qualunque dipendente Amaeru (es. `giulia.ruggi@amaeru.eu` / `Amaeru2026!`) e vedere il suo profilo personale completo, RIASEC, Karma session
+- Login come Giuseppe (CEO/admin) e vedere dashboard popolata, organigramma con 22 persone, talent search, compliance dashboard con risk score realistico
+- SpaceSync con 2 piani navigabili e flussi cross-piano visibili
+- Ogni persona cliccabile dall'organigramma con scheda ricca (skill, esperienze, RIASEC chart, Karma summary)
