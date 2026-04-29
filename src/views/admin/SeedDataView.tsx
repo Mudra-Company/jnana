@@ -9,6 +9,29 @@ const SeedDataView: React.FC = () => {
   const [demoStatus, setDemoStatus] = useState<string>('');
   const [isRolesLoading, setIsRolesLoading] = useState(false);
   const [rolesStatus, setRolesStatus] = useState<string>('');
+  const [isAmaeruLoading, setIsAmaeruLoading] = useState(false);
+  const [amaeruStatus, setAmaeruStatus] = useState<string>('');
+
+  const handleSeedAmaeru = async () => {
+    setIsAmaeruLoading(true);
+    setAmaeruStatus('Popolamento completo Amaeru in corso (60-120s)...');
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/seed-amaeru-full`,
+        { method: 'POST', headers: { 'Content-Type': 'application/json' } }
+      );
+      const data = await response.json();
+      if (response.ok) {
+        setAmaeruStatus(`✅ ${data.message}\n\nLog:\n${(data.log || []).join('\n')}`);
+      } else {
+        setAmaeruStatus(`❌ ${data.error || 'Errore'}\n${(data.log || []).join('\n')}`);
+      }
+    } catch (error) {
+      setAmaeruStatus(`❌ ${error instanceof Error ? error.message : 'Errore'}`);
+    } finally {
+      setIsAmaeruLoading(false);
+    }
+  };
 
   const handleSeed = async () => {
     setIsLoading(true);
