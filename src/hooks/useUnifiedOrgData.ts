@@ -314,7 +314,8 @@ export const useUnifiedOrgData = (): UseUnifiedOrgDataResult => {
   const buildLegacyPositions = useCallback((
     users: User[],
     companyValues?: string[],
-    parentManagers?: User[]
+    parentManagers?: User[],
+    culturalDriverNodeIds?: Set<string>
   ): UnifiedPosition[] => {
     return users.map(user => {
       // Create an implicit role from the user's job_title
@@ -353,7 +354,8 @@ export const useUnifiedOrgData = (): UseUnifiedOrgDataResult => {
 
       // Calculate metrics
       const assignee = user.isHiring ? null : user;
-      const metrics = calculateQuickMetrics(implicitRole, assignee, companyValues, parentManagers);
+      const isCulturalDriverNode = !!(user.departmentId && culturalDriverNodeIds?.has(user.departmentId));
+      const metrics = calculateQuickMetrics(implicitRole, assignee, companyValues, parentManagers, isCulturalDriverNode);
 
       return {
         role: implicitRole,
