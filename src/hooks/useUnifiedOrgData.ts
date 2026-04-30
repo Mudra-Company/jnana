@@ -133,18 +133,11 @@ export const useUnifiedOrgData = (): UseUnifiedOrgDataResult => {
       if (cultureFitScore > 100) cultureFitScore = 100;
     }
 
-    // Leader badge: shown ONLY for people in roles attached to a "Cultural Driver" org node.
-    // The job-title heuristic is used as a secondary qualifier within those nodes; outside them no LEADER badge is rendered.
-    const matchesLeaderTitle = !!(assignee.jobTitle && (
-      assignee.jobTitle.toLowerCase().includes('head') ||
-      assignee.jobTitle.toLowerCase().includes('manager') ||
-      assignee.jobTitle.toLowerCase().includes('lead') ||
-      assignee.jobTitle.toLowerCase().includes('director') ||
-      assignee.jobTitle.toLowerCase().includes('ceo') ||
-      assignee.jobTitle.toLowerCase().includes('cto') ||
-      assignee.jobTitle.toLowerCase().includes('coo')
-    ));
-    const isLeader = isCulturalDriverNode && matchesLeaderTitle;
+    // Leader badge = "Leader Culturale".
+    // Mostrato a CHIUNQUE sia assegnato a un ruolo dentro un nodo marcato come Cultural Driver.
+    // Nessun filtro sul job title: queste sono le persone su cui si misura la "Cultura Agita"
+    // aziendale (vedi Identity Hub → Cultura Agita / services/riasecService → calculateCultureAnalysis).
+    const isLeader = isCulturalDriverNode && !!assignee;
 
     return {
       roleFitScore,

@@ -183,22 +183,11 @@ const PrintNodeCard: React.FC<PrintNodeCardProps> = ({
 
   const hiringCount = nodeUsers.filter(u => u.isHiring).length;
 
-  // Find leaders in this node
+  // Leader Culturali = tutti i membri di un nodo Cultural Driver.
+  // Nei nodi non-driver non esistono "Leader" ai fini del badge.
   const findNodeManagers = (nodeUsersList: User[], orgNode: OrgNode): User[] => {
-    if (orgNode.isCulturalDriver) {
-      return nodeUsersList.filter(u => !u.isHiring && (u.firstName || u.lastName));
-    }
-    const managers = nodeUsersList.filter(u => 
-      !u.isHiring && 
-      (u.firstName || u.lastName) &&
-      (u.jobTitle?.toLowerCase().includes('head') || 
-       u.jobTitle?.toLowerCase().includes('manager') || 
-       u.jobTitle?.toLowerCase().includes('lead') || 
-       u.jobTitle?.toLowerCase().includes('director') ||
-       u.jobTitle?.toLowerCase().includes('ceo') ||
-       u.jobTitle?.toLowerCase().includes('ad'))
-    );
-    return managers;
+    if (!orgNode.isCulturalDriver) return [];
+    return nodeUsersList.filter(u => !u.isHiring && (u.firstName || u.lastName));
   };
   
   const currentNodeManagers = findNodeManagers(nodeUsers, node);
