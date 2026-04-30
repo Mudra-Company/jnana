@@ -483,36 +483,53 @@ export const UnifiedDetailModal: React.FC<UnifiedDetailModalProps> = ({
               )}
             </Section>
 
-            {/* COMPATIBILITÀ RESPONSABILI */}
-            {detailedMetrics.managerFitBreakdown.length > 0 && (
-              <Section title="Compatibilità Responsabili" icon={<Handshake size={16} />}>
-                {detailedMetrics.managerFitScore !== null && (
+            {/* FIT CON IL MANAGER */}
+            {(parentManagers && parentManagers.length > 0) && (
+              <Section title="Fit con il Manager" icon={<Handshake size={16} />}>
+                <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed -mt-1">
+                  Misura la compatibilità tra il profilo comportamentale RIASEC della persona e quello dei suoi responsabili diretti.
+                  Un valore alto indica stili di lavoro, motivazioni e modalità decisionali allineati &mdash; meno attriti,
+                  comunicazione più fluida e maggiore efficacia nella relazione gerarchica quotidiana.
+                </p>
+
+                {detailedMetrics.managerFitScore !== null ? (
                   <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-900/50 rounded-lg">
-                    <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Media</span>
+                    <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Compatibilità</span>
                     <ProgressBar value={detailedMetrics.managerFitScore} />
                     <span className={`font-bold text-sm ${detailedMetrics.managerFitScore >= 70 ? 'text-green-600' : detailedMetrics.managerFitScore >= 40 ? 'text-yellow-600' : 'text-red-600'}`}>
                       {detailedMetrics.managerFitScore}%
                     </span>
                   </div>
+                ) : (
+                  <div className="flex items-start gap-2 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
+                    <AlertTriangle size={14} className="text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+                    <p className="text-xs text-amber-700 dark:text-amber-300">
+                      Dati insufficienti per calcolare il fit: la persona o i responsabili non hanno ancora completato il colloquio Karma (profilo RIASEC mancante).
+                    </p>
+                  </div>
                 )}
-                <div className="space-y-2">
-                  {detailedMetrics.managerFitBreakdown.map(mb => (
-                    <div key={mb.managerId} className="flex items-center justify-between py-2 px-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg">
-                      <span className="text-sm text-gray-700 dark:text-gray-300 flex items-center gap-2">
-                        <User size={12} className="text-gray-400" />
-                        {mb.managerName}
-                        {mb.managerProfileCode && <span className="text-[10px] font-mono text-gray-400">{mb.managerProfileCode}</span>}
-                      </span>
-                      {mb.score >= 0 ? (
-                        <span className={`text-sm font-bold ${mb.score >= 70 ? 'text-green-600' : mb.score >= 40 ? 'text-yellow-600' : 'text-red-600'}`}>
-                          {mb.score}%
+
+                {detailedMetrics.managerFitBreakdown.length > 0 && (
+                  <div className="space-y-2">
+                    <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Dettaglio per responsabile</span>
+                    {detailedMetrics.managerFitBreakdown.map(mb => (
+                      <div key={mb.managerId} className="flex items-center justify-between py-2 px-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg">
+                        <span className="text-sm text-gray-700 dark:text-gray-300 flex items-center gap-2">
+                          <User size={12} className="text-gray-400" />
+                          {mb.managerName}
+                          {mb.managerProfileCode && <span className="text-[10px] font-mono text-gray-400">{mb.managerProfileCode}</span>}
                         </span>
-                      ) : (
-                        <span className="text-xs italic text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded">N/A</span>
-                      )}
-                    </div>
-                  ))}
-                </div>
+                        {mb.score >= 0 ? (
+                          <span className={`text-sm font-bold ${mb.score >= 70 ? 'text-green-600' : mb.score >= 40 ? 'text-yellow-600' : 'text-red-600'}`}>
+                            {mb.score}%
+                          </span>
+                        ) : (
+                          <span className="text-xs italic text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded">N/A</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </Section>
             )}
 
