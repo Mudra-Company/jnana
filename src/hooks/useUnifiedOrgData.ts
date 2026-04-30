@@ -60,7 +60,8 @@ export const useUnifiedOrgData = (): UseUnifiedOrgDataResult => {
     role: CompanyRole,
     assignee: User | null,
     companyValues?: string[],
-    parentManagers?: User[]
+    parentManagers?: User[],
+    isCulturalDriverNode: boolean = false
   ): UnifiedPositionMetrics => {
     if (!assignee) {
       return {
