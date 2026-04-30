@@ -13,6 +13,7 @@ import {
 
 export const useProximityScoring = () => {
   const [userDataMap, setUserDataMap] = useState<Map<string, ProximityUserData>>(new Map());
+  const [roleMembersMap, setRoleMembersMap] = useState<Map<string, string[]>>(new Map());
   const [isLoading, setIsLoading] = useState(false);
 
   /**
@@ -56,9 +57,18 @@ export const useProximityScoring = () => {
         userIds.length > 0
           ? supabase.from('karma_sessions').select('user_id, soft_skills, primary_values, risk_factors, seniority_assessment').in('user_id', userIds)
           : { data: [] },
-        supabase.from('company_role_assignments').select('company_member_id, role_id').in('company_member_id', memberIds),
+        supabase.from('company_role_assignments').select('company_member_id, role_id'),
         supabase.from('company_roles').select('id, collaboration_profile, title'),
       ]);
+
+      // Build roleId -> memberIds[] map (from ALL assignments, not only those whose member sits at a desk)
+      const roleMembers = new Map<string, string[]>();
+      (assignmentsRes.data || []).forEach((a: any) => {
+        if (!a.role_id || !a.company_member_id) return;
+        const arr = roleMembers.get(a.role_id) || [];
+        arr.push(a.company_member_id);
+        roleMembers.set(a.role_id, arr);
+      });
 
       // Build lookup maps
       const riasecMap = new Map<string, any>();
@@ -113,6 +123,7 @@ export const useProximityScoring = () => {
       }
 
       setUserDataMap(map);
+      setRoleMembersMap(roleMembers);
     } catch (err) {
       console.error('Error loading proximity data:', err);
     } finally {
@@ -194,6 +205,7 @@ export const useProximityScoring = () => {
 
   return {
     userDataMap,
+    roleMembersMap,
     isLoading,
     loadUserData,
     calculateAllPairs,

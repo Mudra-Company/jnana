@@ -1,125 +1,60 @@
-## Obiettivo
+## Diagnosi
 
-Oggi quando si valuta un candidato interno per la Job Rotation vediamo solo "Match Totale 100% — Soft skills, Seniority". Manca tutto ciò che un Head of HR userebbe per **decidere davvero se spostare la persona**:
+I flussi di collaborazione **non si vedono** in SpaceSync per Amaeru per tre motivi sovrapposti:
 
-1. Come si integrerebbe con il **futuro manager** (chi dirige il nodo target)
-2. Cosa il candidato **lascia scoperto** nel suo ruolo attuale
-3. Se la rotazione **fa crescere la persona** (stretch vs comfort)
-4. Una **raccomandazione sintetica** (Procedi / Valuta / Sconsigliato) con razionale
+### 1. Bug nel codice — `targetType: 'role'` non viene mai processato
+I link di collaborazione possono avere tre `targetType`: `member`, `team`, `role`. Nei dati di Amaeru il **95% dei link è di tipo `role`** (CTO, Backend, Designer, ecc.), perché modellano "questo ruolo collabora con quel ruolo". Ma in tre punti del codice il branch `role` non esiste — vengono gestiti solo `member` e `team`:
 
-L'infrastruttura per molti di questi calcoli c'è già (`analyzeSynergy`, `calculateInternalMatch`, `companyUsers`, struttura org), va solo orchestrata e mostrata.
+- `src/components/spacesync/CollaborationFlowOverlay.tsx` (disegno frecce interne)
+- la helper `buildFlowConnections()` nello stesso file (alimenta il Report Flussi)
+- `views/admin/SpaceSyncView.tsx` (frecce esterne cross-sede + conteggio "mancanti")
 
----
+Risultato: tutti i link `role` vengono silenziosamente scartati e non viene disegnata alcuna freccia.
 
-## Cosa vedrà l'Head of HR (UX)
+### 2. Dati seed sbagliati per i link `member` (Membri CDA → CEO)
+Gli unici link di tipo `member` puntano a un `targetId` UUID v5 calcolato con un namespace che **non coincide** con l'`id` reale del member CEO in DB. Anche fixando il punto 1, questi link resterebbero "rotti".
 
-Cliccando su un candidato interno della Job Rotation si apre un **report esteso** (sostituisce l'attuale popover stretto), strutturato in 5 blocchi verticali:
+### 3. Tre Membri CDA senza scrivania
+I 3 ruoli "Membro CDA" (che generano link verso CEO/CFO/CTO) non hanno scrivania assegnata in nessuna sede di Amaeru → anche con dati corretti non potrebbero comparire frecce dai/verso di loro.
 
-```text
-┌────────────────────────────────────────────────────┐
-│ Riccardo Esposito  ·  Interno  ·  Junior          │
-│ Da: Customer Success  →  A: Brand & Content        │
-├────────────────────────────────────────────────────┤
-│ 1. RACCOMANDAZIONE                                 │
-│   [Procedi] 87/100  · "Stretch sano, manager forte"│
-├────────────────────────────────────────────────────┤
-│ 2. FIT CON IL RUOLO (esistente, già calcolato)     │
-│   Hard 90% · Soft 100% · Seniority Match           │
-├────────────────────────────────────────────────────┤
-│ 3. FIT CON IL NUOVO MANAGER  ←  NUOVO              │
-│   Manager: Laura Bianchi (Gen X)                   │
-│   Sinergia: Mentoring  · 78/100                    │
-│   Stili comunicativi compatibili (RIASEC)          │
-├────────────────────────────────────────────────────┤
-│ 4. IMPATTO SUL RUOLO LASCIATO  ←  NUOVO            │
-│   Customer Success perde: Junior unico del team    │
-│   Skill critiche scoperte: "pazienza", "empatia"   │
-│   Backup interno: 2 candidati pronti / 0           │
-│   Rischio: Medio                                   │
-├────────────────────────────────────────────────────┤
-│ 5. CRESCITA DEL CANDIDATO  ←  NUOVO                │
-│   Stretch: +1 nuova hard skill da imparare        │
-│   Allineamento RIASEC: Alto                       │
-│   Categoria: "Sviluppo laterale"                  │
-└────────────────────────────────────────────────────┘
-[Aggiungi a Shortlist]  [Profilo completo]  [Esporta PDF]
-```
+## Cosa sistemare
 
-I 4 blocchi nuovi (Raccomandazione + 3 analisi) appaiono **solo per i candidati interni**. Gli esterni mantengono la vista attuale.
+### Fix A — Codice: gestione uniforme di `targetType: 'role'`
+Per i tre file sopra, trattare `role` come `team`: se il link ha `memberBreakdown`, espanderlo sui member elencati con la stessa formula `effectivePct = round(collaborationPercentage * mb.percentage / 100)` e soglia minima 3%. Se `memberBreakdown` mancasse, fallback: risolvere il `targetId` (role) cercando i `company_members` assegnati a quel ruolo via `company_role_assignments` (caricati una sola volta in `useProximityScoring`) e distribuendo equamente la percentuale.
 
----
+In pratica un'unica funzione helper `expandLinkToTargets(link, roleAssignmentMap)` riusata nei tre punti, così evitiamo divergenze future.
 
-## Logica HR (regole interpretabili, non black-box)
+### Fix B — Dati seed Amaeru
+Nella `supabase/functions/seed-amaeru-full/index.ts`, per i link `Membro CDA → CEO/CFO/CTO`:
+- o convertirli a `targetType: 'role'` con `memberBreakdown` (coerente con tutti gli altri link),
+- o calcolare il `targetId` con lo stesso identico helper UUID v5 usato per generare `company_members.id` (così matcha il record reale).
 
-### Manager-Fit (blocco 3)
-- Riusiamo `analyzeSynergy(candidato, manager)` già esistente.
-- Aggiungiamo confronto stili RIASEC (se entrambi hanno il profilo): coppie complementari = +bonus, opposte = warning.
-- Se il manager non esiste ancora (posizione nuova senza capo assegnato) → mostriamo "Manager non definito — fit non calcolabile".
+Adottiamo la prima opzione: più coerente con il resto del seed.
 
-### Impatto sul ruolo lasciato (blocco 4)
-- Identifichiamo il `departmentId` corrente del candidato.
-- Contiamo quante altre persone nel nodo coprono le **stesse hard/soft skills** del candidato.
-- Se è l'unico portatore di una skill → quella skill diventa "scoperta critica".
-- Cerchiamo backup interni: altri dipendenti con seniority compatibile per coprire il ruolo lasciato (riuso di `calculateInternalMatch` invertito).
-- Rischio: Basso (≥2 backup pronti) · Medio (1 backup) · Alto (0 backup + skill critiche scoperte).
+### Fix C — Scrivanie per i Membri CDA
+Nella seed delle sedi/scrivanie di Amaeru, assegnare i 3 Membri CDA a 3 desk nella stanza "Sala CDA" (Piano 2 di Milano HQ — già visibile nello screenshot, attualmente vuota). Senza scrivania, qualsiasi flusso che li coinvolge resta invisibile per definizione.
 
-### Crescita del candidato (blocco 5)
-- Stretch = nuove hard skill richieste dal ruolo target che il candidato NON ha (delta tra `requiredProfile.hardSkills` e `candidate.hardSkills`).
-- 0 nuove skill = "Movimento laterale puro" (rischio noia).
-- 1-3 nuove = "Stretch sano" (ideale).
-- 4+ nuove = "Stretch aggressivo" (alto rischio fallimento).
-- Allineamento RIASEC tra ruolo attuale e target.
+### Fix D (piccolo) — Coerenza Membro CDA → tutti gli altri Membri CDA
+Aggiungere link reciproci tra i 3 Membri CDA (collaborazione board interna) così che la "Sala CDA" mostri davvero un cluster di flussi una volta popolata.
 
-### Raccomandazione finale (blocco 1)
-Score composito 0-100, pesi ragionati come farebbe un Head of HR:
-- 35% Match con il ruolo (skill+seniority)
-- 25% Fit con il nuovo manager
-- 25% Impatto sul ruolo lasciato (invertito: rischio alto = penalità)
-- 15% Crescita del candidato
+## Output atteso dopo il fix
 
-Soglie:
-- ≥75 → **Procedi** (verde)
-- 50-74 → **Valuta** (giallo, con razionale dei rischi)
-- <50 → **Sconsigliato** (rosso, con ragione principale)
+- Toggle "Flussi" in SpaceSync → si vedono le frecce tra le scrivanie già visibili a Piano 2 (CTO ↔ Backend ↔ Frontend ↔ iOS ↔ ML/CV ↔ Designer; Marketing ↔ Brand ↔ SEO ↔ Social; CEO ↔ CFO ↔ Head of Marketing; Vet Lead ↔ Pet Nutrition ↔ Customer Success).
+- Frecce esterne (badge a destra) per le collaborazioni cross-piano/cross-sede.
+- "Report Flussi" con elenco connessioni interne, esterne e collaboratori distanti popolato.
+- Sala CDA non più vuota: 3 desk assegnati ai Membri CDA con flussi verso CEO.
+- Conteggio "mancanti" → 0 (tutti i target risolti).
 
-Il razionale è una frase generata componendo i 3-4 fattori più rilevanti (no AI, regole if/then per essere veloce e prevedibile). In una fase 2 si potrà sostituire con Lovable AI per un commento narrativo.
+## File toccati
 
----
+- `src/components/spacesync/CollaborationFlowOverlay.tsx` — branch `role` + helper condiviso
+- `views/admin/SpaceSyncView.tsx` — branch `role` in `externalArrows` e `flowMissingCount`
+- `src/hooks/useProximityScoring.ts` — caricare `company_role_assignments` ed esporre la mappa `roleId → memberIds[]` come fallback per i link role senza `memberBreakdown`
+- `supabase/functions/seed-amaeru-full/index.ts` — link Membri CDA + scrivanie Sala CDA + link board interni
+- Nuova migration "soft": script di re-seed per Amaeru (l'utente la lancia con il bottone esistente di seed)
 
-## Esportabile (Phase 1.5, opzionale ora)
+## Note tecniche
 
-Pulsante "Esporta PDF" che genera un report di 1 pagina con i 5 blocchi → utile per discussione in comitato HR. Riusiamo `jspdf + html2canvas` già nel progetto (PDF organigramma).
-
----
-
-## Implementazione tecnica
-
-**File nuovo: `src/utils/jobRotationAnalyzer.ts`**
-- `analyzeRotation(candidate, position, manager, companyUsers, nodeNames): RotationAnalysis`
-- Esporta tipi `RotationAnalysis`, `ManagerFit`, `RoleImpact`, `GrowthAnalysis`, `Recommendation`.
-- Pure function, testabile, zero side effects.
-
-**File nuovo: `src/components/shortlist/JobRotationReportModal.tsx`**
-- Modal full-report (sostituisce `MatchScorePopover` solo per candidati interni in Job Rotation).
-- 5 blocchi come da UX sopra.
-- Stile: palette `jnana-sage`/`jnana-powder` come da design system del progetto.
-
-**Modifiche a `views/admin/PositionMatchingView.tsx`**
-- In `handleOpenInternalPopover`: chiamare `analyzeRotation(...)` e passare il risultato a un nuovo state `selectedRotationReport`.
-- Renderizzare `<JobRotationReportModal>` quando `selectedRotationReport` è settato.
-- `MatchScorePopover` resta in uso solo per candidati esterni.
-
-**Riuso esistente (zero nuovo da costruire):**
-- `analyzeSynergy()` → manager-fit
-- `calculateInternalMatch()` → backup interni per ruolo lasciato
-- `companyUsers`, `nodeNames`, `position.requiredProfile` → già in scope
-
-**Nessuna modifica al DB.** Tutta la logica è derivata da dati già query-ati.
-
----
-
-## Out of scope (per ora)
-
-- Salvare lo storico delle valutazioni di rotation → da fare quando l'HR vorrà tracciare le decisioni nel tempo.
-- Coinvolgere AI generativa per il commento narrativo → fase successiva.
-- Notifiche al manager target → fase successiva.
+- Nessuna modifica di schema DB richiesta: `collaboration_profile` jsonb già supporta `targetType: 'role'`.
+- Le `RLS` non sono toccate (lettura/scrittura sono già autorizzate per company_admin).
+- Il fix codice è retro-compatibile: i link `member` e `team` continuano a funzionare come prima; aggiungiamo solo il branch `role` mancante.
