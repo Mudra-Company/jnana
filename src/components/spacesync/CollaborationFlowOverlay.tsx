@@ -327,6 +327,7 @@ export function buildFlowConnections(
   desks: OfficeDesk[],
   rooms: OfficeRoom[],
   userDataMap: Map<string, ProximityUserData>,
+  roleMembersMap?: Map<string, string[]>,
 ): FlowConnection[] {
   const roomMap = new Map(rooms.map(r => [r.id, r]));
   const memberDeskMap = new Map<string, { absX: number; absY: number; userData: ProximityUserData }>();
@@ -349,28 +350,17 @@ export function buildFlowConnections(
   for (const [memberId, entry] of memberDeskMap) {
     const profile = entry.userData.collaborationProfile;
     if (!profile?.links) continue;
+    const myName = `${entry.userData.firstName} ${entry.userData.lastName}`;
 
     for (const link of profile.links) {
-      const targets: Array<{ targetMemberId: string; pct: number; affinity: number }> = [];
-
-      if (link.targetType === 'member') {
-        targets.push({ targetMemberId: link.targetId, pct: link.collaborationPercentage, affinity: link.personalAffinity });
-      }
-      if (link.targetType === 'team' && link.memberBreakdown) {
-        for (const mb of link.memberBreakdown) {
-          const effectivePct = Math.round((link.collaborationPercentage * mb.percentage) / 100);
-          if (effectivePct >= 3) {
-            targets.push({ targetMemberId: mb.memberId, pct: effectivePct, affinity: mb.affinity ?? link.personalAffinity });
-          }
-        }
-      }
+      const targets = expandLinkToTargets(link, roleMembersMap);
 
       for (const t of targets) {
-        const target = memberDeskMap.get(t.targetMemberId);
-        if (!target || t.targetMemberId === memberId) continue;
-        const key = [memberId, t.targetMemberId].sort().join('::');
+        if (t.memberId === memberId) continue;
+        const target = memberDeskMap.get(t.memberId);
+        if (!target) continue;
+        const key = [memberId, t.memberId].sort().join('::');
         const existing = connMap.get(key);
-        const myName = `${entry.userData.firstName} ${entry.userData.lastName}`;
         if (existing) {
           if (existing.fromName === myName) {
             existing.pctAB = Math.max(existing.pctAB, t.pct);
