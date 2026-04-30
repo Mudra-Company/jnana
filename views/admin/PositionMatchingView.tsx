@@ -346,22 +346,20 @@ export const PositionMatchingView: React.FC<PositionMatchingViewProps> = ({
   };
 
   const handleOpenInternalPopover = (candidate: typeof internalCandidates[0]) => {
-    setSelectedCandidatePopover({
-      name: `${candidate.user.firstName} ${candidate.user.lastName}`,
-      type: 'internal',
-      breakdown: {
-        totalScore: candidate.matchData.score,
-        softSkillsMatched: candidate.matchData.softMatches,
-        softSkillsMissing: candidate.matchData.softGaps,
-        hardSkillsMatched: candidate.matchData.hardMatches,
-        hardSkillsMissing: candidate.matchData.hardGaps,
-        seniorityMatch: candidate.matchData.seniorityMatch,
-        candidateSeniority: candidate.user.karmaData?.seniorityAssessment,
-        requiredSeniority: position?.requiredProfile?.seniority as string | undefined,
-        candidateProfileCode: candidate.user.profileCode,
+    if (!position) return;
+    // Internal candidates open the full Job Rotation HR report
+    const analysis = analyzeRotation({
+      candidate: candidate.user,
+      candidateMatch: candidate.matchData,
+      position: {
+        jobTitle: position.jobTitle,
+        requiredProfile: position.requiredProfile as RequiredProfile | undefined,
+        nodeId: (position as any).nodeId || null,
       },
-      candidateData: candidate,
+      companyUsers,
+      nodeNames,
     });
+    setSelectedRotationReport({ analysis, candidate });
   };
 
   const handleOpenExternalPopover = (match: CandidateMatch) => {
