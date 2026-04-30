@@ -374,13 +374,14 @@ export const useUnifiedOrgData = (): UseUnifiedOrgDataResult => {
     users: User[],
     nodeId: string,
     companyValues?: string[],
-    parentManagers?: User[]
+    parentManagers?: User[],
+    culturalDriverNodeIds?: Set<string>
   ): UnifiedPosition[] => {
     const nodeRoles = roles.filter(r => r.orgNodeId === nodeId);
     const nodeUsers = users.filter(u => u.departmentId === nodeId);
     
     if (nodeRoles.length > 0) {
-      const rolePositions = buildUnifiedPositions(nodeRoles, users, companyValues, parentManagers);
+      const rolePositions = buildUnifiedPositions(nodeRoles, users, companyValues, parentManagers, culturalDriverNodeIds);
       
       const assignedUserIds = new Set(
         nodeRoles
@@ -394,12 +395,12 @@ export const useUnifiedOrgData = (): UseUnifiedOrgDataResult => {
         (u.firstName || u.lastName)
       );
       
-      const legacyPositions = buildLegacyPositions(unassignedUsers, companyValues, parentManagers);
+      const legacyPositions = buildLegacyPositions(unassignedUsers, companyValues, parentManagers, culturalDriverNodeIds);
       
       return [...rolePositions, ...legacyPositions];
     }
     
-    return buildLegacyPositions(nodeUsers, companyValues, parentManagers);
+    return buildLegacyPositions(nodeUsers, companyValues, parentManagers, culturalDriverNodeIds);
   }, [buildUnifiedPositions, buildLegacyPositions]);
 
   /**
