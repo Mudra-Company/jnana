@@ -336,7 +336,7 @@ export const OrgNodeCard: React.FC<OrgNodeCardProps> = ({
           cultureFitScore: assignee && companyValues 
             ? calculateCultureFitScore(assignee, companyValues) 
             : 0,
-          isLeader: !!(assignee?.jobTitle && (
+          isLeader: !!node.isCulturalDriver && !!(assignee?.jobTitle && (
             assignee.jobTitle.toLowerCase().includes('head') ||
             assignee.jobTitle.toLowerCase().includes('manager') ||
             assignee.jobTitle.toLowerCase().includes('lead') ||
