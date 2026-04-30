@@ -9,6 +9,58 @@ interface CollaborationFlowOverlayProps {
   canvasWidth?: number;
   canvasHeight?: number;
   externalArrows?: ExternalFlowArrow[];
+  roleMembersMap?: Map<string, string[]>;
+}
+
+/**
+ * Expand a collaboration link into concrete (memberId, pct, affinity) targets.
+ * Handles all three targetType variants ('member', 'team', 'role') consistently:
+ * - 'member': single target.
+ * - 'team' / 'role' with memberBreakdown: explicit per-member distribution.
+ * - 'role' WITHOUT memberBreakdown: fallback to roleMembersMap (equal split).
+ */
+export function expandLinkToTargets(
+  link: any,
+  roleMembersMap?: Map<string, string[]>,
+): Array<{ memberId: string; pct: number; affinity: number }> {
+  const out: Array<{ memberId: string; pct: number; affinity: number }> = [];
+  if (!link) return out;
+  const basePct = Number(link.collaborationPercentage) || 0;
+  const baseAff = Number(link.personalAffinity) || 3;
+
+  if (link.targetType === 'member' && link.targetId) {
+    out.push({ memberId: link.targetId, pct: basePct, affinity: baseAff });
+    return out;
+  }
+
+  // 'team' OR 'role' with explicit breakdown
+  if ((link.targetType === 'team' || link.targetType === 'role') && Array.isArray(link.memberBreakdown) && link.memberBreakdown.length > 0) {
+    for (const mb of link.memberBreakdown) {
+      if (!mb?.memberId) continue;
+      const mbPct = Number(mb.percentage) || 0;
+      const eff = Math.round((basePct * mbPct) / 100);
+      if (eff < 3) continue;
+      out.push({
+        memberId: mb.memberId,
+        pct: eff,
+        affinity: Number(mb.affinity ?? baseAff),
+      });
+    }
+    return out;
+  }
+
+  // 'role' without breakdown -> resolve via roleMembersMap (equal split)
+  if (link.targetType === 'role' && link.targetId && roleMembersMap) {
+    const members = roleMembersMap.get(link.targetId) || [];
+    if (members.length === 0) return out;
+    const eff = Math.round(basePct / members.length);
+    if (eff < 3) return out;
+    for (const memberId of members) {
+      out.push({ memberId, pct: eff, affinity: baseAff });
+    }
+  }
+
+  return out;
 }
 
 interface FlowConnection {
