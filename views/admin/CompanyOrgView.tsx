@@ -2134,6 +2134,7 @@ export const CompanyOrgView: React.FC<{
                     position={selectedUnifiedPosition}
                     companyValues={company.cultureValues}
                     companyMembers={users}
+                    parentManagers={selectedPositionParentManagers}
                     orgNodes={(() => { const flat: OrgNode[] = []; const walk = (n: OrgNode) => { flat.push(n); n.children?.forEach(walk); }; walk(company.structure); return flat; })()}
                     membersByOrgNode={(() => {
                       // Build map from users' departmentId (always populated, unlike roles.assignments)
