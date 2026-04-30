@@ -24,25 +24,29 @@ interface UseUnifiedOrgDataResult {
     roles: CompanyRole[], 
     users: User[], 
     companyValues?: string[],
-    parentManagers?: User[]
+    parentManagers?: User[],
+    culturalDriverNodeIds?: Set<string>
   ) => UnifiedPosition[];
   buildLegacyPositions: (
     users: User[], 
     companyValues?: string[],
-    parentManagers?: User[]
+    parentManagers?: User[],
+    culturalDriverNodeIds?: Set<string>
   ) => UnifiedPosition[];
   buildMergedPositions: (
     roles: CompanyRole[], 
     users: User[], 
     nodeId: string,
     companyValues?: string[],
-    parentManagers?: User[]
+    parentManagers?: User[],
+    culturalDriverNodeIds?: Set<string>
   ) => UnifiedPosition[];
   calculateDetailedMetrics: (
     role: CompanyRole, 
     assignee: User | null, 
     companyValues?: string[],
-    parentManagers?: User[]
+    parentManagers?: User[],
+    isCulturalDriverNode?: boolean
   ) => DetailedMetrics;
   fetchAssignmentHistory: (roleId: string) => Promise<AssignmentHistoryEntry[]>;
   fetchUserHardSkills: (userId: string) => Promise<UserHardSkillDisplay[]>;
@@ -60,7 +64,8 @@ export const useUnifiedOrgData = (): UseUnifiedOrgDataResult => {
     role: CompanyRole,
     assignee: User | null,
     companyValues?: string[],
-    parentManagers?: User[]
+    parentManagers?: User[],
+    isCulturalDriverNode: boolean = false
   ): UnifiedPositionMetrics => {
     if (!assignee) {
       return {
@@ -128,8 +133,9 @@ export const useUnifiedOrgData = (): UseUnifiedOrgDataResult => {
       if (cultureFitScore > 100) cultureFitScore = 100;
     }
 
-    // Check if user is a leader (manager-like title)
-    const isLeader = !!(assignee.jobTitle && (
+    // Leader badge: shown ONLY for people in roles attached to a "Cultural Driver" org node.
+    // The job-title heuristic is used as a secondary qualifier within those nodes; outside them no LEADER badge is rendered.
+    const matchesLeaderTitle = !!(assignee.jobTitle && (
       assignee.jobTitle.toLowerCase().includes('head') ||
       assignee.jobTitle.toLowerCase().includes('manager') ||
       assignee.jobTitle.toLowerCase().includes('lead') ||
@@ -138,6 +144,7 @@ export const useUnifiedOrgData = (): UseUnifiedOrgDataResult => {
       assignee.jobTitle.toLowerCase().includes('cto') ||
       assignee.jobTitle.toLowerCase().includes('coo')
     ));
+    const isLeader = isCulturalDriverNode && matchesLeaderTitle;
 
     return {
       roleFitScore,
@@ -154,9 +161,10 @@ export const useUnifiedOrgData = (): UseUnifiedOrgDataResult => {
     role: CompanyRole,
     assignee: User | null,
     companyValues?: string[],
-    parentManagers?: User[]
+    parentManagers?: User[],
+    isCulturalDriverNode: boolean = false
   ): DetailedMetrics => {
-    const quickMetrics = calculateQuickMetrics(role, assignee, companyValues, parentManagers);
+    const quickMetrics = calculateQuickMetrics(role, assignee, companyValues, parentManagers, isCulturalDriverNode);
     
     if (!assignee) {
       return {
@@ -267,7 +275,8 @@ export const useUnifiedOrgData = (): UseUnifiedOrgDataResult => {
     roles: CompanyRole[],
     users: User[],
     companyValues?: string[],
-    parentManagers?: User[]
+    parentManagers?: User[],
+    culturalDriverNodeIds?: Set<string>
   ): UnifiedPosition[] => {
     return roles.map(role => {
       // Find the assignee from the role's assignments or current assignee
@@ -290,7 +299,8 @@ export const useUnifiedOrgData = (): UseUnifiedOrgDataResult => {
         }
       }
 
-      const metrics = calculateQuickMetrics(role, assignee, companyValues, parentManagers);
+      const isCulturalDriverNode = !!(role.orgNodeId && culturalDriverNodeIds?.has(role.orgNodeId));
+      const metrics = calculateQuickMetrics(role, assignee, companyValues, parentManagers, isCulturalDriverNode);
 
       return {
         role,
@@ -308,7 +318,8 @@ export const useUnifiedOrgData = (): UseUnifiedOrgDataResult => {
   const buildLegacyPositions = useCallback((
     users: User[],
     companyValues?: string[],
-    parentManagers?: User[]
+    parentManagers?: User[],
+    culturalDriverNodeIds?: Set<string>
   ): UnifiedPosition[] => {
     return users.map(user => {
       // Create an implicit role from the user's job_title
@@ -347,7 +358,8 @@ export const useUnifiedOrgData = (): UseUnifiedOrgDataResult => {
 
       // Calculate metrics
       const assignee = user.isHiring ? null : user;
-      const metrics = calculateQuickMetrics(implicitRole, assignee, companyValues, parentManagers);
+      const isCulturalDriverNode = !!(user.departmentId && culturalDriverNodeIds?.has(user.departmentId));
+      const metrics = calculateQuickMetrics(implicitRole, assignee, companyValues, parentManagers, isCulturalDriverNode);
 
       return {
         role: implicitRole,
@@ -366,13 +378,14 @@ export const useUnifiedOrgData = (): UseUnifiedOrgDataResult => {
     users: User[],
     nodeId: string,
     companyValues?: string[],
-    parentManagers?: User[]
+    parentManagers?: User[],
+    culturalDriverNodeIds?: Set<string>
   ): UnifiedPosition[] => {
     const nodeRoles = roles.filter(r => r.orgNodeId === nodeId);
     const nodeUsers = users.filter(u => u.departmentId === nodeId);
     
     if (nodeRoles.length > 0) {
-      const rolePositions = buildUnifiedPositions(nodeRoles, users, companyValues, parentManagers);
+      const rolePositions = buildUnifiedPositions(nodeRoles, users, companyValues, parentManagers, culturalDriverNodeIds);
       
       const assignedUserIds = new Set(
         nodeRoles
@@ -386,12 +399,12 @@ export const useUnifiedOrgData = (): UseUnifiedOrgDataResult => {
         (u.firstName || u.lastName)
       );
       
-      const legacyPositions = buildLegacyPositions(unassignedUsers, companyValues, parentManagers);
+      const legacyPositions = buildLegacyPositions(unassignedUsers, companyValues, parentManagers, culturalDriverNodeIds);
       
       return [...rolePositions, ...legacyPositions];
     }
     
-    return buildLegacyPositions(nodeUsers, companyValues, parentManagers);
+    return buildLegacyPositions(nodeUsers, companyValues, parentManagers, culturalDriverNodeIds);
   }, [buildUnifiedPositions, buildLegacyPositions]);
 
   /**

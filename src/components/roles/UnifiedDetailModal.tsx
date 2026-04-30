@@ -209,10 +209,26 @@ export const UnifiedDetailModal: React.FC<UnifiedDetailModalProps> = ({
   const canEdit = !!onSaveRole || !!onEditRole;
   const canDelete = !!onDeleteRole;
 
+  // Determine if the role's org node is a Cultural Driver (gates the LEADER badge)
+  const isCulturalDriverNode = useMemo(() => {
+    if (!role.orgNodeId || !orgNodes || orgNodes.length === 0) return false;
+    const findNode = (nodes: OrgNode[]): OrgNode | undefined => {
+      for (const n of nodes) {
+        if (n.id === role.orgNodeId) return n;
+        if (n.children && n.children.length > 0) {
+          const found = findNode(n.children as OrgNode[]);
+          if (found) return found;
+        }
+      }
+      return undefined;
+    };
+    return !!findNode(orgNodes)?.isCulturalDriver;
+  }, [role.orgNodeId, orgNodes]);
+
   // Calculate detailed metrics
   const detailedMetrics = useMemo(() => 
-    calculateDetailedMetrics(role, assignee || null, companyValues, parentManagers),
-    [role, assignee, companyValues, parentManagers, calculateDetailedMetrics]
+    calculateDetailedMetrics(role, assignee || null, companyValues, parentManagers, isCulturalDriverNode),
+    [role, assignee, companyValues, parentManagers, isCulturalDriverNode, calculateDetailedMetrics]
   );
 
   // Reset edit state when modal opens/closes or position changes
