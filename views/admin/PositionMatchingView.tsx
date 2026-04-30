@@ -896,6 +896,27 @@ export const PositionMatchingView: React.FC<PositionMatchingViewProps> = ({
           }}
         />
       )}
+
+      {/* Job Rotation HR Report (internal candidates only) */}
+      {selectedRotationReport && (
+        <JobRotationReportModal
+          isOpen={true}
+          onClose={() => setSelectedRotationReport(null)}
+          analysis={selectedRotationReport.analysis}
+          isInShortlist={isInShortlist(selectedRotationReport.candidate.user.id, 'internal')}
+          onAddToShortlist={() => {
+            handleAddInternalToShortlist(selectedRotationReport.candidate);
+          }}
+          onViewProfile={() => {
+            onViewCandidate(selectedRotationReport.candidate.user.id);
+            setSelectedRotationReport(null);
+          }}
+          onAssign={() => {
+            onAssignInternal(positionId, selectedRotationReport.candidate.user.id);
+            setSelectedRotationReport(null);
+          }}
+        />
+      )}
     </div>
   );
 };
