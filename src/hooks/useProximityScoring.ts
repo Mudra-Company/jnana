@@ -205,6 +205,7 @@ export const useProximityScoring = () => {
 
   return {
     userDataMap,
+    roleMembersMap,
     isLoading,
     loadUserData,
     calculateAllPairs,
