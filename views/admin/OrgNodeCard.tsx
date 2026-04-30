@@ -373,7 +373,7 @@ export const OrgNodeCard: React.FC<OrgNodeCardProps> = ({
     
     // No explicit roles: show all users as implicit roles
     return nodeUsers.map(user => createImplicitPosition(user));
-  }, [nodeRoles, nodeUsers, users, parentManagers, companyValues]);
+  }, [nodeRoles, nodeUsers, users, parentManagers, companyValues, node.isCulturalDriver]);
   
   // Helper to create implicit position from user
   function createImplicitPosition(user: User): UnifiedPosition {
