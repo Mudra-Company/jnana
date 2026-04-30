@@ -483,143 +483,75 @@ export const UnifiedDetailModal: React.FC<UnifiedDetailModalProps> = ({
         {/* FIT CON IL RUOLO */}
         {assignee && (
           <>
-            <Section title="Fit con il Ruolo" icon={<Target size={16} />}>
-              <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-900/50 rounded-lg">
-                <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Aderenza</span>
-                <ProgressBar value={detailedMetrics.roleFitScore} />
-                <span className={`font-bold text-sm ${detailedMetrics.roleFitScore >= 70 ? 'text-green-600' : detailedMetrics.roleFitScore >= 40 ? 'text-yellow-600' : 'text-red-600'}`}>
-                  {detailedMetrics.roleFitScore}%
-                </span>
-              </div>
-
-              {/* Soft Skills */}
-              {(detailedMetrics.softSkillsMatched.length > 0 || detailedMetrics.softSkillsMissing.length > 0) && (
-                <div className="space-y-2">
-                  <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Soft Skills</span>
-                  <div className="flex flex-wrap gap-1.5">
-                    {detailedMetrics.softSkillsMatched.map((skill, i) => (
-                      <span key={i} className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300">
-                        <CheckCircle size={10} /> {skill}
-                      </span>
-                    ))}
-                    {detailedMetrics.softSkillsMissing.map((skill, i) => (
-                      <span key={i} className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300">
-                        <XCircle size={10} /> {skill}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Seniority Match */}
-              {detailedMetrics.seniorityMatch && (
-                <div className="flex items-center justify-between py-2 px-3 bg-gray-50 dark:bg-gray-900/30 rounded-lg">
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-2">
-                    <Crown size={14} className="text-gray-400" />
-                    Seniority
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-gray-500">
-                      {detailedMetrics.userSeniority || '?'} → {detailedMetrics.requiredSeniority || '?'}
-                    </span>
-                    <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold ${
-                      detailedMetrics.seniorityMatch === 'match' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' :
-                      detailedMetrics.seniorityMatch === 'above' ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300' :
-                      'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300'
-                    }`}>
-                      {detailedMetrics.seniorityMatch === 'match' && <><CheckCircle size={12} /> Match</>}
-                      {detailedMetrics.seniorityMatch === 'above' && <><TrendingUp size={12} /> Superiore</>}
-                      {detailedMetrics.seniorityMatch === 'below' && <><TrendingDown size={12} /> Inferiore</>}
-                    </span>
-                  </div>
-                </div>
-              )}
-            </Section>
-
-            {/* FIT CON IL MANAGER */}
-            {(parentManagers && parentManagers.length > 0) && (
-              <Section title="Fit con il Manager" icon={<Handshake size={16} />}>
-                <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed -mt-1">
-                  Misura la compatibilità tra il profilo comportamentale RIASEC della persona e quello dei suoi responsabili diretti.
-                  Un valore alto indica stili di lavoro, motivazioni e modalità decisionali allineati &mdash; meno attriti,
-                  comunicazione più fluida e maggiore efficacia nella relazione gerarchica quotidiana.
-                </p>
-
-                {detailedMetrics.managerFitScore !== null ? (
-                  <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-900/50 rounded-lg">
-                    <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Compatibilità</span>
-                    <ProgressBar value={detailedMetrics.managerFitScore} />
-                    <span className={`font-bold text-sm ${detailedMetrics.managerFitScore >= 70 ? 'text-green-600' : detailedMetrics.managerFitScore >= 40 ? 'text-yellow-600' : 'text-red-600'}`}>
-                      {detailedMetrics.managerFitScore}%
-                    </span>
-                  </div>
-                ) : (
-                  <div className="flex items-start gap-2 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
-                    <AlertTriangle size={14} className="text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
-                    <p className="text-xs text-amber-700 dark:text-amber-300">
-                      Dati insufficienti per calcolare il fit: la persona o i responsabili non hanno ancora completato il colloquio Karma (profilo RIASEC mancante).
-                    </p>
-                  </div>
-                )}
-
-                {detailedMetrics.managerFitBreakdown.length > 0 && (
-                  <div className="space-y-2">
-                    <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Dettaglio per responsabile</span>
-                    {detailedMetrics.managerFitBreakdown.map(mb => (
-                      <div key={mb.managerId} className="flex items-center justify-between py-2 px-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg">
-                        <span className="text-sm text-gray-700 dark:text-gray-300 flex items-center gap-2">
-                          <User size={12} className="text-gray-400" />
-                          {mb.managerName}
-                          {mb.managerProfileCode && <span className="text-[10px] font-mono text-gray-400">{mb.managerProfileCode}</span>}
-                        </span>
-                        {mb.score >= 0 ? (
-                          <span className={`text-sm font-bold ${mb.score >= 70 ? 'text-green-600' : mb.score >= 40 ? 'text-yellow-600' : 'text-red-600'}`}>
-                            {mb.score}%
-                          </span>
-                        ) : (
-                          <span className="text-xs italic text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded">N/A</span>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </Section>
-            )}
-
-            {/* FIT CULTURALE */}
-            {companyValues && companyValues.length > 0 && (
-              <Section title="Fit Culturale" icon={<Building size={16} />}>
+            <div ref={el => { sectionRefs.current['role'] = el; }} className="scroll-mt-2">
+              <Section title="Fit con il Ruolo" icon={<Target size={16} />}>
                 <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-900/50 rounded-lg">
-                  <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Allineamento</span>
-                  <ProgressBar value={detailedMetrics.cultureFitScore} />
-                  <span className={`font-bold text-sm ${detailedMetrics.cultureFitScore >= 70 ? 'text-blue-600' : detailedMetrics.cultureFitScore >= 40 ? 'text-yellow-600' : 'text-red-600'}`}>
-                    {detailedMetrics.cultureFitScore}%
+                  <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Aderenza</span>
+                  <ProgressBar value={detailedMetrics.roleFitScore} />
+                  <span className={`font-bold text-sm ${detailedMetrics.roleFitScore >= 70 ? 'text-green-600' : detailedMetrics.roleFitScore >= 40 ? 'text-yellow-600' : 'text-red-600'}`}>
+                    {detailedMetrics.roleFitScore}%
                   </span>
                 </div>
-                {assignee.karmaData?.primaryValues && (
+
+                {/* Soft Skills - matched */}
+                {detailedMetrics.softSkillsMatched.length > 0 && (
                   <div className="space-y-2">
-                    <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Valori del Dipendente</span>
+                    <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Soft Skills allineate</span>
                     <div className="flex flex-wrap gap-1.5">
-                      {assignee.karmaData.primaryValues.map((value, i) => {
-                        const isMatched = detailedMetrics.matchedValues.includes(value);
-                        return (
-                          <span key={i} className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs ${
-                            isMatched ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
-                          }`}>
-                            {isMatched && <CheckCircle size={10} />}
-                            {value}
-                          </span>
-                        );
-                      })}
+                      {detailedMetrics.softSkillsMatched.map((skill, i) => (
+                        <span key={i} className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300">
+                          <CheckCircle size={10} /> {skill}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {/* Soft Skills - missing (gruppo separato "Da sviluppare") */}
+                {detailedMetrics.softSkillsMissing.length > 0 && (
+                  <div className="space-y-2">
+                    <span className="text-xs font-medium text-gray-500 uppercase tracking-wide flex items-center gap-1">
+                      <AlertTriangle size={11} className="text-amber-500" />
+                      Da sviluppare
+                    </span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {detailedMetrics.softSkillsMissing.map((skill, i) => (
+                        <span key={i} className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-300 border border-amber-200 dark:border-amber-800/50">
+                          <XCircle size={10} /> {skill}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Seniority Match */}
+                {detailedMetrics.seniorityMatch && (
+                  <div className="flex items-center justify-between py-2 px-3 bg-gray-50 dark:bg-gray-900/30 rounded-lg">
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300 flex items-center gap-2">
+                      <Crown size={14} className="text-gray-400" />
+                      Seniority
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-gray-500">
+                        {detailedMetrics.userSeniority || '?'} → {detailedMetrics.requiredSeniority || '?'}
+                      </span>
+                      <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold ${
+                        detailedMetrics.seniorityMatch === 'match' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' :
+                        detailedMetrics.seniorityMatch === 'above' ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300' :
+                        'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300'
+                      }`}>
+                        {detailedMetrics.seniorityMatch === 'match' && <><CheckCircle size={12} /> Match</>}
+                        {detailedMetrics.seniorityMatch === 'above' && <><TrendingUp size={12} /> Superiore</>}
+                        {detailedMetrics.seniorityMatch === 'below' && <><TrendingDown size={12} /> Inferiore</>}
+                      </span>
                     </div>
                   </div>
                 )}
               </Section>
-            )}
+            </div>
 
-            {/* HARD SKILLS */}
+            {/* HARD SKILLS della persona (spostate qui, subito dopo Fit Ruolo) */}
             {userHardSkills.length > 0 && (
-              <Section title="Hard Skills" icon={<Award size={16} />}>
+              <Section title="Hard Skills della persona" icon={<Award size={16} />}>
                 <div className="space-y-2">
                   {userHardSkills.map((skill, i) => (
                     <div key={i} className="flex items-center justify-between py-2 px-3 bg-gray-50 dark:bg-gray-900/30 rounded-lg">
@@ -643,6 +575,97 @@ export const UnifiedDetailModal: React.FC<UnifiedDetailModalProps> = ({
                   ))}
                 </div>
               </Section>
+            )}
+
+            {/* FIT CON IL MANAGER */}
+            {(parentManagers && parentManagers.length > 0) && (
+              <div ref={el => { sectionRefs.current['manager'] = el; }} className="scroll-mt-2">
+                <Section title="Fit con il Manager" icon={<Handshake size={16} />}>
+                  <details className="group -mt-1">
+                    <summary className="text-xs text-indigo-600 dark:text-indigo-400 cursor-pointer hover:underline list-none flex items-center gap-1 select-none">
+                      <ChevronRight size={12} className="transition-transform group-open:rotate-90" />
+                      Cosa misura questo punteggio?
+                    </summary>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed mt-2 pl-4">
+                      Misura la compatibilità tra il profilo comportamentale RIASEC della persona e quello dei suoi responsabili diretti.
+                      Un valore alto indica stili di lavoro, motivazioni e modalità decisionali allineati &mdash; meno attriti,
+                      comunicazione più fluida e maggiore efficacia nella relazione gerarchica quotidiana.
+                    </p>
+                  </details>
+
+                  {detailedMetrics.managerFitScore !== null ? (
+                    <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-900/50 rounded-lg">
+                      <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Compatibilità</span>
+                      <ProgressBar value={detailedMetrics.managerFitScore} />
+                      <span className={`font-bold text-sm ${detailedMetrics.managerFitScore >= 70 ? 'text-green-600' : detailedMetrics.managerFitScore >= 40 ? 'text-yellow-600' : 'text-red-600'}`}>
+                        {detailedMetrics.managerFitScore}%
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="flex items-start gap-2 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
+                      <AlertTriangle size={14} className="text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+                      <p className="text-xs text-amber-700 dark:text-amber-300">
+                        Dati insufficienti per calcolare il fit: la persona o i responsabili non hanno ancora completato il colloquio Karma (profilo RIASEC mancante).
+                      </p>
+                    </div>
+                  )}
+
+                  {detailedMetrics.managerFitBreakdown.length > 0 && (
+                    <div className="space-y-2">
+                      <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Dettaglio per responsabile</span>
+                      {detailedMetrics.managerFitBreakdown.map(mb => (
+                        <div key={mb.managerId} className="flex items-center justify-between py-2 px-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg">
+                          <span className="text-sm text-gray-700 dark:text-gray-300 flex items-center gap-2">
+                            <User size={12} className="text-gray-400" />
+                            {mb.managerName}
+                            {mb.managerProfileCode && <span className="text-[10px] font-mono text-gray-400">{mb.managerProfileCode}</span>}
+                          </span>
+                          {mb.score >= 0 ? (
+                            <span className={`text-sm font-bold ${mb.score >= 70 ? 'text-green-600' : mb.score >= 40 ? 'text-yellow-600' : 'text-red-600'}`}>
+                              {mb.score}%
+                            </span>
+                          ) : (
+                            <span className="text-xs italic text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded">N/A</span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </Section>
+              </div>
+            )}
+
+            {/* FIT CULTURALE */}
+            {companyValues && companyValues.length > 0 && (
+              <div ref={el => { sectionRefs.current['culture'] = el; }} className="scroll-mt-2">
+                <Section title="Fit Culturale" icon={<Building size={16} />}>
+                  <div className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-900/50 rounded-lg">
+                    <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Allineamento</span>
+                    <ProgressBar value={detailedMetrics.cultureFitScore} />
+                    <span className={`font-bold text-sm ${detailedMetrics.cultureFitScore >= 70 ? 'text-blue-600' : detailedMetrics.cultureFitScore >= 40 ? 'text-yellow-600' : 'text-red-600'}`}>
+                      {detailedMetrics.cultureFitScore}%
+                    </span>
+                  </div>
+                  {assignee.karmaData?.primaryValues && (
+                    <div className="space-y-2">
+                      <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Valori del Dipendente</span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {assignee.karmaData.primaryValues.map((value, i) => {
+                          const isMatched = detailedMetrics.matchedValues.includes(value);
+                          return (
+                            <span key={i} className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs ${
+                              isMatched ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
+                            }`}>
+                              {isMatched && <CheckCircle size={10} />}
+                              {value}
+                            </span>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </Section>
+              </div>
             )}
           </>
         )}
