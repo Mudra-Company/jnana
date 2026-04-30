@@ -928,6 +928,8 @@ export const UnifiedDetailModal: React.FC<UnifiedDetailModalProps> = ({
       </div>
     );
   };
+
+  const renderRequisitiTab = () => {
     const currentHardSkills = (getValue('requiredHardSkills') || []) as RequiredSkill[];
     const currentSoftSkills = (getValue('requiredSoftSkills') || []) as RequiredSkill[];
     const currentSeniority = getValue('requiredSeniority') as SeniorityLevel | null | undefined;
