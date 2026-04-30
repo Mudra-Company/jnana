@@ -678,6 +678,8 @@ export const UnifiedDetailModal: React.FC<UnifiedDetailModalProps> = ({
     const currentResponsibilities = getValue('responsibilities') || [];
     const currentDailyTasks = getValue('dailyTasks') || [];
     const currentKpis = getValue('kpis') || [];
+    const currentHardSkillsReq = (getValue('requiredHardSkills') || []) as RequiredSkill[];
+    const currentSoftSkillsReq = (getValue('requiredSoftSkills') || []) as RequiredSkill[];
 
     return (
       <div className="space-y-6">
