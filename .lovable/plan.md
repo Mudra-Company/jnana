@@ -1,50 +1,75 @@
-# Aggiungere "Fit con il Manager" nel dettaglio posizione
+# Evoluzione del modal "Dettaglio Posizione"
 
-## Problema rilevato
+## Contesto
 
-Aprendo il modal di dettaglio di una posizione (es. "Pet Nutrition Specialist" → Andrea Pozzi), nel tab **Persona** sono visibili "Fit con il Ruolo" e "Fit Culturale", ma **manca completamente il "Fit con il Manager"**.
+Il modal aperto dall'organigramma (`UnifiedDetailModal`) ha 6 tab (Persona, Ruolo, Requisiti, Contratto, Collaborazione, Storia) ma il container è largo solo `640px` con `flex` senza overflow → l'ultima tab "Storia" viene **tagliata** e non scorre. Oltre al fix tecnico, l'interfaccia ha margini di miglioramento significativi: header denso ma poco gerarchico, tab visivamente piatte, contenuto del tab "Persona" lungo da scrollare, azioni in fondo poco riconoscibili, nessun colpo d'occhio rapido sulle 3 metriche chiave.
 
-Indagando il codice:
+## Obiettivi
 
-- Il calcolo esiste già in `src/hooks/useUnifiedOrgData.ts` (`managerFitScore` + `managerFitBreakdown`), basato sulla compatibilità RIASEC tra il `profileCode` della persona e quello dei manager parent.
-- La sezione "Compatibilità Responsabili" è già renderizzata in `UnifiedDetailModal.tsx` (righe 487–517), ma è **condizionata a `managerFitBreakdown.length > 0`**.
-- La causa: in `views/admin/CompanyOrgView.tsx` riga 2106, `<UnifiedDetailModal>` viene aperto **senza passare la prop `parentManagers`**. Quindi il breakdown è sempre vuoto e la sezione non appare.
-- Stesso motivo per cui nella card preview (`UnifiedRolePersonCard`) il badge `metrics.managerFitScore` non viene mostrato: la posizione è costruita senza `parentManagers` quando l'utente clicca.
+1. **Fix immediato**: barra tab sempre completamente accessibile, su tutte le larghezze.
+2. **Header più ricco**: trasformarlo in una "vetrina" della posizione con i 3 fit score in evidenza, breadcrumb del nodo organizzativo, status del ruolo.
+3. **Tab più chiare** e responsive (con scroll orizzontale e indicatori visivi quando serve).
+4. **Tab "Persona" più scansionabile**: sintesi in alto, dettagli a seguire.
+5. **Footer azioni** più ordinato, con priorità visive corrette.
 
-## Cosa cambiare
+## Modifiche dettagliate
 
-### 1. Passare `parentManagers` al modal (`CompanyOrgView.tsx`)
+### A. Barra tab — fix scroll e leggibilità
 
-- Quando si apre `UnifiedDetailModal`, calcolare i manager del nodo **padre** della posizione selezionata, riusando `findNodeManagers` (già usato in `renderOrgTreeChildren`).
-- Costruire una mappa `nodeId → managers` partendo da `company.structure` con un walk ricorsivo, così possiamo risalire dal `selectedUnifiedPosition.role.orgNodeId` al nodo padre e prelevarne i manager.
-- Passare l'array risultante come prop `parentManagers={...}` al modal.
-- Ricalcolare anche `metrics.managerFitScore` della posizione selezionata prima di aprirla, così la card preview mostra correttamente il badge "Fit Manager" anche al primo render (il valore ora rimane `null` perché `parentManagers` non era noto nel build originale delle posizioni).
+`src/components/roles/UnifiedDetailModal.tsx`
 
-### 2. Riprogettare la sezione nel tab "Persona" (`UnifiedDetailModal.tsx`)
+- Wrappare i tab in un container con `overflow-x-auto`, `scrollbar-hide`, `scroll-smooth`.
+- Sostituire la sottolineatura "absolute bottom-0" con una pill colorata di background sull'attivo (più riconoscibile e non viene tagliata da overflow).
+- Aggiungere fade-out gradient laterali (a destra/sinistra) quando la barra è scrollabile, per segnalare visivamente "c'è altro".
+- Le label restano sempre visibili (rimuovere `hidden sm:inline` per chiarezza, oppure mantenere icona+label sempre).
+- Auto-scroll della tab attiva in vista quando cambia.
 
-Promuovere "Fit con il Manager" allo stesso livello visivo di "Fit con il Ruolo" e "Fit Culturale":
+### B. Modal container — più aria e responsive
 
-- Rinominare la sezione da "Compatibilità Responsabili" a **"Fit con il Manager"** con icona `Handshake`.
-- Mostrarla **sempre** quando esiste almeno un manager parent (se la persona o il manager non ha `profileCode`, mostrare uno stato "Dati insufficienti" invece di nascondere tutto).
-- Layout coerente con le altre due sezioni:
-  - Barra "Compatibilità" con percentuale grande in alto (verde / giallo / rosso).
-  - Sotto, breakdown per singolo manager (già presente).
-- Aggiungere una **breve spiegazione testuale** in italiano sotto il titolo, ad esempio:
-  > Misura quanto il profilo comportamentale RIASEC della persona è compatibile con quello dei suoi responsabili diretti. Un valore alto indica stili di lavoro, motivazioni e modalità decisionali allineati, riducendo attriti e migliorando la collaborazione quotidiana.
-- Quando manca il `profileCode` di una delle due parti, mostrare un avviso inline ("Completa il colloquio Karma per calcolare il fit con i responsabili").
+- Larghezza desktop da `640px` → `720px` (più respiro per tab e contenuti).
+- Su mobile mantenere `inset-x-4`. Aggiungere `max-w-[95vw]` di sicurezza.
 
-### 3. Card preview (`UnifiedRolePersonCard.tsx`)
+### C. Header riprogettato — "Hero" della posizione
 
-Nessuna modifica strutturale: il badge `<MetricBadge value={metrics.managerFitScore} ... label="Fit Manager" />` esiste già (riga 219). Verrà valorizzato automaticamente non appena al punto 1 viene passato `parentManagers` al calcolo delle metriche.
-Aggiungere però un `title` più descrittivo sull'hover (tooltip nativo) per chiarire cosa significa il numero.
+Trasformare l'header in 2 righe:
+
+**Riga 1 (identità)**:
+- Avatar quadrato del ruolo (mantenuto).
+- Titolo ruolo grande + sottotitolo con: nome persona, codice RIASEC, badge generation, badge LEADER, badge stato (ATTIVO/VACANTE/HIRING/CONGELATO/PIANIFICATO) con colori coerenti.
+- Breadcrumb del nodo org (es. `Amaeru › CEO Office › Veterinary`) in piccolo sopra il titolo, per dare contesto immediato.
+- Bottone X chiusura in alto a destra.
+
+**Riga 2 (Fit Snapshot)**:
+- Tre mini-cards orizzontali con i 3 punteggi chiave: **Fit Ruolo**, **Fit Manager**, **Fit Culturale**. Ognuna con icona, percentuale grande, mini-barra colorata (verde/giallo/rosso) e label. Cliccare su una card scrolla automaticamente alla sezione corrispondente del tab Persona (e attiva il tab Persona se non lo è già).
+- Quando la posizione è vacante/hiring le tre card lasciano spazio a un CTA "Avvia Matching" o un riassunto del ruolo.
+
+### D. Tab "Persona" — più scansionabile
+
+- Spostare la sezione "Hard Skills della persona" subito dopo "Fit con il Ruolo" (è l'estensione naturale della valutazione skills).
+- Aggiungere icone/header più piccoli (le SECTION attuali hanno tipografia uppercase un po' forte → ridurre size + tracking).
+- Per le soft skills mancanti, raggrupparle in un blocco distinto "Da sviluppare" anziché mescolate con quelle matched.
+- Per la sezione "Fit con il Manager" (appena introdotta): mantenere spiegazione testuale ma comprimibile (collapsible con chevron, default chiusa) per ridurre scroll.
+
+### E. Footer azioni — gerarchia chiara
+
+- Azione **primaria** (es. "Profilo Completo" o "Avvia Matching") sempre a destra in colore pieno indigo.
+- Azione **secondaria** "Modifica" come outline.
+- "Elimina" e "Job Rotation" raggruppati in un menu kebab (`...`) per ridurre il rumore visivo.
+
+### F. Micro-fix qualità
+
+- Aggiungere `Esc` per chiudere il modal.
+- Aggiungere shadow più morbida e bordo più sottile.
+- Rendere lo scroll della content-area meno "duro" (`scroll-padding-top` per le ancore).
 
 ## File toccati
 
-- `views/admin/CompanyOrgView.tsx` — calcolo e passaggio `parentManagers` al modal + ricalcolo metriche della posizione selezionata.
-- `src/components/roles/UnifiedDetailModal.tsx` — promozione/restyling della sezione "Fit con il Manager", testo esplicativo, gestione stati "dati insufficienti".
-- `src/components/roles/UnifiedRolePersonCard.tsx` — solo miglioramento del tooltip del badge Manager Fit.
+- `src/components/roles/UnifiedDetailModal.tsx` — tutte le modifiche sopra (header, tab bar, footer, scroll-to-section, riordino sezioni Persona).
 
-## Note tecniche
+Nessuna modifica al DB, ai tipi o alla logica di calcolo. Tutto puramente UI/UX.
 
-- Nessuna modifica al DB né al motore di calcolo (`calculateUserCompatibility`, `useUnifiedOrgData`): la logica esiste già ed è corretta.
-- I "manager parent" sono definiti come gli utenti del nodo padre identificati da `findNodeManagers` (utilizzato già negli altri rendering dell'organigramma), garantendo coerenza con i dati della card.
+## Cosa resta uguale
+
+- I 6 tab e i loro contenuti (Ruolo, Requisiti, Contratto, Collaborazione, Storia) non cambiano semanticamente.
+- La modalità Edit funziona esattamente come ora.
+- Le prop del componente restano invariate (nessuna breaking change per chi lo usa).
