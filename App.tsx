@@ -1173,19 +1173,59 @@ const AppContent: React.FC = () => {
               onBack={() => navigate({ type: 'ADMIN_OPEN_POSITIONS' })}
               onViewCandidate={(userId) => navigate({ type: 'KARMA_PROFILE_VIEW', userId })}
               onAssignInternal={async (slotId, userId) => {
-                // Assign internal candidate to position
-                const { assignUserToSlot } = await import('./src/hooks/useCompanyMembers').then(m => ({ assignUserToSlot: m.useCompanyMembers().assignUserToSlot }));
-                // Find the slot member by position id
-                const result = await supabase
-                  .from('company_members')
-                  .update({ user_id: userId, is_hiring: false })
-                  .eq('id', slotId);
-                
-                if (result.error) {
-                  toast({ title: 'Errore', description: 'Impossibile assegnare il candidato', variant: 'destructive' });
+                // The slotId can refer either to a modern company_roles row or a legacy
+                // company_members row. Detect which and assign accordingly.
+                const { data: roleRow } = await supabase
+                  .from('company_roles')
+                  .select('id, company_id')
+                  .eq('id', slotId)
+                  .maybeSingle();
+
+                let opError: { message: string } | null = null;
+
+                if (roleRow) {
+                  // Modern path: resolve user → company_member, then create assignment + clear is_hiring
+                  const { data: memberRow, error: memberLookupErr } = await supabase
+                    .from('company_members')
+                    .select('id')
+                    .eq('user_id', userId)
+                    .eq('company_id', (roleRow as any).company_id)
+                    .maybeSingle();
+
+                  if (memberLookupErr || !memberRow) {
+                    opError = { message: memberLookupErr?.message || 'Membro azienda non trovato' };
+                  } else {
+                    const { error: assignErr } = await supabase
+                      .from('company_role_assignments')
+                      .insert({
+                        role_id: slotId,
+                        company_member_id: (memberRow as any).id,
+                        user_id: userId,
+                        assignment_type: 'primary' as const,
+                      });
+                    if (assignErr) {
+                      opError = { message: assignErr.message };
+                    } else {
+                      const { error: updErr } = await supabase
+                        .from('company_roles')
+                        .update({ is_hiring: false, status: 'active' })
+                        .eq('id', slotId);
+                      if (updErr) opError = { message: updErr.message };
+                    }
+                  }
+                } else {
+                  // Legacy path: company_members slot
+                  const { error } = await supabase
+                    .from('company_members')
+                    .update({ user_id: userId, is_hiring: false })
+                    .eq('id', slotId);
+                  if (error) opError = { message: error.message };
+                }
+
+                if (opError) {
+                  toast({ title: 'Errore', description: opError.message || 'Impossibile assegnare il candidato', variant: 'destructive' });
                 } else {
                   toast({ title: 'Successo', description: 'Candidato assegnato con successo!' });
-                  // Reload company data
                   loadCompanyData(activeCompanyData.id);
                 }
               }}
