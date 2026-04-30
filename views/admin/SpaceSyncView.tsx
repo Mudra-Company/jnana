@@ -467,6 +467,7 @@ export const SpaceSyncView: React.FC<SpaceSyncViewProps> = ({ company, companyUs
                     canvasWidth={selectedLocation.canvasWidth}
                     canvasHeight={selectedLocation.canvasHeight}
                     externalArrows={externalArrows}
+                    roleMembersMap={roleMembersMap}
                   />
                 }
                 deskScores={deskScores}
