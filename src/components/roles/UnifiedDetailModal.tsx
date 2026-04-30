@@ -954,40 +954,186 @@ export const UnifiedDetailModal: React.FC<UnifiedDetailModalProps> = ({
         );
       }
 
+      // Gap analysis helpers (only when an assignee exists)
+      const hasAssignee = !!assignee;
+      const matchedHardSet = new Set((detailedMetrics.hardSkillsMatched || []).map(s => s.toLowerCase()));
+      const matchedSoftSet = new Set((detailedMetrics.softSkillsMatched || []).map(s => s.toLowerCase()));
+      const userHardByName = new Map(userHardSkills.map(s => [s.name.toLowerCase(), s]));
+
+      // Counts for summary banner
+      const hardTotal = currentHardSkills.length;
+      const hardOk = currentHardSkills.filter(s => matchedHardSet.has(s.name.toLowerCase())).length;
+      const softTotal = currentSoftSkills.length;
+      const softOk = currentSoftSkills.filter(s => matchedSoftSet.has(s.name.toLowerCase())).length;
+      const totalReq = hardTotal + softTotal + (currentSeniority ? 1 : 0);
+      const totalOk = hardOk + softOk + (detailedMetrics.seniorityMatch === 'match' || detailedMetrics.seniorityMatch === 'above' ? 1 : 0);
+
       return (
         <div className="space-y-6">
-          {currentHardSkills.length > 0 && (
-            <Section title="Hard Skills Richieste" icon={<Award size={16} />}>
-              <div className="flex flex-wrap gap-2">
-                {currentHardSkills.map((skill, i) => (
-                  <span key={i} className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm ${
-                    skill.mandatory ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300 border border-indigo-300 dark:border-indigo-700' : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
-                  }`}>
-                    {skill.name}
-                    {skill.level && <span className="text-xs text-gray-500 ml-1">Liv. {skill.level}</span>}
-                    {skill.mandatory && <Star size={10} className="text-amber-500 fill-amber-500 ml-1" />}
-                  </span>
-                ))}
+          {/* Gap Analysis summary banner */}
+          {hasAssignee && totalReq > 0 && (
+            <div className="rounded-xl border border-indigo-200 dark:border-indigo-800 bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 p-4">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <Target size={16} className="text-indigo-600 dark:text-indigo-400" />
+                  <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">
+                    Gap Analysis — {assignee?.firstName} {assignee?.lastName}
+                  </h3>
+                </div>
+                <span className="text-xs font-bold text-indigo-700 dark:text-indigo-300">
+                  {totalOk}/{totalReq} requisiti soddisfatti
+                </span>
               </div>
+              <div className="flex flex-wrap gap-2 text-xs">
+                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-white/70 dark:bg-gray-800/50 text-gray-700 dark:text-gray-300">
+                  <Award size={11} className="text-indigo-500" /> Hard <span className="font-semibold">{hardOk}/{hardTotal}</span>
+                </span>
+                <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-white/70 dark:bg-gray-800/50 text-gray-700 dark:text-gray-300">
+                  <Users size={11} className="text-purple-500" /> Soft <span className="font-semibold">{softOk}/{softTotal}</span>
+                </span>
+                {currentSeniority && (
+                  <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-white/70 dark:bg-gray-800/50 text-gray-700 dark:text-gray-300">
+                    <Crown size={11} className="text-amber-500" /> Seniority{' '}
+                    {detailedMetrics.seniorityMatch === 'match' && <CheckCircle size={11} className="text-green-600" />}
+                    {detailedMetrics.seniorityMatch === 'above' && <TrendingUp size={11} className="text-orange-500" />}
+                    {detailedMetrics.seniorityMatch === 'below' && <TrendingDown size={11} className="text-red-500" />}
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+
+          {currentHardSkills.length > 0 && (
+            <Section title={hasAssignee ? `Hard Skills Richieste (${hardOk}/${hardTotal})` : 'Hard Skills Richieste'} icon={<Award size={16} />}>
+              <div className="flex flex-wrap gap-2">
+                {currentHardSkills.map((skill, i) => {
+                  if (!hasAssignee) {
+                    return (
+                      <span key={i} className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm ${
+                        skill.mandatory ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300 border border-indigo-300 dark:border-indigo-700' : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
+                      }`}>
+                        {skill.name}
+                        {skill.level && <span className="text-xs text-gray-500 ml-1">Liv. {skill.level}</span>}
+                        {skill.mandatory && <Star size={10} className="text-amber-500 fill-amber-500 ml-1" />}
+                      </span>
+                    );
+                  }
+                  const userSkill = userHardByName.get(skill.name.toLowerCase());
+                  const matched = !!userSkill;
+                  const userLevel = userSkill?.proficiencyLevel;
+                  const reqLevel = skill.level || 0;
+                  const levelOk = matched && (!reqLevel || (userLevel ?? 0) >= reqLevel);
+                  const levelGap = matched && reqLevel && (userLevel ?? 0) < reqLevel;
+                  return (
+                    <span
+                      key={i}
+                      title={
+                        matched
+                          ? levelOk
+                            ? `Posseduta — Liv. persona ${userLevel ?? '?'} ≥ richiesto ${reqLevel || '—'}`
+                            : `Posseduta a livello inferiore — persona Liv. ${userLevel ?? '?'} vs richiesto ${reqLevel}`
+                          : `Mancante${skill.mandatory ? ' (obbligatoria)' : ''}`
+                      }
+                      className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm border ${
+                        levelOk
+                          ? 'bg-green-50 text-green-700 border-green-300 dark:bg-green-900/20 dark:text-green-300 dark:border-green-800'
+                          : levelGap
+                            ? 'bg-amber-50 text-amber-700 border-amber-300 dark:bg-amber-900/20 dark:text-amber-300 dark:border-amber-800'
+                            : skill.mandatory
+                              ? 'bg-red-50 text-red-700 border-red-300 dark:bg-red-900/20 dark:text-red-300 dark:border-red-800'
+                              : 'bg-gray-100 text-gray-600 border-gray-300 dark:bg-gray-700 dark:text-gray-400 dark:border-gray-600'
+                      }`}
+                    >
+                      {levelOk && <CheckCircle size={11} />}
+                      {levelGap && <AlertCircle size={11} />}
+                      {!matched && <X size={11} />}
+                      {skill.name}
+                      {reqLevel > 0 && (
+                        <span className="text-[10px] opacity-80 ml-0.5">
+                          {matched ? `${userLevel ?? '?'}/${reqLevel}` : `Liv. ${reqLevel}`}
+                        </span>
+                      )}
+                      {skill.mandatory && <Star size={10} className="text-amber-500 fill-amber-500 ml-0.5" />}
+                    </span>
+                  );
+                })}
+              </div>
+              {hasAssignee && (
+                <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-2 flex items-center gap-3 flex-wrap">
+                  <span className="inline-flex items-center gap-1"><CheckCircle size={10} className="text-green-600" /> Soddisfatta</span>
+                  <span className="inline-flex items-center gap-1"><AlertCircle size={10} className="text-amber-600" /> Livello inferiore</span>
+                  <span className="inline-flex items-center gap-1"><X size={10} className="text-red-600" /> Mancante</span>
+                </p>
+              )}
             </Section>
           )}
           {currentSoftSkills.length > 0 && (
-            <Section title="Soft Skills Richieste" icon={<Users size={16} />}>
+            <Section title={hasAssignee ? `Soft Skills Richieste (${softOk}/${softTotal})` : 'Soft Skills Richieste'} icon={<Users size={16} />}>
               <div className="flex flex-wrap gap-2">
-                {currentSoftSkills.map((skill, i) => (
-                  <span key={i} className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm ${
-                    skill.mandatory ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 border border-purple-300 dark:border-purple-700' : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
-                  }`}>
-                    {skill.name}
-                    {skill.mandatory && <Star size={10} className="text-amber-500 fill-amber-500 ml-1" />}
-                  </span>
-                ))}
+                {currentSoftSkills.map((skill, i) => {
+                  if (!hasAssignee) {
+                    return (
+                      <span key={i} className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm ${
+                        skill.mandatory ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 border border-purple-300 dark:border-purple-700' : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
+                      }`}>
+                        {skill.name}
+                        {skill.mandatory && <Star size={10} className="text-amber-500 fill-amber-500 ml-1" />}
+                      </span>
+                    );
+                  }
+                  const matched = matchedSoftSet.has(skill.name.toLowerCase());
+                  return (
+                    <span
+                      key={i}
+                      title={matched ? 'Posseduta dalla persona' : `Mancante${skill.mandatory ? ' (obbligatoria)' : ''}`}
+                      className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm border ${
+                        matched
+                          ? 'bg-green-50 text-green-700 border-green-300 dark:bg-green-900/20 dark:text-green-300 dark:border-green-800'
+                          : skill.mandatory
+                            ? 'bg-red-50 text-red-700 border-red-300 dark:bg-red-900/20 dark:text-red-300 dark:border-red-800'
+                            : 'bg-gray-100 text-gray-600 border-gray-300 dark:bg-gray-700 dark:text-gray-400 dark:border-gray-600'
+                      }`}
+                    >
+                      {matched ? <CheckCircle size={11} /> : <X size={11} />}
+                      {skill.name}
+                      {skill.mandatory && <Star size={10} className="text-amber-500 fill-amber-500 ml-0.5" />}
+                    </span>
+                  );
+                })}
               </div>
             </Section>
           )}
           <Section title="Esperienza" icon={<Crown size={16} />}>
             <div className="space-y-2">
-              <InfoRow label="Seniority" value={currentSeniority || undefined} icon={<Crown size={14} />} />
+              {hasAssignee && currentSeniority ? (
+                <div className="flex items-center justify-between py-2 px-3 bg-gray-50 dark:bg-gray-900/30 rounded-lg">
+                  <span className="text-sm font-medium text-gray-600 dark:text-gray-400 flex items-center gap-2">
+                    <Crown size={14} /> Seniority
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-gray-500">
+                      {detailedMetrics.userSeniority || '—'} → <span className="font-medium">{currentSeniority}</span>
+                    </span>
+                    {detailedMetrics.seniorityMatch === 'match' && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] rounded-md bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300">
+                        <CheckCircle size={10} /> Match
+                      </span>
+                    )}
+                    {detailedMetrics.seniorityMatch === 'above' && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] rounded-md bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300">
+                        <TrendingUp size={10} /> Superiore
+                      </span>
+                    )}
+                    {detailedMetrics.seniorityMatch === 'below' && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] rounded-md bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300">
+                        <TrendingDown size={10} /> Inferiore
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                <InfoRow label="Seniority" value={currentSeniority || undefined} icon={<Crown size={14} />} />
+              )}
               {(currentExpMin || currentExpMax) && (
                 <InfoRow label="Anni di esperienza" value={`${currentExpMin || 0} - ${currentExpMax || '+'} anni`} icon={<Clock size={14} />} />
               )}
