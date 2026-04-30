@@ -218,7 +218,7 @@ export const UnifiedRolePersonCard: React.FC<UnifiedRolePersonCardProps> = ({
           <MetricBadge 
             value={metrics.managerFitScore} 
             icon={<Handshake size={10} />} 
-            label="Fit Manager"
+            label="Fit con il Manager — compatibilità RIASEC con i responsabili diretti"
             colorClass="text-green-600"
           />
           <MetricBadge 
