@@ -1,78 +1,125 @@
-## Diagnosi
+## Obiettivo
 
-Ci sono due bug indipendenti, entrambi causati dalla migrazione "role-centric" (da `company_members` a `company_roles`) lasciata a metà.
+Oggi quando si valuta un candidato interno per la Job Rotation vediamo solo "Match Totale 100% — Soft skills, Seniority". Manca tutto ciò che un Head of HR userebbe per **decidere davvero se spostare la persona**:
 
-### Bug 1 — "Posizioni Aperte" mostra 0 anche se la posizione esiste
+1. Come si integrerebbe con il **futuro manager** (chi dirige il nodo target)
+2. Cosa il candidato **lascia scoperto** nel suo ruolo attuale
+3. Se la rotazione **fa crescere la persona** (stretch vs comfort)
+4. Una **raccomandazione sintetica** (Procedi / Valuta / Sconsigliato) con razionale
 
-Verificato sul DB di Amaeru:
-- La posizione **"Stagista" (vacante, hiring)** vive in `company_roles` con `is_hiring=true`.
-- Non c'è nessuna riga in `company_members` con `is_hiring=true`.
+L'infrastruttura per molti di questi calcoli c'è già (`analyzeSynergy`, `calculateInternalMatch`, `companyUsers`, struttura org), va solo orchestrata e mostrata.
 
-La Dashboard infatti mostra correttamente "IN HIRING: 1" perché `AdminDashboard` somma entrambe le sorgenti (`roles.filter(r => r.isHiring)` + legacy `company_members`).
+---
 
-Invece la pagina **Posizioni Aperte** (`OpenPositionsView` → `useOpenPositions`) interroga **solo la tabella legacy `company_members`** con `.eq('is_hiring', true)`, quindi non vede mai i ruoli moderni → "0 posizioni aperte".
+## Cosa vedrà l'Head of HR (UX)
 
-Stesso problema su `getPositionById`: se l'utente cliccasse "Trova Candidati" su un ruolo moderno, fallirebbe a caricarlo.
+Cliccando su un candidato interno della Job Rotation si apre un **report esteso** (sostituisce l'attuale popover stretto), strutturato in 5 blocchi verticali:
 
-### Bug 2 — Dall'organigramma manca la CTA "Trova Candidati"
-
-Il `UnifiedDetailModal` ha già la logica per mostrare il bottone "Trova Candidati":
-```tsx
-{!assignee && role.isHiring && onOpenMatching && ( <Button>Trova Candidati</Button> )}
+```text
+┌────────────────────────────────────────────────────┐
+│ Riccardo Esposito  ·  Interno  ·  Junior          │
+│ Da: Customer Success  →  A: Brand & Content        │
+├────────────────────────────────────────────────────┤
+│ 1. RACCOMANDAZIONE                                 │
+│   [Procedi] 87/100  · "Stretch sano, manager forte"│
+├────────────────────────────────────────────────────┤
+│ 2. FIT CON IL RUOLO (esistente, già calcolato)     │
+│   Hard 90% · Soft 100% · Seniority Match           │
+├────────────────────────────────────────────────────┤
+│ 3. FIT CON IL NUOVO MANAGER  ←  NUOVO              │
+│   Manager: Laura Bianchi (Gen X)                   │
+│   Sinergia: Mentoring  · 78/100                    │
+│   Stili comunicativi compatibili (RIASEC)          │
+├────────────────────────────────────────────────────┤
+│ 4. IMPATTO SUL RUOLO LASCIATO  ←  NUOVO            │
+│   Customer Success perde: Junior unico del team    │
+│   Skill critiche scoperte: "pazienza", "empatia"   │
+│   Backup interno: 2 candidati pronti / 0           │
+│   Rischio: Medio                                   │
+├────────────────────────────────────────────────────┤
+│ 5. CRESCITA DEL CANDIDATO  ←  NUOVO                │
+│   Stretch: +1 nuova hard skill da imparare        │
+│   Allineamento RIASEC: Alto                       │
+│   Categoria: "Sviluppo laterale"                  │
+└────────────────────────────────────────────────────┘
+[Aggiungi a Shortlist]  [Profilo completo]  [Esporta PDF]
 ```
-Ma in `CompanyOrgView.tsx` (riga ~2132) il modal viene istanziato **senza la prop `onOpenMatching`**, quindi il bottone non appare mai. Lo screenshot del modal "Stagista" lo conferma: VACANTE + HIRING ma solo "Modifica".
 
-La prop `onOpenPositionMatching` arriva già fino a `CompanyOrgView` da `App.tsx` (riga 1143) — basta inoltrarla al modal.
+I 4 blocchi nuovi (Raccomandazione + 3 analisi) appaiono **solo per i candidati interni**. Gli esterni mantengono la vista attuale.
 
-## Piano
+---
 
-### 1. `useOpenPositions` — leggere da entrambe le sorgenti
+## Logica HR (regole interpretabili, non black-box)
 
-Sostituire `fetchPositions` e `getPositionById` per fare l'UNION di:
+### Manager-Fit (blocco 3)
+- Riusiamo `analyzeSynergy(candidato, manager)` già esistente.
+- Aggiungiamo confronto stili RIASEC (se entrambi hanno il profilo): coppie complementari = +bonus, opposte = warning.
+- Se il manager non esiste ancora (posizione nuova senza capo assegnato) → mostriamo "Manager non definito — fit non calcolabile".
 
-- **company_roles** con `is_hiring = true` (sorgente primaria moderna)
-- **company_members** con `is_hiring = true` (legacy, retrocompatibilità)
+### Impatto sul ruolo lasciato (blocco 4)
+- Identifichiamo il `departmentId` corrente del candidato.
+- Contiamo quante altre persone nel nodo coprono le **stesse hard/soft skills** del candidato.
+- Se è l'unico portatore di una skill → quella skill diventa "scoperta critica".
+- Cerchiamo backup interni: altri dipendenti con seniority compatibile per coprire il ruolo lasciato (riuso di `calculateInternalMatch` invertito).
+- Rischio: Basso (≥2 backup pronti) · Medio (1 backup) · Alto (0 backup + skill critiche scoperte).
 
-Mappatura uniforme verso `OpenPosition`:
-- `id`: id del record (con prefisso interno `role:` / `member:` per disambiguare quando passato a `PositionMatchingView`, OPPURE preservare l'id grezzo se `PositionMatchingView` già accetta entrambi — verifico in implementazione e adatto)
-- `jobTitle`: `company_roles.title` / `company_members.job_title`
-- `departmentId/Name`: `company_roles.org_node_id` / `company_members.department_id` (join `org_nodes`)
-- `requiredProfile`: per i ruoli, costruirlo on-the-fly da `required_hard_skills`, `required_soft_skills`, `required_seniority` (stesso shape dell'interfaccia `RequiredProfile`); per i membri legacy resta il JSON `required_profile`.
-- Escludere i ruoli che hanno già un assignee attivo (anche se `is_hiring=true`).
+### Crescita del candidato (blocco 5)
+- Stretch = nuove hard skill richieste dal ruolo target che il candidato NON ha (delta tra `requiredProfile.hardSkills` e `candidate.hardSkills`).
+- 0 nuove skill = "Movimento laterale puro" (rischio noia).
+- 1-3 nuove = "Stretch sano" (ideale).
+- 4+ nuove = "Stretch aggressivo" (alto rischio fallimento).
+- Allineamento RIASEC tra ruolo attuale e target.
 
-Verificare che `PositionMatchingView` funzioni con un id di `company_roles`: se oggi accetta solo id di `company_members`, aggiungere il branch per caricare anche da `company_roles`.
+### Raccomandazione finale (blocco 1)
+Score composito 0-100, pesi ragionati come farebbe un Head of HR:
+- 35% Match con il ruolo (skill+seniority)
+- 25% Fit con il nuovo manager
+- 25% Impatto sul ruolo lasciato (invertito: rischio alto = penalità)
+- 15% Crescita del candidato
 
-### 2. `CompanyOrgView` — passare `onOpenMatching` al modal
+Soglie:
+- ≥75 → **Procedi** (verde)
+- 50-74 → **Valuta** (giallo, con razionale dei rischi)
+- <50 → **Sconsigliato** (rosso, con ragione principale)
 
-Nel render di `<UnifiedDetailModal …>` aggiungere:
-```tsx
-onOpenMatching={() => {
-  const positionId = selectedUnifiedPosition.role.id;
-  // se è un ruolo "implicit-…", prima auto-promuoverlo (riusare la logica già presente in onSaveRole)
-  onOpenPositionMatching?.(positionId);
-  setSelectedUnifiedPosition(null);
-}}
-```
-Caso ruolo "implicit-…": estrarre la promozione in una piccola helper e chiamarla anche qui, così cliccando "Trova Candidati" su una posizione non ancora promossa il ruolo viene creato e poi si apre il matching.
+Il razionale è una frase generata componendo i 3-4 fattori più rilevanti (no AI, regole if/then per essere veloce e prevedibile). In una fase 2 si potrà sostituire con Lovable AI per un commento narrativo.
 
-### 3. Coerenza KPI Dashboard ↔ Posizioni Aperte
+---
 
-Dopo la fix #1, KPI "IN HIRING" della Dashboard e count della pagina "Posizioni Aperte" useranno la stessa sorgente unificata. Lo `AdminDashboard` può smettere di sommare due conteggi separati: leggerà anch'esso da `useOpenPositions` (o lasciamo invariato, ma rimuoviamo la duplicazione `roles.length + legacyHiringPositions.length` perché i ruoli moderni con `is_hiring=true` sono già un sottoinsieme dei "vacanti"). Allineamento da fare in fase 1, dopo aver verificato i numeri.
+## Esportabile (Phase 1.5, opzionale ora)
 
-### 4. QA manuale (in default mode)
+Pulsante "Esporta PDF" che genera un report di 1 pagina con i 5 blocchi → utile per discussione in comitato HR. Riusiamo `jspdf + html2canvas` già nel progetto (PDF organigramma).
 
-- Aprire `/Posizioni Aperte` su Amaeru → deve apparire la card "Stagista" con bottone "Trova Candidati".
-- Cliccare "Trova Candidati" → si apre `PositionMatchingView` per quel ruolo.
-- Aprire l'organigramma → cliccare la posizione "Stagista" → nel modal ora compaiono entrambi i bottoni "Modifica" e "Trova Candidati".
-- Verificare che il KPI Dashboard "IN HIRING" continui a mostrare 1 (e non 2).
+---
 
-## File toccati
+## Implementazione tecnica
 
-- `src/hooks/useOpenPositions.ts` — query unificata su `company_roles` + `company_members`.
-- `views/admin/CompanyOrgView.tsx` — passare `onOpenMatching` a `UnifiedDetailModal` (gestendo i ruoli `implicit-…`).
-- `views/admin/PositionMatchingView.tsx` — eventuale supporto a id di `company_roles` (da verificare a inizio implementazione).
-- `views/admin/AdminDashboard.tsx` — rimuovere doppio conteggio se necessario per coerenza.
+**File nuovo: `src/utils/jobRotationAnalyzer.ts`**
+- `analyzeRotation(candidate, position, manager, companyUsers, nodeNames): RotationAnalysis`
+- Esporta tipi `RotationAnalysis`, `ManagerFit`, `RoleImpact`, `GrowthAnalysis`, `Recommendation`.
+- Pure function, testabile, zero side effects.
 
-## Fuori scope
+**File nuovo: `src/components/shortlist/JobRotationReportModal.tsx`**
+- Modal full-report (sostituisce `MatchScorePopover` solo per candidati interni in Job Rotation).
+- 5 blocchi come da UX sopra.
+- Stile: palette `jnana-sage`/`jnana-powder` come da design system del progetto.
 
-Nessun cambiamento di schema DB: entrambe le tabelle restano. La migrazione completa di `company_members` legacy → `company_roles` è un lavoro più ampio non richiesto qui.
+**Modifiche a `views/admin/PositionMatchingView.tsx`**
+- In `handleOpenInternalPopover`: chiamare `analyzeRotation(...)` e passare il risultato a un nuovo state `selectedRotationReport`.
+- Renderizzare `<JobRotationReportModal>` quando `selectedRotationReport` è settato.
+- `MatchScorePopover` resta in uso solo per candidati esterni.
+
+**Riuso esistente (zero nuovo da costruire):**
+- `analyzeSynergy()` → manager-fit
+- `calculateInternalMatch()` → backup interni per ruolo lasciato
+- `companyUsers`, `nodeNames`, `position.requiredProfile` → già in scope
+
+**Nessuna modifica al DB.** Tutta la logica è derivata da dati già query-ati.
+
+---
+
+## Out of scope (per ora)
+
+- Salvare lo storico delle valutazioni di rotation → da fare quando l'HR vorrà tracciare le decisioni nel tempo.
+- Coinvolgere AI generativa per il commento narrativo → fase successiva.
+- Notifiche al manager target → fase successiva.
