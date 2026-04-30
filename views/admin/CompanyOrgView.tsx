@@ -1609,6 +1609,32 @@ export const CompanyOrgView: React.FC<{
     // Calculate all hiring positions in the company
     const allHiringPositions = useMemo(() => users.filter(u => u.isHiring), [users]);
 
+    // Build map: nodeId -> managers of the PARENT node (used to compute "Fit con il Manager")
+    const parentManagersByNode = useMemo(() => {
+        const map: Record<string, User[]> = {};
+        const walk = (node: OrgNode, parentManagers: User[]) => {
+            map[node.id] = parentManagers;
+            const nodeUsers = users.filter(u => u.departmentId === node.id);
+            const currentManagers = findNodeManagers(nodeUsers, node);
+            node.children?.forEach(child => walk(child, currentManagers));
+        };
+        if (company.structure) {
+            walk(company.structure, []);
+        }
+        return map;
+    }, [company.structure, users]);
+
+    // Resolve parentManagers for the currently-selected unified position
+    const selectedPositionParentManagers = useMemo<User[]>(() => {
+        if (!selectedUnifiedPosition) return [];
+        const nodeId = selectedUnifiedPosition.role.orgNodeId;
+        if (!nodeId) return [];
+        const parents = parentManagersByNode[nodeId] || [];
+        // Exclude the assignee themselves (a person isn't their own manager)
+        const assigneeId = selectedUnifiedPosition.assignee?.id;
+        return assigneeId ? parents.filter(m => m.id !== assigneeId) : parents;
+    }, [selectedUnifiedPosition, parentManagersByNode]);
+
     // Handle employee profile click from org chart (for regular employees, not hiring positions)
     const handleEmployeeProfileClick = (profileData: EmployeeProfileData) => {
         setEmployeeProfilePopover(profileData);
