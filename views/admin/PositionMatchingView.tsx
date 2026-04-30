@@ -157,12 +157,18 @@ export const PositionMatchingView: React.FC<PositionMatchingViewProps> = ({
   const [activeTab, setActiveTab] = useState<'internal' | 'external' | 'shortlist'>('internal');
   const [nodeNames, setNodeNames] = useState<Record<string, string>>({});
   
-  // Popover state for match breakdown
+  // Popover state for match breakdown (used for external candidates)
   const [selectedCandidatePopover, setSelectedCandidatePopover] = useState<{
     name: string;
     type: 'internal' | 'external';
     breakdown: MatchBreakdown;
     candidateData: typeof internalCandidates[0] | CandidateMatch;
+  } | null>(null);
+
+  // Job Rotation report state (used ONLY for internal candidates)
+  const [selectedRotationReport, setSelectedRotationReport] = useState<{
+    analysis: RotationAnalysis;
+    candidate: typeof internalCandidates[0];
   } | null>(null);
 
   // Shortlist hook - initialized after position is loaded
