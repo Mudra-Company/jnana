@@ -57,9 +57,18 @@ export const useProximityScoring = () => {
         userIds.length > 0
           ? supabase.from('karma_sessions').select('user_id, soft_skills, primary_values, risk_factors, seniority_assessment').in('user_id', userIds)
           : { data: [] },
-        supabase.from('company_role_assignments').select('company_member_id, role_id').in('company_member_id', memberIds),
+        supabase.from('company_role_assignments').select('company_member_id, role_id'),
         supabase.from('company_roles').select('id, collaboration_profile, title'),
       ]);
+
+      // Build roleId -> memberIds[] map (from ALL assignments, not only those whose member sits at a desk)
+      const roleMembers = new Map<string, string[]>();
+      (assignmentsRes.data || []).forEach((a: any) => {
+        if (!a.role_id || !a.company_member_id) return;
+        const arr = roleMembers.get(a.role_id) || [];
+        arr.push(a.company_member_id);
+        roleMembers.set(a.role_id, arr);
+      });
 
       // Build lookup maps
       const riasecMap = new Map<string, any>();
