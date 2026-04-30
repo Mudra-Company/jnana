@@ -1617,50 +1617,127 @@ export const UnifiedDetailModal: React.FC<UnifiedDetailModalProps> = ({
     </div>
   );
 
+  // ── Status / breadcrumb derivati per l'header ──────────────────────────
+  const STATUS_META: Record<string, { label: string; cls: string }> = {
+    active:  { label: 'ATTIVO',     cls: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300' },
+    vacant:  { label: 'VACANTE',    cls: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300' },
+    frozen:  { label: 'CONGELATO',  cls: 'bg-slate-200 text-slate-700 dark:bg-slate-700/40 dark:text-slate-300' },
+    planned: { label: 'PIANIFICATO', cls: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300' },
+  };
+  const statusMeta = role.status ? STATUS_META[role.status] : null;
+
+  // Breadcrumb del nodo organizzativo (se possibile risolvere parent)
+  const breadcrumb = useMemo(() => {
+    if (!role.orgNodeId || !orgNodes || orgNodes.length === 0) return [] as string[];
+    // Prova prima a trattare orgNodes come tree (root unico con children)
+    const looksLikeTree = orgNodes.length === 1 && Array.isArray(orgNodes[0].children) && orgNodes[0].children.length > 0;
+    if (looksLikeTree) {
+      const path: string[] = [];
+      const walk = (n: OrgNode, trail: string[]): boolean => {
+        const next = [...trail, n.name];
+        if (n.id === role.orgNodeId) { path.push(...next); return true; }
+        return (n.children || []).some(c => walk(c, next));
+      };
+      walk(orgNodes[0], []);
+      return path;
+    }
+    // Altrimenti orgNodes è flat: mostra solo il nome del nodo del ruolo
+    const node = orgNodes.find(n => n.id === role.orgNodeId);
+    return node ? [node.name] : [];
+  }, [role.orgNodeId, orgNodes]);
+
+  // Mini-card "Fit Snapshot" — usata nell'header
+  const FitChip: React.FC<{ icon: React.ReactNode; label: string; value: number | null; onClick?: () => void; tone?: 'role' | 'manager' | 'culture' }> = ({ icon, label, value, onClick, tone = 'role' }) => {
+    const v = value ?? -1;
+    const pct = v < 0 ? 0 : Math.max(0, Math.min(100, v));
+    const text = v < 0 ? 'N/D' : `${v}%`;
+    const color = v < 0 ? 'text-gray-400' : v >= 70 ? 'text-green-600 dark:text-green-400' : v >= 40 ? 'text-yellow-600 dark:text-yellow-400' : 'text-red-600 dark:text-red-400';
+    const bar = v < 0 ? 'bg-gray-300' : v >= 70 ? 'bg-green-500' : v >= 40 ? 'bg-yellow-500' : 'bg-red-500';
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        className="group flex-1 min-w-0 text-left p-2.5 rounded-lg bg-white/70 dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700 hover:border-indigo-400 hover:shadow-sm transition-all"
+      >
+        <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-1">
+          <span className="text-indigo-500">{icon}</span>
+          <span className="truncate">{label}</span>
+        </div>
+        <div className="flex items-baseline justify-between gap-1">
+          <span className={`text-lg font-bold leading-none ${color}`}>{text}</span>
+          <span className="text-[9px] text-gray-400 group-hover:text-indigo-500 hidden sm:inline">↓ dettaglio</span>
+        </div>
+        <div className="mt-1.5 h-1 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+          <div className={`h-full ${bar} transition-all`} style={{ width: `${pct}%` }} />
+        </div>
+      </button>
+    );
+  };
+
   return (
     <>
       {/* Backdrop */}
       <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[200]" onClick={onClose} />
       
       {/* Modal */}
-      <div className="fixed inset-x-4 top-8 bottom-8 md:inset-auto md:left-1/2 md:top-1/2 md:-translate-x-1/2 md:-translate-y-1/2 z-[210] w-auto md:w-[640px] md:max-h-[85vh] flex flex-col bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+      <div className="fixed inset-x-4 top-6 bottom-6 md:inset-auto md:left-1/2 md:top-1/2 md:-translate-x-1/2 md:-translate-y-1/2 z-[210] w-auto md:w-[720px] md:max-w-[95vw] md:max-h-[88vh] flex flex-col bg-white dark:bg-gray-800 rounded-2xl shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] border border-gray-200/80 dark:border-gray-700 overflow-hidden">
         
         {/* Header */}
-        <div className="p-5 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-br from-indigo-50 to-white dark:from-indigo-900/20 dark:to-gray-800 shrink-0">
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex items-center gap-4 min-w-0 flex-1">
-              <div className={`w-14 h-14 rounded-xl flex items-center justify-center text-white font-bold text-lg shadow-lg ${
+        <div className="px-5 pt-4 pb-3 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-br from-indigo-50/80 via-white to-white dark:from-indigo-900/20 dark:via-gray-800 dark:to-gray-800 shrink-0">
+          {/* Breadcrumb */}
+          {breadcrumb.length > 0 && (
+            <div className="flex items-center gap-1 text-[11px] text-gray-500 dark:text-gray-400 mb-2 truncate">
+              <Building size={11} className="shrink-0" />
+              {breadcrumb.map((n, i) => (
+                <React.Fragment key={i}>
+                  {i > 0 && <ChevronRight size={10} className="text-gray-400 shrink-0" />}
+                  <span className={`truncate ${i === breadcrumb.length - 1 ? 'text-gray-700 dark:text-gray-300 font-medium' : ''}`}>{n}</span>
+                </React.Fragment>
+              ))}
+            </div>
+          )}
+
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex items-center gap-3 min-w-0 flex-1">
+              <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-white font-bold shadow-md shrink-0 ${
                 role.isHiring 
                   ? 'bg-gradient-to-br from-emerald-500 to-emerald-600' 
                   : 'bg-gradient-to-br from-indigo-500 to-indigo-600'
               }`}>
-                {role.isHiring ? <FileSearch size={28} /> : <Briefcase size={28} />}
+                {role.isHiring ? <FileSearch size={24} /> : <Briefcase size={24} />}
               </div>
               <div className="min-w-0 flex-1">
-                <h2 className="text-xl font-bold text-gray-900 dark:text-white truncate">
+                <h2 className="text-lg md:text-xl font-bold text-gray-900 dark:text-white truncate leading-tight">
                   {role.title}
                 </h2>
-                <div className="flex items-center gap-2 mt-1 flex-wrap">
-                  {assignee && (
+                <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                  {assignee ? (
                     <>
-                      <span className="text-sm text-gray-600 dark:text-gray-400">
+                      <span className="text-sm text-gray-700 dark:text-gray-300 font-medium">
                         {assignee.firstName} {assignee.lastName}
                       </span>
                       {assignee.profileCode && (
-                        <span className="text-xs font-mono bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 px-2 py-0.5 rounded">
+                        <span className="text-[10px] font-mono bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 px-1.5 py-0.5 rounded">
                           {assignee.profileCode}
                         </span>
                       )}
                       {assignee.birthDate && <GenerationBadge birthDate={assignee.birthDate} size="sm" />}
                       {metrics.isLeader && (
-                        <span className="text-xs font-bold text-amber-600 dark:text-amber-400 flex items-center gap-1">
-                          <Crown size={12} /> LEADER
+                        <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 flex items-center gap-0.5 bg-amber-50 dark:bg-amber-900/20 px-1.5 py-0.5 rounded">
+                          <Crown size={10} /> LEADER
                         </span>
                       )}
                     </>
+                  ) : (
+                    <span className="text-sm text-gray-500 dark:text-gray-400 italic">Posizione vacante</span>
+                  )}
+                  {statusMeta && (
+                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${statusMeta.cls}`}>
+                      {statusMeta.label}
+                    </span>
                   )}
                   {role.isHiring && (
-                    <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300 animate-pulse">
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300 animate-pulse">
                       HIRING
                     </span>
                   )}
@@ -1669,36 +1746,75 @@ export const UnifiedDetailModal: React.FC<UnifiedDetailModalProps> = ({
             </div>
             <button 
               onClick={onClose}
+              aria-label="Chiudi"
               className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors shrink-0"
             >
-              <X size={20} className="text-gray-500" />
+              <X size={18} className="text-gray-500" />
             </button>
+          </div>
+
+          {/* Fit Snapshot — visibile solo se c'è una persona assegnata e non in edit */}
+          {assignee && !isEditing && (
+            <div className="mt-3 flex items-stretch gap-2">
+              <FitChip
+                icon={<Target size={11} />}
+                label="Fit Ruolo"
+                value={detailedMetrics.roleFitScore}
+                onClick={() => focusSection('role')}
+              />
+              <FitChip
+                icon={<Handshake size={11} />}
+                label="Fit Manager"
+                value={detailedMetrics.managerFitScore}
+                onClick={() => focusSection('manager')}
+              />
+              <FitChip
+                icon={<Building size={11} />}
+                label="Fit Culturale"
+                value={detailedMetrics.cultureFitScore}
+                onClick={() => focusSection('culture')}
+              />
+            </div>
+          )}
+        </div>
+
+        {/* Tabs — scrollabili orizzontalmente con fade laterali */}
+        <div className="relative shrink-0 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/30">
+          {tabOverflow.left && (
+            <div className="pointer-events-none absolute left-0 top-0 bottom-0 w-6 bg-gradient-to-r from-gray-50 dark:from-gray-900/80 to-transparent z-10" />
+          )}
+          {tabOverflow.right && (
+            <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-6 bg-gradient-to-l from-gray-50 dark:from-gray-900/80 to-transparent z-10" />
+          )}
+          <div
+            ref={tabBarRef}
+            className="flex gap-1 px-2 py-1.5 overflow-x-auto scroll-smooth"
+            style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+          >
+            <style>{`.flex.gap-1.px-2.py-1\\.5.overflow-x-auto::-webkit-scrollbar{display:none}`}</style>
+            {TABS.map(tab => {
+              const isActive = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  ref={el => { tabButtonRefs.current[tab.id] = el; }}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition-all shrink-0 ${
+                    isActive
+                      ? 'bg-indigo-600 text-white shadow-sm'
+                      : 'text-gray-600 dark:text-gray-400 hover:bg-gray-200/70 dark:hover:bg-gray-700/50 hover:text-gray-900 dark:hover:text-gray-200'
+                  }`}
+                >
+                  {tab.icon}
+                  <span>{tab.label}</span>
+                </button>
+              );
+            })}
           </div>
         </div>
 
-        {/* Tabs */}
-        <div className="flex border-b border-gray-200 dark:border-gray-700 px-2 shrink-0 bg-gray-50 dark:bg-gray-900/30">
-          {TABS.map(tab => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors relative ${
-                activeTab === tab.id
-                  ? 'text-indigo-600 dark:text-indigo-400'
-                  : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
-              }`}
-            >
-              {tab.icon}
-              <span className="hidden sm:inline">{tab.label}</span>
-              {activeTab === tab.id && (
-                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-600 dark:bg-indigo-400" />
-              )}
-            </button>
-          ))}
-        </div>
-
         {/* Tab Content */}
-        <div className="flex-1 overflow-y-auto p-5">
+        <div ref={contentRef} className="flex-1 overflow-y-auto p-5" style={{ scrollPaddingTop: '8px' }}>
           {activeTab === 'persona' && renderPersonaTab()}
           {activeTab === 'ruolo' && renderRuoloTab()}
           {activeTab === 'requisiti' && renderRequisitiTab()}
@@ -1708,7 +1824,7 @@ export const UnifiedDetailModal: React.FC<UnifiedDetailModalProps> = ({
         </div>
 
         {/* Actions */}
-        <div className="p-4 border-t border-gray-200 dark:border-gray-700 flex gap-2 shrink-0 bg-gray-50 dark:bg-gray-900/30">
+        <div className="px-4 py-3 border-t border-gray-200 dark:border-gray-700 flex items-center gap-2 shrink-0 bg-gray-50 dark:bg-gray-900/30">
           {isEditing ? (
             <>
               <Button variant="ghost" onClick={handleCancelEdit} disabled={isSaving} className="flex-1">
@@ -1721,18 +1837,45 @@ export const UnifiedDetailModal: React.FC<UnifiedDetailModalProps> = ({
             </>
           ) : (
             <>
+              {/* Menu kebab a sinistra: azioni secondarie */}
+              {(canDelete || (assignee && onProposeRotation)) && (
+                <div className="relative">
+                  <button
+                    onClick={() => setShowActionsMenu(v => !v)}
+                    aria-label="Altre azioni"
+                    className="p-2 rounded-lg text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                  >
+                    <MoreVertical size={18} />
+                  </button>
+                  {showActionsMenu && (
+                    <>
+                      <div className="fixed inset-0 z-[215]" onClick={() => setShowActionsMenu(false)} />
+                      <div className="absolute bottom-full left-0 mb-2 w-56 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-[216] py-1">
+                        {assignee && onProposeRotation && (
+                          <button
+                            onClick={() => { setShowActionsMenu(false); onProposeRotation(); }}
+                            className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                          >
+                            <Shuffle size={14} /> Proponi Job Rotation
+                          </button>
+                        )}
+                        {canDelete && (
+                          <button
+                            onClick={() => { setShowActionsMenu(false); setShowDeleteConfirm(true); }}
+                            className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+                          >
+                            <Trash2 size={14} /> Elimina ruolo
+                          </button>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+
               {canEdit && (
                 <Button variant="outline" onClick={() => setIsEditing(true)} className="flex-1">
                   <Edit size={16} className="mr-1" /> Modifica
-                </Button>
-              )}
-              {canDelete && (
-                <Button 
-                  variant="ghost" 
-                  onClick={() => setShowDeleteConfirm(true)}
-                  className="text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20"
-                >
-                  <Trash2 size={16} />
                 </Button>
               )}
               {assignee && onViewFullProfile && (
@@ -1743,11 +1886,6 @@ export const UnifiedDetailModal: React.FC<UnifiedDetailModalProps> = ({
               {!assignee && role.isHiring && onOpenMatching && (
                 <Button onClick={onOpenMatching} className="flex-1">
                   <FileSearch size={16} className="mr-1" /> Avvia Matching
-                </Button>
-              )}
-              {assignee && onProposeRotation && (
-                <Button variant="ghost" onClick={onProposeRotation} title="Proponi Job Rotation">
-                  <Shuffle size={16} />
                 </Button>
               )}
             </>
