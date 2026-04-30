@@ -94,7 +94,7 @@ function getStrokeWidth(pct: number): number {
 }
 
 export const CollaborationFlowOverlay: React.FC<CollaborationFlowOverlayProps> = ({
-  desks, rooms, userDataMap, canvasWidth = 1200, canvasHeight = 800, externalArrows = [],
+  desks, rooms, userDataMap, canvasWidth = 1200, canvasHeight = 800, externalArrows = [], roleMembersMap,
 }) => {
   const [hoveredKey, setHoveredKey] = useState<string | null>(null);
   const roomMap = useMemo(() => new Map(rooms.map(r => [r.id, r])), [rooms]);
@@ -118,27 +118,32 @@ export const CollaborationFlowOverlay: React.FC<CollaborationFlowOverlayProps> =
     return map;
   }, [desks, rooms, roomMap, userDataMap]);
 
-  // Build connections (internal only)
+  // Build connections (internal only) — supports member / team / role link types
   const connections = useMemo(() => {
     const connMap = new Map<string, FlowConnection>();
 
     for (const [memberId, entry] of memberDeskMap) {
       const profile = entry.userData.collaborationProfile;
       if (!profile?.links) continue;
+      const myName = `${entry.userData.firstName} ${entry.userData.lastName}`;
 
       for (const link of profile.links) {
-        if (link.targetType === 'member') {
-          const target = memberDeskMap.get(link.targetId);
-          if (!target || link.targetId === memberId) continue;
-          const key = [memberId, link.targetId].sort().join('::');
+        const targets = expandLinkToTargets(link, roleMembersMap);
+
+        for (const t of targets) {
+          if (t.memberId === memberId) continue;
+          const target = memberDeskMap.get(t.memberId);
+          if (!target) continue; // target not seated in this floor
+
+          const key = [memberId, t.memberId].sort().join('::');
           const existing = connMap.get(key);
           if (existing) {
-            if (existing.fromName === entry.userData.firstName + ' ' + entry.userData.lastName) {
-              existing.pctAB = Math.max(existing.pctAB, link.collaborationPercentage);
-              existing.affinityAB = Math.max(existing.affinityAB, link.personalAffinity);
+            if (existing.fromName === myName) {
+              existing.pctAB = Math.max(existing.pctAB, t.pct);
+              existing.affinityAB = Math.max(existing.affinityAB, t.affinity);
             } else {
-              existing.pctBA = Math.max(existing.pctBA, link.collaborationPercentage);
-              existing.affinityBA = Math.max(existing.affinityBA, link.personalAffinity);
+              existing.pctBA = Math.max(existing.pctBA, t.pct);
+              existing.affinityBA = Math.max(existing.affinityBA, t.affinity);
             }
             existing.bidirectional = true;
           } else {
@@ -146,52 +151,18 @@ export const CollaborationFlowOverlay: React.FC<CollaborationFlowOverlayProps> =
               key,
               fromX: entry.absX, fromY: entry.absY,
               toX: target.absX, toY: target.absY,
-              fromName: `${entry.userData.firstName} ${entry.userData.lastName}`,
+              fromName: myName,
               toName: `${target.userData.firstName} ${target.userData.lastName}`,
-              pctAB: link.collaborationPercentage,
-              pctBA: 0,
-              affinityAB: link.personalAffinity,
-              affinityBA: 0,
+              pctAB: t.pct, pctBA: 0,
+              affinityAB: t.affinity, affinityBA: 0,
               bidirectional: false,
             });
-          }
-        }
-        if (link.targetType === 'team' && link.memberBreakdown) {
-          for (const mb of link.memberBreakdown) {
-            const target = memberDeskMap.get(mb.memberId);
-            if (!target || mb.memberId === memberId) continue;
-            const effectivePct = Math.round((link.collaborationPercentage * mb.percentage) / 100);
-            if (effectivePct < 3) continue;
-            const affinity = mb.affinity ?? link.personalAffinity;
-            const key = [memberId, mb.memberId].sort().join('::');
-            const existing = connMap.get(key);
-            if (existing) {
-              if (existing.fromName === `${entry.userData.firstName} ${entry.userData.lastName}`) {
-                existing.pctAB = Math.max(existing.pctAB, effectivePct);
-                existing.affinityAB = Math.max(existing.affinityAB, affinity);
-              } else {
-                existing.pctBA = Math.max(existing.pctBA, effectivePct);
-                existing.affinityBA = Math.max(existing.affinityBA, affinity);
-              }
-              existing.bidirectional = true;
-            } else {
-              connMap.set(key, {
-                key,
-                fromX: entry.absX, fromY: entry.absY,
-                toX: target.absX, toY: target.absY,
-                fromName: `${entry.userData.firstName} ${entry.userData.lastName}`,
-                toName: `${target.userData.firstName} ${target.userData.lastName}`,
-                pctAB: effectivePct, pctBA: 0,
-                affinityAB: affinity, affinityBA: 0,
-                bidirectional: false,
-              });
-            }
           }
         }
       }
     }
     return Array.from(connMap.values());
-  }, [memberDeskMap]);
+  }, [memberDeskMap, roleMembersMap]);
 
   // Distribute external arrows along the right edge
   const externalBadges = useMemo(() => {
