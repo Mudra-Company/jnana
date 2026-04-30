@@ -336,7 +336,7 @@ export const OrgNodeCard: React.FC<OrgNodeCardProps> = ({
           cultureFitScore: assignee && companyValues 
             ? calculateCultureFitScore(assignee, companyValues) 
             : 0,
-          isLeader: !!(assignee?.jobTitle && (
+          isLeader: !!node.isCulturalDriver && !!(assignee?.jobTitle && (
             assignee.jobTitle.toLowerCase().includes('head') ||
             assignee.jobTitle.toLowerCase().includes('manager') ||
             assignee.jobTitle.toLowerCase().includes('lead') ||
@@ -373,7 +373,7 @@ export const OrgNodeCard: React.FC<OrgNodeCardProps> = ({
     
     // No explicit roles: show all users as implicit roles
     return nodeUsers.map(user => createImplicitPosition(user));
-  }, [nodeRoles, nodeUsers, users, parentManagers, companyValues]);
+  }, [nodeRoles, nodeUsers, users, parentManagers, companyValues, node.isCulturalDriver]);
   
   // Helper to create implicit position from user
   function createImplicitPosition(user: User): UnifiedPosition {
@@ -419,7 +419,7 @@ export const OrgNodeCard: React.FC<OrgNodeCardProps> = ({
       cultureFitScore: assignee && companyValues 
         ? calculateCultureFitScore(assignee, companyValues) 
         : 0,
-      isLeader: !!(assignee?.jobTitle && (
+      isLeader: !!node.isCulturalDriver && !!(assignee?.jobTitle && (
         assignee.jobTitle.toLowerCase().includes('head') ||
         assignee.jobTitle.toLowerCase().includes('manager') ||
         assignee.jobTitle.toLowerCase().includes('lead') ||
