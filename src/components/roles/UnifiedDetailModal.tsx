@@ -11,13 +11,13 @@
  * - Person assignment management
  */
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   X, User, Briefcase, FileText, Scale, History, Target, Handshake, Building,
   CheckCircle, XCircle, TrendingUp, TrendingDown, Star, Award, Crown, Clock,
   MapPin, Laptop, Banknote, GraduationCap, Languages, Calendar, ChevronRight,
   Edit, Eye, Shuffle, Users, FileSearch, Save, Loader2, Trash2, AlertTriangle,
-  Plus, Search, UserMinus, Volume2, Activity, Link2
+  Plus, Search, UserMinus, Volume2, Activity, Link2, MoreVertical, ChevronLeft,
 } from 'lucide-react';
 import { Button } from '../../../components/Button';
 import { GenerationBadge } from '../GenerationBadge';
