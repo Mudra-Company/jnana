@@ -2157,6 +2157,31 @@ export const CompanyOrgView: React.FC<{
                         }
                         setSelectedUnifiedPosition(null);
                     } : undefined}
+                    onOpenMatching={async () => {
+                        const pos = selectedUnifiedPosition;
+                        if (!pos) return;
+                        let positionId = pos.role.id;
+                        // Auto-promote implicit roles so the matching view has a real DB id
+                        if (positionId.startsWith('implicit-')) {
+                            const createResult = await createRole({
+                                companyId: company.id,
+                                title: pos.role.title,
+                                orgNodeId: pos.role.orgNodeId || undefined,
+                                isHiring: true,
+                            });
+                            if (!createResult.success || !createResult.role) {
+                                toast({
+                                    title: 'Errore',
+                                    description: createResult.error || 'Impossibile preparare il ruolo per la ricerca',
+                                    variant: 'destructive',
+                                });
+                                return;
+                            }
+                            positionId = createResult.role.id;
+                        }
+                        setSelectedUnifiedPosition(null);
+                        onOpenPositionMatching?.(positionId);
+                    }}
                     onSaveRole={async (roleId, updatedRole) => {
                         let actualRoleId = roleId;
                         // Auto-promote implicit roles silently
