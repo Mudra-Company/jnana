@@ -12,6 +12,8 @@ import type { CandidateMatch } from '../../src/types/karma';
 import type { ShortlistUser } from '../../src/types/shortlist';
 import { ShortlistTab } from '../../src/components/shortlist/ShortlistTab';
 import { MatchScorePopover, MatchBreakdown } from '../../src/components/shortlist/MatchScorePopover';
+import { JobRotationReportModal } from '../../src/components/shortlist/JobRotationReportModal';
+import { analyzeRotation, type RotationAnalysis } from '../../src/utils/jobRotationAnalyzer';
 import { supabase } from '../../src/integrations/supabase/client';
 import { useToast } from '../../src/hooks/use-toast';
 import { GenerationBadge } from '../../src/components/GenerationBadge';
