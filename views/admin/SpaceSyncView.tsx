@@ -15,7 +15,7 @@ import { ProximityHeatmap } from '../../src/components/spacesync/ProximityHeatma
 import { ProximityReport } from '../../src/components/spacesync/ProximityReport';
 import { SwapSimulationModal } from '../../src/components/spacesync/SwapSimulationModal';
 import { OptimizationSuggestions } from '../../src/components/spacesync/OptimizationSuggestions';
-import { CollaborationFlowOverlay, buildFlowConnections } from '../../src/components/spacesync/CollaborationFlowOverlay';
+import { CollaborationFlowOverlay, buildFlowConnections, expandLinkToTargets } from '../../src/components/spacesync/CollaborationFlowOverlay';
 import { CollaborationFlowReport } from '../../src/components/spacesync/CollaborationFlowReport';
 import type { CompanyProfile, User } from '../../types';
 import type { OfficeDesk, OfficeRoom, ExternalFlowArrow, GlobalDeskEntry } from '../../src/types/spacesync';
@@ -54,7 +54,7 @@ export const SpaceSyncView: React.FC<SpaceSyncViewProps> = ({ company, companyUs
   const { locations, isLoading: locLoading, fetchLocations, createLocation, updateLocation, deleteLocation } = useOfficeLocations();
   const { rooms, fetchRooms, createRoom, updateRoom, deleteRoom } = useOfficeRooms();
   const { desks, fetchDesks, fetchAllDesks, createDesk, updateDesk, deleteDesk } = useOfficeDesks();
-  const { userDataMap, isLoading: proximityLoading, loadUserData, calculateAllPairs, getDeskScores } = useProximityScoring();
+  const { userDataMap, roleMembersMap, isLoading: proximityLoading, loadUserData, calculateAllPairs, getDeskScores } = useProximityScoring();
 
   const [selectedLocationId, setSelectedLocationId] = useState<string | undefined>();
   const [selectedRoomId, setSelectedRoomId] = useState<string | undefined>();
