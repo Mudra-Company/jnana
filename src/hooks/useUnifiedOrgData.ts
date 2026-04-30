@@ -129,8 +129,9 @@ export const useUnifiedOrgData = (): UseUnifiedOrgDataResult => {
       if (cultureFitScore > 100) cultureFitScore = 100;
     }
 
-    // Check if user is a leader (manager-like title)
-    const isLeader = !!(assignee.jobTitle && (
+    // Leader badge: shown ONLY for people in roles attached to a "Cultural Driver" org node.
+    // The job-title heuristic is used as a secondary qualifier within those nodes; outside them no LEADER badge is rendered.
+    const matchesLeaderTitle = !!(assignee.jobTitle && (
       assignee.jobTitle.toLowerCase().includes('head') ||
       assignee.jobTitle.toLowerCase().includes('manager') ||
       assignee.jobTitle.toLowerCase().includes('lead') ||
@@ -139,6 +140,7 @@ export const useUnifiedOrgData = (): UseUnifiedOrgDataResult => {
       assignee.jobTitle.toLowerCase().includes('cto') ||
       assignee.jobTitle.toLowerCase().includes('coo')
     ));
+    const isLeader = isCulturalDriverNode && matchesLeaderTitle;
 
     return {
       roleFitScore,
