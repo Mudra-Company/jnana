@@ -24,25 +24,29 @@ interface UseUnifiedOrgDataResult {
     roles: CompanyRole[], 
     users: User[], 
     companyValues?: string[],
-    parentManagers?: User[]
+    parentManagers?: User[],
+    culturalDriverNodeIds?: Set<string>
   ) => UnifiedPosition[];
   buildLegacyPositions: (
     users: User[], 
     companyValues?: string[],
-    parentManagers?: User[]
+    parentManagers?: User[],
+    culturalDriverNodeIds?: Set<string>
   ) => UnifiedPosition[];
   buildMergedPositions: (
     roles: CompanyRole[], 
     users: User[], 
     nodeId: string,
     companyValues?: string[],
-    parentManagers?: User[]
+    parentManagers?: User[],
+    culturalDriverNodeIds?: Set<string>
   ) => UnifiedPosition[];
   calculateDetailedMetrics: (
     role: CompanyRole, 
     assignee: User | null, 
     companyValues?: string[],
-    parentManagers?: User[]
+    parentManagers?: User[],
+    isCulturalDriverNode?: boolean
   ) => DetailedMetrics;
   fetchAssignmentHistory: (roleId: string) => Promise<AssignmentHistoryEntry[]>;
   fetchUserHardSkills: (userId: string) => Promise<UserHardSkillDisplay[]>;
