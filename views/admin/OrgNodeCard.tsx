@@ -336,14 +336,8 @@ export const OrgNodeCard: React.FC<OrgNodeCardProps> = ({
           cultureFitScore: assignee && companyValues 
             ? calculateCultureFitScore(assignee, companyValues) 
             : 0,
-          isLeader: !!node.isCulturalDriver && !!(assignee?.jobTitle && (
-            assignee.jobTitle.toLowerCase().includes('head') ||
-            assignee.jobTitle.toLowerCase().includes('manager') ||
-            assignee.jobTitle.toLowerCase().includes('lead') ||
-            assignee.jobTitle.toLowerCase().includes('director') ||
-            assignee.jobTitle.toLowerCase().includes('ceo') ||
-            assignee.jobTitle.toLowerCase().includes('cto')
-          ))
+          // Leader Culturale: chiunque assegnato a un ruolo in un nodo Cultural Driver.
+          isLeader: !!node.isCulturalDriver && !!assignee
         };
         
         return {
@@ -419,14 +413,8 @@ export const OrgNodeCard: React.FC<OrgNodeCardProps> = ({
       cultureFitScore: assignee && companyValues 
         ? calculateCultureFitScore(assignee, companyValues) 
         : 0,
-      isLeader: !!node.isCulturalDriver && !!(assignee?.jobTitle && (
-        assignee.jobTitle.toLowerCase().includes('head') ||
-        assignee.jobTitle.toLowerCase().includes('manager') ||
-        assignee.jobTitle.toLowerCase().includes('lead') ||
-        assignee.jobTitle.toLowerCase().includes('director') ||
-        assignee.jobTitle.toLowerCase().includes('ceo') ||
-        assignee.jobTitle.toLowerCase().includes('cto')
-      ))
+      // Leader Culturale: chiunque assegnato a un ruolo in un nodo Cultural Driver.
+      isLeader: !!node.isCulturalDriver && !!assignee
     };
     
     return {

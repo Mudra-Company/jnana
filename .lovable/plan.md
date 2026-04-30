@@ -1,39 +1,44 @@
-# Riepilogo "Competenze richieste" nel tab Ruolo
+# Allineare il badge LEADER al concetto di "Leader Culturale"
 
-## Contesto
+## Principio
 
-Le hard skills e soft skills **richieste dal ruolo** esistono e sono attive: vivono in `role.requiredHardSkills` / `role.requiredSoftSkills` e sono il riferimento che il motore di matching usa per calcolare il "Fit con il Ruolo" (vedi `useUnifiedOrgData.ts`).
+**Un Leader Culturale è chiunque appartenga a un nodo organizzativo marcato come Cultural Driver.** Nient'altro. Nessun filtro su "manager/head/CEO/..." nel job title.
 
-Oggi però sono **visibili e modificabili solo nel tab "Requisiti"**. Nel tab "Ruolo" (mansionario) non compaiono — quindi a colpo d'occhio sembra che il ruolo non le abbia, anche se esistono.
-
-## Obiettivo
-
-Rendere visibili nel tab **Ruolo** (in read-only) le competenze attese dal ruolo, mantenendo il tab **Requisiti** come unica fonte di editing (no duplicazione).
+Questo riflette già la logica analitica esistente in `services/riasecService.ts → calculateCultureAnalysis`, che per costruire la "Cultura Agita" prende **tutti** gli utenti dei nodi `isCulturalDriver` senza filtrare per titolo. Allineamo il badge UI a questo concetto.
 
 ## Cosa cambia
 
-### In `src/components/roles/UnifiedDetailModal.tsx` → `renderRuoloTab()`
+### 1. Rimuovere l'euristica sul job title (3 punti)
 
-Aggiungere, **subito dopo i KPI**, una nuova sezione mostrata solo in modalità lettura:
+In tutti questi file, il calcolo di `isLeader` diventa semplicemente: `assignee esiste && nodo è Cultural Driver`.
 
-**"Competenze richieste"** — con due sotto-blocchi:
+- **`src/hooks/useUnifiedOrgData.ts`** → `calculateQuickMetrics`: elimino il blocco `matchesLeaderTitle` (head/manager/lead/director/ceo/cto/coo). `isLeader = isCulturalDriverNode && !!assignee`.
+- **`views/admin/OrgNodeCard.tsx`** → `rolePositions` (righe 339-346) e `createImplicitPosition` (righe 422-429): stessa semplificazione.
+- **`src/components/admin/OrgChartPrintView.tsx`** → `findNodeManagers` (righe 194-...): per i nodi Cultural Driver tutti i membri sono leader; il calcolo di `isLeader` (riga 266) e l'avatar/badge (309, 404) restano collegati solo a `node.isCulturalDriver`.
 
-- **Hard Skills** (chip indigo): nome skill + livello richiesto (es. "Liv. 4") + stellina ⭐ se obbligatoria.
-- **Soft Skills** (chip viola): nome + stellina ⭐ se obbligatoria.
+### 2. Analisi della Cultura Agita: già corretta
 
-Sotto la sezione, una nota con link/CTA testuale:
-> "Per modificare le competenze richieste vai al tab **Requisiti**."
+`AdminIdentityHub` → sezione **"Cultura Agita (Dai Leader)"** già aggrega i `primaryValues` di tutti gli utenti nei nodi Cultural Driver tramite `calculateCultureAnalysis`. **Nessuna modifica necessaria** — funziona già con la definizione corretta di "Leader Culturale".
 
-Se sia hard che soft sono vuote, la sezione non viene mostrata (zero rumore visivo).
+Confermo solo che il copy mostrato all'utente sia coerente:
+- Card "Cultura Agita (Dai Leader)" → footer recita: *"Basato su N Cultural Drivers identificati nell'Org Chart."* dove `N = leaderUsers.length` (tutti gli utenti dei nodi driver). ✅ già corretto.
 
-In **modalità Edit** la sezione resta nascosta nel tab Ruolo (l'editing avviene solo nel tab Requisiti, dov'è già completo).
+### 3. Aggiornare il commento esplicativo
 
-## Cosa NON cambia
+In `useUnifiedOrgData.ts` aggiorno il commento sopra `isLeader` per riflettere la nuova semantica: *"Il badge LEADER è mostrato a chiunque sia assegnato a un ruolo dentro un nodo marcato come Cultural Driver. Questi sono i Leader Culturali, le persone su cui si misura la Cultura Agita aziendale (vedi Identity Hub → Cultura Agita)."*
 
-- Il tab **Requisiti** resta com'è: unica fonte di editing per hard/soft skills, seniority, formazione, certificazioni, lingue.
-- La logica di matching (`useUnifiedOrgData.ts`) e i campi del DB non vengono toccati.
-- Nessuna modifica a tipi, RLS, edge functions.
+## Effetti visibili
+
+- Nei nodi **Cultural Driver**: badge LEADER su **tutti** gli assegnatari (es. anche un "Membro CDA" o un "Consigliere" senza job title gerarchico).
+- Nei nodi **non** Cultural Driver: nessun badge LEADER, mai.
+- L'Identity Hub continuerà a funzionare come oggi, ma ora c'è coerenza visiva 1:1 tra "chi vedo con badge LEADER" e "chi contribuisce alla Cultura Agita".
 
 ## File toccati
 
-- `src/components/roles/UnifiedDetailModal.tsx` — solo aggiunta sezione read-only in `renderRuoloTab`.
+```text
+src/hooks/useUnifiedOrgData.ts
+views/admin/OrgNodeCard.tsx
+src/components/admin/OrgChartPrintView.tsx
+```
+
+Nessuna modifica DB, nessuna modifica ai tipi.
