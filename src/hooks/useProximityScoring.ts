@@ -13,6 +13,7 @@ import {
 
 export const useProximityScoring = () => {
   const [userDataMap, setUserDataMap] = useState<Map<string, ProximityUserData>>(new Map());
+  const [roleMembersMap, setRoleMembersMap] = useState<Map<string, string[]>>(new Map());
   const [isLoading, setIsLoading] = useState(false);
 
   /**
