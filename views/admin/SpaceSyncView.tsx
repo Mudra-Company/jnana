@@ -101,12 +101,15 @@ export const SpaceSyncView: React.FC<SpaceSyncViewProps> = ({ company, companyUs
   const occupancyPct = desks.length > 0 ? Math.round((assignedCount / desks.length) * 100) : 0;
 
   // Flow connections (internal)
-  const flowConnections = useMemo(() => buildFlowConnections(desks, rooms, userDataMap), [desks, rooms, userDataMap]);
-  
+  const flowConnections = useMemo(
+    () => buildFlowConnections(desks, rooms, userDataMap, roleMembersMap),
+    [desks, rooms, userDataMap, roleMembersMap]
+  );
+
   // External flow arrows (cross-location)
   const externalArrows = useMemo<ExternalFlowArrow[]>(() => {
     if (!flowMode || !selectedLocation || allDesksGlobal.length === 0) return [];
-    
+
     const currentMemberIds = new Set(desks.filter(d => d.companyMemberId).map(d => d.companyMemberId!));
     const globalMemberMap = new Map(allDesksGlobal.map(d => [d.memberId, d]));
     const roomMap = new Map(rooms.map(r => [r.id, r]));
@@ -126,26 +129,13 @@ export const SpaceSyncView: React.FC<SpaceSyncViewProps> = ({ company, companyUs
       const fromName = `${userData.firstName} ${userData.lastName}`;
 
       for (const link of userData.collaborationProfile.links) {
-        const targets: Array<{ memberId: string; pct: number; affinity: number }> = [];
-
-        if (link.targetType === 'member' && !currentMemberIds.has(link.targetId)) {
-          targets.push({ memberId: link.targetId, pct: link.collaborationPercentage, affinity: link.personalAffinity });
-        }
-        if (link.targetType === 'team' && link.memberBreakdown) {
-          for (const mb of link.memberBreakdown) {
-            if (!currentMemberIds.has(mb.memberId)) {
-              const effectivePct = Math.round((link.collaborationPercentage * mb.percentage) / 100);
-              if (effectivePct >= 3) {
-                targets.push({ memberId: mb.memberId, pct: effectivePct, affinity: mb.affinity ?? link.personalAffinity });
-              }
-            }
-          }
-        }
+        const targets = expandLinkToTargets(link, roleMembersMap)
+          .filter(t => !currentMemberIds.has(t.memberId));
 
         for (const t of targets) {
           const targetGlobal = globalMemberMap.get(t.memberId);
           if (!targetGlobal) continue;
-          
+
           const key = [desk.companyMemberId, t.memberId].sort().join('::ext');
           if (seen.has(key)) continue;
           seen.add(key);
@@ -173,7 +163,7 @@ export const SpaceSyncView: React.FC<SpaceSyncViewProps> = ({ company, companyUs
     }
 
     return arrows.sort((a, b) => b.percentage - a.percentage);
-  }, [flowMode, selectedLocation, allDesksGlobal, desks, userDataMap, rooms]);
+  }, [flowMode, selectedLocation, allDesksGlobal, desks, userDataMap, rooms, roleMembersMap]);
 
   const flowMissingCount = useMemo(() => {
     const deskMemberIds = new Set(desks.filter(d => d.companyMemberId).map(d => d.companyMemberId!));
@@ -182,16 +172,14 @@ export const SpaceSyncView: React.FC<SpaceSyncViewProps> = ({ company, companyUs
     for (const [, ud] of userDataMap) {
       if (!ud.collaborationProfile?.links) continue;
       for (const link of ud.collaborationProfile.links) {
-        if (link.targetType === 'member' && !deskMemberIds.has(link.targetId) && !globalMemberIds.has(link.targetId)) missing++;
-        if (link.targetType === 'team' && link.memberBreakdown) {
-          for (const mb of link.memberBreakdown) {
-            if (!deskMemberIds.has(mb.memberId) && !globalMemberIds.has(mb.memberId)) missing++;
-          }
+        const targets = expandLinkToTargets(link, roleMembersMap);
+        for (const t of targets) {
+          if (!deskMemberIds.has(t.memberId) && !globalMemberIds.has(t.memberId)) missing++;
         }
       }
     }
     return missing;
-  }, [desks, userDataMap, allDesksGlobal]);
+  }, [desks, userDataMap, allDesksGlobal, roleMembersMap]);
 
   const selectedRoomDeskCount = useMemo(() =>
     selectedRoom ? desks.filter(d => d.roomId === selectedRoom.id).length : 0
