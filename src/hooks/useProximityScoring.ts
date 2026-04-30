@@ -123,6 +123,7 @@ export const useProximityScoring = () => {
       }
 
       setUserDataMap(map);
+      setRoleMembersMap(roleMembers);
     } catch (err) {
       console.error('Error loading proximity data:', err);
     } finally {
