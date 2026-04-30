@@ -271,7 +271,8 @@ export const useUnifiedOrgData = (): UseUnifiedOrgDataResult => {
     roles: CompanyRole[],
     users: User[],
     companyValues?: string[],
-    parentManagers?: User[]
+    parentManagers?: User[],
+    culturalDriverNodeIds?: Set<string>
   ): UnifiedPosition[] => {
     return roles.map(role => {
       // Find the assignee from the role's assignments or current assignee
@@ -294,7 +295,8 @@ export const useUnifiedOrgData = (): UseUnifiedOrgDataResult => {
         }
       }
 
-      const metrics = calculateQuickMetrics(role, assignee, companyValues, parentManagers);
+      const isCulturalDriverNode = !!(role.orgNodeId && culturalDriverNodeIds?.has(role.orgNodeId));
+      const metrics = calculateQuickMetrics(role, assignee, companyValues, parentManagers, isCulturalDriverNode);
 
       return {
         role,
