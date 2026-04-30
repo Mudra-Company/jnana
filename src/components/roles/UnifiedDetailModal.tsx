@@ -874,11 +874,60 @@ export const UnifiedDetailModal: React.FC<UnifiedDetailModalProps> = ({
             <p className="text-sm text-gray-400 italic">Nessun KPI definito</p>
           )}
         </Section>
+
+        {/* COMPETENZE RICHIESTE — riepilogo read-only (editing nel tab Requisiti) */}
+        {!isEditing && (currentHardSkillsReq.length > 0 || currentSoftSkillsReq.length > 0) && (
+          <Section title="Competenze richieste" icon={<Award size={16} />}>
+            {currentHardSkillsReq.length > 0 && (
+              <div className="space-y-2">
+                <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Hard Skills</span>
+                <div className="flex flex-wrap gap-1.5">
+                  {currentHardSkillsReq.map((skill, i) => (
+                    <span
+                      key={i}
+                      className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs ${
+                        skill.mandatory
+                          ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300 border border-indigo-300 dark:border-indigo-700'
+                          : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
+                      }`}
+                    >
+                      {skill.name}
+                      {skill.level && <span className="text-[10px] text-gray-500 ml-0.5">Liv. {skill.level}</span>}
+                      {skill.mandatory && <Star size={10} className="text-amber-500 fill-amber-500 ml-0.5" />}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+            {currentSoftSkillsReq.length > 0 && (
+              <div className="space-y-2">
+                <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">Soft Skills</span>
+                <div className="flex flex-wrap gap-1.5">
+                  {currentSoftSkillsReq.map((skill, i) => (
+                    <span
+                      key={i}
+                      className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs ${
+                        skill.mandatory
+                          ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 border border-purple-300 dark:border-purple-700'
+                          : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300'
+                      }`}
+                    >
+                      {skill.name}
+                      {skill.mandatory && <Star size={10} className="text-amber-500 fill-amber-500 ml-0.5" />}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+            <p className="text-[11px] text-gray-400 dark:text-gray-500 italic flex items-center gap-1 pt-1">
+              <Target size={11} />
+              Per modificare le competenze richieste, apri il tab <span className="font-medium text-indigo-600 dark:text-indigo-400">Requisiti</span>.
+            </p>
+          </Section>
+        )}
       </div>
     );
   };
-
-  const renderRequisitiTab = () => {
     const currentHardSkills = (getValue('requiredHardSkills') || []) as RequiredSkill[];
     const currentSoftSkills = (getValue('requiredSoftSkills') || []) as RequiredSkill[];
     const currentSeniority = getValue('requiredSeniority') as SeniorityLevel | null | undefined;
