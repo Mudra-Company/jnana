@@ -157,9 +157,10 @@ export const useUnifiedOrgData = (): UseUnifiedOrgDataResult => {
     role: CompanyRole,
     assignee: User | null,
     companyValues?: string[],
-    parentManagers?: User[]
+    parentManagers?: User[],
+    isCulturalDriverNode: boolean = false
   ): DetailedMetrics => {
-    const quickMetrics = calculateQuickMetrics(role, assignee, companyValues, parentManagers);
+    const quickMetrics = calculateQuickMetrics(role, assignee, companyValues, parentManagers, isCulturalDriverNode);
     
     if (!assignee) {
       return {
