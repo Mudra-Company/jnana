@@ -12,6 +12,8 @@ import type { CandidateMatch } from '../../src/types/karma';
 import type { ShortlistUser } from '../../src/types/shortlist';
 import { ShortlistTab } from '../../src/components/shortlist/ShortlistTab';
 import { MatchScorePopover, MatchBreakdown } from '../../src/components/shortlist/MatchScorePopover';
+import { JobRotationReportModal } from '../../src/components/shortlist/JobRotationReportModal';
+import { analyzeRotation, type RotationAnalysis } from '../../src/utils/jobRotationAnalyzer';
 import { supabase } from '../../src/integrations/supabase/client';
 import { useToast } from '../../src/hooks/use-toast';
 import { GenerationBadge } from '../../src/components/GenerationBadge';
@@ -155,12 +157,18 @@ export const PositionMatchingView: React.FC<PositionMatchingViewProps> = ({
   const [activeTab, setActiveTab] = useState<'internal' | 'external' | 'shortlist'>('internal');
   const [nodeNames, setNodeNames] = useState<Record<string, string>>({});
   
-  // Popover state for match breakdown
+  // Popover state for match breakdown (used for external candidates)
   const [selectedCandidatePopover, setSelectedCandidatePopover] = useState<{
     name: string;
     type: 'internal' | 'external';
     breakdown: MatchBreakdown;
     candidateData: typeof internalCandidates[0] | CandidateMatch;
+  } | null>(null);
+
+  // Job Rotation report state (used ONLY for internal candidates)
+  const [selectedRotationReport, setSelectedRotationReport] = useState<{
+    analysis: RotationAnalysis;
+    candidate: typeof internalCandidates[0];
   } | null>(null);
 
   // Shortlist hook - initialized after position is loaded
@@ -338,22 +346,20 @@ export const PositionMatchingView: React.FC<PositionMatchingViewProps> = ({
   };
 
   const handleOpenInternalPopover = (candidate: typeof internalCandidates[0]) => {
-    setSelectedCandidatePopover({
-      name: `${candidate.user.firstName} ${candidate.user.lastName}`,
-      type: 'internal',
-      breakdown: {
-        totalScore: candidate.matchData.score,
-        softSkillsMatched: candidate.matchData.softMatches,
-        softSkillsMissing: candidate.matchData.softGaps,
-        hardSkillsMatched: candidate.matchData.hardMatches,
-        hardSkillsMissing: candidate.matchData.hardGaps,
-        seniorityMatch: candidate.matchData.seniorityMatch,
-        candidateSeniority: candidate.user.karmaData?.seniorityAssessment,
-        requiredSeniority: position?.requiredProfile?.seniority as string | undefined,
-        candidateProfileCode: candidate.user.profileCode,
+    if (!position) return;
+    // Internal candidates open the full Job Rotation HR report
+    const analysis = analyzeRotation({
+      candidate: candidate.user,
+      candidateMatch: candidate.matchData,
+      position: {
+        jobTitle: position.jobTitle,
+        requiredProfile: position.requiredProfile as RequiredProfile | undefined,
+        nodeId: (position as any).nodeId || null,
       },
-      candidateData: candidate,
+      companyUsers,
+      nodeNames,
     });
+    setSelectedRotationReport({ analysis, candidate });
   };
 
   const handleOpenExternalPopover = (match: CandidateMatch) => {
@@ -887,6 +893,27 @@ export const PositionMatchingView: React.FC<PositionMatchingViewProps> = ({
             } else {
               onViewCandidate((selectedCandidatePopover.candidateData as CandidateMatch).profile.id);
             }
+          }}
+        />
+      )}
+
+      {/* Job Rotation HR Report (internal candidates only) */}
+      {selectedRotationReport && (
+        <JobRotationReportModal
+          isOpen={true}
+          onClose={() => setSelectedRotationReport(null)}
+          analysis={selectedRotationReport.analysis}
+          isInShortlist={isInShortlist(selectedRotationReport.candidate.user.id, 'internal')}
+          onAddToShortlist={() => {
+            handleAddInternalToShortlist(selectedRotationReport.candidate);
+          }}
+          onViewProfile={() => {
+            onViewCandidate(selectedRotationReport.candidate.user.id);
+            setSelectedRotationReport(null);
+          }}
+          onAssign={() => {
+            onAssignInternal(positionId, selectedRotationReport.candidate.user.id);
+            setSelectedRotationReport(null);
           }}
         />
       )}
