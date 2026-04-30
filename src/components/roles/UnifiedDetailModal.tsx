@@ -241,6 +241,59 @@ export const UnifiedDetailModal: React.FC<UnifiedDetailModalProps> = ({
     }
   }, [assignee?.id, userHardSkills.length, fetchUserHardSkills]);
 
+  // ESC key closes modal
+  useEffect(() => {
+    if (!isOpen) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !showDeleteConfirm && !showActionsMenu) onClose();
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, onClose]);
+
+  // Refs for tab bar scroll & content scroll
+  const tabBarRef = useRef<HTMLDivElement>(null);
+  const tabButtonRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+  const contentRef = useRef<HTMLDivElement>(null);
+  const sectionRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const [showActionsMenu, setShowActionsMenu] = useState(false);
+  const [tabOverflow, setTabOverflow] = useState<{ left: boolean; right: boolean }>({ left: false, right: false });
+
+  // Auto-scroll active tab into view + update overflow indicators
+  useEffect(() => {
+    const btn = tabButtonRefs.current[activeTab];
+    btn?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+  }, [activeTab]);
+
+  useEffect(() => {
+    const el = tabBarRef.current;
+    if (!el) return;
+    const update = () => {
+      setTabOverflow({
+        left: el.scrollLeft > 4,
+        right: el.scrollLeft + el.clientWidth < el.scrollWidth - 4,
+      });
+    };
+    update();
+    el.addEventListener('scroll', update, { passive: true });
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => {
+      el.removeEventListener('scroll', update);
+      ro.disconnect();
+    };
+  }, [isOpen]);
+
+  // Helper: focus a section in Persona tab and switch tab
+  const focusSection = (sectionId: 'role' | 'manager' | 'culture') => {
+    setActiveTab('persona');
+    setTimeout(() => {
+      const el = sectionRefs.current[sectionId];
+      el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 50);
+  };
+
   if (!isOpen) return null;
 
   // Handle save
