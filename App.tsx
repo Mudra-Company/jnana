@@ -878,7 +878,7 @@ const AppContent: React.FC = () => {
               currentUserId={user?.id}
               onRefreshUsers={async () => {
                 if (activeCompanyData) {
-                  const users = await loadCompanyUsersWithDetails(activeCompanyData.id);
+                  const users = await fetchCompanyUsersWithDetails(activeCompanyData.id);
                   setCompanyUsers(users);
                 }
               }}
