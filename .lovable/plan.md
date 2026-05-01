@@ -207,6 +207,12 @@ Sostituire il mega switch di rendering con un albero `<Routes>` reale che sfrutt
 - Aggiornato anche il call site `onRefreshUsers` nell'AdminIdentityHub.
 - **App.tsx: 1460 → 1335 righe** (-125, ulteriore -8.5%). Cumulativo dal Phase 3 start: 1591 → 1335 (-256, -16%).
 
-### Step 3 (prossimo) — Route switch dichiarativo
+### Step 3a ✅ — AppDataContext (Fase 5 anticipata)
 
-Sostituire il mega switch di rendering con un albero `<Routes>` reale che sfrutta i guard della Fase 2. Lo shim `useViewRouter` continua a sincronizzare `view ↔ URL` durante la migrazione.
+- Creato `src/app/AppDataContext.tsx` con `AppDataProvider`, `useAppData()`, `useAppDataOptional()`. Espone tutto lo state e gli handler oggi inline in `AppContent`: auth-derived, routing (`view`/`navigate`/`goBack`), domain (`currentUserData`, `companyUsers`, `activeCompanyData`, `companies`, `jobDb`), tema, super-admin (impersonate, create company), demo mode, handler di flow utente, invite, CV parsed.
+- `AppContent` ora costruisce `appDataValue` e wrappa il return col `<AppDataProvider>`. Comportamento invariato.
+- Build pulita.
+
+### Step 3b (prossimo) — Migrazione progressiva del switch a `<Routes>`
+
+Ogni view sarà un componente di route che legge i dati con `useAppData()`. Procederemo per gruppi: prima le view "leaf" (analytics, questionnaires, karma profile/results), poi admin, poi user flow, poi demo. Lo shim `useViewRouter` resta attivo finché tutte le view non sono migrate.
