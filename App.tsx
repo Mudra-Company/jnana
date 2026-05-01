@@ -1350,6 +1350,7 @@ const AppContent: React.FC = () => {
         </main>
       </div>
     </div>
+    </AppDataProvider>
   );
 };
 
