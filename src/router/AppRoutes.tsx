@@ -879,5 +879,6 @@ export const AppRoutes: React.FC = () => {
       <Route path="/demo/climate" element={<DemoUserClimateRoute />} />
       <Route path="/demo/result" element={<DemoUserResultRoute />} />
     </Routes>
+    </Suspense>
   );
 };
