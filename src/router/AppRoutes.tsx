@@ -279,17 +279,13 @@ function AdminPositionMatchingRoute() {
   const { positionId } = useParams();
   const [searchParams] = useSearchParams();
   if (!activeCompanyData || !canAccessAdminViews || !positionId) return <NotReady />;
-  const tab = searchParams.get('tab');
-  const initialTab =
-    tab === 'internal' || tab === 'external' || tab === 'shortlist'
-      ? (tab as 'internal' | 'external' | 'shortlist')
-      : undefined;
+  // initialTab read from ?tab= but PositionMatchingView doesn't accept it yet — kept in URL only.
+  void searchParams;
   return (
     <PositionMatchingView
       positionId={positionId}
       company={activeCompanyData}
       companyUsers={companyUsers}
-      initialTab={initialTab}
       onBack={() => navigate({ type: 'ADMIN_OPEN_POSITIONS' })}
       onViewCandidate={(userId) => navigate({ type: 'KARMA_PROFILE_VIEW', userId })}
       onAssignInternal={async (slotId, userId) => {
