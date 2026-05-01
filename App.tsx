@@ -1567,13 +1567,16 @@ const AppContent: React.FC = () => {
 };
 
 // --- APP WITH AUTH PROVIDER ---
+// AuthProvider is now mounted in index.tsx so Vite Fast Refresh keeps the
+// provider and consumers in sync when src/hooks/useAuth.tsx is hot-updated.
 const App: React.FC = () => {
   return (
-    <AuthProvider>
+    <>
       <AppContent />
       <Toaster />
-    </AuthProvider>
+    </>
   );
 };
 
 export default App;
+
