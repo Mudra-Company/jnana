@@ -8,9 +8,61 @@ const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
+/**
+ * Storage adapter that switches between localStorage (Remember Me ON)
+ * and sessionStorage (Remember Me OFF) based on the `jnana_remember_me` flag.
+ *
+ * - Reads fall back across both storages so existing logged-in users are not
+ *   forcibly logged out by this change.
+ * - Writes go only to the active storage; the other is cleaned for the same key
+ *   to avoid duplicate/conflicting Supabase sessions.
+ */
+const REMEMBER_KEY = 'jnana_remember_me';
+
+const getActiveStorage = (): Storage => {
+  try {
+    const remember = localStorage.getItem(REMEMBER_KEY);
+    // Default to localStorage (persistent) if the user has not chosen yet.
+    if (remember === '0') return sessionStorage;
+    return localStorage;
+  } catch {
+    return localStorage;
+  }
+};
+
+const rememberAwareStorage = {
+  getItem: (key: string): string | null => {
+    try {
+      const active = getActiveStorage();
+      const fromActive = active.getItem(key);
+      if (fromActive !== null) return fromActive;
+      // Fallback to the other storage so existing sessions keep working.
+      const other = active === localStorage ? sessionStorage : localStorage;
+      return other.getItem(key);
+    } catch {
+      return null;
+    }
+  },
+  setItem: (key: string, value: string): void => {
+    try {
+      const active = getActiveStorage();
+      const other = active === localStorage ? sessionStorage : localStorage;
+      active.setItem(key, value);
+      // Avoid leaving a stale copy of the same key in the other storage.
+      try { other.removeItem(key); } catch { /* noop */ }
+    } catch {
+      /* noop */
+    }
+  },
+  removeItem: (key: string): void => {
+    try { localStorage.removeItem(key); } catch { /* noop */ }
+    try { sessionStorage.removeItem(key); } catch { /* noop */ }
+  },
+};
+
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: {
-    storage: localStorage,
+    storage: rememberAwareStorage,
     persistSession: true,
     autoRefreshToken: true,
   }

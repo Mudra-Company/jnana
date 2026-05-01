@@ -1,60 +1,50 @@
-## Diagnosi
 
-I flussi di collaborazione **non si vedono** in SpaceSync per Amaeru per tre motivi sovrapposti:
+## Problema
 
-### 1. Bug nel codice — `targetType: 'role'` non viene mai processato
-I link di collaborazione possono avere tre `targetType`: `member`, `team`, `role`. Nei dati di Amaeru il **95% dei link è di tipo `role`** (CTO, Backend, Designer, ecc.), perché modellano "questo ruolo collabora con quel ruolo". Ma in tre punti del codice il branch `role` non esiste — vengono gestiti solo `member` e `team`:
+Il checkbox "Ricordami" in `src/views/auth/AuthView.tsx` esiste solo come `useState` locale: il valore non viene mai passato a `signIn`, né influenza la persistenza della sessione Supabase. Di fatto:
 
-- `src/components/spacesync/CollaborationFlowOverlay.tsx` (disegno frecce interne)
-- la helper `buildFlowConnections()` nello stesso file (alimenta il Report Flussi)
-- `views/admin/SpaceSyncView.tsx` (frecce esterne cross-sede + conteggio "mancanti")
+- Oggi il client Supabase (`src/integrations/supabase/client.ts`) usa `persistSession: true` su `localStorage`. La sessione DOVREBBE già rimanere salvata tra refresh.
+- Se l'utente è costretto a rifare login ogni volta, le cause realistiche sono:
+  1. La spunta non fa nulla, quindi l'utente non capisce perché venga "dimenticato" o si aspetta un comportamento diverso (sessione lunga vs sessione di sola scheda).
+  2. In alcuni browser/contesti (privacy, terze parti, preview Lovable in iframe) `localStorage` può essere effimero, e non abbiamo un fallback.
+  3. Manca un comportamento esplicito: "non ricordarmi" = sessione che termina alla chiusura del browser.
 
-Risultato: tutti i link `role` vengono silenziosamente scartati e non viene disegnata alcuna freccia.
+## Obiettivo
 
-### 2. Dati seed sbagliati per i link `member` (Membri CDA → CEO)
-Gli unici link di tipo `member` puntano a un `targetId` UUID v5 calcolato con un namespace che **non coincide** con l'`id` reale del member CEO in DB. Anche fixando il punto 1, questi link resterebbero "rotti".
+Dare al checkbox un significato chiaro e funzionante:
 
-### 3. Tre Membri CDA senza scrivania
-I 3 ruoli "Membro CDA" (che generano link verso CEO/CFO/CTO) non hanno scrivania assegnata in nessuna sede di Amaeru → anche con dati corretti non potrebbero comparire frecce dai/verso di loro.
+- **Ricordami spuntato** → sessione persistente in `localStorage` (login resta dopo chiusura browser, ~comportamento attuale di default).
+- **Ricordami NON spuntato** → sessione effimera in `sessionStorage` (login perso alla chiusura della scheda/browser).
+- Il valore della preferenza viene ricordato tra le visite (così la checkbox riappare come l'utente l'ha lasciata).
 
-## Cosa sistemare
+## Cosa cambierà
 
-### Fix A — Codice: gestione uniforme di `targetType: 'role'`
-Per i tre file sopra, trattare `role` come `team`: se il link ha `memberBreakdown`, espanderlo sui member elencati con la stessa formula `effectivePct = round(collaborationPercentage * mb.percentage / 100)` e soglia minima 3%. Se `memberBreakdown` mancasse, fallback: risolvere il `targetId` (role) cercando i `company_members` assegnati a quel ruolo via `company_role_assignments` (caricati una sola volta in `useProximityScoring`) e distribuendo equamente la percentuale.
+### 1. `src/integrations/supabase/client.ts`
+- Sostituire `storage: localStorage` con uno **storage adapter** che inoltra le chiamate a `localStorage` o `sessionStorage` in base a un flag `jnana_remember_me` salvato in `localStorage`.
+- L'adapter, in lettura, prova prima lo storage "attivo" e fa fallback sull'altro (per non sloggare gli utenti già loggati con il vecchio comportamento).
+- In scrittura usa solo lo storage attivo e ripulisce le chiavi `sb-*` dall'altro per evitare sessioni doppie.
 
-In pratica un'unica funzione helper `expandLinkToTargets(link, roleAssignmentMap)` riusata nei tre punti, così evitiamo divergenze future.
+### 2. `src/hooks/useAuth.tsx`
+- Estendere `signIn(email, password, rememberMe?: boolean)`:
+  - Prima della chiamata a `supabase.auth.signInWithPassword`, impostare `localStorage.setItem('jnana_remember_me', rememberMe ? '1' : '0')` così l'adapter sa dove scrivere la sessione.
+  - Se `rememberMe === false`, ripulire eventuali chiavi `sb-*` da `localStorage` prima del login per non lasciare residui.
+- `signOut` resta invariato ma ripulisce entrambi gli storage delle chiavi `sb-*`.
 
-### Fix B — Dati seed Amaeru
-Nella `supabase/functions/seed-amaeru-full/index.ts`, per i link `Membro CDA → CEO/CFO/CTO`:
-- o convertirli a `targetType: 'role'` con `memberBreakdown` (coerente con tutti gli altri link),
-- o calcolare il `targetId` con lo stesso identico helper UUID v5 usato per generare `company_members.id` (così matcha il record reale).
+### 3. `src/views/auth/AuthView.tsx`
+- Inizializzare `rememberMe` leggendo `localStorage.getItem('jnana_remember_me')` (default `true`, così l'esperienza standard resta "ricordami").
+- Passare `rememberMe` a `signIn(email, password, rememberMe)`.
+- Mostrare una piccola hint sotto il checkbox: "Se disattivato, dovrai accedere di nuovo alla prossima sessione".
 
-Adottiamo la prima opzione: più coerente con il resto del seed.
-
-### Fix C — Scrivanie per i Membri CDA
-Nella seed delle sedi/scrivanie di Amaeru, assegnare i 3 Membri CDA a 3 desk nella stanza "Sala CDA" (Piano 2 di Milano HQ — già visibile nello screenshot, attualmente vuota). Senza scrivania, qualsiasi flusso che li coinvolge resta invisibile per definizione.
-
-### Fix D (piccolo) — Coerenza Membro CDA → tutti gli altri Membri CDA
-Aggiungere link reciproci tra i 3 Membri CDA (collaborazione board interna) così che la "Sala CDA" mostri davvero un cluster di flussi una volta popolata.
-
-## Output atteso dopo il fix
-
-- Toggle "Flussi" in SpaceSync → si vedono le frecce tra le scrivanie già visibili a Piano 2 (CTO ↔ Backend ↔ Frontend ↔ iOS ↔ ML/CV ↔ Designer; Marketing ↔ Brand ↔ SEO ↔ Social; CEO ↔ CFO ↔ Head of Marketing; Vet Lead ↔ Pet Nutrition ↔ Customer Success).
-- Frecce esterne (badge a destra) per le collaborazioni cross-piano/cross-sede.
-- "Report Flussi" con elenco connessioni interne, esterne e collaboratori distanti popolato.
-- Sala CDA non più vuota: 3 desk assegnati ai Membri CDA con flussi verso CEO.
-- Conteggio "mancanti" → 0 (tutti i target risolti).
-
-## File toccati
-
-- `src/components/spacesync/CollaborationFlowOverlay.tsx` — branch `role` + helper condiviso
-- `views/admin/SpaceSyncView.tsx` — branch `role` in `externalArrows` e `flowMissingCount`
-- `src/hooks/useProximityScoring.ts` — caricare `company_role_assignments` ed esporre la mappa `roleId → memberIds[]` come fallback per i link role senza `memberBreakdown`
-- `supabase/functions/seed-amaeru-full/index.ts` — link Membri CDA + scrivanie Sala CDA + link board interni
-- Nuova migration "soft": script di re-seed per Amaeru (l'utente la lancia con il bottone esistente di seed)
+### 4. Nessuna modifica DB / nessuna migrazione
+Tutto è gestito client-side. La durata effettiva del JWT lato Supabase non cambia: cambia solo dove viene salvata la sessione.
 
 ## Note tecniche
 
-- Nessuna modifica di schema DB richiesta: `collaboration_profile` jsonb già supporta `targetType: 'role'`.
-- Le `RLS` non sono toccate (lettura/scrittura sono già autorizzate per company_admin).
-- Il fix codice è retro-compatibile: i link `member` e `team` continuano a funzionare come prima; aggiungiamo solo il branch `role` mancante.
+- Lo `Storage`-like adapter espone `getItem`, `setItem`, `removeItem` (è ciò che si aspetta `@supabase/supabase-js`).
+- Il fallback in lettura evita il logout forzato per utenti già autenticati prima di questo cambio.
+- `autoRefreshToken: true` resta attivo: se l'utente ha "Ricordami" spuntato, il refresh continua a funzionare su `localStorage`.
+
+## Fuori scopo
+
+- Non cambiamo durata dei token Supabase (configurazione lato server).
+- Non aggiungiamo "Remember device" lato backend (sarebbe necessario per MFA/device trust, qui non rilevante).
