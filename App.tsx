@@ -11,6 +11,8 @@ import { supabase } from './src/integrations/supabase/client';
 import { loadJobDb, saveJobDb } from './services/storageService';
 import { toast } from './src/hooks/use-toast';
 import { Toaster } from './src/components/ui/toaster';
+import { useViewRouter } from './src/router/useViewRouter';
+import { pathToView } from './src/router/viewPathMap';
 
 // Imported Views & Components
 import { Header } from './components/layout/Header';
