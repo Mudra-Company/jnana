@@ -60,6 +60,12 @@ import { LandingPage } from './views/landing/LandingPage';
 
 // Adapters extracted to src/app/adapters.ts (Phase 3 of routing refactor)
 import { profileToLegacyUser, companyToLegacy } from './src/app/adapters';
+// Pure data loaders extracted to src/app/dataLoaders.ts (Phase 3 / Step 2)
+import {
+  loadAllCompanies,
+  loadAllUsersForSuperAdmin as fetchAllUsersForSuperAdmin,
+  loadCompanyUsersWithDetails as fetchCompanyUsersWithDetails,
+} from './src/app/dataLoaders';
 
 // --- MAIN APP CONTENT ---
 const AppContent: React.FC = () => {
