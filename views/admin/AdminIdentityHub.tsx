@@ -348,8 +348,8 @@ export const AdminIdentityHub: React.FC<AdminIdentityHubProps> = ({ company, use
                                                 <td className="px-4 py-3 text-center">
                                                     {team.score ? (
                                                         <span className={`inline-block w-3 h-3 rounded-full ${
-                                                            team.score >= 4 ? 'bg-green-500' :
-                                                            team.score >= 3.5 ? 'bg-yellow-400' :
+                                                            team.score >= 8 ? 'bg-green-500' :
+                                                            team.score >= 7 ? 'bg-yellow-400' :
                                                             'bg-red-500'
                                                         }`}></span>
                                                     ) : (
@@ -753,7 +753,7 @@ export const AdminIdentityHub: React.FC<AdminIdentityHubProps> = ({ company, use
                          {climateInsight ? (
                              <div className="space-y-4">
                                  <div className="flex items-start gap-3">
-                                     <ThermometerSun className={`shrink-0 mt-1 ${climateStats?.overallAverage && climateStats.overallAverage < 3.5 ? 'text-red-500' : 'text-green-500'}`} size={24}/>
+                                     <ThermometerSun className={`shrink-0 mt-1 ${climateStats?.overallAverage && climateStats.overallAverage < 7 ? 'text-red-500' : 'text-green-500'}`} size={24}/>
                                      <div className="space-y-3">
                                          <div className="text-sm text-gray-800 dark:text-gray-100 leading-relaxed font-medium">
                                              {renderFormattedText(climateInsight.overview)}
@@ -769,7 +769,7 @@ export const AdminIdentityHub: React.FC<AdminIdentityHubProps> = ({ company, use
                                  </div>
                                  
                                  {/* Entropy Correlation Warning */}
-                                 {cultureAnalysis.hiddenRisks.length > 0 && climateStats && climateStats.overallAverage < 3.8 && (
+                                 {cultureAnalysis.hiddenRisks.length > 0 && climateStats && climateStats.overallAverage < 7.6 && (
                                      <div className="bg-amber-50 dark:bg-amber-900/10 p-4 rounded-lg border border-amber-100 dark:border-amber-800 mt-4">
                                          <p className="text-xs text-amber-800 dark:text-amber-200 font-bold mb-2 flex items-center gap-1"><AlertTriangle size={14}/> Correlazione Rischio Culturale</p>
                                          <p className="text-sm text-amber-900 dark:text-amber-100">
