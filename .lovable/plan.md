@@ -216,3 +216,23 @@ Sostituire il mega switch di rendering con un albero `<Routes>` reale che sfrutt
 ### Step 3b (prossimo) — Migrazione progressiva del switch a `<Routes>`
 
 Ogni view sarà un componente di route che legge i dati con `useAppData()`. Procederemo per gruppi: prima le view "leaf" (analytics, questionnaires, karma profile/results), poi admin, poi user flow, poi demo. Lo shim `useViewRouter` resta attivo finché tutte le view non sono migrate.
+
+### Step 3b ✅ — Albero `<Routes>` reale (completato in un colpo)
+
+Anziché migrare view-per-view (avremmo lasciato il codice in stato ibrido confuso per molti commit), abbiamo creato `src/router/AppRoutes.tsx` con TUTTE le route components in un colpo solo. Ogni route:
+
+- Legge dati e handler con `useAppData()` invece di props.
+- Applica le stesse condizioni di rendering del vecchio switch (es. `activeCompanyData && canAccessAdminViews` → `if (...) return null`).
+- Mappa direttamente al path URL (params via `useParams`, query via `useSearchParams`).
+
+`App.tsx` ora ha solo `<Header/>` + `<AppRoutes/>` come render. Tutti gli import di view sono stati rimossi (erano 30+ — ora ne resta 1: `Header`).
+
+**App.tsx: 1335 → 799 righe** (-536, -40% in questo step). **Cumulativo dal Phase 3 start: 1591 → 799 (-792, -50%)**.
+
+### Stato del refactor
+
+- ✅ Fase 1: URL reali con shim `useViewRouter`.
+- ✅ Fase 2: guards + layouts dichiarativi.
+- ✅ Fase 3: adapters, dataLoaders, AppDataContext, AppRoutes — `App.tsx` dimezzato.
+- ⏳ Fase 4: code-splitting con `React.lazy` (ora trivial: basta lazyfare gli import in `AppRoutes.tsx`).
+- ⏳ Fase 5: `App.tsx` continua a contenere tutti gli handler. Il prossimo passo naturale è estrarli in hook (`useAppActions`, `useDemoMode`, `useInviteHandler`) per scendere sotto le 300 righe.
