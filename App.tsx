@@ -16,49 +16,10 @@ import { pathToView } from './src/router/viewPathMap';
 import { AppDataProvider, type AppDataValue } from './src/app/AppDataContext';
 import { AppRoutes } from './src/router/AppRoutes';
 
-// Imported Views & Components
+// Header is the only view component still rendered directly by AppContent.
+// All page-level views are now mounted by <AppRoutes /> (src/router/AppRoutes.tsx).
 import { Header } from './components/layout/Header';
-import { AuthView } from './src/views/auth/AuthView';
-import { ResetPasswordView } from './src/views/auth/ResetPasswordView';
-import { SuperAdminDashboard } from './views/superadmin/SuperAdminDashboard';
-import { JobDatabaseEditor } from './views/superadmin/JobDatabaseEditor';
-import { KarmaTalentsView } from './views/superadmin/KarmaTalentsView';
-import { KarmaProfileDetailView } from './views/superadmin/KarmaProfileDetailView';
-import { SuperAdminAnalyticsView } from './views/superadmin/SuperAdminAnalyticsView';
-import KarmaAIConfigView from './views/superadmin/KarmaAIConfigView';
-import { QuestionnaireListView } from './views/superadmin/QuestionnaireListView';
-import { QuestionnaireEditorView } from './views/superadmin/QuestionnaireEditorView';
-import { AdminDashboardView } from './views/admin/AdminDashboard';
-import { OpenPositionsView } from './views/admin/OpenPositionsView';
-import { PositionMatchingView } from './views/admin/PositionMatchingView';
-import { ComplianceDashboardView } from './views/admin/ComplianceDashboardView';
-import { SpaceSyncView } from './views/admin/SpaceSyncView';
-
-import { CompanyOrgView } from './views/admin/CompanyOrgView';
-import { AdminIdentityHub } from './views/admin/AdminIdentityHub';
-import { AdminCompanyProfileView } from './views/admin/AdminCompanyProfileView';
-import { UserWelcomeView } from './views/user/UserWelcomeView';
-import { UserTestView } from './views/user/UserTestView';
-import { ClimateTestView } from './views/user/ClimateTestView';
-import { KarmaChatView } from './views/user/KarmaChatView';
-import { UserResultView } from './views/user/UserResultView';
-import SeedDataView from './src/views/admin/SeedDataView';
-import { DemoBanner } from './src/components/DemoBanner';
-
-// Karma Platform Views
-import { KarmaOnboarding } from './views/karma/KarmaOnboarding';
-import { KarmaDashboard } from './views/karma/KarmaDashboard';
-import { KarmaProfileEdit } from './views/karma/KarmaProfileEdit';
-import { KarmaResults } from './views/karma/KarmaResults';
-import { KarmaTestRiasec } from './views/karma/KarmaTestRiasec';
-import { KarmaTestChat } from './views/karma/KarmaTestChat';
-import { KarmaWelcome } from './views/karma/KarmaWelcome';
-import { CVReviewScreen } from './views/karma/CVReviewScreen';
-import { PostOnboardingPromo } from './views/karma/PostOnboardingPromo';
 import type { CVParsedData } from './src/components/karma/CVImportBanner';
-
-// Landing Page
-import { LandingPage } from './views/landing/LandingPage';
 
 // Adapters extracted to src/app/adapters.ts (Phase 3 of routing refactor)
 import { profileToLegacyUser, companyToLegacy } from './src/app/adapters';
