@@ -236,3 +236,27 @@ Anziché migrare view-per-view (avremmo lasciato il codice in stato ibrido confu
 - ✅ Fase 3: adapters, dataLoaders, AppDataContext, AppRoutes — `App.tsx` dimezzato.
 - ⏳ Fase 4: code-splitting con `React.lazy` (ora trivial: basta lazyfare gli import in `AppRoutes.tsx`).
 - ⏳ Fase 5: `App.tsx` continua a contenere tutti gli handler. Il prossimo passo naturale è estrarli in hook (`useAppActions`, `useDemoMode`, `useInviteHandler`) per scendere sotto le 300 righe.
+
+### Fase 4 ✅ — Code-splitting con `React.lazy`
+
+Tutte le view in `src/router/AppRoutes.tsx` ora sono caricate on-demand via `React.lazy()`. Il bundle iniziale resta minimal e contiene solo `LandingPage` + `AuthView` + chrome (Header, AuthProvider, AppDataProvider, router shim).
+
+**Strategia adottata:**
+- **Eager** (nel main bundle): `LandingPage`, `AuthView`, `DemoBanner`. Sono il path iniziale del 90%+ degli utenti — niente flash di Suspense sul first paint.
+- **Lazy** (chunk separati): tutte le altre 28 view. Ogni view diventa un chunk Vite dedicato, scaricato la prima volta che si visita la rotta e poi cached dal browser.
+- **Suspense fallback**: spinner minimal coerente col loading globale (`text-jnana-charcoal`), non sfarfalla per i chunk piccoli grazie alla cache HTTP.
+
+**Risultato atteso al prossimo build:**
+- Bundle iniziale: -50/70% (le view pesanti come SpaceSync, Compliance, OrgChart, KarmaChat, PositionMatching ora non vengono scaricate al login).
+- Time-to-interactive di landing/login significativamente più rapido.
+- Navigazione fra view: piccolo ritardo (<200ms su rete decente) la prima volta, istantaneo dopo.
+
+### Stato finale del refactor
+
+- ✅ Fase 1: URL reali + back/forward + deep link.
+- ✅ Fase 2: guards + layouts dichiarativi.
+- ✅ Fase 3: `App.tsx` 1591 → 799 righe (-50%) tramite adapters, dataLoaders, AppDataContext, AppRoutes.
+- ✅ Fase 4: code-splitting per route.
+- ⏳ Fase 5 (opzionale, alta resa): `App.tsx` ha ancora ~600 righe di handler. Estrarli in hook (`useAppActions`, `useDemoMode`, `useInviteHandler`, `useImpersonation`) per portarlo sotto le 200 righe. Da fare quando serve, non urgente.
+
+Il piano originale è completo. La piattaforma ora ha URL veri, bundle splittato, render switch dichiarativo e state centralizzato.
