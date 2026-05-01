@@ -1,50 +1,44 @@
 
 ## Problema
 
-Il checkbox "Ricordami" in `src/views/auth/AuthView.tsx` esiste solo come `useState` locale: il valore non viene mai passato a `signIn`, né influenza la persistenza della sessione Supabase. Di fatto:
+Il grafico "Media Aziendale" in `views/admin/AdminIdentityHub.tsx` ha l'asse X configurato su scala **0–5** (`domain={[0,5]}`, `ticks={[0,1,2,3,4,5]}`), ma i dati prodotti da `calculateClimateAnalytics` sono già su scala **0–10** (es. 8.69, 8.88, 7.50). Risultato: le barre escono dall'asse e l'etichetta "Punteggio medio (1-5)" è ingannevole.
 
-- Oggi il client Supabase (`src/integrations/supabase/client.ts`) usa `persistSession: true` su `localStorage`. La sessione DOVREBBE già rimanere salvata tra refresh.
-- Se l'utente è costretto a rifare login ogni volta, le cause realistiche sono:
-  1. La spunta non fa nulla, quindi l'utente non capisce perché venga "dimenticato" o si aspetta un comportamento diverso (sessione lunga vs sessione di sola scheda).
-  2. In alcuni browser/contesti (privacy, terze parti, preview Lovable in iframe) `localStorage` può essere effimero, e non abbiamo un fallback.
-  3. Manca un comportamento esplicito: "non ricordarmi" = sessione che termina alla chiusura del browser.
+L'errore è solo lato visualizzazione/soglie nel componente `AdminIdentityHub.tsx`. Il motore di scoring (`services/tricamService.ts`) resta invariato.
 
-## Obiettivo
+## Cosa cambierà — `views/admin/AdminIdentityHub.tsx`
 
-Dare al checkbox un significato chiaro e funzionante:
+Tutte le soglie e i riferimenti vengono "raddoppiati" per allinearsi alla scala 0–10 (3 → 6, 3.5 → 7, 3.8 → 7.6, 4 → 8, 4.2 → 8.4, 5 → 10).
 
-- **Ricordami spuntato** → sessione persistente in `localStorage` (login resta dopo chiusura browser, ~comportamento attuale di default).
-- **Ricordami NON spuntato** → sessione effimera in `sessionStorage` (login perso alla chiusura della scheda/browser).
-- Il valore della preferenza viene ricordato tra le visite (così la checkbox riappare come l'utente l'ha lasciata).
+### 1. Asse X del bar chart (riga ~290)
+- `domain={[0, 10]}`, `ticks={[0, 2, 4, 6, 8, 10]}`
+- `ReferenceLine` di soglia neutra: `x={6}` (era `x={3}`)
+- Sottotitolo: "Punteggio medio (0-10) per dimensione." (era "1-5")
 
-## Cosa cambierà
+### 2. Soglie colore delle barre (riga ~308)
+- Verde: `value >= 8` (era `>= 4`)
+- Rosso: `value < 6` (era `< 3`)
+- Giallo: resto
 
-### 1. `src/integrations/supabase/client.ts`
-- Sostituire `storage: localStorage` con uno **storage adapter** che inoltra le chiamate a `localStorage` o `sessionStorage` in base a un flag `jnana_remember_me` salvato in `localStorage`.
-- L'adapter, in lettura, prova prima lo storage "attivo" e fa fallback sull'altro (per non sloggare gli utenti già loggati con il vecchio comportamento).
-- In scrittura usa solo lo storage attivo e ripulisce le chiavi `sb-*` dall'altro per evitare sessioni doppie.
+### 3. Climate Index nel header (riga ~205)
+- Verde: `>= 8`, Giallo: `>= 7`, Rosso: altrimenti
+- Display: `{value.toFixed(2)}/10`
 
-### 2. `src/hooks/useAuth.tsx`
-- Estendere `signIn(email, password, rememberMe?: boolean)`:
-  - Prima della chiamata a `supabase.auth.signInWithPassword`, impostare `localStorage.setItem('jnana_remember_me', rememberMe ? '1' : '0')` così l'adapter sa dove scrivere la sessione.
-  - Se `rememberMe === false`, ripulire eventuali chiavi `sb-*` da `localStorage` prima del login per non lasciare residui.
-- `signOut` resta invariato ma ripulisce entrambi gli storage delle chiavi `sb-*`.
+### 4. Logica `generateClimateInsight` (righe 130-172)
+- Soglie overview: `>= 8.4` eccellente, `>= 8.0` positivo, `>= 7.0` discreto, altrimenti critico
+- `criticalDimensions`: `value < 6.0`
+- `mediocreDimensions`: `value >= 6.0 && value < 7.0`
+- Etichette inline: `(${dim.value.toFixed(2)}/10)`
 
-### 3. `src/views/auth/AuthView.tsx`
-- Inizializzare `rememberMe` leggendo `localStorage.getItem('jnana_remember_me')` (default `true`, così l'esperienza standard resta "ricordami").
-- Passare `rememberMe` a `signIn(email, password, rememberMe)`.
-- Mostrare una piccola hint sotto il checkbox: "Se disattivato, dovrai accedere di nuovo alla prossima sessione".
+### 5. Tabella team breakdown (righe ~351-352)
+- Pallino verde: `team.score >= 8`
+- Pallino giallo: `team.score >= 7`
+- Rosso: altrimenti
 
-### 4. Nessuna modifica DB / nessuna migrazione
-Tutto è gestito client-side. La durata effettiva del JWT lato Supabase non cambia: cambia solo dove viene salvata la sessione.
-
-## Note tecniche
-
-- Lo `Storage`-like adapter espone `getItem`, `setItem`, `removeItem` (è ciò che si aspetta `@supabase/supabase-js`).
-- Il fallback in lettura evita il logout forzato per utenti già autenticati prima di questo cambio.
-- `autoRefreshToken: true` resta attivo: se l'utente ha "Ricordami" spuntato, il refresh continua a funzionare su `localStorage`.
+### 6. Insight di chiusura (righe 756 e 772)
+- Riga 756: icona rossa se `overallAverage < 7` (era `< 3.5`)
+- Riga 772: condizione `overallAverage < 7.6` (era `< 3.8`)
 
 ## Fuori scopo
 
-- Non cambiamo durata dei token Supabase (configurazione lato server).
-- Non aggiungiamo "Remember device" lato backend (sarebbe necessario per MFA/device trust, qui non rilevante).
+- Nessuna modifica al calcolo dei punteggi né al DB.
+- Nessuna modifica ad altri grafici/viste (verificato che le soglie 1-5 sono usate solo qui).
