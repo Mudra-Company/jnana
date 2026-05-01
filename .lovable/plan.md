@@ -199,3 +199,14 @@ Estrarre da `App.tsx`:
 ### Step 3 — Route switch dichiarativo
 
 Sostituire il mega switch di rendering con un albero `<Routes>` reale che sfrutta i guard della Fase 2. Lo shim `useViewRouter` continua a sincronizzare `view ↔ URL` durante la migrazione.
+
+### Step 2 ✅ — Estrazione data loaders puri
+
+- Creato `src/app/dataLoaders.ts` con `loadAllCompanies`, `loadAllUsersForSuperAdmin`, `loadCompanyUsersWithDetails` — async puri, zero state React, accettano solo argomenti primitivi.
+- `App.tsx` ora importa i loader e mantiene solo wrapper sottili che chiamano i setter (`setCompanies`, `setCompanyUsers`, `setActiveCompanyData`).
+- Aggiornato anche il call site `onRefreshUsers` nell'AdminIdentityHub.
+- **App.tsx: 1460 → 1335 righe** (-125, ulteriore -8.5%). Cumulativo dal Phase 3 start: 1591 → 1335 (-256, -16%).
+
+### Step 3 (prossimo) — Route switch dichiarativo
+
+Sostituire il mega switch di rendering con un albero `<Routes>` reale che sfrutta i guard della Fase 2. Lo shim `useViewRouter` continua a sincronizzare `view ↔ URL` durante la migrazione.

@@ -60,6 +60,12 @@ import { LandingPage } from './views/landing/LandingPage';
 
 // Adapters extracted to src/app/adapters.ts (Phase 3 of routing refactor)
 import { profileToLegacyUser, companyToLegacy } from './src/app/adapters';
+// Pure data loaders extracted to src/app/dataLoaders.ts (Phase 3 / Step 2)
+import {
+  loadAllCompanies,
+  loadAllUsersForSuperAdmin as fetchAllUsersForSuperAdmin,
+  loadCompanyUsersWithDetails as fetchCompanyUsersWithDetails,
+} from './src/app/dataLoaders';
 
 // --- MAIN APP CONTENT ---
 const AppContent: React.FC = () => {
@@ -228,54 +234,14 @@ const AppContent: React.FC = () => {
   }, [view.type, user, authInitialized, canAccessSuperAdminViews, canAccessAdminViews, membership?.company_id]);
 
   const loadAllCompaniesForSuperAdmin = async () => {
-    console.log('[App] Loading companies for Super Admin...');
-    const { supabase } = await import('./src/integrations/supabase/client');
-    
-    const { data, error } = await supabase
-      .from('companies')
-      .select('*')
-      .order('name');
-    
-    if (error) {
-      console.error('[App] Error loading companies for super admin:', error);
-      return;
-    }
-    
-    console.log('[App] Companies loaded:', data?.length || 0);
-    if (data) {
-      setCompanies(data);
-    }
+    const data = await loadAllCompanies();
+    if (data.length > 0) setCompanies(data);
   };
 
   // Load all users for Super Admin dashboard
   const loadAllUsersForSuperAdmin = async () => {
-    const { supabase } = await import('./src/integrations/supabase/client');
-    
-    // Query all company_members with their profiles
-    const { data: members, error } = await supabase
-      .from('company_members')
-      .select(`
-        *,
-        profiles!company_members_user_id_fkey (*)
-      `);
-    
-    if (error) {
-      console.error('Error loading users for super admin:', error);
-      return;
-    }
-    
-    if (members) {
-      const users = members
-        .filter(m => m.profiles) // Only include members with profiles
-        .map(m => profileToLegacyUser(
-          m.profiles,
-          m, // membership
-          null, // riasecResult
-          null, // karmaSession
-          null  // climateResponse
-        ));
-      setCompanyUsers(users);
-    }
+    const users = await fetchAllUsersForSuperAdmin();
+    setCompanyUsers(users);
   };
 
   const loadCurrentUserData = async () => {
@@ -361,97 +327,6 @@ const AppContent: React.FC = () => {
     }
   };
 
-  // Load all company users with full details (RIASEC, Karma, Climate) directly from DB
-  // INCLUDES PLACEHOLDERS (slots without user_id)
-  const loadCompanyUsersWithDetails = async (companyId: string): Promise<User[]> => {
-    const { supabase } = await import('./src/integrations/supabase/client');
-    
-    // 1. Load ALL company_members (including placeholders without user_id)
-    const { data: members, error: membersError } = await supabase
-      .from('company_members')
-      .select(`*, profiles:user_id (*)`)
-      .eq('company_id', companyId);
-    
-    if (membersError || !members) {
-      console.error('Error loading company members:', membersError);
-      return [];
-    }
-    
-    if (members.length === 0) {
-      return [];
-    }
-    
-    // Separate members with profiles from placeholders
-    const membersWithProfiles = members.filter(m => m.user_id && m.profiles);
-    const placeholders = members.filter(m => !m.user_id);
-    
-    // Get user IDs for test data loading (only real users)
-    const userIds = membersWithProfiles.map(m => m.user_id).filter((id): id is string => id !== null);
-    
-    // 2. Load test results AND user_roles for real users only
-    let riasecResults: any[] = [];
-    let karmaSessions: any[] = [];
-    let climateResponses: any[] = [];
-    let userRolesData: any[] = [];
-    let userHardSkillsData: any[] = [];
-    
-    if (userIds.length > 0) {
-      const [riasec, karma, climate, roles, hardSkills] = await Promise.all([
-        supabase.from('riasec_results').select('*').in('user_id', userIds),
-        supabase.from('karma_sessions').select('*').in('user_id', userIds),
-        supabase.from('climate_responses').select('*').in('user_id', userIds),
-        supabase.from('user_roles').select('*').in('user_id', userIds),
-        supabase.from('user_hard_skills').select(`*, skill:hard_skills_catalog(*)`).in('user_id', userIds)
-      ]);
-      riasecResults = riasec.data || [];
-      karmaSessions = karma.data || [];
-      climateResponses = climate.data || [];
-      userRolesData = roles.data || [];
-      userHardSkillsData = hardSkills.data || [];
-    }
-    
-    // 3. Transform real users
-    const realUsers = membersWithProfiles.map(member => {
-      const profile = member.profiles as any;
-      const riasec = riasecResults.find(r => r.user_id === member.user_id);
-      const karma = karmaSessions.find(k => k.user_id === member.user_id);
-      const climate = climateResponses.find(c => c.user_id === member.user_id);
-      const hardSkills = userHardSkillsData.filter(hs => hs.user_id === member.user_id);
-      
-      // Check if user is a super_admin in user_roles table
-      const isSuperAdmin = userRolesData.some(r => r.user_id === member.user_id && r.role === 'super_admin');
-      
-      const legacyUser = profileToLegacyUser(profile, member, riasec, karma, climate, hardSkills);
-      // Override role if user is super_admin (takes precedence over company_member role)
-      legacyUser.role = isSuperAdmin ? 'super_admin' : (member.role || 'user');
-      legacyUser.memberId = member.id;
-      return legacyUser;
-    });
-    
-    // 4. Transform placeholder/hiring slots to User objects
-    const placeholderUsers: User[] = placeholders.map(member => ({
-      id: member.id, // Use member.id as user id for placeholders
-      memberId: member.id,
-      firstName: member.placeholder_first_name || '',
-      lastName: member.placeholder_last_name || '',
-      email: member.placeholder_email || '',
-      companyId: member.company_id,
-      departmentId: member.department_id || '',
-      jobTitle: member.job_title || '',
-      status: member.status || 'pending',
-      isHiring: member.is_hiring || false,
-      requiredProfile: member.required_profile ? {
-        hardSkills: (member.required_profile as any).hardSkills || [],
-        softSkills: (member.required_profile as any).softSkills || [],
-        seniority: (member.required_profile as any).seniority || 'Mid'
-      } : undefined,
-      role: member.role || 'user'
-    }));
-    
-    // 5. Combine and return all users
-    return [...realUsers, ...placeholderUsers];
-  };
-
   const loadCompanyData = async (companyId: string) => {
     const companyWithStructure = await fetchCompanyWithStructure(companyId);
     if (companyWithStructure) {
@@ -464,7 +339,7 @@ const AppContent: React.FC = () => {
       }
       
       // Load company users with ALL details (RIASEC, Karma, Climate) directly from DB
-      const users = await loadCompanyUsersWithDetails(companyId);
+      const users = await fetchCompanyUsersWithDetails(companyId);
       setCompanyUsers(users);
     }
   };
@@ -1003,7 +878,7 @@ const AppContent: React.FC = () => {
               currentUserId={user?.id}
               onRefreshUsers={async () => {
                 if (activeCompanyData) {
-                  const users = await loadCompanyUsersWithDetails(activeCompanyData.id);
+                  const users = await fetchCompanyUsersWithDetails(activeCompanyData.id);
                   setCompanyUsers(users);
                 }
               }}
