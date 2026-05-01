@@ -1,50 +1,128 @@
-import React from 'react';
+import React, { lazy, Suspense } from 'react';
 import { Routes, Route } from 'react-router-dom';
-import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { useAppData } from '../app/AppDataContext';
 import { supabase } from '../integrations/supabase/client';
 import { calculateProfileCode } from '../../services/riasecService';
 import { useTestResults } from '../hooks/useTestResults';
 import { saveJobDb } from '../../services/storageService';
 import type { ViewState, ChatMessage, RiasecScore } from '../../types';
+import { toast } from '../hooks/use-toast';
 
-// Views (same imports as App.tsx)
+// ============================================================================
+// EAGER imports — needed for first paint of unauthenticated users.
+// LandingPage + AuthView are the entry points; keeping them in the main bundle
+// avoids a Suspense flash on the most common landing route.
+// ============================================================================
 import { LandingPage } from '../../views/landing/LandingPage';
 import { AuthView } from '../views/auth/AuthView';
-import { ResetPasswordView } from '../views/auth/ResetPasswordView';
-import { SuperAdminDashboard } from '../../views/superadmin/SuperAdminDashboard';
-import { JobDatabaseEditor } from '../../views/superadmin/JobDatabaseEditor';
-import { KarmaTalentsView } from '../../views/superadmin/KarmaTalentsView';
-import { KarmaProfileDetailView } from '../../views/superadmin/KarmaProfileDetailView';
-import { SuperAdminAnalyticsView } from '../../views/superadmin/SuperAdminAnalyticsView';
-import KarmaAIConfigView from '../../views/superadmin/KarmaAIConfigView';
-import { QuestionnaireListView } from '../../views/superadmin/QuestionnaireListView';
-import { QuestionnaireEditorView } from '../../views/superadmin/QuestionnaireEditorView';
-import { AdminDashboardView } from '../../views/admin/AdminDashboard';
-import { OpenPositionsView } from '../../views/admin/OpenPositionsView';
-import { PositionMatchingView } from '../../views/admin/PositionMatchingView';
-import { ComplianceDashboardView } from '../../views/admin/ComplianceDashboardView';
-import { SpaceSyncView } from '../../views/admin/SpaceSyncView';
-import { CompanyOrgView } from '../../views/admin/CompanyOrgView';
-import { AdminIdentityHub } from '../../views/admin/AdminIdentityHub';
-import { AdminCompanyProfileView } from '../../views/admin/AdminCompanyProfileView';
-import { UserWelcomeView } from '../../views/user/UserWelcomeView';
-import { UserTestView } from '../../views/user/UserTestView';
-import { ClimateTestView } from '../../views/user/ClimateTestView';
-import { KarmaChatView } from '../../views/user/KarmaChatView';
-import { UserResultView } from '../../views/user/UserResultView';
-import SeedDataView from '../views/admin/SeedDataView';
 import { DemoBanner } from '../components/DemoBanner';
-import { KarmaOnboarding } from '../../views/karma/KarmaOnboarding';
-import { KarmaDashboard } from '../../views/karma/KarmaDashboard';
-import { KarmaProfileEdit } from '../../views/karma/KarmaProfileEdit';
-import { KarmaResults } from '../../views/karma/KarmaResults';
-import { KarmaTestRiasec } from '../../views/karma/KarmaTestRiasec';
-import { KarmaTestChat } from '../../views/karma/KarmaTestChat';
-import { KarmaWelcome } from '../../views/karma/KarmaWelcome';
-import { CVReviewScreen } from '../../views/karma/CVReviewScreen';
-import { PostOnboardingPromo } from '../../views/karma/PostOnboardingPromo';
-import { toast } from '../hooks/use-toast';
+
+// ============================================================================
+// LAZY imports — split each route into its own chunk so the initial bundle
+// only loads what the user actually needs. Each chunk is fetched on-demand
+// the first time its route is visited and then cached by the browser.
+// ============================================================================
+const ResetPasswordView = lazy(() =>
+  import('../views/auth/ResetPasswordView').then(m => ({ default: m.ResetPasswordView }))
+);
+const SeedDataView = lazy(() => import('../views/admin/SeedDataView'));
+
+// Super admin chunks
+const SuperAdminDashboard = lazy(() =>
+  import('../../views/superadmin/SuperAdminDashboard').then(m => ({ default: m.SuperAdminDashboard }))
+);
+const JobDatabaseEditor = lazy(() =>
+  import('../../views/superadmin/JobDatabaseEditor').then(m => ({ default: m.JobDatabaseEditor }))
+);
+const KarmaTalentsView = lazy(() =>
+  import('../../views/superadmin/KarmaTalentsView').then(m => ({ default: m.KarmaTalentsView }))
+);
+const KarmaProfileDetailView = lazy(() =>
+  import('../../views/superadmin/KarmaProfileDetailView').then(m => ({ default: m.KarmaProfileDetailView }))
+);
+const SuperAdminAnalyticsView = lazy(() =>
+  import('../../views/superadmin/SuperAdminAnalyticsView').then(m => ({ default: m.SuperAdminAnalyticsView }))
+);
+const KarmaAIConfigView = lazy(() => import('../../views/superadmin/KarmaAIConfigView'));
+const QuestionnaireListView = lazy(() =>
+  import('../../views/superadmin/QuestionnaireListView').then(m => ({ default: m.QuestionnaireListView }))
+);
+const QuestionnaireEditorView = lazy(() =>
+  import('../../views/superadmin/QuestionnaireEditorView').then(m => ({ default: m.QuestionnaireEditorView }))
+);
+
+// Admin chunks
+const AdminDashboardView = lazy(() =>
+  import('../../views/admin/AdminDashboard').then(m => ({ default: m.AdminDashboardView }))
+);
+const OpenPositionsView = lazy(() =>
+  import('../../views/admin/OpenPositionsView').then(m => ({ default: m.OpenPositionsView }))
+);
+const PositionMatchingView = lazy(() =>
+  import('../../views/admin/PositionMatchingView').then(m => ({ default: m.PositionMatchingView }))
+);
+const ComplianceDashboardView = lazy(() =>
+  import('../../views/admin/ComplianceDashboardView').then(m => ({ default: m.ComplianceDashboardView }))
+);
+const SpaceSyncView = lazy(() =>
+  import('../../views/admin/SpaceSyncView').then(m => ({ default: m.SpaceSyncView }))
+);
+const CompanyOrgView = lazy(() =>
+  import('../../views/admin/CompanyOrgView').then(m => ({ default: m.CompanyOrgView }))
+);
+const AdminIdentityHub = lazy(() =>
+  import('../../views/admin/AdminIdentityHub').then(m => ({ default: m.AdminIdentityHub }))
+);
+const AdminCompanyProfileView = lazy(() =>
+  import('../../views/admin/AdminCompanyProfileView').then(m => ({ default: m.AdminCompanyProfileView }))
+);
+
+// User flow chunks
+const UserWelcomeView = lazy(() =>
+  import('../../views/user/UserWelcomeView').then(m => ({ default: m.UserWelcomeView }))
+);
+const UserTestView = lazy(() =>
+  import('../../views/user/UserTestView').then(m => ({ default: m.UserTestView }))
+);
+const ClimateTestView = lazy(() =>
+  import('../../views/user/ClimateTestView').then(m => ({ default: m.ClimateTestView }))
+);
+const KarmaChatView = lazy(() =>
+  import('../../views/user/KarmaChatView').then(m => ({ default: m.KarmaChatView }))
+);
+const UserResultView = lazy(() =>
+  import('../../views/user/UserResultView').then(m => ({ default: m.UserResultView }))
+);
+
+// Karma platform chunks
+const KarmaOnboarding = lazy(() =>
+  import('../../views/karma/KarmaOnboarding').then(m => ({ default: m.KarmaOnboarding }))
+);
+const KarmaDashboard = lazy(() =>
+  import('../../views/karma/KarmaDashboard').then(m => ({ default: m.KarmaDashboard }))
+);
+const KarmaProfileEdit = lazy(() =>
+  import('../../views/karma/KarmaProfileEdit').then(m => ({ default: m.KarmaProfileEdit }))
+);
+const KarmaResults = lazy(() =>
+  import('../../views/karma/KarmaResults').then(m => ({ default: m.KarmaResults }))
+);
+const KarmaTestRiasec = lazy(() =>
+  import('../../views/karma/KarmaTestRiasec').then(m => ({ default: m.KarmaTestRiasec }))
+);
+const KarmaTestChat = lazy(() =>
+  import('../../views/karma/KarmaTestChat').then(m => ({ default: m.KarmaTestChat }))
+);
+const KarmaWelcome = lazy(() =>
+  import('../../views/karma/KarmaWelcome').then(m => ({ default: m.KarmaWelcome }))
+);
+const CVReviewScreen = lazy(() =>
+  import('../../views/karma/CVReviewScreen').then(m => ({ default: m.CVReviewScreen }))
+);
+const PostOnboardingPromo = lazy(() =>
+  import('../../views/karma/PostOnboardingPromo').then(m => ({ default: m.PostOnboardingPromo }))
+);
 
 /**
  * Declarative route tree replacing the mega switch in App.tsx.
@@ -733,8 +811,21 @@ function SeedDataRoute() {
 
 // ===== ROOT TREE =====
 
+/** Suspense fallback shown while a lazy chunk loads. Same look as the global LOADING screen. */
+function RouteLoadingFallback() {
+  return (
+    <div className="min-h-[60vh] flex items-center justify-center">
+      <div className="text-center">
+        <div className="animate-spin h-8 w-8 border-4 border-jnana-charcoal border-t-transparent rounded-full mx-auto mb-4" />
+        <p className="text-jnana-text dark:text-gray-300 text-sm">Caricamento…</p>
+      </div>
+    </div>
+  );
+}
+
 export const AppRoutes: React.FC = () => {
   return (
+    <Suspense fallback={<RouteLoadingFallback />}>
     <Routes>
       {/* Public / auth */}
       <Route path="/" element={<LandingRoute />} />
@@ -788,5 +879,6 @@ export const AppRoutes: React.FC = () => {
       <Route path="/demo/climate" element={<DemoUserClimateRoute />} />
       <Route path="/demo/result" element={<DemoUserResultRoute />} />
     </Routes>
+    </Suspense>
   );
 };
