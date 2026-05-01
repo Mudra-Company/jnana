@@ -161,3 +161,22 @@ Totale per arrivare a un'app con URL veri, App.tsx pulito e bundle splittato: **
 Partire **solo dalla Fase 1** (React Router + shim di compatibilità). È il cambiamento con più valore percepito (URL veri, back/forward, deep link, bookmark) e zero rischio sulle altre view. Le fasi 2–5 le decidiamo dopo aver visto il risultato.
 
 Confermi che procedo con la **Fase 1**?
+---
+
+## ✅ Fase 1 — Completata
+
+URL routing reale con shim di compatibilità. Ogni view ha un path bookmarkable, back/forward del browser funzionano.
+
+## ✅ Fase 2 — Completata
+
+Guards dichiarativi e layouts riusabili (additivi, non rompono nulla).
+
+**File creati:**
+- `src/router/accessPolicy.ts` — mappa centralizzata `ViewType → roles`, copre tutti i 46 view types. Funzione `canAccessView(viewType, isAuthenticated, role)`.
+- `src/router/guards.tsx` — `<RequireAuth>`, `<RequireGuest>`, `<RequireAdmin>`, `<RequireSuperAdmin>`, `<RequireRole>`, `<RequireViewAccess>`. I guards rendono `fallback` (default `null`) quando il check fallisce — non navigano mai da soli, così App.tsx mantiene il controllo dei redirect.
+- `src/router/layouts.tsx` — `<AppLayout>`, `<AuthLayout>`, `<LoadingLayout>`.
+- `src/router/index.ts` — barrel export per import puliti.
+
+**Risultato:** abbiamo i building block per la Fase 3 senza aver toccato il render switch di `App.tsx`. Ogni guard può essere usato in modo incrementale per sostituire i `&& canAccessAdminViews` inline.
+
+**Prossimo passo:** Fase 3 — estrarre la logica di `App.tsx` in hook (`useCurrentUserData`, `useInviteHandler`, `useImpersonation`) e migrare il render switch a un albero `<Routes>` reale che sfrutta i guard appena creati.
