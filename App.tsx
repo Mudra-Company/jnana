@@ -11,6 +11,8 @@ import { supabase } from './src/integrations/supabase/client';
 import { loadJobDb, saveJobDb } from './services/storageService';
 import { toast } from './src/hooks/use-toast';
 import { Toaster } from './src/components/ui/toaster';
+import { useViewRouter } from './src/router/useViewRouter';
+import { pathToView } from './src/router/viewPathMap';
 
 // Imported Views & Components
 import { Header } from './components/layout/Header';
@@ -230,8 +232,15 @@ const AppContent: React.FC = () => {
       window.history.replaceState({}, document.title, window.location.pathname);
       return { type: 'LOGIN' };
     }
+    // Try to recover the view from the current URL (deep link / refresh).
+    // If no match → LOADING (auth bootstrap will pick the right destination).
+    const fromUrl = pathToView(window.location.pathname, window.location.search);
+    if (fromUrl) return fromUrl;
     return { type: 'LOADING' }; // Start with LOADING, not LOGIN
   });
+
+  // Mirror view ↔ URL (real router URLs, back/forward, deep links, refresh).
+  useViewRouter(view, setView);
 
   // Check for pending invite and load company name
   useEffect(() => {
