@@ -180,3 +180,22 @@ Guards dichiarativi e layouts riusabili (additivi, non rompono nulla).
 **Risultato:** abbiamo i building block per la Fase 3 senza aver toccato il render switch di `App.tsx`. Ogni guard può essere usato in modo incrementale per sostituire i `&& canAccessAdminViews` inline.
 
 **Prossimo passo:** Fase 3 — estrarre la logica di `App.tsx` in hook (`useCurrentUserData`, `useInviteHandler`, `useImpersonation`) e migrare il render switch a un albero `<Routes>` reale che sfrutta i guard appena creati.
+
+## 🔄 Fase 3 — In corso (step 1 di 3)
+
+### Step 1 ✅ — Estrazione adapters puri
+
+- Creato `src/app/adapters.ts` con `profileToLegacyUser` e `companyToLegacy`.
+- Rimosse le definizioni inline da `App.tsx`.
+- **App.tsx: 1591 → 1460 righe** (-131, -8%). Zero rischio: funzioni pure, stessa firma, tutti i 6 call site continuano a funzionare via import.
+
+### Step 2 (prossimo) — Hook di data loading
+
+Estrarre da `App.tsx`:
+- `useCurrentUserData` — `loadCurrentUserData` + state correlato (`currentUserData`, `companyUsers`, `activeCompanyData`).
+- `useSuperAdminData` — caricamento companies/users per super admin.
+- `useInviteHandler` — `pendingInviteData` + check localStorage.
+
+### Step 3 — Route switch dichiarativo
+
+Sostituire il mega switch di rendering con un albero `<Routes>` reale che sfrutta i guard della Fase 2. Lo shim `useViewRouter` continua a sincronizzare `view ↔ URL` durante la migrazione.
