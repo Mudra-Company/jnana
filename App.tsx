@@ -14,6 +14,7 @@ import { Toaster } from './src/components/ui/toaster';
 import { useViewRouter } from './src/router/useViewRouter';
 import { pathToView } from './src/router/viewPathMap';
 import { AppDataProvider, type AppDataValue } from './src/app/AppDataContext';
+import { AppRoutes } from './src/router/AppRoutes';
 
 // Imported Views & Components
 import { Header } from './components/layout/Header';
