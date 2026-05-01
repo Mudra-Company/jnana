@@ -13,6 +13,7 @@ import { toast } from './src/hooks/use-toast';
 import { Toaster } from './src/components/ui/toaster';
 import { useViewRouter } from './src/router/useViewRouter';
 import { pathToView } from './src/router/viewPathMap';
+import { AppDataProvider, type AppDataValue } from './src/app/AppDataContext';
 
 // Imported Views & Components
 import { Header } from './components/layout/Header';
@@ -740,8 +741,41 @@ const AppContent: React.FC = () => {
   // Convert companies to legacy format for SuperAdmin view
   const legacyCompanies = companies.map(c => companyToLegacy(c));
 
+  // Build the context value exposing all state + handlers to descendants.
+  // This anticipates Phase 5: future route components will read via useAppData()
+  // instead of receiving everything as props from this god-component.
+  const appDataValue: AppDataValue = {
+    user, profile, membership,
+    isSuperAdmin, isCompanyAdmin, userRole,
+    canAccessAdminViews, canAccessSuperAdminViews,
+    view, setView, navigate, goBack, viewHistory,
+    currentUserData, setCurrentUserData,
+    companyUsers, setCompanyUsers,
+    activeCompanyData, setActiveCompanyData,
+    companies, legacyCompanies,
+    jobDb, setJobDb,
+    isDark, toggleTheme: () => setIsDark(d => !d),
+    superAdminDataLoading, impersonatedCompanyId,
+    loadCompanyData, handleImpersonate,
+    handleExitImpersonation: () => {
+      setImpersonatedCompanyId(null);
+      setActiveCompanyData(null);
+      setViewHistory([]);
+      setView({ type: 'SUPER_ADMIN_DASHBOARD' });
+    },
+    handleCreateCompany,
+    isDemoMode, demoUserData,
+    handleStartDemoMode, handleExitDemoMode,
+    handleDemoTestComplete, handleDemoKarmaComplete, handleDemoClimateComplete,
+    handleLogout, handleTestComplete, handleKarmaComplete,
+    handleClimateComplete, handleOrgChartUpdate, handleCompanyUpdate,
+    handleGoToMyProfile,
+    pendingInviteData,
+    cvParsedData, setCvParsedData,
+  };
+
   return (
-    <div className={isDark ? 'dark' : ''}>
+    <AppDataProvider value={appDataValue}><div className={isDark ? 'dark' : ''}>
       <div className="min-h-screen bg-white dark:bg-gray-900 text-jnana-text dark:text-gray-100 transition-colors duration-300 font-sans">
         {currentUserData && view.type !== 'LOGIN' && view.type !== 'LANDING' && 
           !view.type.startsWith('KARMA_') && (
@@ -1316,6 +1350,7 @@ const AppContent: React.FC = () => {
         </main>
       </div>
     </div>
+    </AppDataProvider>
   );
 };
 
