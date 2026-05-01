@@ -232,8 +232,15 @@ const AppContent: React.FC = () => {
       window.history.replaceState({}, document.title, window.location.pathname);
       return { type: 'LOGIN' };
     }
+    // Try to recover the view from the current URL (deep link / refresh).
+    // If no match → LOADING (auth bootstrap will pick the right destination).
+    const fromUrl = pathToView(window.location.pathname, window.location.search);
+    if (fromUrl) return fromUrl;
     return { type: 'LOADING' }; // Start with LOADING, not LOGIN
   });
+
+  // Mirror view ↔ URL (real router URLs, back/forward, deep links, refresh).
+  useViewRouter(view, setView);
 
   // Check for pending invite and load company name
   useEffect(() => {
