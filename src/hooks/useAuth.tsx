@@ -17,7 +17,7 @@ interface AuthContextType {
   isInitialized: boolean;
   isSuperAdmin: boolean;
   isCompanyAdmin: boolean;
-  signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
+  signIn: (email: string, password: string, rememberMe?: boolean) => Promise<{ error: Error | null }>;
   signUp: (email: string, password: string, firstName?: string, lastName?: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
@@ -150,18 +150,41 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     };
   }, []); // Empty deps - only run on mount
 
-  const signIn = useCallback(async (email: string, password: string) => {
-    console.log('[Auth] Signing in:', email);
-    
+  const signIn = useCallback(async (email: string, password: string, rememberMe: boolean = true) => {
+    console.log('[Auth] Signing in:', email, 'rememberMe:', rememberMe);
+
+    // Set the storage preference BEFORE signInWithPassword so the
+    // remember-aware storage adapter writes the session to the correct place.
+    try {
+      localStorage.setItem('jnana_remember_me', rememberMe ? '1' : '0');
+
+      // If the user opted out of "Remember me", clean any leftover Supabase
+      // session keys from localStorage so they don't shadow the new
+      // sessionStorage-based session.
+      if (!rememberMe) {
+        for (let i = localStorage.length - 1; i >= 0; i--) {
+          const k = localStorage.key(i);
+          if (k && k.startsWith('sb-')) localStorage.removeItem(k);
+        }
+      } else {
+        for (let i = sessionStorage.length - 1; i >= 0; i--) {
+          const k = sessionStorage.key(i);
+          if (k && k.startsWith('sb-')) sessionStorage.removeItem(k);
+        }
+      }
+    } catch (e) {
+      console.warn('[Auth] Could not set remember-me preference:', e);
+    }
+
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
-    
+
     if (error) {
       console.error('[Auth] Sign in error:', error);
     }
-    
+
     return { error: error as Error | null };
   }, []);
 

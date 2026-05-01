@@ -32,7 +32,15 @@ export const AuthView: React.FC<AuthViewProps> = ({ onSuccess, onKarmaSignup, in
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const [rememberMe, setRememberMe] = useState(false);
+  const [rememberMe, setRememberMe] = useState(() => {
+    try {
+      const saved = localStorage.getItem('jnana_remember_me');
+      // Default: remember me ON (matches previous implicit behavior).
+      return saved === null ? true : saved === '1';
+    } catch {
+      return true;
+    }
+  });
   const [showPassword, setShowPassword] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [pendingInvite, setPendingInvite] = useState<PendingInvite | null>(null);
@@ -89,7 +97,7 @@ export const AuthView: React.FC<AuthViewProps> = ({ onSuccess, onKarmaSignup, in
       localStorage.setItem('auth_intent', authIntent);
 
       if (isLogin) {
-        const { error } = await signIn(email, password);
+        const { error } = await signIn(email, password, rememberMe);
         if (error) {
           if (error.message.includes('Invalid login credentials')) {
             setError('Email o password non validi');
@@ -384,23 +392,30 @@ export const AuthView: React.FC<AuthViewProps> = ({ onSuccess, onKarmaSignup, in
 
             {/* Remember me & Forgot password (login only) */}
             {isLogin && (
-              <div className="flex items-center justify-between">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={rememberMe}
-                    onChange={(e) => setRememberMe(e.target.checked)}
-                    className="w-4 h-4 rounded border-jnana-border text-jnana-charcoal focus:ring-jnana-charcoal/20"
-                  />
-                  <span className="text-sm text-jnana-text/70 dark:text-gray-400">Ricordami</span>
-                </label>
-                <button
-                  type="button"
-                  onClick={() => setShowForgotPassword(true)}
-                  className="text-sm text-jnana-charcoal dark:text-gray-400 hover:underline"
-                >
-                  Password dimenticata?
-                </button>
+              <div>
+                <div className="flex items-center justify-between">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={rememberMe}
+                      onChange={(e) => setRememberMe(e.target.checked)}
+                      className="w-4 h-4 rounded border-jnana-border text-jnana-charcoal focus:ring-jnana-charcoal/20"
+                    />
+                    <span className="text-sm text-jnana-text/70 dark:text-gray-400">Ricordami</span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setShowForgotPassword(true)}
+                    className="text-sm text-jnana-charcoal dark:text-gray-400 hover:underline"
+                  >
+                    Password dimenticata?
+                  </button>
+                </div>
+                {!rememberMe && (
+                  <p className="mt-1 text-xs text-jnana-text/50 dark:text-gray-500">
+                    Dovrai effettuare nuovamente l'accesso alla prossima sessione.
+                  </p>
+                )}
               </div>
             )}
 
