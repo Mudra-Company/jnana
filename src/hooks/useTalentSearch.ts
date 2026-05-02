@@ -220,9 +220,9 @@ export const useTalentSearch = () => {
       // Log the view
       await logProfileView(candidateId);
 
-      // Fetch full profile data
-      const { data, error } = await supabase
-        .from('profiles')
+      // Fetch full profile data via the safe public view (no email/birth_date)
+      const { data: dataRaw, error } = await supabase
+        .from('karma_profiles_public' as any)
         .select(`
           *,
           user_hard_skills(*, skill:hard_skills_catalog(*)),
@@ -235,11 +235,12 @@ export const useTalentSearch = () => {
         .single();
 
       if (error) throw error;
+      const data = dataRaw as any;
 
-      // Format and return
+      // Format and return (email is hidden — use platform messaging to contact)
       const profile: KarmaProfile = {
         id: data.id,
-        email: data.email,
+        email: '',
         firstName: data.first_name || undefined,
         lastName: data.last_name || undefined,
         avatarUrl: data.avatar_url || undefined,
