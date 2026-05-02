@@ -54,6 +54,13 @@ export type Database = {
             foreignKeyName: "climate_responses_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
+            referencedRelation: "karma_profiles_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "climate_responses_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -191,6 +198,13 @@ export type Database = {
             foreignKeyName: "company_compliance_history_performed_by_fkey"
             columns: ["performed_by"]
             isOneToOne: false
+            referencedRelation: "karma_profiles_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "company_compliance_history_performed_by_fkey"
+            columns: ["performed_by"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -258,6 +272,13 @@ export type Database = {
             columns: ["requirement_id"]
             isOneToOne: false
             referencedRelation: "compliance_requirements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "company_compliance_status_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "karma_profiles_public"
             referencedColumns: ["id"]
           },
           {
@@ -340,6 +361,13 @@ export type Database = {
             foreignKeyName: "company_members_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
+            referencedRelation: "karma_profiles_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "company_members_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -404,6 +432,13 @@ export type Database = {
             foreignKeyName: "company_role_assignments_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
+            referencedRelation: "karma_profiles_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "company_role_assignments_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -440,6 +475,13 @@ export type Database = {
             columns: ["role_id"]
             isOneToOne: false
             referencedRelation: "company_roles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "company_role_audit_logs_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "karma_profiles_public"
             referencedColumns: ["id"]
           },
           {
@@ -741,6 +783,13 @@ export type Database = {
             foreignKeyName: "job_suggestions_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
+            referencedRelation: "karma_profiles_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "job_suggestions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -888,6 +937,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "karma_sessions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "karma_profiles_public"
             referencedColumns: ["id"]
           },
           {
@@ -1176,6 +1232,13 @@ export type Database = {
           viewer_company_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "profile_views_log_viewed_profile_id_fkey"
+            columns: ["viewed_profile_id"]
+            isOneToOne: false
+            referencedRelation: "karma_profiles_public"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "profile_views_log_viewed_profile_id_fkey"
             columns: ["viewed_profile_id"]
@@ -1501,7 +1564,6 @@ export type Database = {
           company_id: string | null
           id: string
           profile_code: string | null
-          raw_answers: Json | null
           score_a: number
           score_c: number
           score_e: number
@@ -1515,7 +1577,6 @@ export type Database = {
           company_id?: string | null
           id?: string
           profile_code?: string | null
-          raw_answers?: Json | null
           score_a?: number
           score_c?: number
           score_e?: number
@@ -1529,7 +1590,6 @@ export type Database = {
           company_id?: string | null
           id?: string
           profile_code?: string | null
-          raw_answers?: Json | null
           score_a?: number
           score_c?: number
           score_e?: number
@@ -1551,7 +1611,46 @@ export type Database = {
             foreignKeyName: "riasec_results_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
+            referencedRelation: "karma_profiles_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "riasec_results_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      riasec_results_raw: {
+        Row: {
+          created_at: string
+          id: string
+          raw_answers: Json
+          result_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          raw_answers?: Json
+          result_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          raw_answers?: Json
+          result_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "riasec_results_raw_result_id_fkey"
+            columns: ["result_id"]
+            isOneToOne: true
+            referencedRelation: "riasec_results"
             referencedColumns: ["id"]
           },
         ]
@@ -1891,6 +1990,13 @@ export type Database = {
             foreignKeyName: "user_hard_skills_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
+            referencedRelation: "karma_profiles_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_hard_skills_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -1955,6 +2061,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "user_portfolio_items_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "karma_profiles_public"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "user_portfolio_items_user_id_fkey"
             columns: ["user_id"]
@@ -2063,6 +2176,13 @@ export type Database = {
             foreignKeyName: "user_social_links_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
+            referencedRelation: "karma_profiles_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_social_links_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -2070,9 +2190,69 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      karma_profiles_public: {
+        Row: {
+          avatar_url: string | null
+          bio: string | null
+          created_at: string | null
+          first_name: string | null
+          headline: string | null
+          id: string | null
+          is_karma_profile: boolean | null
+          job_title: string | null
+          last_name: string | null
+          location: string | null
+          looking_for_work: boolean | null
+          preferred_work_type: string | null
+          profile_visibility: string | null
+          region: string | null
+          updated_at: string | null
+          wants_karma_visibility: boolean | null
+          years_experience: number | null
+        }
+        Insert: {
+          avatar_url?: string | null
+          bio?: string | null
+          created_at?: string | null
+          first_name?: string | null
+          headline?: string | null
+          id?: string | null
+          is_karma_profile?: boolean | null
+          job_title?: string | null
+          last_name?: string | null
+          location?: string | null
+          looking_for_work?: boolean | null
+          preferred_work_type?: string | null
+          profile_visibility?: string | null
+          region?: string | null
+          updated_at?: string | null
+          wants_karma_visibility?: boolean | null
+          years_experience?: number | null
+        }
+        Update: {
+          avatar_url?: string | null
+          bio?: string | null
+          created_at?: string | null
+          first_name?: string | null
+          headline?: string | null
+          id?: string | null
+          is_karma_profile?: boolean | null
+          job_title?: string | null
+          last_name?: string | null
+          location?: string | null
+          looking_for_work?: boolean | null
+          preferred_work_type?: string | null
+          profile_visibility?: string | null
+          region?: string | null
+          updated_at?: string | null
+          wants_karma_visibility?: boolean | null
+          years_experience?: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
+      cleanup_old_profile_views: { Args: never; Returns: undefined }
       get_user_company_id: { Args: { _user_id: string }; Returns: string }
       has_role: {
         Args: {
