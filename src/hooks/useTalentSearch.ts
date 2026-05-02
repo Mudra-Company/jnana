@@ -112,14 +112,14 @@ export const useTalentSearch = () => {
       if (queryError) throw queryError;
 
       // Process and score candidates
-      const scoredCandidates: CandidateMatch[] = (data || []).map(candidate => {
+      const scoredCandidates: CandidateMatch[] = ((data as any[]) || []).map((candidate: any) => {
         // Get candidate's skills
-        const candidateSkills = ((candidate as any).user_hard_skills || []).map((s: any) => 
+        const candidateSkills = (candidate.user_hard_skills || []).map((s: any) =>
           s.skill?.name || s.custom_skill_name
         ).filter(Boolean);
 
         // Get RIASEC score
-        const latestRiasec = (candidate as any).riasec_results?.[0];
+        const latestRiasec = candidate.riasec_results?.[0];
         const candidateRiasec: RiasecScore | undefined = latestRiasec ? {
           R: latestRiasec.score_r,
           I: latestRiasec.score_i,
@@ -130,44 +130,45 @@ export const useTalentSearch = () => {
         } : undefined;
 
         // Get soft skills from karma session
-        const latestKarma = (candidate as any).karma_sessions?.[0];
+        const latestKarma = candidate.karma_sessions?.[0];
         const softSkills = latestKarma?.soft_skills || [];
         const seniorityAssessment = latestKarma?.seniority_assessment as SeniorityLevel | undefined;
 
         // Calculate match scores
-        const riasecMatch = targetRiasec && candidateRiasec 
+        const riasecMatch = targetRiasec && candidateRiasec
           ? calculateRiasecMatch(candidateRiasec, targetRiasec)
           : 50;
 
         const skillsResult = calculateSkillsMatch(candidateSkills, requiredSkills || []);
 
         // Seniority match
-        const seniorityMatch = !filters.seniorityLevels?.length || 
+        const seniorityMatch = !filters.seniorityLevels?.length ||
           (seniorityAssessment && filters.seniorityLevels.includes(seniorityAssessment));
 
         // Overall score (weighted)
         const matchScore = Math.round(
-          (riasecMatch * 0.3) + 
-          (skillsResult.score * 0.5) + 
+          (riasecMatch * 0.3) +
+          (skillsResult.score * 0.5) +
           (seniorityMatch ? 20 : 0)
         );
 
-        // Build karma profile
+        // Build karma profile (email/birth_date are intentionally not exposed
+        // through the marketplace view — contact the candidate via the platform)
         const profile: KarmaProfile = {
           id: candidate.id,
-          email: candidate.email,
+          email: '', // hidden in marketplace listing
           firstName: candidate.first_name || undefined,
           lastName: candidate.last_name || undefined,
           avatarUrl: candidate.avatar_url || undefined,
-          bio: (candidate as any).bio || undefined,
-          location: (candidate as any).location || undefined,
-          headline: (candidate as any).headline || undefined,
+          bio: candidate.bio || undefined,
+          location: candidate.location || undefined,
+          headline: candidate.headline || undefined,
           jobTitle: candidate.job_title || undefined,
           isKarmaProfile: true,
           profileVisibility: 'subscribers_only',
-          lookingForWork: (candidate as any).looking_for_work || false,
-          preferredWorkType: (candidate as any).preferred_work_type as WorkType | undefined,
-          yearsExperience: (candidate as any).years_experience || undefined,
+          lookingForWork: candidate.looking_for_work || false,
+          preferredWorkType: candidate.preferred_work_type as WorkType | undefined,
+          yearsExperience: candidate.years_experience || undefined,
           createdAt: candidate.created_at,
           updatedAt: candidate.updated_at,
           riasecScore: candidateRiasec,
