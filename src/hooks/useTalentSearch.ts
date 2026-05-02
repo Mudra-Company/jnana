@@ -64,9 +64,10 @@ export const useTalentSearch = () => {
       setIsLoading(true);
       setCandidates([]);
 
-      // Build query for karma profiles
+      // Build query for karma profiles via the safe public view
+      // (excludes email/birth_date — those are owner-only)
       let query = supabase
-        .from('profiles')
+        .from('karma_profiles_public' as any)
         .select(`
           *,
           user_hard_skills(
@@ -79,9 +80,7 @@ export const useTalentSearch = () => {
           karma_sessions(
             soft_skills, seniority_assessment
           )
-        `)
-        .eq('is_karma_profile', true)
-        .eq('profile_visibility', 'subscribers_only');
+        `);
 
       // Apply filters
       if (filters.lookingForWorkOnly) {
