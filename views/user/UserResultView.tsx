@@ -357,8 +357,8 @@ export const UserResultView: React.FC<UserResultViewProps> = ({ user, jobDb, com
                                     Ciao <strong>{user.firstName}</strong>, ecco i risultati della tua mappatura attitudinale.
                                 </p>
                                 <div className="flex flex-wrap gap-3">
-                                    <Button onClick={() => setActiveTab('riasec')} className="bg-white !text-jnana-sage hover:bg-gray-100 border-none font-bold shadow-md">Vedi Dettaglio RIASEC</Button>
-                                    <Button onClick={() => setActiveTab('karma')} variant="outline" className="border-white/40 text-white hover:bg-white/10 font-medium">Analisi Karma AI</Button>
+                                     <Button onClick={() => setActiveTab('riasec')} className="bg-white/20 hover:bg-white/30 !text-white border border-white/40 font-bold shadow-md">Vedi Dettaglio RIASEC</Button>
+                                     <Button onClick={() => setActiveTab('karma')} variant="outline" className="border-white/40 !text-white hover:bg-white/10 font-medium">Analisi Karma AI</Button>
                                 </div>
                             </div>
                             <div className="grid grid-cols-1 gap-3">
