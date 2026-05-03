@@ -75,6 +75,7 @@ export const useProfiles = (companyId?: string) => {
         .select('*')
         .eq('user_id', userId)
         .order('submitted_at', { ascending: false })
+        .limit(1)
         .maybeSingle();
 
       const { data: karmaSession } = await supabase
@@ -82,6 +83,7 @@ export const useProfiles = (companyId?: string) => {
         .select('*')
         .eq('user_id', userId)
         .order('completed_at', { ascending: false })
+        .limit(1)
         .maybeSingle();
 
       const { data: climateResponse } = await supabase
@@ -89,6 +91,7 @@ export const useProfiles = (companyId?: string) => {
         .select('*')
         .eq('user_id', userId)
         .order('submitted_at', { ascending: false })
+        .limit(1)
         .maybeSingle();
 
       return {
