@@ -1,262 +1,54 @@
-## Report tecnico: stato attuale dell'architettura
-
-Hai ragione: **non è un monolite "gigantesco" nel senso peggiore del termine, ma è un monolite di routing**. Il codice è ben modularizzato a livello di componenti (hai 100+ file, view, hook, servizi separati), ma **tutta la navigazione passa per un unico file enorme**: `App.tsx`.
-
-### Numeri chiave
-
-| Metrica | Valore | Giudizio |
-|---|---|---|
-| Righe in `App.tsx` | **1.582** | Critico (limite sano: ~300) |
-| ViewState distinti | **42** stringhe in un'unione discriminata | Da spezzare |
-| Router dichiarato | **Nessuno** (`react-router-dom` non installato) | Causa root del problema |
-| Componenti view modulari | ~50 file in `views/` e `src/views/` | Buono |
-| Hook custom | ~30 in `src/hooks/` | Buono |
-| Edge functions | ~12 ben separate | Buono |
-
-### Cosa funziona (NON va toccato)
-
-- **Componenti, view, hook, servizi**: già ben separati per dominio (karma, admin, spacesync, compliance, roles, ecc.).
-- **Backend (Supabase + edge functions)**: pulito e modulare.
-- **Design system Tailwind custom**: rispettato secondo memory.
-- **Auth provider**: ora a livello root in `index.tsx`, stabile.
-
-### Cosa NON funziona (causa di lentezza, fragilità, URL identici)
-
-1. **Routing fatto a mano con `useState<ViewState>`**
-   - 42 tipi di view in un'unica unione, gestiti da uno switch implicito di ~800 righe in `App.tsx`.
-   - Nessun cambio di URL → niente deep link, niente back/forward del browser, niente bookmark, niente condivisione, niente analytics per pagina, niente SEO.
-   - Refresh = perdita di stato (riparte da `LOADING`).
-
-2. **`App.tsx` è il "god component"**
-   - Carica auth, profili, companies, org nodes, test results, demo state, CV onboarding, invite handling, route guard, e fa il rendering di tutte le 42 view.
-   - Ogni modifica a una qualsiasi view rischia di rompere le altre e ricompila l'intero file.
-   - `loadCurrentUserData` decide la view di destinazione con una catena di `if` su intent + ruolo + dati: logica di routing nascosta nei dati.
-
-3. **Bundle pesante / lazy loading assente**
-   - Tutte le view sono `import` statici in cima ad `App.tsx` → un utente che apre il login scarica anche SpaceSync, Compliance, Org Chart, editor questionari, ecc.
-   - Nessun `React.lazy` / code-splitting → first paint più lento del necessario.
-
-4. **State globale duplicato**
-   - `currentUserData`, `companyUsers`, `activeCompanyData`, `companies`, `jobDb` vivono in `App.tsx` e vengono passati prop-drilling alle view. Le view ricaricano spesso dati già in memoria.
-
-5. **Route guard reattivo, non dichiarativo**
-   - `useEffect` che osserva `view.type` e fa `setView` di redirect → flicker e doppi render.
-
-### Verdetto
-
-Non c'è da riscrivere niente: il 90% del codice è sano. **Va estratto il routing** dal monolite e introdotto un router vero. Tutto il resto rimane.
-
----
-
-## Piano di refactoring (incrementale, zero perdita di funzionalità)
-
-Lavoreremo in **5 fasi indipendenti**, ognuna deployabile da sola. Dopo ogni fase l'app funziona come prima, ma meglio.
-
-### Fase 1 — Introduzione di React Router (URL reali)
-
-- Installare `react-router-dom`.
-- Creare `src/router/AppRouter.tsx` con `<BrowserRouter>` e una mappa `ViewState → path`:
-  ```text
-  /                          → LANDING
-  /login                     → LOGIN
-  /auth/reset-password       → RESET_PASSWORD
-  /admin                     → ADMIN_DASHBOARD
-  /admin/org                 → ADMIN_ORG_CHART
-  /admin/identity            → ADMIN_IDENTITY_HUB
-  /admin/positions           → ADMIN_OPEN_POSITIONS
-  /admin/positions/:id       → ADMIN_POSITION_MATCHING
-  /admin/compliance          → ADMIN_COMPLIANCE
-  /admin/spacesync           → ADMIN_SPACESYNC
-  /admin/users/:id           → ADMIN_USER_DETAIL
-  /admin/company             → ADMIN_COMPANY_PROFILE
-  /superadmin                → SUPER_ADMIN_DASHBOARD
-  /superadmin/jobs           → SUPER_ADMIN_JOBS
-  /superadmin/karma          → SUPER_ADMIN_KARMA_TALENTS
-  /superadmin/karma/:userId  → SUPER_ADMIN_KARMA_PROFILE
-  /superadmin/analytics      → SUPER_ADMIN_ANALYTICS
-  /superadmin/questionnaires → SUPER_ADMIN_QUESTIONNAIRES
-  /superadmin/questionnaires/:id → SUPER_ADMIN_QUESTIONNAIRE_EDIT
-  /karma                     → KARMA_DASHBOARD
-  /karma/welcome             → KARMA_WELCOME
-  /karma/onboarding          → KARMA_ONBOARDING
-  /karma/profile             → KARMA_PROFILE_EDIT
-  /karma/test/riasec         → KARMA_TEST_RIASEC
-  /karma/test/chat           → KARMA_TEST_CHAT
-  /karma/results             → KARMA_RESULTS
-  /company/talent            → COMPANY_TALENT_SEARCH
-  /company/candidate/:userId → COMPANY_CANDIDATE_VIEW
-  /test/welcome              → USER_WELCOME
-  /test/riasec               → USER_TEST
-  /test/chat                 → USER_CHAT
-  /test/climate              → USER_CLIMATE_TEST
-  /me                        → USER_RESULT
-  /demo/*                    → DEMO_*
-  ```
-- Mantenere `ViewState` come tipo legacy per le view che non sono ancora migrate, con uno **shim** `setView({type})` che fa internamente `navigate(path)`. Così le view interne continuano a funzionare invariate.
-- Aggiungere `<ScrollRestoration>` e gestire `404 → /`.
-
-### Fase 2 — Estrazione del Layout e dei Route Guards
-
-- Creare `src/router/guards/`:
-  - `RequireAuth.tsx` (redirect a `/login`)
-  - `RequireAdmin.tsx` (usa già `useRouteGuard`)
-  - `RequireSuperAdmin.tsx`
-- Creare `src/layouts/`:
-  - `AppLayout.tsx` (Header + `<Outlet/>`)
-  - `AuthLayout.tsx` (per login/reset)
-- Le rotte si scrivono dichiarativamente:
-  ```text
-  <Route element={<RequireAdmin/>}>
-    <Route path="/admin" element={<AdminDashboardView/>}/>
-    ...
-  </Route>
-  ```
-- Eliminare l'`useEffect` di route-guard reattivo dentro `App.tsx`.
-
-### Fase 3 — Spezzettamento di `App.tsx`
-
-- Estrarre da `App.tsx` in file dedicati:
-  - `src/app/adapters.ts` → `profileToLegacyUser`, `companyToLegacy` (~130 righe).
-  - `src/app/hooks/useCurrentUserData.ts` → `loadCurrentUserData` + state correlato.
-  - `src/app/hooks/useSuperAdminData.ts` → `loadAllCompaniesForSuperAdmin`, `loadAllUsersForSuperAdmin`.
-  - `src/app/hooks/useInviteHandler.ts` → invite + pendingInvite.
-  - `src/app/hooks/useDemoMode.ts` → demo state isolato.
-- Obiettivo: `App.tsx` < 200 righe, solo provider + router.
-
-### Fase 4 — Code-splitting con `React.lazy`
-
-- Convertire ogni view importata in `App.tsx` in `lazy(() => import(...))`.
-- Wrappare il `<Outlet/>` in `<Suspense fallback={<Loading/>}/>`.
-- Risultato atteso: bundle iniziale ridotto del 50–70%, login/landing più veloci.
-
-### Fase 5 — State management leggero (opzionale, alta resa)
-
-- Spostare `currentUserData`, `companyUsers`, `activeCompanyData`, `companies` da prop-drilling a un context dedicato (`AppDataContext`) o, meglio, **introdurre `@tanstack/react-query`** per cache, dedup e refetch automatici.
-- Le view leggono i dati con hook (`useCurrentUser()`, `useCompanyUsers()`) invece che da props → meno re-render globali, niente ricariche duplicate.
-
----
-
-## Rischi e mitigazioni
-
-| Rischio | Mitigazione |
-|---|---|
-| Rotture in view che chiamano `setView({type:...})` | Lo shim di compatibilità fa partire ogni `setView` come `navigate()`. Migrazione view-per-view senza big-bang. |
-| Reset password che usa già `window.location.pathname` | Diventa una rotta dichiarativa `/auth/reset-password`. Comportamento identico. |
-| Invite link `?invite=...&company=...` | Gestiti in un `useEffect` dentro `RequireAuth` o nel layout root, identico a oggi. |
-| Demo mode con view dedicate | Restano sotto `/demo/*` con propria mini-routing. |
-| Auth flow + redirect post-login | `loadCurrentUserData` non chiama più `setView(...)`: ritorna il path target e il chiamante fa `navigate(target)`. |
-
-## Tempi indicativi
-
-- Fase 1: 1 sessione (l'unica con qualche rischio, va testata bene)
-- Fase 2: 0.5 sessione
-- Fase 3: 1 sessione
-- Fase 4: 0.5 sessione
-- Fase 5: 1 sessione (può essere fatta dopo, anche molto dopo)
-
-Totale per arrivare a un'app con URL veri, App.tsx pulito e bundle splittato: **~3 sessioni**.
-
-## Cosa propongo come prossimo passo
-
-Partire **solo dalla Fase 1** (React Router + shim di compatibilità). È il cambiamento con più valore percepito (URL veri, back/forward, deep link, bookmark) e zero rischio sulle altre view. Le fasi 2–5 le decidiamo dopo aver visto il risultato.
-
-Confermi che procedo con la **Fase 1**?
----
-
-## ✅ Fase 1 — Completata
-
-URL routing reale con shim di compatibilità. Ogni view ha un path bookmarkable, back/forward del browser funzionano.
-
-## ✅ Fase 2 — Completata
-
-Guards dichiarativi e layouts riusabili (additivi, non rompono nulla).
-
-**File creati:**
-- `src/router/accessPolicy.ts` — mappa centralizzata `ViewType → roles`, copre tutti i 46 view types. Funzione `canAccessView(viewType, isAuthenticated, role)`.
-- `src/router/guards.tsx` — `<RequireAuth>`, `<RequireGuest>`, `<RequireAdmin>`, `<RequireSuperAdmin>`, `<RequireRole>`, `<RequireViewAccess>`. I guards rendono `fallback` (default `null`) quando il check fallisce — non navigano mai da soli, così App.tsx mantiene il controllo dei redirect.
-- `src/router/layouts.tsx` — `<AppLayout>`, `<AuthLayout>`, `<LoadingLayout>`.
-- `src/router/index.ts` — barrel export per import puliti.
-
-**Risultato:** abbiamo i building block per la Fase 3 senza aver toccato il render switch di `App.tsx`. Ogni guard può essere usato in modo incrementale per sostituire i `&& canAccessAdminViews` inline.
-
-**Prossimo passo:** Fase 3 — estrarre la logica di `App.tsx` in hook (`useCurrentUserData`, `useInviteHandler`, `useImpersonation`) e migrare il render switch a un albero `<Routes>` reale che sfrutta i guard appena creati.
-
-## 🔄 Fase 3 — In corso (step 1 di 3)
-
-### Step 1 ✅ — Estrazione adapters puri
-
-- Creato `src/app/adapters.ts` con `profileToLegacyUser` e `companyToLegacy`.
-- Rimosse le definizioni inline da `App.tsx`.
-- **App.tsx: 1591 → 1460 righe** (-131, -8%). Zero rischio: funzioni pure, stessa firma, tutti i 6 call site continuano a funzionare via import.
-
-### Step 2 (prossimo) — Hook di data loading
-
-Estrarre da `App.tsx`:
-- `useCurrentUserData` — `loadCurrentUserData` + state correlato (`currentUserData`, `companyUsers`, `activeCompanyData`).
-- `useSuperAdminData` — caricamento companies/users per super admin.
-- `useInviteHandler` — `pendingInviteData` + check localStorage.
-
-### Step 3 — Route switch dichiarativo
-
-Sostituire il mega switch di rendering con un albero `<Routes>` reale che sfrutta i guard della Fase 2. Lo shim `useViewRouter` continua a sincronizzare `view ↔ URL` durante la migrazione.
-
-### Step 2 ✅ — Estrazione data loaders puri
-
-- Creato `src/app/dataLoaders.ts` con `loadAllCompanies`, `loadAllUsersForSuperAdmin`, `loadCompanyUsersWithDetails` — async puri, zero state React, accettano solo argomenti primitivi.
-- `App.tsx` ora importa i loader e mantiene solo wrapper sottili che chiamano i setter (`setCompanies`, `setCompanyUsers`, `setActiveCompanyData`).
-- Aggiornato anche il call site `onRefreshUsers` nell'AdminIdentityHub.
-- **App.tsx: 1460 → 1335 righe** (-125, ulteriore -8.5%). Cumulativo dal Phase 3 start: 1591 → 1335 (-256, -16%).
-
-### Step 3a ✅ — AppDataContext (Fase 5 anticipata)
-
-- Creato `src/app/AppDataContext.tsx` con `AppDataProvider`, `useAppData()`, `useAppDataOptional()`. Espone tutto lo state e gli handler oggi inline in `AppContent`: auth-derived, routing (`view`/`navigate`/`goBack`), domain (`currentUserData`, `companyUsers`, `activeCompanyData`, `companies`, `jobDb`), tema, super-admin (impersonate, create company), demo mode, handler di flow utente, invite, CV parsed.
-- `AppContent` ora costruisce `appDataValue` e wrappa il return col `<AppDataProvider>`. Comportamento invariato.
-- Build pulita.
-
-### Step 3b (prossimo) — Migrazione progressiva del switch a `<Routes>`
-
-Ogni view sarà un componente di route che legge i dati con `useAppData()`. Procederemo per gruppi: prima le view "leaf" (analytics, questionnaires, karma profile/results), poi admin, poi user flow, poi demo. Lo shim `useViewRouter` resta attivo finché tutte le view non sono migrate.
-
-### Step 3b ✅ — Albero `<Routes>` reale (completato in un colpo)
-
-Anziché migrare view-per-view (avremmo lasciato il codice in stato ibrido confuso per molti commit), abbiamo creato `src/router/AppRoutes.tsx` con TUTTE le route components in un colpo solo. Ogni route:
-
-- Legge dati e handler con `useAppData()` invece di props.
-- Applica le stesse condizioni di rendering del vecchio switch (es. `activeCompanyData && canAccessAdminViews` → `if (...) return null`).
-- Mappa direttamente al path URL (params via `useParams`, query via `useSearchParams`).
-
-`App.tsx` ora ha solo `<Header/>` + `<AppRoutes/>` come render. Tutti gli import di view sono stati rimossi (erano 30+ — ora ne resta 1: `Header`).
-
-**App.tsx: 1335 → 799 righe** (-536, -40% in questo step). **Cumulativo dal Phase 3 start: 1591 → 799 (-792, -50%)**.
-
-### Stato del refactor
-
-- ✅ Fase 1: URL reali con shim `useViewRouter`.
-- ✅ Fase 2: guards + layouts dichiarativi.
-- ✅ Fase 3: adapters, dataLoaders, AppDataContext, AppRoutes — `App.tsx` dimezzato.
-- ⏳ Fase 4: code-splitting con `React.lazy` (ora trivial: basta lazyfare gli import in `AppRoutes.tsx`).
-- ⏳ Fase 5: `App.tsx` continua a contenere tutti gli handler. Il prossimo passo naturale è estrarli in hook (`useAppActions`, `useDemoMode`, `useInviteHandler`) per scendere sotto le 300 righe.
-
-### Fase 4 ✅ — Code-splitting con `React.lazy`
-
-Tutte le view in `src/router/AppRoutes.tsx` ora sono caricate on-demand via `React.lazy()`. Il bundle iniziale resta minimal e contiene solo `LandingPage` + `AuthView` + chrome (Header, AuthProvider, AppDataProvider, router shim).
-
-**Strategia adottata:**
-- **Eager** (nel main bundle): `LandingPage`, `AuthView`, `DemoBanner`. Sono il path iniziale del 90%+ degli utenti — niente flash di Suspense sul first paint.
-- **Lazy** (chunk separati): tutte le altre 28 view. Ogni view diventa un chunk Vite dedicato, scaricato la prima volta che si visita la rotta e poi cached dal browser.
-- **Suspense fallback**: spinner minimal coerente col loading globale (`text-jnana-charcoal`), non sfarfalla per i chunk piccoli grazie alla cache HTTP.
-
-**Risultato atteso al prossimo build:**
-- Bundle iniziale: -50/70% (le view pesanti come SpaceSync, Compliance, OrgChart, KarmaChat, PositionMatching ora non vengono scaricate al login).
-- Time-to-interactive di landing/login significativamente più rapido.
-- Navigazione fra view: piccolo ritardo (<200ms su rete decente) la prima volta, istantaneo dopo.
-
-### Stato finale del refactor
-
-- ✅ Fase 1: URL reali + back/forward + deep link.
-- ✅ Fase 2: guards + layouts dichiarativi.
-- ✅ Fase 3: `App.tsx` 1591 → 799 righe (-50%) tramite adapters, dataLoaders, AppDataContext, AppRoutes.
-- ✅ Fase 4: code-splitting per route.
-- ⏳ Fase 5 (opzionale, alta resa): `App.tsx` ha ancora ~600 righe di handler. Estrarli in hook (`useAppActions`, `useDemoMode`, `useInviteHandler`, `useImpersonation`) per portarlo sotto le 200 righe. Da fare quando serve, non urgente.
-
-Il piano originale è completo. La piattaforma ora ha URL veri, bundle splittato, render switch dichiarativo e state centralizzato.
+## Obiettivo
+Unificare i due record:
+- **A** = `e2f87c8c…` — `giuseppe.ciniero@mudra.team` (loggato, super_admin, oggi "Stagista" in Mudra spa)
+- **B** = `7189d2cb…` — `giuseppe.ciniero@amaeru.eu` (CEO Amaeru, ha tutti i dati)
+
+Risultato finale: un solo Giuseppe (account A) come **CEO & Presidente CDA** in **CEO Office / Amaeru**, con super_admin mantenuto e tutti i dati del CEO ereditati.
+
+## Cosa farò (operazioni dati, nessuna modifica di codice)
+
+### 1. Arricchisci `profiles` di A
+Copia da B → A:
+- `job_title` = "CEO & Presidente CDA"
+- `headline` = "CEO @ Amaeru — Pet-tech & AI for Animal Wellbeing"
+- `bio`, `location`, `region`, `birth_date`, `years_experience`, `avatar_url` (se valorizzati su B)
+
+### 2. Sposta A in Amaeru (`company_members`)
+- DELETE riga `company_members` di A in Mudra spa (Stagista).
+- INSERT nuova riga `company_members` per A:
+  - `company_id` = Amaeru (`02b47082…`)
+  - `department_id` = CEO Office (`2117ea84…`)
+  - `role` = `admin`, `status` = `completed`
+  - `job_title` = "CEO & Presidente CDA"
+
+### 3. Riassegna il ruolo "CEO & Presidente CDA" all'account A
+Nel record `company_role_assignments` `72d9ff38…` (oggi `user_id = NULL`):
+- UPDATE `user_id` = A
+- UPDATE `company_member_id` = nuovo id membership di A in Amaeru
+
+### 4. Trasferisci i risultati dei test da B → A
+- UPDATE `riasec_results.user_id` da B a A (1 riga; `company_id` resta Amaeru)
+- UPDATE `karma_sessions.user_id` da B a A (1 riga)
+- UPDATE `climate_responses.user_id` da B a A per la riga di Amaeru (B ne ha 1)
+- I risultati esistenti dell'account A (1 RIASEC + 1 Climate fatti su Mudra spa) vengono **mantenuti**: l'app userà comunque il più recente / quello del tenant attivo
+
+### 5. Riassegna la scrivania
+- UPDATE `office_desks` (id `dea3be6f…`): `company_member_id` → nuova membership di A
+
+### 6. Cleanup utente duplicato B
+- DELETE eventuali altre righe collegate a B (`profile_views_log` di B, `user_roles` di B)
+- DELETE `profiles` di B
+- DELETE da `auth.users` l'utente B (`giuseppe.ciniero@amaeru.eu`)
+
+### 7. Verifica
+SELECT finale per confermare:
+- A ha 1 sola riga in `company_members` → Amaeru, admin, CEO Office
+- `company_role_assignments` "CEO & Presidente CDA" punta ad A
+- riasec/karma/climate di Amaeru appartengono ad A
+- B non esiste più
+
+## Note
+- Nessun file di codice viene toccato.
+- L'account `e2f87c8c…` mantiene `super_admin` e diventa anche admin di Amaeru.
+- L'account `ciniero.g@gmail.com` (`72f1706f…`) non viene toccato (non è coinvolto nella confusione).
+- Dopo l'esecuzione potrebbe essere necessario un refresh / nuovo login per vedere il nuovo tenant attivo.
