@@ -277,7 +277,7 @@ export const AdminIdentityHub: React.FC<AdminIdentityHubProps> = ({ company, use
                             <h3 className="text-sm font-bold uppercase text-gray-500 mb-2 flex items-center gap-2">
                                 <BarChart3 size={16}/> Media Aziendale (Aggregata su {climateStats.respondentCount} dipendenti)
                             </h3>
-                            <p className="text-xs text-gray-400 mb-6">Punteggio medio (0-10) per dimensione.</p>
+                            <p className="text-xs text-gray-400 mb-6">Punteggio medio (1-5) per dimensione.</p>
                             
                             <div className="flex-1 w-full min-h-[400px]">
                                 <ResponsiveContainer width="100%" height="100%">
@@ -287,7 +287,7 @@ export const AdminIdentityHub: React.FC<AdminIdentityHubProps> = ({ company, use
                                         margin={{ top: 5, right: 30, left: 10, bottom: 5 }}
                                     >
                                         <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e5e7eb" />
-                                        <XAxis type="number" domain={[0, 10]} ticks={[0, 2, 4, 6, 8, 10]} stroke="#9CA3AF" tick={{fontSize: 10}}/>
+                                        <XAxis type="number" domain={[0, 5]} ticks={[0, 1, 2, 3, 4, 5]} stroke="#9CA3AF" tick={{fontSize: 10}}/>
                                         <YAxis 
                                             dataKey="name" 
                                             type="category" 
@@ -301,12 +301,12 @@ export const AdminIdentityHub: React.FC<AdminIdentityHubProps> = ({ company, use
                                             contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}
                                             formatter={(value: number) => [value.toFixed(2), "Media"]}
                                         />
-                                        <ReferenceLine x={6} stroke="#9CA3AF" strokeDasharray="3 3" />
+                                        <ReferenceLine x={3} stroke="#9CA3AF" strokeDasharray="3 3" />
                                         <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={24}>
                                             {climateStats.globalAverages.map((entry, index) => (
                                                 <Cell key={`cell-${index}`} fill={
-                                                    entry.value >= 8 ? '#22c55e' : // Green
-                                                    entry.value < 6 ? '#ef4444' : // Red
+                                                    entry.value >= 4 ? '#22c55e' : // Green
+                                                    entry.value < 3 ? '#ef4444' : // Red
                                                     '#eab308' // Yellow
                                                 } />
                                             ))}
