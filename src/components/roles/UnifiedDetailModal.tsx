@@ -1136,29 +1136,35 @@ export const UnifiedDetailModal: React.FC<UnifiedDetailModalProps> = ({
           <Section title="Esperienza" icon={<Crown size={16} />}>
             <div className="space-y-2">
               {hasAssignee && currentSeniority ? (
-                <div className="flex items-center justify-between py-2 px-3 bg-gray-50 dark:bg-gray-900/30 rounded-lg">
-                  <span className="text-sm font-medium text-gray-600 dark:text-gray-400 flex items-center gap-2">
-                    <Crown size={14} /> Seniority
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-gray-500">
-                      {detailedMetrics.userSeniority || '—'} → <span className="font-medium">{currentSeniority}</span>
-                    </span>
+                <div className="py-3 px-4 bg-gray-50 dark:bg-gray-900/30 rounded-lg">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Crown size={14} className="text-amber-500" />
+                    <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">Seniority</span>
                     {detailedMetrics.seniorityMatch === 'match' && (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] rounded-md bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300">
-                        <CheckCircle size={10} /> Match
+                      <span className="ml-auto inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide rounded-md bg-green-600 text-white">
+                        <CheckCircle size={10} /> In linea
                       </span>
                     )}
                     {detailedMetrics.seniorityMatch === 'above' && (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] rounded-md bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300">
-                        <TrendingUp size={10} /> Superiore
+                      <span className="ml-auto inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide rounded-md bg-blue-600 text-white" title="La persona ha una seniority più alta del richiesto">
+                        <TrendingUp size={10} /> Sopra il richiesto
                       </span>
                     )}
                     {detailedMetrics.seniorityMatch === 'below' && (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] rounded-md bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300">
-                        <TrendingDown size={10} /> Inferiore
+                      <span className="ml-auto inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide rounded-md bg-red-500 text-white" title="La persona ha una seniority più bassa del richiesto">
+                        <TrendingDown size={10} /> Sotto il richiesto
                       </span>
                     )}
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="flex flex-col gap-1 px-3 py-2 rounded-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+                      <span className="text-[10px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Posseduta</span>
+                      <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">{detailedMetrics.userSeniority || '—'}</span>
+                    </div>
+                    <div className="flex flex-col gap-1 px-3 py-2 rounded-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+                      <span className="text-[10px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Richiesta dal ruolo</span>
+                      <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">{currentSeniority}</span>
+                    </div>
                   </div>
                 </div>
               ) : (
