@@ -1040,6 +1040,12 @@ export const UnifiedDetailModal: React.FC<UnifiedDetailModalProps> = ({
                   const reqLevel = skill.level || 0;
                   const levelOk = matched && (!reqLevel || (userLevel ?? 0) >= reqLevel);
                   const levelGap = matched && reqLevel && (userLevel ?? 0) < reqLevel;
+                  const statusLabel = levelOk ? 'Posseduta' : levelGap ? 'Inferiore' : 'Mancante';
+                  const statusColor = levelOk
+                    ? 'bg-green-600 text-white'
+                    : levelGap
+                      ? 'bg-amber-500 text-white'
+                      : 'bg-red-500 text-white';
                   return (
                     <span
                       key={i}
@@ -1050,35 +1056,38 @@ export const UnifiedDetailModal: React.FC<UnifiedDetailModalProps> = ({
                             : `Posseduta a livello inferiore — persona Liv. ${userLevel ?? '?'} vs richiesto ${reqLevel}`
                           : `Mancante${skill.mandatory ? ' (obbligatoria)' : ''}`
                       }
-                      className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm border ${
+                      className={`inline-flex items-center gap-2 pl-3 pr-1.5 py-1 rounded-lg text-sm border ${
                         levelOk
-                          ? 'bg-green-50 text-green-700 border-green-300 dark:bg-green-900/20 dark:text-green-300 dark:border-green-800'
+                          ? 'bg-green-50 text-green-800 border-green-300 dark:bg-green-900/20 dark:text-green-200 dark:border-green-800'
                           : levelGap
-                            ? 'bg-amber-50 text-amber-700 border-amber-300 dark:bg-amber-900/20 dark:text-amber-300 dark:border-amber-800'
+                            ? 'bg-amber-50 text-amber-800 border-amber-300 dark:bg-amber-900/20 dark:text-amber-200 dark:border-amber-800'
                             : skill.mandatory
-                              ? 'bg-red-50 text-red-700 border-red-300 dark:bg-red-900/20 dark:text-red-300 dark:border-red-800'
-                              : 'bg-gray-100 text-gray-600 border-gray-300 dark:bg-gray-700 dark:text-gray-400 dark:border-gray-600'
+                              ? 'bg-red-50 text-red-800 border-red-300 dark:bg-red-900/20 dark:text-red-200 dark:border-red-800'
+                              : 'bg-gray-50 text-gray-700 border-gray-300 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600'
                       }`}
                     >
-                      {levelOk && <CheckCircle size={11} />}
-                      {levelGap && <AlertCircle size={11} />}
-                      {!matched && <X size={11} />}
-                      {skill.name}
+                      <span className="font-medium">{skill.name}</span>
                       {reqLevel > 0 && (
-                        <span className="text-[10px] opacity-80 ml-0.5">
-                          {matched ? `${userLevel ?? '?'}/${reqLevel}` : `Liv. ${reqLevel}`}
+                        <span className="text-[11px] opacity-70">
+                          {matched ? `Liv. ${userLevel ?? '?'}/${reqLevel}` : `Liv. ${reqLevel}`}
                         </span>
                       )}
-                      {skill.mandatory && <Star size={10} className="text-amber-500 fill-amber-500 ml-0.5" />}
+                      {skill.mandatory && <Star size={10} className="text-amber-500 fill-amber-500" />}
+                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold uppercase tracking-wide ${statusColor}`}>
+                        {levelOk && <CheckCircle size={10} />}
+                        {levelGap && <AlertCircle size={10} />}
+                        {!matched && <X size={10} />}
+                        {statusLabel}
+                      </span>
                     </span>
                   );
                 })}
               </div>
               {hasAssignee && (
-                <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-2 flex items-center gap-3 flex-wrap">
-                  <span className="inline-flex items-center gap-1"><CheckCircle size={10} className="text-green-600" /> Soddisfatta</span>
-                  <span className="inline-flex items-center gap-1"><AlertCircle size={10} className="text-amber-600" /> Livello inferiore</span>
-                  <span className="inline-flex items-center gap-1"><X size={10} className="text-red-600" /> Mancante</span>
+                <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-3 flex items-center gap-3 flex-wrap">
+                  <span className="inline-flex items-center gap-1"><span className="inline-block w-2 h-2 rounded-full bg-green-600" /> Posseduta</span>
+                  <span className="inline-flex items-center gap-1"><span className="inline-block w-2 h-2 rounded-full bg-amber-500" /> Livello inferiore al richiesto</span>
+                  <span className="inline-flex items-center gap-1"><span className="inline-block w-2 h-2 rounded-full bg-red-500" /> Mancante</span>
                 </p>
               )}
             </Section>
