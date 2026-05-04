@@ -1,12 +1,11 @@
 import { useState, useCallback } from 'react';
 import { supabase } from '../integrations/supabase/client';
-import { useAuth } from './useAuth';
+
 import { useSubscription } from './useSubscription';
 import type { KarmaProfile, CandidateMatch, TalentSearchFilters, WorkType } from '../types/karma';
 import type { RiasecScore, ChatMessage, SeniorityLevel } from '../../types';
 
 export const useTalentSearch = () => {
-  const { membership } = useAuth();
   const { canViewProfiles, logProfileView } = useSubscription();
   
   const [candidates, setCandidates] = useState<CandidateMatch[]>([]);
@@ -55,13 +54,9 @@ export const useTalentSearch = () => {
     targetRiasec?: RiasecScore,
     requiredSkills?: string[]
   ) => {
-    if (!membership?.company_id) {
-      setError(new Error('No company context'));
-      return;
-    }
-
     try {
       setIsLoading(true);
+      setError(null);
       setCandidates([]);
 
       // Build query for karma profiles via the safe public view
@@ -207,7 +202,7 @@ export const useTalentSearch = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [membership?.company_id]);
+  }, []);
 
   // View a candidate's full profile (logs the view)
   const viewCandidate = useCallback(async (candidateId: string): Promise<KarmaProfile | null> => {
