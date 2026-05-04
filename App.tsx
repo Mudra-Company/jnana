@@ -333,10 +333,10 @@ const AppContent: React.FC = () => {
 
   // Handler for admins to access their own user profile
   const handleGoToMyProfile = () => {
-    if (!user || !currentUserData) return;
+    if (!user) return;
     
     // Navigate based on test completion - always show profile if RIASEC is done
-    const hasRiasec = !!currentUserData.results;
+    const hasRiasec = !!currentUserData?.results;
     
     if (!hasRiasec) {
       // No RIASEC - start from beginning
@@ -770,7 +770,7 @@ const AppContent: React.FC = () => {
             canGoBack={viewHistory.length > 0 || (isSuperAdmin && !!activeCompanyData)}
             userRole={userRole}
             onMyProfile={handleGoToMyProfile}
-            hasCompanyMembership={!!membership}
+            hasCompanyMembership={!!membership || !!currentUserData || isSuperAdmin}
           />
         )}
 

@@ -1,68 +1,65 @@
-## Diagnosi
+## Problema
 
-Due problemi distinti emersi dallo screenshot:
+Il pulsante **"Il Mio Profilo"** nell'header (visibile per admin/super admin per accedere al proprio profilo personale) non compare più.
 
-**1. Scala grafico sbagliata in Identity Hub.**
-`views/admin/AdminIdentityHub.tsx` mostra "Media Aziendale" con asse `domain={[0, 10]}` e label "Punteggio medio (0-10)". Anche le soglie di colore (verde ≥ 8, rosso < 6), gli insight testuali ("eccellente ≥ 8.4"), e l'header "Climate Index x.xx/10" usano scala 0-10. Ma il sondaggio reale (`ClimateTestView` + `data/climateContent.ts`) produce medie **1-5**. Quindi una media reale di 3.5 (buona) appare come "rosso, critico" e un dato seedato a 1.30 si vede minuscolo a sinistra del grafico.
+In `Header.tsx` (riga 246) la condizione è:
+```tsx
+{onMyProfile && hasCompanyMembership && (
+  <Button ...>Il Mio Profilo</Button>
+)}
+```
 
-**2. Dati clima Amaeru schiacciati a 1.30.**
-La migration di "fix" precedente ha riapplicato la formula `1 + (overall/100)*4` su valori che erano già in scala 1-5, comprimendo tutto a ~1.05-1.4. Risultato: tutti i 22 dipendenti Amaeru hanno medie clima identiche e bassissime, mostrate come "tutto rosso ovunque". Anche le `section_averages` usano ancora le chiavi inventate (Cultura, Worklife, Leadership, Compensation, Crescita, Innovazione, Comunicazione, Riconoscimento, Soddisfazione) anziché le 9 sezioni reali del sondaggio (Senso di Appartenenza, Organizzazione e Cambiamento, Il Mio Lavoro, La Mia Remunerazione, Rapporto con il Capo, La Mia Unità, Responsabilità, Aspetto Umano, Identità).
+Il flag `hasCompanyMembership` viene passato in `App.tsx` (riga 773) come `!!membership`, dove `membership` è la riga di `company_members` dell'utente loggato. Il super admin attualmente loggato (che sta supervisionando Amaeru) **non ha una riga in `company_members`** per quella azienda, quindi il pulsante scompare.
 
-I RIASEC invece sono ok: distribuiti 8-29, in scala corretta 0-30.
+In ambiente demo / impersonazione è invece fondamentale che il pulsante resti visibile, così si possa mostrare come appare il profilo personale di un utente.
 
-## Piano
+## Soluzione
 
-### 1. Allineare l'UI di Identity Hub alla scala 1-5
+Allargare la condizione di visibilità del pulsante "Il Mio Profilo": deve apparire ogni volta che l'utente ha **un profilo personale visualizzabile**, non solo quando ha una membership esplicita.
 
-In `views/admin/AdminIdentityHub.tsx`:
-- Cambiare grafico clima: `domain={[0, 5]}`, `ticks={[0,1,2,3,4,5]}`, label "(1-5)".
-- Aggiornare soglie colore (verde ≥ 4.0, giallo 3.0-3.9, rosso < 3.0) e `ReferenceLine x={3}`.
-- Aggiornare formula tooltip e LabelList su `toFixed(2)` (già ok).
-- Climate Index nell'header: `/5` invece di `/10`, soglie ricalibrate (verde ≥ 4, giallo ≥ 3).
-- Funzione `generateClimateInsight`: nuove soglie su scala 1-5 (eccellente ≥ 4.2, positivo ≥ 3.8, vulnerabile ≥ 3.0, critico < 3.0). Critical dimensions: `< 3.0`. Mediocri: `3.0-3.5`. Tutti i `.toFixed(2)/10` → `/5`.
-- Commento `// scale 0-10` → `// scale 1-5`.
+### Modifiche
 
-### 2. Ripopolare il clima Amaeru con dati realistici e variati
+**1. `App.tsx` (passaggio prop al Header, ~riga 773)**
 
-Riscrivere il blocco "Climate" in `supabase/functions/seed-amaeru-full/index.ts` per:
-- Sostituire `CLIMATE_SECTIONS` (chiavi inventate) con le **9 sezioni reali** importate o copiate da `data/climateContent.ts`: Senso di Appartenenza, Organizzazione e Cambiamento, Il Mio Lavoro, La Mia Remunerazione, Rapporto con il Capo, La Mia Unità, Responsabilità, Aspetto Umano, Identità.
-- Generare punteggi **realistici per una "buona azienda con margini di miglioramento"**, non perfetta:
-  - Media globale target: ~3.7 (azienda sana ma reale).
-  - Variazione per persona: usare `climateBase` esistente (60-95) mappato in 3.0-4.6 invece di 1-5 lineare → formula: `personalBase = 3.0 + (climateBase - 60) / 35 * 1.6`, clamp [3.0, 4.6].
-  - Variazione per sezione: jitter ±0.4, ma con **bias realistici per sezione** (es. "La Mia Remunerazione" tendenzialmente più bassa -0.3, "Senso di Appartenenza" e "Identità" leggermente più alte +0.2, "Organizzazione e Cambiamento" -0.2 — pattern tipici di scale-up).
-  - Per 2-3 dipendenti su 22 (es. 1 del CDA poco coinvolto + 1-2 detractor), generare medie più basse (2.4-3.0) per realismo.
-  - Clamp finale [1.0, 5.0], arrotondamento a 1 decimale.
-- Aggiornare `overall_average` come media delle 9 sezioni reali.
+Sostituire:
+```tsx
+hasCompanyMembership={!!membership}
+```
+con una condizione più inclusiva che copra anche i super admin in modalità supervisione e gli utenti demo:
+```tsx
+hasCompanyMembership={!!membership || !!currentUserData || isSuperAdmin}
+```
 
-### 3. Migration SQL per bonificare i dati esistenti
+In questo modo:
+- Utenti con membership reale → vedono il pulsante (come prima).
+- Super admin che impersona un'azienda → vedono il pulsante (poteva accedere al proprio profilo demo/personale).
+- Admin azienda con un `currentUserData` valorizzato → vedono il pulsante.
 
-Nuova migration che, per `company_id = '02b47082-c1d5-4e63-bc78-b6e9dfe602a7'`:
-- `DELETE FROM climate_responses` (i 22 record schiacciati a 1.3).
-- Inserisce 22 nuovi record direttamente in SQL con la stessa logica del seed aggiornato (un blocco `INSERT INTO climate_responses ... VALUES (...)` generato in modo deterministico, mappando ogni `user_id` a un `climateBase` riproducendo la stessa distribuzione del seed).
+**2. `handleGoToMyProfile` in `App.tsx` (~riga 335)**
 
-Alternativa più pulita: lasciare la migration solo come `DELETE`, e chiedere all'utente di rilanciare "Seed Amaeru Full Demo" dal pannello SeedDataView per ricreare clima + tutto il resto. Questo è più sicuro perché evita di duplicare la logica fra TS e SQL e garantisce coerenza.
+Attualmente fa `return` se `currentUserData` è null. Per il super admin senza dati personali, quando si clicca "Il Mio Profilo" deve comunque navigare verso `USER_WELCOME` (schermata di benvenuto/test) usando `user.id`, in modo che il pulsante non risulti "morto":
+```tsx
+const handleGoToMyProfile = () => {
+  if (!user) return;
+  const hasRiasec = !!currentUserData?.results;
+  if (!hasRiasec) {
+    navigate({ type: 'USER_WELCOME', userId: user.id });
+  } else {
+    navigate({ type: 'USER_RESULT', userId: user.id });
+  }
+};
+```
 
-**Scelta consigliata**: migration di solo cleanup (`DELETE FROM climate_responses WHERE company_id = '...'`) + invito a rilanciare il seed. Il seed è già idempotente.
+**3. (Opzionale, coerenza naming)** Rinominare la prop in `Header.tsx` da `hasCompanyMembership` a `canAccessOwnProfile` per riflettere la nuova semantica. Lasciato fuori dal piano per minimizzare il diff: la prop continua a funzionare ma con condizione allargata.
 
-### 4. Verifica
+## File toccati
 
-Dopo deploy + reseed:
-- `SELECT MIN, MAX, AVG(overall_average) FROM climate_responses WHERE company_id='...'` → atteso range realistico (es. min ~2.5, max ~4.5, avg ~3.7).
-- Aprire `/admin/identity` su Amaeru: il grafico mostra barre distribuite tra 2.5 e 4.5, con mix di verdi/gialli/rossi, scala asse 0-5.
+- `App.tsx` — aggiornare la prop passata all'`Header` e rendere `handleGoToMyProfile` resiliente a `currentUserData` null.
 
-### Tabella file modificati
+## Risultato atteso
 
-| File | Cosa cambia |
-|---|---|
-| `views/admin/AdminIdentityHub.tsx` | Asse 0-5, soglie colore/insight ricalibrate, label "/5" |
-| `supabase/functions/seed-amaeru-full/index.ts` | 9 sezioni reali + distribuzione realistica con bias per sezione |
-| nuova migration `cleanup_amaeru_climate.sql` | DELETE dei 22 record clima Amaeru |
+Il pulsante **"Il Mio Profilo"** torna visibile nella barra in alto per:
+- Admin con membership (comportamento originale).
+- Super admin che supervisiona un'azienda demo (es. Amaeru) — caso attuale dell'utente.
 
-### Cosa NON tocco
-
-- I dati RIASEC Amaeru (già corretti, distribuiti 0-30).
-- I dati Karma (testuali, non in scala).
-- Gli altri tenant (es. Dürr Dental): la `seed-demo-users` è già stata sistemata in precedenza, e i suoi dati clima non risultano problematici nel preview attuale.
-- La dashboard `KarmaResults` (RIASEC, già in scala 0-30 corretta).
-
-Procedo?
+Cliccandolo si entra nel proprio profilo personale (`USER_RESULT` se il test RIASEC è già stato completato, altrimenti `USER_WELCOME`).
