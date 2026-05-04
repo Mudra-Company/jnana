@@ -55,13 +55,9 @@ export const useTalentSearch = () => {
     targetRiasec?: RiasecScore,
     requiredSkills?: string[]
   ) => {
-    if (!membership?.company_id) {
-      setError(new Error('No company context'));
-      return;
-    }
-
     try {
       setIsLoading(true);
+      setError(null);
       setCandidates([]);
 
       // Build query for karma profiles via the safe public view
