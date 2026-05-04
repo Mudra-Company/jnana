@@ -132,39 +132,39 @@ export const AdminIdentityHub: React.FC<AdminIdentityHubProps> = ({ company, use
 
         const avg = climateStats.overallAverage;
         
-        // Find ALL critical dimensions (scale 0-10: critical < 6.0)
+        // Find ALL critical dimensions (scale 1-5: critical < 3.0)
         const criticalDimensions = climateStats.globalAverages
-            .filter(d => d.value < 6.0)
+            .filter(d => d.value < 3.0)
             .sort((a, b) => a.value - b.value);
 
         let overview = "";
         let details: string[] = [];
 
-        // 1. Strict Severity Thresholds (scale 0-10)
-        if (avg >= 8.4) {
+        // 1. Strict Severity Thresholds (scale 1-5)
+        if (avg >= 4.2) {
             overview = "Il clima organizzativo è **eccellente**, un vero vantaggio competitivo.";
-        } else if (avg >= 8.0) {
+        } else if (avg >= 3.8) {
             overview = "Il clima è **positivo**, con una buona tenuta generale.";
-        } else if (avg >= 7.0) {
+        } else if (avg >= 3.0) {
             overview = "Il clima è **discreto ma vulnerabile**. Siamo in una zona grigia: non c'è crisi aperta, ma mancano entusiasmo e spinta propulsiva.";
         } else {
             overview = "Il clima presenta **criticità strutturali severe**. Il benessere organizzativo è compromesso.";
         }
 
-        // 2. Deep Dive into Critical Areas (< 6.0)
+        // 2. Deep Dive into Critical Areas (< 3.0)
         if (criticalDimensions.length > 0) {
             details.push("È necessario intervenire con urgenza sulle seguenti aree critiche:");
             criticalDimensions.forEach(dim => {
                 const specificRisk = CLIMATE_RISKS[dim.name] || "Rischio di inefficienza generale.";
-                details.push(`- **${dim.name} (${dim.value.toFixed(2)}/10)**: ${specificRisk}`);
+                details.push(`- **${dim.name} (${dim.value.toFixed(2)}/5)**: ${specificRisk}`);
             });
         } else {
-            // Mediocre areas (6.0 - 7.0)
-            const mediocreDimensions = climateStats.globalAverages.filter(d => d.value >= 6.0 && d.value < 7.0);
+            // Mediocre areas (3.0 - 3.5)
+            const mediocreDimensions = climateStats.globalAverages.filter(d => d.value >= 3.0 && d.value < 3.5);
             if (mediocreDimensions.length > 0) {
                 details.push("Sebbene non ci siano aree rosse, alcune dimensioni mostrano segnali di affaticamento:");
                 mediocreDimensions.forEach(dim => {
-                    details.push(`- **${dim.name} (${dim.value.toFixed(2)}/10)**: Da monitorare per evitare scivolamenti.`);
+                    details.push(`- **${dim.name} (${dim.value.toFixed(2)}/5)**: Da monitorare per evitare scivolamenti.`);
                 });
             } else {
                 details.push("Non si rilevano dimensioni in area di rischio, indice di una gestione equilibrata.");
