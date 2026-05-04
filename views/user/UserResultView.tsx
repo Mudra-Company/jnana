@@ -623,12 +623,19 @@ export const UserResultView: React.FC<UserResultViewProps> = ({ user, jobDb, com
                              <Card className="lg:col-span-2">
                                  <h3 className="font-bold mb-6">Dettaglio Dimensioni</h3>
                                  <div className="space-y-4">
-                                    {climateChartData.map((item, idx) => (
-                                        <div key={idx}>
-                                            <div className="flex justify-between text-sm font-bold mb-1"><span>{item.name}</span><span>{item.score.toFixed(1)}/5</span></div>
-                                            <div className="w-full h-3 bg-gray-100 rounded-full overflow-hidden"><div className={`h-full rounded-full ${item.score >= 3.5 ? 'bg-green-500' : 'bg-red-500'}`} style={{ width: `${(item.score / 5) * 100}%` }}></div></div>
-                                        </div>
-                                    ))}
+                                     {climateChartData.map((item, idx) => {
+                                         const safeScore = Math.min(Math.max(item.score, 0), 5);
+                                         const outOfScale = item.score > 5;
+                                         return (
+                                         <div key={idx}>
+                                             <div className="flex justify-between text-sm font-bold mb-1">
+                                                 <span>{item.name}{outOfScale && <span className="ml-2 text-xs text-amber-600 font-normal">⚠ dato fuori scala</span>}</span>
+                                                 <span>{safeScore.toFixed(1)}/5</span>
+                                             </div>
+                                             <div className="w-full h-3 bg-gray-100 rounded-full overflow-hidden"><div className={`h-full rounded-full ${safeScore >= 3.5 ? 'bg-green-500' : 'bg-red-500'}`} style={{ width: `${(safeScore / 5) * 100}%` }}></div></div>
+                                         </div>
+                                         );
+                                     })}
                                  </div>
                              </Card>
                              {managerAnalysis && (
