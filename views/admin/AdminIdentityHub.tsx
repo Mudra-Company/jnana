@@ -348,8 +348,8 @@ export const AdminIdentityHub: React.FC<AdminIdentityHubProps> = ({ company, use
                                                 <td className="px-4 py-3 text-center">
                                                     {team.score ? (
                                                         <span className={`inline-block w-3 h-3 rounded-full ${
-                                                            team.score >= 8 ? 'bg-green-500' :
-                                                            team.score >= 7 ? 'bg-yellow-400' :
+                                                            team.score >= 4 ? 'bg-green-500' :
+                                                            team.score >= 3 ? 'bg-yellow-400' :
                                                             'bg-red-500'
                                                         }`}></span>
                                                     ) : (
