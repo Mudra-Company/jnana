@@ -202,10 +202,10 @@ export const AdminIdentityHub: React.FC<AdminIdentityHubProps> = ({ company, use
                          <div>
                             <span className="text-xs text-gray-500 font-bold uppercase tracking-wider block">Climate Index</span>
                             <div className={`text-3xl font-bold ${
-                                climateStats.overallAverage >= 8 ? 'text-green-500' :
-                                climateStats.overallAverage >= 7 ? 'text-yellow-500' : 'text-red-500'
+                                climateStats.overallAverage >= 4 ? 'text-green-500' :
+                                climateStats.overallAverage >= 3 ? 'text-yellow-500' : 'text-red-500'
                             }`}>
-                                {climateStats.overallAverage.toFixed(2)}/10
+                                {climateStats.overallAverage.toFixed(2)}/5
                             </div>
                          </div>
                      )}
