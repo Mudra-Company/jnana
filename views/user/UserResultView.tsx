@@ -473,26 +473,29 @@ export const UserResultView: React.FC<UserResultViewProps> = ({ user, jobDb, com
                                 </div>
                             </div>
                             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-                                {climateChartData.slice(0, 5).map((item, idx) => (
+                                {climateChartData.slice(0, 5).map((item, idx) => {
+                                    const safeScore = Math.min(Math.max(item.score, 0), 5);
+                                    return (
                                     <div key={idx} className="text-center">
                                         <div className="relative w-16 h-16 mx-auto mb-2">
                                             <svg className="w-full h-full transform -rotate-90">
                                                 <circle cx="32" cy="32" r="28" fill="none" stroke="#e5e7eb" strokeWidth="6" />
                                                 <circle 
                                                     cx="32" cy="32" r="28" fill="none" 
-                                                    stroke={item.score >= 3.5 ? '#22c55e' : item.score >= 2.5 ? '#f59e0b' : '#ef4444'} 
+                                                    stroke={safeScore >= 3.5 ? '#22c55e' : safeScore >= 2.5 ? '#f59e0b' : '#ef4444'} 
                                                     strokeWidth="6"
-                                                    strokeDasharray={`${(item.score / 5) * 176} 176`}
+                                                    strokeDasharray={`${(safeScore / 5) * 176} 176`}
                                                     strokeLinecap="round"
                                                 />
                                             </svg>
                                             <span className="absolute inset-0 flex items-center justify-center text-sm font-bold text-gray-700 dark:text-gray-200">
-                                                {item.score.toFixed(1)}
+                                                {safeScore.toFixed(1)}
                                             </span>
                                         </div>
                                         <span className="text-xs text-gray-500 font-medium leading-tight block">{item.name}</span>
                                     </div>
-                                ))}
+                                    );
+                                })}
                             </div>
                         </Card>
                      )}
