@@ -1040,6 +1040,12 @@ export const UnifiedDetailModal: React.FC<UnifiedDetailModalProps> = ({
                   const reqLevel = skill.level || 0;
                   const levelOk = matched && (!reqLevel || (userLevel ?? 0) >= reqLevel);
                   const levelGap = matched && reqLevel && (userLevel ?? 0) < reqLevel;
+                  const statusLabel = levelOk ? 'Posseduta' : levelGap ? 'Inferiore' : 'Mancante';
+                  const statusColor = levelOk
+                    ? 'bg-green-600 text-white'
+                    : levelGap
+                      ? 'bg-amber-500 text-white'
+                      : 'bg-red-500 text-white';
                   return (
                     <span
                       key={i}
@@ -1050,35 +1056,38 @@ export const UnifiedDetailModal: React.FC<UnifiedDetailModalProps> = ({
                             : `Posseduta a livello inferiore — persona Liv. ${userLevel ?? '?'} vs richiesto ${reqLevel}`
                           : `Mancante${skill.mandatory ? ' (obbligatoria)' : ''}`
                       }
-                      className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm border ${
+                      className={`inline-flex items-center gap-2 pl-3 pr-1.5 py-1 rounded-lg text-sm border ${
                         levelOk
-                          ? 'bg-green-50 text-green-700 border-green-300 dark:bg-green-900/20 dark:text-green-300 dark:border-green-800'
+                          ? 'bg-green-50 text-green-800 border-green-300 dark:bg-green-900/20 dark:text-green-200 dark:border-green-800'
                           : levelGap
-                            ? 'bg-amber-50 text-amber-700 border-amber-300 dark:bg-amber-900/20 dark:text-amber-300 dark:border-amber-800'
+                            ? 'bg-amber-50 text-amber-800 border-amber-300 dark:bg-amber-900/20 dark:text-amber-200 dark:border-amber-800'
                             : skill.mandatory
-                              ? 'bg-red-50 text-red-700 border-red-300 dark:bg-red-900/20 dark:text-red-300 dark:border-red-800'
-                              : 'bg-gray-100 text-gray-600 border-gray-300 dark:bg-gray-700 dark:text-gray-400 dark:border-gray-600'
+                              ? 'bg-red-50 text-red-800 border-red-300 dark:bg-red-900/20 dark:text-red-200 dark:border-red-800'
+                              : 'bg-gray-50 text-gray-700 border-gray-300 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600'
                       }`}
                     >
-                      {levelOk && <CheckCircle size={11} />}
-                      {levelGap && <AlertCircle size={11} />}
-                      {!matched && <X size={11} />}
-                      {skill.name}
+                      <span className="font-medium">{skill.name}</span>
                       {reqLevel > 0 && (
-                        <span className="text-[10px] opacity-80 ml-0.5">
-                          {matched ? `${userLevel ?? '?'}/${reqLevel}` : `Liv. ${reqLevel}`}
+                        <span className="text-[11px] opacity-70">
+                          {matched ? `Liv. ${userLevel ?? '?'}/${reqLevel}` : `Liv. ${reqLevel}`}
                         </span>
                       )}
-                      {skill.mandatory && <Star size={10} className="text-amber-500 fill-amber-500 ml-0.5" />}
+                      {skill.mandatory && <Star size={10} className="text-amber-500 fill-amber-500" />}
+                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold uppercase tracking-wide ${statusColor}`}>
+                        {levelOk && <CheckCircle size={10} />}
+                        {levelGap && <AlertCircle size={10} />}
+                        {!matched && <X size={10} />}
+                        {statusLabel}
+                      </span>
                     </span>
                   );
                 })}
               </div>
               {hasAssignee && (
-                <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-2 flex items-center gap-3 flex-wrap">
-                  <span className="inline-flex items-center gap-1"><CheckCircle size={10} className="text-green-600" /> Soddisfatta</span>
-                  <span className="inline-flex items-center gap-1"><AlertCircle size={10} className="text-amber-600" /> Livello inferiore</span>
-                  <span className="inline-flex items-center gap-1"><X size={10} className="text-red-600" /> Mancante</span>
+                <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-3 flex items-center gap-3 flex-wrap">
+                  <span className="inline-flex items-center gap-1"><span className="inline-block w-2 h-2 rounded-full bg-green-600" /> Posseduta</span>
+                  <span className="inline-flex items-center gap-1"><span className="inline-block w-2 h-2 rounded-full bg-amber-500" /> Livello inferiore al richiesto</span>
+                  <span className="inline-flex items-center gap-1"><span className="inline-block w-2 h-2 rounded-full bg-red-500" /> Mancante</span>
                 </p>
               )}
             </Section>
@@ -1102,17 +1111,22 @@ export const UnifiedDetailModal: React.FC<UnifiedDetailModalProps> = ({
                     <span
                       key={i}
                       title={matched ? 'Posseduta dalla persona' : `Mancante${skill.mandatory ? ' (obbligatoria)' : ''}`}
-                      className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm border ${
+                      className={`inline-flex items-center gap-2 pl-3 pr-1.5 py-1 rounded-lg text-sm border ${
                         matched
-                          ? 'bg-green-50 text-green-700 border-green-300 dark:bg-green-900/20 dark:text-green-300 dark:border-green-800'
+                          ? 'bg-green-50 text-green-800 border-green-300 dark:bg-green-900/20 dark:text-green-200 dark:border-green-800'
                           : skill.mandatory
-                            ? 'bg-red-50 text-red-700 border-red-300 dark:bg-red-900/20 dark:text-red-300 dark:border-red-800'
-                            : 'bg-gray-100 text-gray-600 border-gray-300 dark:bg-gray-700 dark:text-gray-400 dark:border-gray-600'
+                            ? 'bg-red-50 text-red-800 border-red-300 dark:bg-red-900/20 dark:text-red-200 dark:border-red-800'
+                            : 'bg-gray-50 text-gray-700 border-gray-300 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600'
                       }`}
                     >
-                      {matched ? <CheckCircle size={11} /> : <X size={11} />}
-                      {skill.name}
-                      {skill.mandatory && <Star size={10} className="text-amber-500 fill-amber-500 ml-0.5" />}
+                      <span className="font-medium">{skill.name}</span>
+                      {skill.mandatory && <Star size={10} className="text-amber-500 fill-amber-500" />}
+                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold uppercase tracking-wide ${
+                        matched ? 'bg-green-600 text-white' : 'bg-red-500 text-white'
+                      }`}>
+                        {matched ? <CheckCircle size={10} /> : <X size={10} />}
+                        {matched ? 'Posseduta' : 'Mancante'}
+                      </span>
                     </span>
                   );
                 })}
@@ -1122,29 +1136,35 @@ export const UnifiedDetailModal: React.FC<UnifiedDetailModalProps> = ({
           <Section title="Esperienza" icon={<Crown size={16} />}>
             <div className="space-y-2">
               {hasAssignee && currentSeniority ? (
-                <div className="flex items-center justify-between py-2 px-3 bg-gray-50 dark:bg-gray-900/30 rounded-lg">
-                  <span className="text-sm font-medium text-gray-600 dark:text-gray-400 flex items-center gap-2">
-                    <Crown size={14} /> Seniority
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-gray-500">
-                      {detailedMetrics.userSeniority || '—'} → <span className="font-medium">{currentSeniority}</span>
-                    </span>
+                <div className="py-3 px-4 bg-gray-50 dark:bg-gray-900/30 rounded-lg">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Crown size={14} className="text-amber-500" />
+                    <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">Seniority</span>
                     {detailedMetrics.seniorityMatch === 'match' && (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] rounded-md bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300">
-                        <CheckCircle size={10} /> Match
+                      <span className="ml-auto inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide rounded-md bg-green-600 text-white">
+                        <CheckCircle size={10} /> In linea
                       </span>
                     )}
                     {detailedMetrics.seniorityMatch === 'above' && (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] rounded-md bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300">
-                        <TrendingUp size={10} /> Superiore
+                      <span className="ml-auto inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide rounded-md bg-blue-600 text-white" title="La persona ha una seniority più alta del richiesto">
+                        <TrendingUp size={10} /> Sopra il richiesto
                       </span>
                     )}
                     {detailedMetrics.seniorityMatch === 'below' && (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[11px] rounded-md bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300">
-                        <TrendingDown size={10} /> Inferiore
+                      <span className="ml-auto inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide rounded-md bg-red-500 text-white" title="La persona ha una seniority più bassa del richiesto">
+                        <TrendingDown size={10} /> Sotto il richiesto
                       </span>
                     )}
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="flex flex-col gap-1 px-3 py-2 rounded-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+                      <span className="text-[10px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Posseduta</span>
+                      <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">{detailedMetrics.userSeniority || '—'}</span>
+                    </div>
+                    <div className="flex flex-col gap-1 px-3 py-2 rounded-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+                      <span className="text-[10px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Richiesta dal ruolo</span>
+                      <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">{currentSeniority}</span>
+                    </div>
                   </div>
                 </div>
               ) : (
