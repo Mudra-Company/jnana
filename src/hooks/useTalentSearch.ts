@@ -6,7 +6,6 @@ import type { KarmaProfile, CandidateMatch, TalentSearchFilters, WorkType } from
 import type { RiasecScore, ChatMessage, SeniorityLevel } from '../../types';
 
 export const useTalentSearch = () => {
-  const { membership } = useAuth();
   const { canViewProfiles, logProfileView } = useSubscription();
   
   const [candidates, setCandidates] = useState<CandidateMatch[]>([]);
