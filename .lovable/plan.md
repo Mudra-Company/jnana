@@ -1,104 +1,68 @@
+## Diagnosi
 
-## Diagnosi: dati seed sbagliati, non bug grafico
+Due problemi distinti emersi dallo screenshot:
 
-Ho confrontato i questionari reali con i dati nel DB. Il problema **non è grafico**: i dati di mockup sono stati inseriti su scale completamente diverse da quelle che il sondaggio reale produce. La UI mostra correttamente "/5", ma riceve numeri da 7 a 9.5 perché chi ha seedato ha usato una scala 0-100.
+**1. Scala grafico sbagliata in Identity Hub.**
+`views/admin/AdminIdentityHub.tsx` mostra "Media Aziendale" con asse `domain={[0, 10]}` e label "Punteggio medio (0-10)". Anche le soglie di colore (verde ≥ 8, rosso < 6), gli insight testuali ("eccellente ≥ 8.4"), e l'header "Climate Index x.xx/10" usano scala 0-10. Ma il sondaggio reale (`ClimateTestView` + `data/climateContent.ts`) produce medie **1-5**. Quindi una media reale di 3.5 (buona) appare come "rosso, critico" e un dato seedato a 1.30 si vede minuscolo a sinistra del grafico.
 
-### Cosa producono i questionari reali
+**2. Dati clima Amaeru schiacciati a 1.30.**
+La migration di "fix" precedente ha riapplicato la formula `1 + (overall/100)*4` su valori che erano già in scala 1-5, comprimendo tutto a ~1.05-1.4. Risultato: tutti i 22 dipendenti Amaeru hanno medie clima identiche e bassissime, mostrate come "tutto rosso ovunque". Anche le `section_averages` usano ancora le chiavi inventate (Cultura, Worklife, Leadership, Compensation, Crescita, Innovazione, Comunicazione, Riconoscimento, Soddisfazione) anziché le 9 sezioni reali del sondaggio (Senso di Appartenenza, Organizzazione e Cambiamento, Il Mio Lavoro, La Mia Remunerazione, Rapporto con il Capo, La Mia Unità, Responsabilità, Aspetto Umano, Identità).
 
-| Test | Scala per dimensione | Sezioni / Dimensioni |
-|---|---|---|
-| **Clima Aziendale** (`ClimateTestView` + `data/climateContent.ts`) | media **1.0 – 5.0** | 9 sezioni: Senso di Appartenenza, Organizzazione e Cambiamento, Il Mio Lavoro, La Mia Remunerazione, Rapporto con il Capo, La Mia Unità, Responsabilità, Aspetto Umano, Identità |
-| **RIASEC** (`services/riasecService.ts → calculateScore`) | conteggio item: max teorico **R 46, I 38, A 47, S 44, E 44, C 33**. La UI (`KarmaResults`, radar) assume **0–30** | R, I, A, S, E, C |
+I RIASEC invece sono ok: distribuiti 8-29, in scala corretta 0-30.
 
-### Cosa c'è effettivamente nel DB
+## Piano
 
-- `climate_responses`: **22/41 righe hanno `overall_average > 5`** (max 8.96). Le `section_averages` usano nomi inventati (Innovazione, Cultura, Leadership, Compensation, Worklife, Comunicazione, Crescita, Riconoscimento, Soddisfazione) **che non esistono nel sondaggio reale**.
-- `riasec_results`: **59/62 righe con almeno una dimensione > 47** (max 95). Anche il tuo profilo CEO ha `score_e = 95` (impossibile).
+### 1. Allineare l'UI di Identity Hub alla scala 1-5
 
-### Origine del problema
+In `views/admin/AdminIdentityHub.tsx`:
+- Cambiare grafico clima: `domain={[0, 5]}`, `ticks={[0,1,2,3,4,5]}`, label "(1-5)".
+- Aggiornare soglie colore (verde ≥ 4.0, giallo 3.0-3.9, rosso < 3.0) e `ReferenceLine x={3}`.
+- Aggiornare formula tooltip e LabelList su `toFixed(2)` (già ok).
+- Climate Index nell'header: `/5` invece di `/10`, soglie ricalibrate (verde ≥ 4, giallo ≥ 3).
+- Funzione `generateClimateInsight`: nuove soglie su scala 1-5 (eccellente ≥ 4.2, positivo ≥ 3.8, vulnerabile ≥ 3.0, critico < 3.0). Critical dimensions: `< 3.0`. Mediocri: `3.0-3.5`. Tutti i `.toFixed(2)/10` → `/5`.
+- Commento `// scale 0-10` → `// scale 1-5`.
 
-`supabase/functions/seed-amaeru-full/index.ts`:
+### 2. Ripopolare il clima Amaeru con dati realistici e variati
 
-```ts
-// Line 111 — sezioni inventate
-const CLIMATE_SECTIONS = ['Soddisfazione','Leadership','Comunicazione','Crescita',
-  'Worklife','Compensation','Cultura','Riconoscimento','Innovazione'];
+Riscrivere il blocco "Climate" in `supabase/functions/seed-amaeru-full/index.ts` per:
+- Sostituire `CLIMATE_SECTIONS` (chiavi inventate) con le **9 sezioni reali** importate o copiate da `data/climateContent.ts`: Senso di Appartenenza, Organizzazione e Cambiamento, Il Mio Lavoro, La Mia Remunerazione, Rapporto con il Capo, La Mia Unità, Responsabilità, Aspetto Umano, Identità.
+- Generare punteggi **realistici per una "buona azienda con margini di miglioramento"**, non perfetta:
+  - Media globale target: ~3.7 (azienda sana ma reale).
+  - Variazione per persona: usare `climateBase` esistente (60-95) mappato in 3.0-4.6 invece di 1-5 lineare → formula: `personalBase = 3.0 + (climateBase - 60) / 35 * 1.6`, clamp [3.0, 4.6].
+  - Variazione per sezione: jitter ±0.4, ma con **bias realistici per sezione** (es. "La Mia Remunerazione" tendenzialmente più bassa -0.3, "Senso di Appartenenza" e "Identità" leggermente più alte +0.2, "Organizzazione e Cambiamento" -0.2 — pattern tipici di scale-up).
+  - Per 2-3 dipendenti su 22 (es. 1 del CDA poco coinvolto + 1-2 detractor), generare medie più basse (2.4-3.0) per realismo.
+  - Clamp finale [1.0, 5.0], arrotondamento a 1 decimale.
+- Aggiornare `overall_average` come media delle 9 sezioni reali.
 
-// Line 224 — clima generato in scala 50–98 invece di 1–5
-const v = Math.max(50, Math.min(98, p.climateBase + (Math.random()*10 - 5)));
+### 3. Migration SQL per bonificare i dati esistenti
 
-// Line 201–206 — RIASEC inserito in scala 0–100 invece di 0–30
-score_r: p.riasec.R, // p.riasec.R = 55, 75, 95 ...
-```
+Nuova migration che, per `company_id = '02b47082-c1d5-4e63-bc78-b6e9dfe602a7'`:
+- `DELETE FROM climate_responses` (i 22 record schiacciati a 1.3).
+- Inserisce 22 nuovi record direttamente in SQL con la stessa logica del seed aggiornato (un blocco `INSERT INTO climate_responses ... VALUES (...)` generato in modo deterministico, mappando ogni `user_id` a un `climateBase` riproducendo la stessa distribuzione del seed).
 
-Anche `seed-demo-users` segue lo stesso pattern.
+Alternativa più pulita: lasciare la migration solo come `DELETE`, e chiedere all'utente di rilanciare "Seed Amaeru Full Demo" dal pannello SeedDataView per ricreare clima + tutto il resto. Questo è più sicuro perché evita di duplicare la logica fra TS e SQL e garantisce coerenza.
 
-## Piano di intervento
-
-### 1. Correggere gli script di seed (sorgente del problema)
-
-**`supabase/functions/seed-amaeru-full/index.ts`**
-- Sostituire `CLIMATE_SECTIONS` con gli **9 titoli reali** importati da `data/climateContent.ts` (o copiati 1:1).
-- Trasformare `climateBase` (0–100) in scala 1–5: `score_1_5 = 1 + (climateBase / 100) * 4`, con piccolo jitter ±0.3 per sezione, clamp [1, 5], arrotondato a 1 decimale.
-- `overall_average` ricalcolato come media delle sezioni in scala 1–5.
-- Trasformare i punteggi RIASEC dei profili (`riasec: {R:55, I:75, ...}`, attualmente 0–100) in scala 0–30: `score_30 = Math.round((value/100) * 30)`. In alternativa ribilanciare i numeri seed direttamente (preferibile per leggibilità: `R:17, I:23, ...`).
-
-**`supabase/functions/seed-demo-users/index.ts`**
-- Stesso trattamento: sezioni reali, scala 1–5, RIASEC 0–30.
-
-### 2. Bonificare i dati già inseriti nel DB (migration)
-
-Una migration SQL che fa due cose:
-
-a) **Climate**: per ogni riga con `overall_average > 5`, riscalare:
-```sql
-UPDATE climate_responses
-SET overall_average = ROUND((1 + (overall_average / 100.0) * 4)::numeric, 1),
-    section_averages = (
-      SELECT jsonb_object_agg(key, ROUND((1 + (value::numeric / 100) * 4), 1))
-      FROM jsonb_each_text(section_averages)
-    )
-WHERE overall_average > 5;
-```
-(Le chiavi inventate restano, ma almeno saranno in scala corretta. La UI non si rompe perché itera dinamicamente su `Object.entries(sectionAverages)`.)
-
-b) **RIASEC**: riscalare ogni `score_*` da 0–100 a 0–30 per le righe palesemente fuori scala (`GREATEST(...) > 47`):
-```sql
-UPDATE riasec_results
-SET score_r = ROUND(score_r * 30.0 / 100),
-    score_i = ROUND(score_i * 30.0 / 100),
-    -- ... idem A,S,E,C
-WHERE GREATEST(score_r,score_i,score_a,score_s,score_e,score_c) > 47;
-```
-
-### 3. Hardening della UI (difesa in profondità)
-
-In `views/user/UserResultView.tsx` (linee 286–291, 620, 626–630):
-- Aggiungere `Math.min(item.score, 5)` prima di calcolare la barra di progresso.
-- Mostrare un piccolo badge "⚠ dato fuori scala" se `score > 5`, così se in futuro arrivassero ancora dati sporchi non si ripresenta lo stesso bug silenzioso.
-
-In `views/karma/KarmaResults.tsx` (radar) — già usa `domain=[0,30]`, ma se arriva 95 il radar va fuori grafico: clampare `value: Math.min(riasecScore[dim], 30)`.
+**Scelta consigliata**: migration di solo cleanup (`DELETE FROM climate_responses WHERE company_id = '...'`) + invito a rilanciare il seed. Il seed è già idempotente.
 
 ### 4. Verifica
 
-Dopo migration + redeploy, query di verifica:
-```sql
-SELECT MAX(overall_average) FROM climate_responses;          -- atteso ≤ 5
-SELECT MAX(GREATEST(score_r,score_i,score_a,score_s,score_e,score_c))
-FROM riasec_results;                                          -- atteso ≤ 47
-```
+Dopo deploy + reseed:
+- `SELECT MIN, MAX, AVG(overall_average) FROM climate_responses WHERE company_id='...'` → atteso range realistico (es. min ~2.5, max ~4.5, avg ~3.7).
+- Aprire `/admin/identity` su Amaeru: il grafico mostra barre distribuite tra 2.5 e 4.5, con mix di verdi/gialli/rossi, scala asse 0-5.
 
-## Cosa NON tocco
+### Tabella file modificati
 
-- Le chiavi italiane inventate nelle `section_averages` storiche resteranno (rappresentano dati seed, non utenti reali). I prossimi seed useranno le chiavi corrette. Se preferisci, posso aggiungere uno step che cancella e ricrea i `climate_responses` seed-only invece di riscalare — fammelo sapere.
-- I dati Karma (`karma_sessions.soft_skills`, `primary_values`, ecc.) sono già stringhe semantiche, non numeriche → nessun problema di scala.
+| File | Cosa cambia |
+|---|---|
+| `views/admin/AdminIdentityHub.tsx` | Asse 0-5, soglie colore/insight ricalibrate, label "/5" |
+| `supabase/functions/seed-amaeru-full/index.ts` | 9 sezioni reali + distribuzione realistica con bias per sezione |
+| nuova migration `cleanup_amaeru_climate.sql` | DELETE dei 22 record clima Amaeru |
 
-## File coinvolti
+### Cosa NON tocco
 
-- `supabase/functions/seed-amaeru-full/index.ts` (correzioni linee 111, 201–206, 221–230)
-- `supabase/functions/seed-demo-users/index.ts` (analogo)
-- nuova migration SQL `fix_test_data_scales.sql`
-- `views/user/UserResultView.tsx` (clamp + warning badge)
-- `views/karma/KarmaResults.tsx` (clamp radar)
+- I dati RIASEC Amaeru (già corretti, distribuiti 0-30).
+- I dati Karma (testuali, non in scala).
+- Gli altri tenant (es. Dürr Dental): la `seed-demo-users` è già stata sistemata in precedenza, e i suoi dati clima non risultano problematici nel preview attuale.
+- La dashboard `KarmaResults` (RIASEC, già in scala 0-30 corretta).
 
 Procedo?
