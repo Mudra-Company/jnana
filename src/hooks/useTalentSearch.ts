@@ -203,7 +203,7 @@ export const useTalentSearch = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [membership?.company_id]);
+  }, []);
 
   // View a candidate's full profile (logs the view)
   const viewCandidate = useCallback(async (candidateId: string): Promise<KarmaProfile | null> => {
