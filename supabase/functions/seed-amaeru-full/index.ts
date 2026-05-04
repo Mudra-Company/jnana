@@ -229,15 +229,30 @@ async function createUsersAndProfiles(supa:any, log:string[]){
       soft_skills: p.softSkills, primary_values: p.values, risk_factors: p.risks,
       seniority_assessment: p.seniority, completed_at: new Date().toISOString(),
     });
-    // Climate — convert climateBase (0-100 mock) into a 1-5 score per section
+    // Climate — realistic 1-5 scale, "good company with room to improve"
+    // Map climateBase (60-95) → personalBase (3.0-4.6), clamp.
+    // Apply per-section bias typical of a scale-up: remuneration & change-mgmt lower,
+    // belonging & identity higher.
+    const personalBase = Math.min(4.6, Math.max(3.0, 3.0 + ((p.climateBase - 60) / 35) * 1.6));
+    const SECTION_BIAS: Record<string, number> = {
+      'Senso di Appartenenza': 0.25,
+      'Organizzazione e Cambiamento': -0.20,
+      'Il Mio Lavoro': 0.15,
+      'La Mia Remunerazione': -0.35,
+      'Rapporto con il Capo': 0.05,
+      'La Mia Unità (Team)': 0.20,
+      'Responsabilità': 0.10,
+      'Aspetto Umano': 0.00,
+      'Identità': 0.20,
+    };
     const sectionAvgs:Record<string,number> = {};
     let total = 0;
-    const baseOn5 = 1 + (p.climateBase / 100) * 4; // 1.0 .. 5.0
     for (const s of CLIMATE_SECTIONS){
-      const jitter = (Math.random() * 0.6) - 0.3; // ±0.3
-      const v = Math.min(5, Math.max(1, baseOn5 + jitter));
+      const bias = SECTION_BIAS[s] ?? 0;
+      const jitter = (Math.random() * 0.8) - 0.4; // ±0.4
+      const v = Math.min(5, Math.max(1, personalBase + bias + jitter));
       sectionAvgs[s] = Math.round(v * 10) / 10;
-      total += v;
+      total += sectionAvgs[s];
     }
     await supa.from('climate_responses').insert({
       user_id: uid, company_id: COMPANY_ID,

@@ -132,39 +132,39 @@ export const AdminIdentityHub: React.FC<AdminIdentityHubProps> = ({ company, use
 
         const avg = climateStats.overallAverage;
         
-        // Find ALL critical dimensions (scale 0-10: critical < 6.0)
+        // Find ALL critical dimensions (scale 1-5: critical < 3.0)
         const criticalDimensions = climateStats.globalAverages
-            .filter(d => d.value < 6.0)
+            .filter(d => d.value < 3.0)
             .sort((a, b) => a.value - b.value);
 
         let overview = "";
         let details: string[] = [];
 
-        // 1. Strict Severity Thresholds (scale 0-10)
-        if (avg >= 8.4) {
+        // 1. Strict Severity Thresholds (scale 1-5)
+        if (avg >= 4.2) {
             overview = "Il clima organizzativo è **eccellente**, un vero vantaggio competitivo.";
-        } else if (avg >= 8.0) {
+        } else if (avg >= 3.8) {
             overview = "Il clima è **positivo**, con una buona tenuta generale.";
-        } else if (avg >= 7.0) {
+        } else if (avg >= 3.0) {
             overview = "Il clima è **discreto ma vulnerabile**. Siamo in una zona grigia: non c'è crisi aperta, ma mancano entusiasmo e spinta propulsiva.";
         } else {
             overview = "Il clima presenta **criticità strutturali severe**. Il benessere organizzativo è compromesso.";
         }
 
-        // 2. Deep Dive into Critical Areas (< 6.0)
+        // 2. Deep Dive into Critical Areas (< 3.0)
         if (criticalDimensions.length > 0) {
             details.push("È necessario intervenire con urgenza sulle seguenti aree critiche:");
             criticalDimensions.forEach(dim => {
                 const specificRisk = CLIMATE_RISKS[dim.name] || "Rischio di inefficienza generale.";
-                details.push(`- **${dim.name} (${dim.value.toFixed(2)}/10)**: ${specificRisk}`);
+                details.push(`- **${dim.name} (${dim.value.toFixed(2)}/5)**: ${specificRisk}`);
             });
         } else {
-            // Mediocre areas (6.0 - 7.0)
-            const mediocreDimensions = climateStats.globalAverages.filter(d => d.value >= 6.0 && d.value < 7.0);
+            // Mediocre areas (3.0 - 3.5)
+            const mediocreDimensions = climateStats.globalAverages.filter(d => d.value >= 3.0 && d.value < 3.5);
             if (mediocreDimensions.length > 0) {
                 details.push("Sebbene non ci siano aree rosse, alcune dimensioni mostrano segnali di affaticamento:");
                 mediocreDimensions.forEach(dim => {
-                    details.push(`- **${dim.name} (${dim.value.toFixed(2)}/10)**: Da monitorare per evitare scivolamenti.`);
+                    details.push(`- **${dim.name} (${dim.value.toFixed(2)}/5)**: Da monitorare per evitare scivolamenti.`);
                 });
             } else {
                 details.push("Non si rilevano dimensioni in area di rischio, indice di una gestione equilibrata.");
@@ -202,10 +202,10 @@ export const AdminIdentityHub: React.FC<AdminIdentityHubProps> = ({ company, use
                          <div>
                             <span className="text-xs text-gray-500 font-bold uppercase tracking-wider block">Climate Index</span>
                             <div className={`text-3xl font-bold ${
-                                climateStats.overallAverage >= 8 ? 'text-green-500' :
-                                climateStats.overallAverage >= 7 ? 'text-yellow-500' : 'text-red-500'
+                                climateStats.overallAverage >= 4 ? 'text-green-500' :
+                                climateStats.overallAverage >= 3 ? 'text-yellow-500' : 'text-red-500'
                             }`}>
-                                {climateStats.overallAverage.toFixed(2)}/10
+                                {climateStats.overallAverage.toFixed(2)}/5
                             </div>
                          </div>
                      )}
@@ -277,7 +277,7 @@ export const AdminIdentityHub: React.FC<AdminIdentityHubProps> = ({ company, use
                             <h3 className="text-sm font-bold uppercase text-gray-500 mb-2 flex items-center gap-2">
                                 <BarChart3 size={16}/> Media Aziendale (Aggregata su {climateStats.respondentCount} dipendenti)
                             </h3>
-                            <p className="text-xs text-gray-400 mb-6">Punteggio medio (0-10) per dimensione.</p>
+                            <p className="text-xs text-gray-400 mb-6">Punteggio medio (1-5) per dimensione.</p>
                             
                             <div className="flex-1 w-full min-h-[400px]">
                                 <ResponsiveContainer width="100%" height="100%">
@@ -287,7 +287,7 @@ export const AdminIdentityHub: React.FC<AdminIdentityHubProps> = ({ company, use
                                         margin={{ top: 5, right: 30, left: 10, bottom: 5 }}
                                     >
                                         <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e5e7eb" />
-                                        <XAxis type="number" domain={[0, 10]} ticks={[0, 2, 4, 6, 8, 10]} stroke="#9CA3AF" tick={{fontSize: 10}}/>
+                                        <XAxis type="number" domain={[0, 5]} ticks={[0, 1, 2, 3, 4, 5]} stroke="#9CA3AF" tick={{fontSize: 10}}/>
                                         <YAxis 
                                             dataKey="name" 
                                             type="category" 
@@ -301,12 +301,12 @@ export const AdminIdentityHub: React.FC<AdminIdentityHubProps> = ({ company, use
                                             contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}
                                             formatter={(value: number) => [value.toFixed(2), "Media"]}
                                         />
-                                        <ReferenceLine x={6} stroke="#9CA3AF" strokeDasharray="3 3" />
+                                        <ReferenceLine x={3} stroke="#9CA3AF" strokeDasharray="3 3" />
                                         <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={24}>
                                             {climateStats.globalAverages.map((entry, index) => (
                                                 <Cell key={`cell-${index}`} fill={
-                                                    entry.value >= 8 ? '#22c55e' : // Green
-                                                    entry.value < 6 ? '#ef4444' : // Red
+                                                    entry.value >= 4 ? '#22c55e' : // Green
+                                                    entry.value < 3 ? '#ef4444' : // Red
                                                     '#eab308' // Yellow
                                                 } />
                                             ))}
@@ -348,8 +348,8 @@ export const AdminIdentityHub: React.FC<AdminIdentityHubProps> = ({ company, use
                                                 <td className="px-4 py-3 text-center">
                                                     {team.score ? (
                                                         <span className={`inline-block w-3 h-3 rounded-full ${
-                                                            team.score >= 8 ? 'bg-green-500' :
-                                                            team.score >= 7 ? 'bg-yellow-400' :
+                                                            team.score >= 4 ? 'bg-green-500' :
+                                                            team.score >= 3 ? 'bg-yellow-400' :
                                                             'bg-red-500'
                                                         }`}></span>
                                                     ) : (
