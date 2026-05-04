@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { supabase } from '../integrations/supabase/client';
-import { useAuth } from './useAuth';
+
 import { useSubscription } from './useSubscription';
 import type { KarmaProfile, CandidateMatch, TalentSearchFilters, WorkType } from '../types/karma';
 import type { RiasecScore, ChatMessage, SeniorityLevel } from '../../types';
