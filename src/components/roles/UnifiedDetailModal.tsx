@@ -1111,17 +1111,22 @@ export const UnifiedDetailModal: React.FC<UnifiedDetailModalProps> = ({
                     <span
                       key={i}
                       title={matched ? 'Posseduta dalla persona' : `Mancante${skill.mandatory ? ' (obbligatoria)' : ''}`}
-                      className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm border ${
+                      className={`inline-flex items-center gap-2 pl-3 pr-1.5 py-1 rounded-lg text-sm border ${
                         matched
-                          ? 'bg-green-50 text-green-700 border-green-300 dark:bg-green-900/20 dark:text-green-300 dark:border-green-800'
+                          ? 'bg-green-50 text-green-800 border-green-300 dark:bg-green-900/20 dark:text-green-200 dark:border-green-800'
                           : skill.mandatory
-                            ? 'bg-red-50 text-red-700 border-red-300 dark:bg-red-900/20 dark:text-red-300 dark:border-red-800'
-                            : 'bg-gray-100 text-gray-600 border-gray-300 dark:bg-gray-700 dark:text-gray-400 dark:border-gray-600'
+                            ? 'bg-red-50 text-red-800 border-red-300 dark:bg-red-900/20 dark:text-red-200 dark:border-red-800'
+                            : 'bg-gray-50 text-gray-700 border-gray-300 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600'
                       }`}
                     >
-                      {matched ? <CheckCircle size={11} /> : <X size={11} />}
-                      {skill.name}
-                      {skill.mandatory && <Star size={10} className="text-amber-500 fill-amber-500 ml-0.5" />}
+                      <span className="font-medium">{skill.name}</span>
+                      {skill.mandatory && <Star size={10} className="text-amber-500 fill-amber-500" />}
+                      <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold uppercase tracking-wide ${
+                        matched ? 'bg-green-600 text-white' : 'bg-red-500 text-white'
+                      }`}>
+                        {matched ? <CheckCircle size={10} /> : <X size={10} />}
+                        {matched ? 'Posseduta' : 'Mancante'}
+                      </span>
                     </span>
                   );
                 })}
