@@ -601,17 +601,21 @@ async function updateUserData(
   }
 
   // Insert RIASEC result
+  // NOTE: mock values are stored on a 0-100 scale for legacy reasons,
+  // but the real RIASEC engine produces 0-30 (item-count per dimension).
+  // Rescale here to keep mock data consistent with real questionnaires.
+  const to30 = (v: number) => Math.round((v / 100) * 30);
   const { error: riasecError } = await supabase
     .from('riasec_results')
     .insert({
       user_id: userId,
       company_id: companyId,
-      score_r: user.riasec.R,
-      score_i: user.riasec.I,
-      score_a: user.riasec.A,
-      score_s: user.riasec.S,
-      score_e: user.riasec.E,
-      score_c: user.riasec.C,
+      score_r: to30(user.riasec.R),
+      score_i: to30(user.riasec.I),
+      score_a: to30(user.riasec.A),
+      score_s: to30(user.riasec.S),
+      score_e: to30(user.riasec.E),
+      score_c: to30(user.riasec.C),
       profile_code: user.profileCode,
       raw_answers: {}
     });

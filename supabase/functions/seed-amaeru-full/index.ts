@@ -108,7 +108,18 @@ const PEOPLE: Persona[] = [
 ];
 
 // climate sections (9)
-const CLIMATE_SECTIONS = ['Soddisfazione','Leadership','Comunicazione','Crescita','Worklife','Compensation','Cultura','Riconoscimento','Innovazione'];
+// Aligned with the real survey in data/climateContent.ts (9 sections, scale 1-5).
+const CLIMATE_SECTIONS = [
+  'Senso di Appartenenza',
+  'Organizzazione e Cambiamento',
+  'Il Mio Lavoro',
+  'La Mia Remunerazione',
+  'Rapporto con il Capo',
+  'La Mia Unità (Team)',
+  'Responsabilità',
+  'Aspetto Umano',
+  'Identità',
+];
 
 function profileCode(r:any){
   const arr = Object.entries(r).sort((a:any,b:any)=>b[1]-a[1]).slice(0,3).map(e=>e[0]);
@@ -197,11 +208,12 @@ async function createUsersAndProfiles(supa:any, log:string[]){
       user_id: uid, name: c.name, issuing_organization: c.org, issue_date: `${c.year}-06-01`,
     }));
     if (certRows.length) await supa.from('user_certifications').insert(certRows);
-    // RIASEC
+    // RIASEC — rescale 0-100 mock values to 0-30 (real engine scale)
+    const to30 = (v: number) => Math.round((v / 100) * 30);
     await supa.from('riasec_results').insert({
       user_id: uid, company_id: COMPANY_ID,
-      score_r: p.riasec.R, score_i: p.riasec.I, score_a: p.riasec.A,
-      score_s: p.riasec.S, score_e: p.riasec.E, score_c: p.riasec.C,
+      score_r: to30(p.riasec.R), score_i: to30(p.riasec.I), score_a: to30(p.riasec.A),
+      score_s: to30(p.riasec.S), score_e: to30(p.riasec.E), score_c: to30(p.riasec.C),
       profile_code: profileCode(p.riasec), raw_answers: { seeded: true },
     });
     // Karma session
@@ -217,17 +229,20 @@ async function createUsersAndProfiles(supa:any, log:string[]){
       soft_skills: p.softSkills, primary_values: p.values, risk_factors: p.risks,
       seniority_assessment: p.seniority, completed_at: new Date().toISOString(),
     });
-    // Climate
+    // Climate — convert climateBase (0-100 mock) into a 1-5 score per section
     const sectionAvgs:Record<string,number> = {};
-    let total=0;
+    let total = 0;
+    const baseOn5 = 1 + (p.climateBase / 100) * 4; // 1.0 .. 5.0
     for (const s of CLIMATE_SECTIONS){
-      const v = Math.max(50, Math.min(98, p.climateBase + (Math.random()*10 - 5)));
-      sectionAvgs[s] = Math.round(v*10)/10; total += v;
+      const jitter = (Math.random() * 0.6) - 0.3; // ±0.3
+      const v = Math.min(5, Math.max(1, baseOn5 + jitter));
+      sectionAvgs[s] = Math.round(v * 10) / 10;
+      total += v;
     }
     await supa.from('climate_responses').insert({
       user_id: uid, company_id: COMPANY_ID,
       raw_scores: { seeded: true }, section_averages: sectionAvgs,
-      overall_average: Math.round((total / CLIMATE_SECTIONS.length)*10)/10,
+      overall_average: Math.round((total / CLIMATE_SECTIONS.length) * 10) / 10,
     });
     created++;
   }

@@ -473,26 +473,29 @@ export const UserResultView: React.FC<UserResultViewProps> = ({ user, jobDb, com
                                 </div>
                             </div>
                             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-                                {climateChartData.slice(0, 5).map((item, idx) => (
+                                {climateChartData.slice(0, 5).map((item, idx) => {
+                                    const safeScore = Math.min(Math.max(item.score, 0), 5);
+                                    return (
                                     <div key={idx} className="text-center">
                                         <div className="relative w-16 h-16 mx-auto mb-2">
                                             <svg className="w-full h-full transform -rotate-90">
                                                 <circle cx="32" cy="32" r="28" fill="none" stroke="#e5e7eb" strokeWidth="6" />
                                                 <circle 
                                                     cx="32" cy="32" r="28" fill="none" 
-                                                    stroke={item.score >= 3.5 ? '#22c55e' : item.score >= 2.5 ? '#f59e0b' : '#ef4444'} 
+                                                    stroke={safeScore >= 3.5 ? '#22c55e' : safeScore >= 2.5 ? '#f59e0b' : '#ef4444'} 
                                                     strokeWidth="6"
-                                                    strokeDasharray={`${(item.score / 5) * 176} 176`}
+                                                    strokeDasharray={`${(safeScore / 5) * 176} 176`}
                                                     strokeLinecap="round"
                                                 />
                                             </svg>
                                             <span className="absolute inset-0 flex items-center justify-center text-sm font-bold text-gray-700 dark:text-gray-200">
-                                                {item.score.toFixed(1)}
+                                                {safeScore.toFixed(1)}
                                             </span>
                                         </div>
                                         <span className="text-xs text-gray-500 font-medium leading-tight block">{item.name}</span>
                                     </div>
-                                ))}
+                                    );
+                                })}
                             </div>
                         </Card>
                      )}
@@ -623,12 +626,19 @@ export const UserResultView: React.FC<UserResultViewProps> = ({ user, jobDb, com
                              <Card className="lg:col-span-2">
                                  <h3 className="font-bold mb-6">Dettaglio Dimensioni</h3>
                                  <div className="space-y-4">
-                                    {climateChartData.map((item, idx) => (
-                                        <div key={idx}>
-                                            <div className="flex justify-between text-sm font-bold mb-1"><span>{item.name}</span><span>{item.score.toFixed(1)}/5</span></div>
-                                            <div className="w-full h-3 bg-gray-100 rounded-full overflow-hidden"><div className={`h-full rounded-full ${item.score >= 3.5 ? 'bg-green-500' : 'bg-red-500'}`} style={{ width: `${(item.score / 5) * 100}%` }}></div></div>
-                                        </div>
-                                    ))}
+                                     {climateChartData.map((item, idx) => {
+                                         const safeScore = Math.min(Math.max(item.score, 0), 5);
+                                         const outOfScale = item.score > 5;
+                                         return (
+                                         <div key={idx}>
+                                             <div className="flex justify-between text-sm font-bold mb-1">
+                                                 <span>{item.name}{outOfScale && <span className="ml-2 text-xs text-amber-600 font-normal">⚠ dato fuori scala</span>}</span>
+                                                 <span>{safeScore.toFixed(1)}/5</span>
+                                             </div>
+                                             <div className="w-full h-3 bg-gray-100 rounded-full overflow-hidden"><div className={`h-full rounded-full ${safeScore >= 3.5 ? 'bg-green-500' : 'bg-red-500'}`} style={{ width: `${(safeScore / 5) * 100}%` }}></div></div>
+                                         </div>
+                                         );
+                                     })}
                                  </div>
                              </Card>
                              {managerAnalysis && (

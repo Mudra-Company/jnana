@@ -80,10 +80,10 @@ export const KarmaResults: React.FC<KarmaResultsProps> = ({ onBack, onEditProfil
 
   const { riasecScore, profileCode, karmaData } = profile;
 
-  // Prepare radar chart data with correct 0-30 scale
+  // Prepare radar chart data with correct 0-30 scale (defensive clamp against bad seed data)
   const radarData = DIMENSIONS.map(dim => ({
     dimension: dim,
-    value: riasecScore[dim],
+    value: Math.min(Math.max(riasecScore[dim] ?? 0, 0), 30),
     fullMark: 30,
   }));
 
@@ -152,7 +152,7 @@ export const KarmaResults: React.FC<KarmaResultsProps> = ({ onBack, onEditProfil
             <div className="space-y-2 mt-4">
               {DIMENSIONS.map(dim => {
                 const config = RIASEC_CONFIG[dim];
-                const score = riasecScore[dim];
+                const score = Math.min(Math.max(riasecScore[dim] ?? 0, 0), 30);
                 const percentage = (score / 30) * 100;
                 return (
                   <div key={dim} className="flex items-center gap-3">
