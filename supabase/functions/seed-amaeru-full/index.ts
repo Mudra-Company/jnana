@@ -108,7 +108,18 @@ const PEOPLE: Persona[] = [
 ];
 
 // climate sections (9)
-const CLIMATE_SECTIONS = ['Soddisfazione','Leadership','Comunicazione','Crescita','Worklife','Compensation','Cultura','Riconoscimento','Innovazione'];
+// Aligned with the real survey in data/climateContent.ts (9 sections, scale 1-5).
+const CLIMATE_SECTIONS = [
+  'Senso di Appartenenza',
+  'Organizzazione e Cambiamento',
+  'Il Mio Lavoro',
+  'La Mia Remunerazione',
+  'Rapporto con il Capo',
+  'La Mia Unità (Team)',
+  'Responsabilità',
+  'Aspetto Umano',
+  'Identità',
+];
 
 function profileCode(r:any){
   const arr = Object.entries(r).sort((a:any,b:any)=>b[1]-a[1]).slice(0,3).map(e=>e[0]);
