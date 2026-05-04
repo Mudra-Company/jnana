@@ -152,7 +152,7 @@ export const KarmaResults: React.FC<KarmaResultsProps> = ({ onBack, onEditProfil
             <div className="space-y-2 mt-4">
               {DIMENSIONS.map(dim => {
                 const config = RIASEC_CONFIG[dim];
-                const score = riasecScore[dim];
+                const score = Math.min(Math.max(riasecScore[dim] ?? 0, 0), 30);
                 const percentage = (score / 30) * 100;
                 return (
                   <div key={dim} className="flex items-center gap-3">
