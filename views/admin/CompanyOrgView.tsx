@@ -60,6 +60,11 @@ import { UnifiedDetailModal } from '../../src/components/roles/UnifiedDetailModa
 import type { CompanyRole, CreateRoleInput } from '../../src/types/roles';
 import type { UnifiedPosition } from '../../src/types/unified-org';
 
+// Org Chart UX evolution
+import { useOrgChartUIState } from '../../src/hooks/useOrgChartUIState';
+import { OrgChartCanvas } from '../../src/components/admin/orgchart/OrgChartCanvas';
+import { OrgChartContextPanel } from '../../src/components/admin/orgchart/OrgChartContextPanel';
+
 const SENIORITY_OPTIONS: SeniorityLevel[] = ['Junior', 'Mid', 'Senior', 'Lead', 'C-Level'];
 const SENIORITY_LEVELS: Record<SeniorityLevel, number> = { 'Junior': 1, 'Mid': 2, 'Senior': 3, 'Lead': 4, 'C-Level': 5 };
 
