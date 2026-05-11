@@ -443,11 +443,6 @@ export const OrgNodeCard: React.FC<OrgNodeCardProps> = ({
   // Calculate total hiring count from unified positions
   const totalHiringCount = unifiedPositions.filter(p => p.role.isHiring).length;
 
-  return (
-    <Card 
-      className={`relative min-w-[300px] max-w-[400px] w-max flex flex-col transition-all duration-200 hover:-translate-y-0.5 hover:shadow-xl ${getHierarchyStyle()}`}
-      padding="sm"
-    >
   // Stats for compact / collapsed summary
   const peopleCount = nodeUsers.filter(u => !u.isHiring && (u.firstName || u.lastName)).length;
   const positionsCount = unifiedPositions.length;
