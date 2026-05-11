@@ -184,7 +184,13 @@ export const OrgNodeCard: React.FC<OrgNodeCardProps> = ({
   allHiringPositions,
   // New role-centric props
   roles = [],
-  onAddRole
+  onAddRole,
+  // New collapse + selection
+  collapsed = false,
+  onToggleCollapsed,
+  isSelected = false,
+  onSelectNode,
+  childrenCount = 0,
 }) => {
   // Find users BELONGING to this node
   const nodeUsers = users.filter(u => u.departmentId === node.id);
