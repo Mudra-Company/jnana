@@ -46,7 +46,7 @@ export const OrgChartCanvas: React.FC<OrgChartCanvasProps> = ({
         wheel={{ step: 0.1, activationKeys: ['Control', 'Meta'] }}
         doubleClick={{ disabled: true }}
         panning={{ excluded: ['button', 'a', 'input', 'textarea', 'select'] }}
-        onTransformed={(_, state) => setZoomPct(Math.round(state.scale * 100))}
+        onTransform={(ref) => setZoomPct(Math.round((ref.state?.scale ?? 1) * 100))}
       >
         {({ zoomIn, zoomOut, resetTransform, centerView }) => (
           <>
