@@ -447,6 +447,21 @@ export const OrgNodeCard: React.FC<OrgNodeCardProps> = ({
   const peopleCount = nodeUsers.filter(u => !u.isHiring && (u.firstName || u.lastName)).length;
   const positionsCount = unifiedPositions.length;
 
+  // Averages of role fit and manager fit across assigned positions in this node
+  const assignedPositions = unifiedPositions.filter(p => p.assignee);
+  const avgRoleFit = assignedPositions.length > 0
+    ? Math.round(assignedPositions.reduce((s, p) => s + (p.metrics.roleFitScore || 0), 0) / assignedPositions.length)
+    : null;
+  const mgrFitPositions = assignedPositions.filter(p => p.metrics.managerFitScore !== null && p.metrics.managerFitScore !== undefined);
+  const avgManagerFit = mgrFitPositions.length > 0
+    ? Math.round(mgrFitPositions.reduce((s, p) => s + (p.metrics.managerFitScore as number), 0) / mgrFitPositions.length)
+    : null;
+
+  const fitColor = (v: number) =>
+    v >= 75 ? 'text-green-600 dark:text-green-400'
+    : v >= 50 ? 'text-yellow-600 dark:text-yellow-400'
+    : 'text-red-600 dark:text-red-400';
+
   const handleHeaderClick = (e: React.MouseEvent) => {
     // Don't select when clicking action buttons
     if ((e.target as HTMLElement).closest('button')) return;
