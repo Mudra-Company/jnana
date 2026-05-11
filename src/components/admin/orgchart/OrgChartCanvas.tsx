@@ -62,6 +62,37 @@ export const OrgChartCanvas: React.FC<OrgChartCanvasProps> = ({
               <div className="p-12">{children}</div>
             </TransformComponent>
 
+            {/* Top-right persistent panel: Export PDF + Legend */}
+            {onExportPdf && (
+              <div className="absolute top-4 right-4 z-20 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg p-3 flex flex-col gap-2 min-w-[260px]">
+                <button
+                  onClick={onExportPdf}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors text-sm font-semibold shadow-sm"
+                >
+                  <Download size={16} />
+                  Esporta PDF
+                </button>
+                <div className="border-t border-gray-100 dark:border-gray-700 pt-2 flex flex-col gap-1.5 text-[11px] font-semibold text-gray-600 dark:text-gray-300">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="w-2 h-2 rounded-full bg-destructive" />
+                    Critico (&lt;3)
+                    <span className="w-2 h-2 rounded-full bg-yellow-400 ml-1" />
+                    Neutro (3-4)
+                    <span className="w-2 h-2 rounded-full bg-green-500 ml-1" />
+                    Ottimo (&gt;4)
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="flex items-center gap-1 text-blue-500">
+                      <Building size={11} /> Fit Culturale
+                    </span>
+                    <span className="flex items-center gap-1 text-green-600">
+                      <Handshake size={11} /> Fit Manager
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Floating Toolbar */}
             <div className="absolute bottom-4 right-4 z-20 flex items-center gap-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg p-1">
               {onCollapseAll && (
