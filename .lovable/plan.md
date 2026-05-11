@@ -1,37 +1,54 @@
-## Obiettivo
+## Diagnosi
 
-Spostare il bottone **Esporta PDF** e la **legenda** (Clima Critico/Neutro/Ottimo + Fit Culturale/Fit Manager) dall'header della spalla sinistra a un **riquadro fluttuante** in alto a destra del canvas dell'organigramma, sempre visibile e persistente (non scorre con il pan/zoom della struttura).
+La sezione "Sintonia Leadership & Management" in `/admin/identity` mostra "Dati insufficienti" per Amaeru perché **i 22 membri di Amaeru non hanno alcun record in `riasec_results`** (e quindi nessun `profile_code`).
 
-## Modifiche
+Verifiche fatte sul database:
+- Amaeru: 22 membri totali, **0 con riasec**.
+- Dürr Dental: 18 membri, 18 con riasec → la sezione funziona lì.
+- I `karma_sessions` (23) e i `climate_responses` (22) di Amaeru sono presenti: solo i RIASEC sono stati persi.
 
-### `src/components/admin/orgchart/OrgChartCanvas.tsx`
-- Aggiungere prop opzionale `onExportPdf?: () => void`.
-- Renderizzare un nuovo overlay in `absolute top-4 right-4 z-20` (stesso stack della toolbar di zoom in basso a destra), in `bg-white/dark:bg-gray-800` con `border`, `rounded-xl`, `shadow-lg`, padding compatto.
-- Contenuto del riquadro:
-  - Bottone "Esporta PDF" più prominente: `flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90` con icona `Download` e label.
-  - Separatore sottile.
-  - Legenda compatta su due righe (stesso markup oggi presente nell'header del pannello): pallini Clima (Critico/Neutro/Ottimo) + indicatori Fit Culturale (Building) / Fit Manager (Handshake).
-- Il riquadro sta fuori dal `TransformComponent` (è già il pattern usato dalla toolbar zoom), quindi resta fisso durante pan/zoom.
+La funzione `calculateLeadershipAnalytics` (`services/riasecService.ts`) richiede `user.profileCode` sia sul manager sia sul collaboratore (righe 494, 498). Senza `profile_code` non viene mai conteggiata nessuna coppia → `pairsCount = 0` → "Dati insufficienti".
 
-### `src/components/admin/orgchart/OrgChartContextPanel.tsx`
-- Rimuovere dall'header fisso della spalla:
-  - il bottone "Esporta PDF" (righe ~629–635);
-  - il blocco legenda (righe ~636–653).
-- Mantenere titolo "Organigramma Aziendale" + sottotitolo + pulsante collapse pannello.
-- Rimuovere prop `onExportPdf` dall'interfaccia `Props` e dalla destructuring (non più usata qui).
-- Nel rendering "collapsed" (spalla a 48px) togliere anch'esso il bottone export se presente.
+I dati RIASEC originali esistono ancora nel codice del seed `supabase/functions/seed-amaeru-full/index.ts` (array `PEOPLE`, ~22 voci con scores R/I/A/S/E/C per ogni email `@amaeru.eu`). Gli `id` di `company_members` sono stabili e gli utenti auth+profiles esistono già con i giusti `user_id`.
 
-### `views/admin/CompanyOrgView.tsx`
-- Spostare `onExportPdf={() => setShowExportModal(true)}` dal `<OrgChartContextPanel ... />` al `<OrgChartCanvas ... />`.
+## Soluzione: edge function di riparazione mirata
 
-## Layout / responsive
+Creare una nuova edge function **`repair-amaeru-riasec`** che ripristina solo i `riasec_results` mancanti, **senza toccare auth, profiles, karma_sessions, climate_responses, role assignments** (per non rompere le memorie esistenti — cfr. memory "Seed Data Integrity").
 
-- ≥1024px: il riquadro non sovrappone i nodi del root perché è ancorato al bordo del canvas (in alto a destra), con z-index sopra il TransformComponent.
-- L'utente può comunque pannare la struttura sotto il riquadro (è un overlay fisso).
-- La toolbar di zoom resta in basso a destra: nessuna sovrapposizione.
+### Cosa fa la function
+1. Carica internamente la lista `PEOPLE_RIASEC` (solo `email`, `R, I, A, S, E, C`) estratta dal seed esistente.
+2. Per ciascuna voce:
+   - cerca l'utente su `profiles` via `email = …`;
+   - se trovato, cancella eventuali righe in `riasec_results` per quell'`user_id` + `company_id = COMPANY_ID` (idempotenza);
+   - inserisce una nuova riga in `riasec_results` con:
+     - `score_r/i/a/s/e/c = round(valore/100*30)` (stessa scala del seed originale, conforme alla memory "Test Result Scales");
+     - `profile_code = profileCode({R,I,A,S,E,C})` (top-3 lettere ordinate per score, come nel seed);
+     - `raw_answers = { repaired: true }`;
+     - `company_id = '02b47082-c1d5-4e63-bc78-b6e9dfe602a7'`.
+3. Restituisce `{ ok, repaired, skipped, log }`.
+
+### Trigger esecuzione
+Aggiungere un piccolo bottone "Ripara dati RIASEC Amaeru" **solo** nella vista già esistente `src/views/admin/SeedDataView.tsx` (riservata a super_admin) che invoca la function. Nessuna esecuzione automatica al boot.
+
+### Idempotenza & sicurezza
+- La function è scoped per `COMPANY_ID = Amaeru` (costante hardcoded).
+- Idempotente: cancella+ripopola le righe RIASEC della sola Amaeru.
+- Nessuna modifica a auth/profiles/karma/climate/roles.
+- `verify_jwt = true` (default) + check ruolo super_admin lato client (la SeedDataView è già protetta).
+
+## Verifica post-fix
+
+Dopo l'esecuzione:
+- Query: `SELECT COUNT(*) FROM riasec_results WHERE user_id IN (SELECT user_id FROM company_members WHERE company_id='02b47082-c1d5-4e63-bc78-b6e9dfe602a7')` → atteso 22.
+- Aprire `/admin/identity` su Amaeru → la sezione "3. Sintonia Leadership & Management" deve mostrare Global Alignment Index, Friction Rate, distribuzione e team alignment.
+
+## File toccati
+
+- **Nuovo**: `supabase/functions/repair-amaeru-riasec/index.ts` — function di riparazione con dataset inline.
+- `src/views/admin/SeedDataView.tsx` — un bottone "Ripara RIASEC Amaeru" che chiama la function.
 
 ## Fuori scopo
 
-- Nessuna modifica a metriche, dati, modali, OrgNodeCard, esportazione PDF (logica invariata).
-- Nessuna modifica DB.
-- Nessuna modifica al comportamento di collasso dei riquadri.
+- Nessuna modifica a `services/riasecService.ts` né alla UI di `AdminIdentityHub.tsx` (la logica è corretta, mancano solo i dati).
+- Nessuna modifica DB schema, RLS, altre company.
+- Nessun tocco a karma_sessions, climate_responses, role_assignments di Amaeru.
