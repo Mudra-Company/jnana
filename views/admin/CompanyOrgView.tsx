@@ -60,6 +60,11 @@ import { UnifiedDetailModal } from '../../src/components/roles/UnifiedDetailModa
 import type { CompanyRole, CreateRoleInput } from '../../src/types/roles';
 import type { UnifiedPosition } from '../../src/types/unified-org';
 
+// Org Chart UX evolution
+import { useOrgChartUIState } from '../../src/hooks/useOrgChartUIState';
+import { OrgChartCanvas } from '../../src/components/admin/orgchart/OrgChartCanvas';
+import { OrgChartContextPanel } from '../../src/components/admin/orgchart/OrgChartContextPanel';
+
 const SENIORITY_OPTIONS: SeniorityLevel[] = ['Junior', 'Mid', 'Senior', 'Lead', 'C-Level'];
 const SENIORITY_LEVELS: Record<SeniorityLevel, number> = { 'Junior': 1, 'Mid': 2, 'Senior': 3, 'Lead': 4, 'C-Level': 5 };
 
@@ -1492,6 +1497,13 @@ const NodeEditorModal: React.FC<{
 };
 
 // --- RECURSIVE TREE RENDERER ---
+interface OrgTreeUIState {
+  isNodeCollapsed: (id: string) => boolean;
+  toggleNodeCollapsed: (id: string) => void;
+  selectedNodeId: string | null;
+  onSelectNode: (id: string) => void;
+}
+
 const renderOrgTreeChildren = (
     node: OrgNode,
     users: User[],
@@ -1503,7 +1515,8 @@ const renderOrgTreeChildren = (
     allHiringPositions?: User[],
     // Role-centric params
     roles?: CompanyRole[],
-    onAddRole?: (nodeId: string) => void
+    onAddRole?: (nodeId: string) => void,
+    uiState?: OrgTreeUIState
 ): React.ReactNode => {
     if (!node.children || node.children.length === 0) return null;
 
@@ -1514,6 +1527,8 @@ const renderOrgTreeChildren = (
     return node.children.map(child => {
         const childNodeUsers = users.filter(u => u.departmentId === child.id);
         const childManagers = findNodeManagers(childNodeUsers, child);
+        const childCollapsed = uiState?.isNodeCollapsed(child.id) ?? false;
+        const childChildrenCount = child.children?.length || 0;
 
         return (
             <React.Fragment key={child.id}>
@@ -1532,11 +1547,17 @@ const renderOrgTreeChildren = (
                                 // Role-centric props
                                 roles={roles}
                                 onAddRole={onAddRole}
+                                // UI state
+                                collapsed={childCollapsed}
+                                onToggleCollapsed={uiState?.toggleNodeCollapsed}
+                                isSelected={uiState?.selectedNodeId === child.id}
+                                onSelectNode={uiState?.onSelectNode}
+                                childrenCount={childChildrenCount}
                             />
                         </div>
                     }
                 >
-                    {renderOrgTreeChildren(
+                    {!childCollapsed && renderOrgTreeChildren(
                         child,
                         users,
                         onAddNode,
@@ -1546,7 +1567,8 @@ const renderOrgTreeChildren = (
                         childManagers,
                         allHiringPositions,
                         roles,
-                        onAddRole
+                        onAddRole,
+                        uiState
                     )}
                 </TreeNode>
             </React.Fragment>
@@ -1640,9 +1662,21 @@ export const CompanyOrgView: React.FC<{
         setEmployeeProfilePopover(profileData);
     };
     
-    // Handle unified position click from org chart
+    // UI state for the new org chart layout (collapse, panel, selection)
+    const orgUI = useOrgChartUIState(company.id);
+    const selectedNodeId =
+        orgUI.selection.kind === 'node' ? orgUI.selection.nodeId :
+        orgUI.selection.kind === 'position' ? orgUI.selection.nodeId :
+        null;
+
+    // Handle unified position click from org chart -> select it in the side panel
     const handlePositionClick = async (position: UnifiedPosition) => {
-        // For explicit roles (not implicit), fetch full details
+        const nodeId = position.role.orgNodeId || null;
+        orgUI.selectPosition(position, nodeId);
+    };
+
+    // Open the full UnifiedDetailModal on demand from the side panel
+    const handleOpenFullDetail = async (position: UnifiedPosition) => {
         if (!position.role.id.startsWith('implicit-')) {
             const fullRole = await fetchRoleWithAssignments(position.role.id);
             if (fullRole) {
@@ -1830,6 +1864,20 @@ export const CompanyOrgView: React.FC<{
         }
     };
 
+    // Collect all node IDs for collapse-all action
+    const allNodeIds = useMemo(() => {
+        const ids: string[] = [];
+        const walk = (n: OrgNode) => {
+            ids.push(n.id);
+            n.children?.forEach(walk);
+        };
+        if (company.structure) walk(company.structure);
+        return ids;
+    }, [company.structure]);
+
+    const rootCollapsed = orgUI.isNodeCollapsed(company.structure?.id || '');
+    const rootChildrenCount = company.structure?.children?.length || 0;
+
     return (
         <div className="p-8 max-w-full overflow-x-auto min-h-screen bg-gray-50/50 dark:bg-gray-900/50">
             {/* Legacy invite modal removed - now using unified RoleCreationModal */}
@@ -1855,34 +1903,72 @@ export const CompanyOrgView: React.FC<{
                      <div className="flex items-center gap-1 text-green-600"><Handshake size={12}/> Fit Manager (Liv. Superiore)</div>
                  </div>
             </div>
-            <div className="pb-20 overflow-x-auto">
-                <div className="w-fit mx-auto">
-                    <Tree
-                        lineWidth="3px"
-                        lineColor="rgb(99, 102, 241)"
-                        lineBorderRadius="12px"
-                        lineHeight="40px"
-                        nodePadding="24px"
-                        label={
-                            <div className="inline-block relative z-10">
-                                <OrgNodeCard
-                                    node={company.structure}
-                                    users={users}
-                                    onAddNode={handleAddNode}
-                                    onEditNode={setEditingNode}
-                                    onPositionClick={handlePositionClick}
-                                    companyValues={company.cultureValues}
-                                    parentManagers={[]}
-                                    allHiringPositions={allHiringPositions}
-                                    // Role-centric props
-                                    roles={roles}
-                                    onAddRole={handleAddRole}
-                                />
-                            </div>
-                        }
+            <div className="flex gap-0 rounded-2xl overflow-hidden border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
+                <OrgChartContextPanel
+                    collapsed={orgUI.panelCollapsed}
+                    onToggleCollapsed={orgUI.togglePanel}
+                    company={company}
+                    users={users}
+                    roles={roles}
+                    selection={orgUI.selection}
+                    onSelectCompany={orgUI.selectCompany}
+                    onSelectNode={orgUI.selectNode}
+                    onOpenFullDetail={handleOpenFullDetail}
+                />
+
+                <div className="flex-1 min-w-0">
+                    <OrgChartCanvas
+                        onCollapseAll={() => orgUI.collapseAll(allNodeIds.filter(id => id !== company.structure?.id))}
+                        onExpandAll={orgUI.expandAll}
                     >
-                        {renderOrgTreeChildren(company.structure, users, handleAddNode, setEditingNode, handlePositionClick, company.cultureValues, [], allHiringPositions, roles, handleAddRole)}
-                    </Tree>
+                        <Tree
+                            lineWidth="3px"
+                            lineColor="rgb(99, 102, 241)"
+                            lineBorderRadius="12px"
+                            lineHeight="40px"
+                            nodePadding="24px"
+                            label={
+                                <div className="inline-block relative z-10">
+                                    <OrgNodeCard
+                                        node={company.structure}
+                                        users={users}
+                                        onAddNode={handleAddNode}
+                                        onEditNode={setEditingNode}
+                                        onPositionClick={handlePositionClick}
+                                        companyValues={company.cultureValues}
+                                        parentManagers={[]}
+                                        allHiringPositions={allHiringPositions}
+                                        roles={roles}
+                                        onAddRole={handleAddRole}
+                                        collapsed={rootCollapsed}
+                                        onToggleCollapsed={orgUI.toggleNodeCollapsed}
+                                        isSelected={selectedNodeId === company.structure?.id}
+                                        onSelectNode={orgUI.selectNode}
+                                        childrenCount={rootChildrenCount}
+                                    />
+                                </div>
+                            }
+                        >
+                            {!rootCollapsed && renderOrgTreeChildren(
+                                company.structure,
+                                users,
+                                handleAddNode,
+                                setEditingNode,
+                                handlePositionClick,
+                                company.cultureValues,
+                                [],
+                                allHiringPositions,
+                                roles,
+                                handleAddRole,
+                                {
+                                    isNodeCollapsed: orgUI.isNodeCollapsed,
+                                    toggleNodeCollapsed: orgUI.toggleNodeCollapsed,
+                                    selectedNodeId,
+                                    onSelectNode: orgUI.selectNode,
+                                }
+                            )}
+                        </Tree>
+                    </OrgChartCanvas>
                 </div>
             </div>
             {selectedUserForComparison && (
