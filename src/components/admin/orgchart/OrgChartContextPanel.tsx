@@ -37,6 +37,7 @@ interface Props {
   onSelectCompany: () => void;
   onSelectNode: (nodeId: string) => void;
   onOpenFullDetail?: (position: UnifiedPosition) => void;
+  onExportPdf: () => void;
 }
 
 // ---------- helpers ----------
