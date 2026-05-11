@@ -37,7 +37,7 @@ interface Props {
   onSelectCompany: () => void;
   onSelectNode: (nodeId: string) => void;
   onOpenFullDetail?: (position: UnifiedPosition) => void;
-  onExportPdf: () => void;
+  
 }
 
 // ---------- helpers ----------
@@ -546,7 +546,7 @@ export const OrgChartContextPanel: React.FC<Props> = ({
   onSelectCompany,
   onSelectNode,
   onOpenFullDetail,
-  onExportPdf,
+  
 }) => {
   if (collapsed) {
     return (
@@ -560,14 +560,6 @@ export const OrgChartContextPanel: React.FC<Props> = ({
           <ChevronRight size={18} />
         </button>
         <Building size={18} className="text-gray-400" />
-        <button
-          onClick={onExportPdf}
-          className="p-2 rounded-lg text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700"
-          title="Esporta PDF"
-          aria-label="Esporta PDF"
-        >
-          <Download size={16} />
-        </button>
       </aside>
     );
   }
@@ -626,31 +618,6 @@ export const OrgChartContextPanel: React.FC<Props> = ({
         <p className="text-xs text-muted-foreground mb-3">
           Struttura gerarchica e funzionale di {company.name}
         </p>
-        <button
-          onClick={onExportPdf}
-          className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors text-xs font-medium mb-3"
-        >
-          <Download size={14} />
-          Esporta PDF
-        </button>
-        <div className="grid grid-cols-1 gap-1 text-[11px] font-semibold text-muted-foreground">
-          <div className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-destructive" />
-            Clima Critico (&lt;3)
-            <span className="w-2 h-2 rounded-full bg-yellow-400 ml-2" />
-            Neutro (3-4)
-            <span className="w-2 h-2 rounded-full bg-green-500 ml-2" />
-            Ottimo (&gt;4)
-          </div>
-          <div className="flex items-center gap-3 pt-1">
-            <span className="flex items-center gap-1 text-blue-500">
-              <Building size={11} /> Fit Culturale
-            </span>
-            <span className="flex items-center gap-1 text-green-600">
-              <Handshake size={11} /> Fit Manager
-            </span>
-          </div>
-        </div>
       </div>
       {/* Dynamic section label */}
       <div className="flex items-center justify-between px-4 py-2 border-b border-gray-100 dark:border-gray-700 shrink-0">
