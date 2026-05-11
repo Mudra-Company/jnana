@@ -90,10 +90,10 @@ export const ContextBar: React.FC<Props> = (p) => {
     const rose = 'text-rose-600 border-rose-600';
     const emerald = 'text-emerald-600 border-emerald-600';
     tabs = [
-      { key: 'org', label: 'Organigramma', icon: <Network size={16} />, active: view.type === 'ADMIN_ORG_CHART', onClick: p.onOrgChart, accent: sage },
       { key: 'dash', label: 'Dashboard', icon: <LayoutDashboard size={16} />, active: view.type === 'ADMIN_DASHBOARD', onClick: p.onAdminHome, accent: sage },
+      { key: 'org', label: 'Struttura', icon: <Network size={16} />, active: view.type === 'ADMIN_ORG_CHART', onClick: p.onOrgChart, accent: sage },
       { key: 'id', label: 'Identity Hub', icon: <Fingerprint size={16} />, active: view.type === 'ADMIN_IDENTITY_HUB', onClick: p.onIdentityHub, accent: sage },
-      { key: 'co', label: 'Azienda', icon: <Settings size={16} />, active: view.type === 'ADMIN_COMPANY_PROFILE', onClick: p.onCompanyProfile, accent: sage },
+      { key: 'co', label: 'Brand Identity', icon: <Settings size={16} />, active: view.type === 'ADMIN_COMPANY_PROFILE', onClick: p.onCompanyProfile, accent: sage },
       ...(p.onSpaceSync ? [{ key: 'ss', label: 'SpaceSync', icon: <MapPin size={16} />, active: view.type === 'ADMIN_SPACESYNC', onClick: p.onSpaceSync, accent: rose }] : []),
       ...(p.onCompliance ? [{ key: 'cm', label: 'Compliance', icon: <ShieldCheck size={16} />, active: view.type === 'ADMIN_COMPLIANCE', onClick: p.onCompliance, accent: emerald }] : []),
     ];
