@@ -6,7 +6,10 @@ import {
   ThermometerSun,
   Search,
   AlertTriangle,
-  Briefcase
+  Briefcase,
+  ChevronDown,
+  ChevronRight,
+  Users
 } from 'lucide-react';
 import { Card } from '../../components/Card';
 import { OrgNode, User } from '../../types';
@@ -65,6 +68,12 @@ interface OrgNodeCardProps {
   // New role-centric props
   roles?: CompanyRole[];
   onAddRole?: (nodeId: string) => void;
+  // New Phase: collapse + selection
+  collapsed?: boolean;
+  onToggleCollapsed?: (nodeId: string) => void;
+  isSelected?: boolean;
+  onSelectNode?: (nodeId: string) => void;
+  childrenCount?: number;
 }
 
 // Helper function to find ALL leaders within a node (for Cultural Driver nodes, all users are leaders)
