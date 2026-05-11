@@ -9,7 +9,9 @@ import {
   Briefcase,
   ChevronDown,
   ChevronRight,
-  Users
+  Users,
+  Target,
+  Handshake
 } from 'lucide-react';
 import { Card } from '../../components/Card';
 import { OrgNode, User } from '../../types';
@@ -447,6 +449,21 @@ export const OrgNodeCard: React.FC<OrgNodeCardProps> = ({
   const peopleCount = nodeUsers.filter(u => !u.isHiring && (u.firstName || u.lastName)).length;
   const positionsCount = unifiedPositions.length;
 
+  // Averages of role fit and manager fit across assigned positions in this node
+  const assignedPositions = unifiedPositions.filter(p => p.assignee);
+  const avgRoleFit = assignedPositions.length > 0
+    ? Math.round(assignedPositions.reduce((s, p) => s + (p.metrics.roleFitScore || 0), 0) / assignedPositions.length)
+    : null;
+  const mgrFitPositions = assignedPositions.filter(p => p.metrics.managerFitScore !== null && p.metrics.managerFitScore !== undefined);
+  const avgManagerFit = mgrFitPositions.length > 0
+    ? Math.round(mgrFitPositions.reduce((s, p) => s + (p.metrics.managerFitScore as number), 0) / mgrFitPositions.length)
+    : null;
+
+  const fitColor = (v: number) =>
+    v >= 75 ? 'text-green-600 dark:text-green-400'
+    : v >= 50 ? 'text-yellow-600 dark:text-yellow-400'
+    : 'text-red-600 dark:text-red-400';
+
   const handleHeaderClick = (e: React.MouseEvent) => {
     // Don't select when clicking action buttons
     if ((e.target as HTMLElement).closest('button')) return;
@@ -545,12 +562,24 @@ export const OrgNodeCard: React.FC<OrgNodeCardProps> = ({
 
       {/* Collapsed summary */}
       {collapsed ? (
-        <div className="mt-2 pt-2 border-t border-gray-100 dark:border-gray-700/50 flex items-center gap-3 text-xs text-gray-600 dark:text-gray-300">
-          <span className="flex items-center gap-1"><Users size={12} className="text-gray-400" /> {peopleCount}</span>
-          <span className="flex items-center gap-1"><Briefcase size={12} className="text-gray-400" /> {positionsCount}</span>
-          {childrenCount > 0 && (
-            <span className="ml-auto text-[11px] text-gray-400 italic">+{childrenCount} sotto-nod{childrenCount === 1 ? 'o' : 'i'} nascost{childrenCount === 1 ? 'o' : 'i'}</span>
-          )}
+        <div className="mt-2 pt-2 border-t border-gray-100 dark:border-gray-700/50 flex flex-col gap-1.5 text-xs text-gray-600 dark:text-gray-300">
+          <div className="flex items-center gap-3 flex-wrap">
+            <span className="flex items-center gap-1"><Users size={12} className="text-gray-400" /> {peopleCount}</span>
+            <span className="flex items-center gap-1"><Briefcase size={12} className="text-gray-400" /> {positionsCount}</span>
+            {avgRoleFit !== null && (
+              <span className={`flex items-center gap-1 font-semibold ${fitColor(avgRoleFit)}`} title="Fit Ruolo medio">
+                <Target size={12} /> {avgRoleFit}%
+              </span>
+            )}
+            {avgManagerFit !== null && (
+              <span className={`flex items-center gap-1 font-semibold ${fitColor(avgManagerFit)}`} title="Fit Manager medio">
+                <Handshake size={12} /> {avgManagerFit}%
+              </span>
+            )}
+            {childrenCount > 0 && (
+              <span className="ml-auto text-[11px] text-gray-400 italic">+{childrenCount} sotto-nod{childrenCount === 1 ? 'o' : 'i'} nascost{childrenCount === 1 ? 'o' : 'i'}</span>
+            )}
+          </div>
         </div>
       ) : (
         /* Content: Unified Positions (Roles + Persons) */
