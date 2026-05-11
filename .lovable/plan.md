@@ -1,47 +1,37 @@
 ## Obiettivo
 
-Due fix mirati all'organigramma:
-
-1. **Collasso "vero" del singolo riquadro**: quando l'utente collassa un nodo, deve ridursi **solo quel riquadro** (il card di quel nodo passa al suo summary compatto). I nodi figli sotto, le linee gerarchiche e gli altri rami **restano visibili e invariati**.
-2. **Eliminare lo spazio bianco sprecato** sotto l'organigramma generato dalla spalla sinistra più alta del canvas.
-
-## Comportamento attuale (problema)
-
-- In `views/admin/CompanyOrgView.tsx`, il render dei figli è gated da `!rootCollapsed && renderOrgTreeChildren(...)` (riga 1932) e dentro `renderOrgTreeChildren` da `!childCollapsed && renderOrgTreeChildren(...)` (riga 1560). Risultato: collassare un nodo nasconde l'intero sotto-albero, non solo quel riquadro.
-- Il pannello laterale ha `h-[calc(100vh-140px)] min-h-[600px]` (riga 608 di `OrgChartContextPanel.tsx`), mentre il canvas ha `h-[calc(100vh-220px)] min-h-[500px]`. Quando il contenuto della sidebar è corto, la sidebar resta comunque alta e il canvas finisce molto sopra il fondo del contenitore → grande area bianca sotto l'organigramma.
+Spostare il bottone **Esporta PDF** e la **legenda** (Clima Critico/Neutro/Ottimo + Fit Culturale/Fit Manager) dall'header della spalla sinistra a un **riquadro fluttuante** in alto a destra del canvas dell'organigramma, sempre visibile e persistente (non scorre con il pan/zoom della struttura).
 
 ## Modifiche
 
-### 1. `views/admin/CompanyOrgView.tsx` — collasso solo del riquadro
+### `src/components/admin/orgchart/OrgChartCanvas.tsx`
+- Aggiungere prop opzionale `onExportPdf?: () => void`.
+- Renderizzare un nuovo overlay in `absolute top-4 right-4 z-20` (stesso stack della toolbar di zoom in basso a destra), in `bg-white/dark:bg-gray-800` con `border`, `rounded-xl`, `shadow-lg`, padding compatto.
+- Contenuto del riquadro:
+  - Bottone "Esporta PDF" più prominente: `flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90` con icona `Download` e label.
+  - Separatore sottile.
+  - Legenda compatta su due righe (stesso markup oggi presente nell'header del pannello): pallini Clima (Critico/Neutro/Ottimo) + indicatori Fit Culturale (Building) / Fit Manager (Handshake).
+- Il riquadro sta fuori dal `TransformComponent` (è già il pattern usato dalla toolbar zoom), quindi resta fisso durante pan/zoom.
 
-- Rimuovere il gate `!rootCollapsed` davanti a `renderOrgTreeChildren(...)` (riga 1932): i figli del root vanno renderizzati sempre.
-- Dentro `renderOrgTreeChildren` (riga 1560) rimuovere il gate `!childCollapsed`: la ricorsione continua sempre.
-- Lo stato `collapsed` continua a essere passato a `OrgNodeCard` (`collapsed={childCollapsed}` / `collapsed={rootCollapsed}`) → il card userà la sua vista "summary compatta" già esistente, ma le linee verso i figli e i sotto-rami restano visibili.
+### `src/components/admin/orgchart/OrgChartContextPanel.tsx`
+- Rimuovere dall'header fisso della spalla:
+  - il bottone "Esporta PDF" (righe ~629–635);
+  - il blocco legenda (righe ~636–653).
+- Mantenere titolo "Organigramma Aziendale" + sottotitolo + pulsante collapse pannello.
+- Rimuovere prop `onExportPdf` dall'interfaccia `Props` e dalla destructuring (non più usata qui).
+- Nel rendering "collapsed" (spalla a 48px) togliere anch'esso il bottone export se presente.
 
-Nessun cambio a `OrgNodeCard.tsx` (la logica della vista compatta del singolo riquadro è già presente). Nessun cambio al hook `useOrgChartUIState` né alle azioni "Collassa tutti / Espandi tutti" del toolbar (che continueranno a comprimere ogni singolo card mantenendo le linee).
+### `views/admin/CompanyOrgView.tsx`
+- Spostare `onExportPdf={() => setShowExportModal(true)}` dal `<OrgChartContextPanel ... />` al `<OrgChartCanvas ... />`.
 
-### 2. Sidebar e canvas — niente spazio sprecato
+## Layout / responsive
 
-Obiettivo: la sidebar e il canvas devono condividere la stessa altezza, e l'intero blocco organigramma deve riempire lo spazio disponibile fino in fondo, senza vuoti sotto.
-
-- `views/admin/CompanyOrgView.tsx`:
-  - Cambiare il container esterno (riga 1882) in un layout flex verticale che occupa l'altezza piena disponibile:
-    - `min-h-screen` → `h-[calc(100vh-64px)]` (o equivalente in base all'header globale) e aggiungere `flex flex-col`.
-    - Rimuovere `overflow-x-auto` dal wrapper esterno (lo gestisce il canvas).
-  - Sul container `flex gap-0 …` (riga 1885) aggiungere `flex-1 min-h-0` così sidebar e canvas stirano fino in fondo.
-
-- `src/components/admin/orgchart/OrgChartContextPanel.tsx` (riga 608):
-  - Sostituire `h-[calc(100vh-140px)] min-h-[600px]` con `h-full` (eredita l'altezza del genitore flex).
-  - Header fisso resta `shrink-0`; il contenuto dinamico interno usa `flex-1 overflow-y-auto min-h-0`.
-
-- `src/components/admin/orgchart/OrgChartCanvas.tsx` (riga 38):
-  - Sostituire `h-[calc(100vh-220px)] min-h-[500px]` con `h-full min-h-0`.
-  - Mantenere `overflow-hidden` interno (zoom/pan).
-
-Risultato: sidebar e canvas hanno la stessa altezza, pari allo spazio verticale residuo della pagina. Niente più area bianca sotto l'organigramma.
+- ≥1024px: il riquadro non sovrappone i nodi del root perché è ancorato al bordo del canvas (in alto a destra), con z-index sopra il TransformComponent.
+- L'utente può comunque pannare la struttura sotto il riquadro (è un overlay fisso).
+- La toolbar di zoom resta in basso a destra: nessuna sovrapposizione.
 
 ## Fuori scopo
 
-- Nessuna modifica a metriche, dati, modali, OrgNodeCard, esportazione PDF.
+- Nessuna modifica a metriche, dati, modali, OrgNodeCard, esportazione PDF (logica invariata).
 - Nessuna modifica DB.
-- Le azioni "Collassa tutti / Espandi tutti" continuano a funzionare ma ora collassano solo i riquadri (i sotto-alberi restano visibili).
+- Nessuna modifica al comportamento di collasso dei riquadri.
