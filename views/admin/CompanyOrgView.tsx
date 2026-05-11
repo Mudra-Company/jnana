@@ -1662,9 +1662,21 @@ export const CompanyOrgView: React.FC<{
         setEmployeeProfilePopover(profileData);
     };
     
-    // Handle unified position click from org chart
+    // UI state for the new org chart layout (collapse, panel, selection)
+    const orgUI = useOrgChartUIState(company.id);
+    const selectedNodeId =
+        orgUI.selection.kind === 'node' ? orgUI.selection.nodeId :
+        orgUI.selection.kind === 'position' ? orgUI.selection.nodeId :
+        null;
+
+    // Handle unified position click from org chart -> select it in the side panel
     const handlePositionClick = async (position: UnifiedPosition) => {
-        // For explicit roles (not implicit), fetch full details
+        const nodeId = position.role.orgNodeId || null;
+        orgUI.selectPosition(position, nodeId);
+    };
+
+    // Open the full UnifiedDetailModal on demand from the side panel
+    const handleOpenFullDetail = async (position: UnifiedPosition) => {
         if (!position.role.id.startsWith('implicit-')) {
             const fullRole = await fetchRoleWithAssignments(position.role.id);
             if (fullRole) {
