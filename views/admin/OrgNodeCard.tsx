@@ -11,7 +11,8 @@ import {
   ChevronRight,
   Users,
   Target,
-  Handshake
+  Handshake,
+  Building
 } from 'lucide-react';
 import { Card } from '../../components/Card';
 import { OrgNode, User } from '../../types';
@@ -458,6 +459,9 @@ export const OrgNodeCard: React.FC<OrgNodeCardProps> = ({
   const avgManagerFit = mgrFitPositions.length > 0
     ? Math.round(mgrFitPositions.reduce((s, p) => s + (p.metrics.managerFitScore as number), 0) / mgrFitPositions.length)
     : null;
+  const avgCultureFit = assignedPositions.length > 0
+    ? Math.round(assignedPositions.reduce((s, p) => s + (p.metrics.cultureFitScore || 0), 0) / assignedPositions.length)
+    : null;
 
   const fitColor = (v: number) =>
     v >= 75 ? 'text-green-600 dark:text-green-400'
@@ -574,6 +578,11 @@ export const OrgNodeCard: React.FC<OrgNodeCardProps> = ({
             {avgManagerFit !== null && (
               <span className={`flex items-center gap-1 font-semibold ${fitColor(avgManagerFit)}`} title="Fit Manager medio">
                 <Handshake size={12} /> {avgManagerFit}%
+              </span>
+            )}
+            {avgCultureFit !== null && (
+              <span className={`flex items-center gap-1 font-semibold ${fitColor(avgCultureFit)}`} title="Fit Culturale medio">
+                <Building size={12} /> {avgCultureFit}%
               </span>
             )}
             {childrenCount > 0 && (
