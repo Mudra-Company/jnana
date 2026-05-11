@@ -1497,6 +1497,13 @@ const NodeEditorModal: React.FC<{
 };
 
 // --- RECURSIVE TREE RENDERER ---
+interface OrgTreeUIState {
+  isNodeCollapsed: (id: string) => boolean;
+  toggleNodeCollapsed: (id: string) => void;
+  selectedNodeId: string | null;
+  onSelectNode: (id: string) => void;
+}
+
 const renderOrgTreeChildren = (
     node: OrgNode,
     users: User[],
@@ -1508,7 +1515,8 @@ const renderOrgTreeChildren = (
     allHiringPositions?: User[],
     // Role-centric params
     roles?: CompanyRole[],
-    onAddRole?: (nodeId: string) => void
+    onAddRole?: (nodeId: string) => void,
+    uiState?: OrgTreeUIState
 ): React.ReactNode => {
     if (!node.children || node.children.length === 0) return null;
 
@@ -1519,6 +1527,8 @@ const renderOrgTreeChildren = (
     return node.children.map(child => {
         const childNodeUsers = users.filter(u => u.departmentId === child.id);
         const childManagers = findNodeManagers(childNodeUsers, child);
+        const childCollapsed = uiState?.isNodeCollapsed(child.id) ?? false;
+        const childChildrenCount = child.children?.length || 0;
 
         return (
             <React.Fragment key={child.id}>
@@ -1537,11 +1547,17 @@ const renderOrgTreeChildren = (
                                 // Role-centric props
                                 roles={roles}
                                 onAddRole={onAddRole}
+                                // UI state
+                                collapsed={childCollapsed}
+                                onToggleCollapsed={uiState?.toggleNodeCollapsed}
+                                isSelected={uiState?.selectedNodeId === child.id}
+                                onSelectNode={uiState?.onSelectNode}
+                                childrenCount={childChildrenCount}
                             />
                         </div>
                     }
                 >
-                    {renderOrgTreeChildren(
+                    {!childCollapsed && renderOrgTreeChildren(
                         child,
                         users,
                         onAddNode,
@@ -1551,7 +1567,8 @@ const renderOrgTreeChildren = (
                         childManagers,
                         allHiringPositions,
                         roles,
-                        onAddRole
+                        onAddRole,
+                        uiState
                     )}
                 </TreeNode>
             </React.Fragment>
