@@ -458,6 +458,9 @@ export const OrgNodeCard: React.FC<OrgNodeCardProps> = ({
   const avgManagerFit = mgrFitPositions.length > 0
     ? Math.round(mgrFitPositions.reduce((s, p) => s + (p.metrics.managerFitScore as number), 0) / mgrFitPositions.length)
     : null;
+  const avgCultureFit = assignedPositions.length > 0
+    ? Math.round(assignedPositions.reduce((s, p) => s + (p.metrics.cultureFitScore || 0), 0) / assignedPositions.length)
+    : null;
 
   const fitColor = (v: number) =>
     v >= 75 ? 'text-green-600 dark:text-green-400'
