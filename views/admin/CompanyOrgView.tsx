@@ -1889,34 +1889,72 @@ export const CompanyOrgView: React.FC<{
                      <div className="flex items-center gap-1 text-green-600"><Handshake size={12}/> Fit Manager (Liv. Superiore)</div>
                  </div>
             </div>
-            <div className="pb-20 overflow-x-auto">
-                <div className="w-fit mx-auto">
-                    <Tree
-                        lineWidth="3px"
-                        lineColor="rgb(99, 102, 241)"
-                        lineBorderRadius="12px"
-                        lineHeight="40px"
-                        nodePadding="24px"
-                        label={
-                            <div className="inline-block relative z-10">
-                                <OrgNodeCard
-                                    node={company.structure}
-                                    users={users}
-                                    onAddNode={handleAddNode}
-                                    onEditNode={setEditingNode}
-                                    onPositionClick={handlePositionClick}
-                                    companyValues={company.cultureValues}
-                                    parentManagers={[]}
-                                    allHiringPositions={allHiringPositions}
-                                    // Role-centric props
-                                    roles={roles}
-                                    onAddRole={handleAddRole}
-                                />
-                            </div>
-                        }
+            <div className="flex gap-0 rounded-2xl overflow-hidden border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
+                <OrgChartContextPanel
+                    collapsed={orgUI.panelCollapsed}
+                    onToggleCollapsed={orgUI.togglePanel}
+                    company={company}
+                    users={users}
+                    roles={roles}
+                    selection={orgUI.selection}
+                    onSelectCompany={orgUI.selectCompany}
+                    onSelectNode={orgUI.selectNode}
+                    onOpenFullDetail={handleOpenFullDetail}
+                />
+
+                <div className="flex-1 min-w-0">
+                    <OrgChartCanvas
+                        onCollapseAll={() => orgUI.collapseAll(allNodeIds.filter(id => id !== company.structure?.id))}
+                        onExpandAll={orgUI.expandAll}
                     >
-                        {renderOrgTreeChildren(company.structure, users, handleAddNode, setEditingNode, handlePositionClick, company.cultureValues, [], allHiringPositions, roles, handleAddRole)}
-                    </Tree>
+                        <Tree
+                            lineWidth="3px"
+                            lineColor="rgb(99, 102, 241)"
+                            lineBorderRadius="12px"
+                            lineHeight="40px"
+                            nodePadding="24px"
+                            label={
+                                <div className="inline-block relative z-10">
+                                    <OrgNodeCard
+                                        node={company.structure}
+                                        users={users}
+                                        onAddNode={handleAddNode}
+                                        onEditNode={setEditingNode}
+                                        onPositionClick={handlePositionClick}
+                                        companyValues={company.cultureValues}
+                                        parentManagers={[]}
+                                        allHiringPositions={allHiringPositions}
+                                        roles={roles}
+                                        onAddRole={handleAddRole}
+                                        collapsed={rootCollapsed}
+                                        onToggleCollapsed={orgUI.toggleNodeCollapsed}
+                                        isSelected={selectedNodeId === company.structure?.id}
+                                        onSelectNode={orgUI.selectNode}
+                                        childrenCount={rootChildrenCount}
+                                    />
+                                </div>
+                            }
+                        >
+                            {!rootCollapsed && renderOrgTreeChildren(
+                                company.structure,
+                                users,
+                                handleAddNode,
+                                setEditingNode,
+                                handlePositionClick,
+                                company.cultureValues,
+                                [],
+                                allHiringPositions,
+                                roles,
+                                handleAddRole,
+                                {
+                                    isNodeCollapsed: orgUI.isNodeCollapsed,
+                                    toggleNodeCollapsed: orgUI.toggleNodeCollapsed,
+                                    selectedNodeId,
+                                    onSelectNode: orgUI.selectNode,
+                                }
+                            )}
+                        </Tree>
+                    </OrgChartCanvas>
                 </div>
             </div>
             {selectedUserForComparison && (
