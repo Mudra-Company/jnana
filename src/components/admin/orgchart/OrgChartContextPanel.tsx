@@ -605,7 +605,7 @@ export const OrgChartContextPanel: React.FC<Props> = ({
 
   return (
     <aside
-      className="w-[340px] shrink-0 border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/40 flex flex-col h-[calc(100vh-140px)] min-h-[600px]"
+      className="w-[340px] shrink-0 border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/40 flex flex-col h-full min-h-0"
       aria-live="polite"
     >
       {/* Fixed header: title + export + subtitle + legend */}
@@ -658,7 +658,7 @@ export const OrgChartContextPanel: React.FC<Props> = ({
           Dettagli
         </span>
       </div>
-      <div className="flex-1 overflow-y-auto p-4">{content}</div>
+      <div className="flex-1 overflow-y-auto p-4 min-h-0">{content}</div>
     </aside>
   );
 };

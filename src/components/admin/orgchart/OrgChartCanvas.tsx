@@ -35,7 +35,7 @@ export const OrgChartCanvas: React.FC<OrgChartCanvasProps> = ({
   const [zoomPct, setZoomPct] = React.useState(100);
 
   return (
-    <div className="relative w-full h-[calc(100vh-220px)] min-h-[500px] border border-gray-200 dark:border-gray-700 rounded-2xl overflow-hidden bg-gray-50/50 dark:bg-gray-900/50">
+    <div className="relative w-full h-full min-h-0 overflow-hidden bg-gray-50/50 dark:bg-gray-900/50">
       <TransformWrapper
         ref={ref}
         initialScale={1}

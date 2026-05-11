@@ -1557,7 +1557,7 @@ const renderOrgTreeChildren = (
                         </div>
                     }
                 >
-                    {!childCollapsed && renderOrgTreeChildren(
+                    {renderOrgTreeChildren(
                         child,
                         users,
                         onAddNode,
@@ -1879,10 +1879,10 @@ export const CompanyOrgView: React.FC<{
     const rootChildrenCount = company.structure?.children?.length || 0;
 
     return (
-        <div className="p-8 max-w-full overflow-x-auto min-h-screen bg-gray-50/50 dark:bg-gray-900/50">
+        <div className="p-4 max-w-full h-[calc(100vh-64px)] flex flex-col bg-gray-50/50 dark:bg-gray-900/50">
             {/* Legacy invite modal removed - now using unified RoleCreationModal */}
 
-            <div className="flex gap-0 rounded-2xl overflow-hidden border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
+            <div className="flex gap-0 flex-1 min-h-0 rounded-2xl overflow-hidden border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
                 <OrgChartContextPanel
                     collapsed={orgUI.panelCollapsed}
                     onToggleCollapsed={orgUI.togglePanel}
@@ -1929,7 +1929,7 @@ export const CompanyOrgView: React.FC<{
                                 </div>
                             }
                         >
-                            {!rootCollapsed && renderOrgTreeChildren(
+                            {renderOrgTreeChildren(
                                 company.structure,
                                 users,
                                 handleAddNode,
