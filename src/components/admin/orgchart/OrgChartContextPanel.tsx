@@ -20,6 +20,7 @@ import {
   Award,
   Handshake,
   ExternalLink,
+  Download,
 } from 'lucide-react';
 import type { OrgNode, CompanyProfile, User } from '../../../../types';
 import type { CompanyRole } from '../../../types/roles';
