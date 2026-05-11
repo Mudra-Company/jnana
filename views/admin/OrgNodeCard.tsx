@@ -448,50 +448,81 @@ export const OrgNodeCard: React.FC<OrgNodeCardProps> = ({
       className={`relative min-w-[300px] max-w-[400px] w-max flex flex-col transition-all duration-200 hover:-translate-y-0.5 hover:shadow-xl ${getHierarchyStyle()}`}
       padding="sm"
     >
+  // Stats for compact / collapsed summary
+  const peopleCount = nodeUsers.filter(u => !u.isHiring && (u.firstName || u.lastName)).length;
+  const positionsCount = unifiedPositions.length;
+
+  const handleHeaderClick = (e: React.MouseEvent) => {
+    // Don't select when clicking action buttons
+    if ((e.target as HTMLElement).closest('button')) return;
+    onSelectNode?.(node.id);
+  };
+
+  return (
+    <Card 
+      className={`relative min-w-[300px] ${collapsed ? 'max-w-[340px]' : 'max-w-[400px]'} w-max flex flex-col transition-all duration-200 hover:-translate-y-0.5 hover:shadow-xl ${getHierarchyStyle()} ${isSelected ? 'ring-2 ring-jnana-sage ring-offset-2 dark:ring-offset-gray-900' : ''}`}
+      padding="sm"
+    >
       {/* Header */}
-      <div className="flex justify-between items-start mb-3 pb-3 border-b border-gray-200 dark:border-gray-700 gap-2">
-        <div className="flex-1 min-w-0">
-          <h4 className="font-bold text-gray-800 dark:text-gray-100 text-base leading-snug break-words">
-            {node.name}
-          </h4>
-          <div className="flex items-center gap-2 mt-2 flex-wrap">
-            <span className={`text-xs uppercase font-bold tracking-wider px-2 py-0.5 rounded ${
-              node.type === 'root' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300' :
-              node.type === 'department' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300' :
-              'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300'
-            }`}>
-              {node.type}
-            </span>
-            
-            {nodeClimateScore !== null && (
-              <div className={`flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded border ${getScoreColor(nodeClimateScore)}`}>
-                <ThermometerSun size={12} />
-                {nodeClimateScore.toFixed(1)}/5
-              </div>
-            )}
-            
-            {skillMismatchScore !== null && (
-              <div className={`flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded border ${getGapColor(skillMismatchScore)}`}>
-                <AlertTriangle size={12} />
-                {skillMismatchScore}% gap
-              </div>
-            )}
-            
-            {/* Show hiring count */}
-            {totalHiringCount > 0 && (
-              <span className="flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
-                <Search size={12} /> 
-                {totalHiringCount} {totalHiringCount === 1 ? 'aperta' : 'aperte'}
+      <div
+        className={`flex justify-between items-start ${collapsed ? '' : 'mb-3 pb-3 border-b border-gray-200 dark:border-gray-700'} gap-2 cursor-pointer`}
+        onClick={handleHeaderClick}
+      >
+        <div className="flex items-start gap-1.5 flex-1 min-w-0">
+          {onToggleCollapsed && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleCollapsed(node.id);
+              }}
+              className="mt-0.5 p-0.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 shrink-0"
+              title={collapsed ? 'Espandi nodo' : 'Comprimi nodo'}
+              aria-label={collapsed ? 'Espandi nodo' : 'Comprimi nodo'}
+            >
+              {collapsed ? <ChevronRight size={16} /> : <ChevronDown size={16} />}
+            </button>
+          )}
+          <div className="flex-1 min-w-0">
+            <h4 className="font-bold text-gray-800 dark:text-gray-100 text-base leading-snug break-words">
+              {node.name}
+            </h4>
+            <div className="flex items-center gap-2 mt-2 flex-wrap">
+              <span className={`text-xs uppercase font-bold tracking-wider px-2 py-0.5 rounded ${
+                node.type === 'root' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300' :
+                node.type === 'department' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300' :
+                'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300'
+              }`}>
+                {node.type}
               </span>
-            )}
+
+              {nodeClimateScore !== null && (
+                <div className={`flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded border ${getScoreColor(nodeClimateScore)}`}>
+                  <ThermometerSun size={12} />
+                  {nodeClimateScore.toFixed(1)}/5
+                </div>
+              )}
+
+              {skillMismatchScore !== null && (
+                <div className={`flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded border ${getGapColor(skillMismatchScore)}`}>
+                  <AlertTriangle size={12} />
+                  {skillMismatchScore}% gap
+                </div>
+              )}
+
+              {totalHiringCount > 0 && (
+                <span className="flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300">
+                  <Search size={12} /> 
+                  {totalHiringCount} {totalHiringCount === 1 ? 'aperta' : 'aperte'}
+                </span>
+              )}
+            </div>
           </div>
         </div>
         
         <div className="flex gap-1 shrink-0">
-          {/* Add Position button - unified entry point for roles + persons */}
-          {onAddRole && (
+          {onAddRole && !collapsed && (
             <button 
-              onClick={() => onAddRole(node.id)} 
+              onClick={(e) => { e.stopPropagation(); onAddRole(node.id); }} 
               className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg text-gray-400 hover:text-emerald-600 transition-all" 
               title="Aggiungi Posizione"
             >
@@ -499,39 +530,52 @@ export const OrgNodeCard: React.FC<OrgNodeCardProps> = ({
             </button>
           )}
           <button 
-            onClick={() => onEditNode(node)} 
+            onClick={(e) => { e.stopPropagation(); onEditNode(node); }}
             className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg text-gray-400 hover:text-indigo-600 transition-all"
             title="Modifica nodo"
           >
             <Edit2 size={16}/>
           </button>
-          <button 
-            onClick={() => onAddNode(node.id, node.type === 'root' ? 'department' : 'team')} 
-            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg text-gray-400 hover:text-green-600 transition-all"
-            title={node.type === 'root' ? 'Aggiungi Dipartimento' : 'Aggiungi Team'}
-          >
-            <Plus size={16}/>
-          </button>
+          {!collapsed && (
+            <button 
+              onClick={(e) => { e.stopPropagation(); onAddNode(node.id, node.type === 'root' ? 'department' : 'team'); }}
+              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg text-gray-400 hover:text-green-600 transition-all"
+              title={node.type === 'root' ? 'Aggiungi Dipartimento' : 'Aggiungi Team'}
+            >
+              <Plus size={16}/>
+            </button>
+          )}
         </div>
       </div>
 
-      {/* Content: Unified Positions (Roles + Persons) */}
-      <div className="space-y-2 max-h-[280px] overflow-y-auto pr-1 custom-scrollbar">
-        {unifiedPositions.length > 0 ? (
-          unifiedPositions.map(position => (
-            <UnifiedRolePersonCard
-              key={position.role.id}
-              position={position}
-              onClick={onPositionClick ? () => onPositionClick(position) : undefined}
-            />
-          ))
-        ) : (
-          <div className="text-center py-6 text-sm text-gray-400 italic bg-gray-50/50 dark:bg-gray-800/30 rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-700">
-            <Briefcase size={24} className="mx-auto mb-2 text-gray-300 dark:text-gray-600" />
-            Nessuna posizione definita
-          </div>
-        )}
-      </div>
+      {/* Collapsed summary */}
+      {collapsed ? (
+        <div className="mt-2 pt-2 border-t border-gray-100 dark:border-gray-700/50 flex items-center gap-3 text-xs text-gray-600 dark:text-gray-300">
+          <span className="flex items-center gap-1"><Users size={12} className="text-gray-400" /> {peopleCount}</span>
+          <span className="flex items-center gap-1"><Briefcase size={12} className="text-gray-400" /> {positionsCount}</span>
+          {childrenCount > 0 && (
+            <span className="ml-auto text-[11px] text-gray-400 italic">+{childrenCount} sotto-nod{childrenCount === 1 ? 'o' : 'i'} nascost{childrenCount === 1 ? 'o' : 'i'}</span>
+          )}
+        </div>
+      ) : (
+        /* Content: Unified Positions (Roles + Persons) */
+        <div className="space-y-2 max-h-[280px] overflow-y-auto pr-1 custom-scrollbar">
+          {unifiedPositions.length > 0 ? (
+            unifiedPositions.map(position => (
+              <UnifiedRolePersonCard
+                key={position.role.id}
+                position={position}
+                onClick={onPositionClick ? () => onPositionClick(position) : undefined}
+              />
+            ))
+          ) : (
+            <div className="text-center py-6 text-sm text-gray-400 italic bg-gray-50/50 dark:bg-gray-800/30 rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-700">
+              <Briefcase size={24} className="mx-auto mb-2 text-gray-300 dark:text-gray-600" />
+              Nessuna posizione definita
+            </div>
+          )}
+        </div>
+      )}
     </Card>
   );
 };
