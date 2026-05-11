@@ -18,18 +18,23 @@ import {
   RotateCcw,
   ChevronsDownUp,
   ChevronsUpDown,
+  Download,
+  Building,
+  Handshake,
 } from 'lucide-react';
 
 interface OrgChartCanvasProps {
   children: React.ReactNode;
   onCollapseAll?: () => void;
   onExpandAll?: () => void;
+  onExportPdf?: () => void;
 }
 
 export const OrgChartCanvas: React.FC<OrgChartCanvasProps> = ({
   children,
   onCollapseAll,
   onExpandAll,
+  onExportPdf,
 }) => {
   const ref = React.useRef<ReactZoomPanPinchRef | null>(null);
   const [zoomPct, setZoomPct] = React.useState(100);

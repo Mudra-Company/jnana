@@ -1893,13 +1893,14 @@ export const CompanyOrgView: React.FC<{
                     onSelectCompany={orgUI.selectCompany}
                     onSelectNode={orgUI.selectNode}
                     onOpenFullDetail={handleOpenFullDetail}
-                    onExportPdf={() => setShowExportModal(true)}
                 />
+
 
                 <div className="flex-1 min-w-0">
                     <OrgChartCanvas
                         onCollapseAll={() => orgUI.collapseAll(allNodeIds.filter(id => id !== company.structure?.id))}
                         onExpandAll={orgUI.expandAll}
+                        onExportPdf={() => setShowExportModal(true)}
                     >
                         <Tree
                             lineWidth="3px"
