@@ -119,7 +119,7 @@ export const ContextBar: React.FC<Props> = (p) => {
             {sectionLabel}
           </span>
         )}
-        <div className="flex items-center gap-1 overflow-x-auto flex-1 no-scrollbar">
+        <div className="flex items-center gap-1 overflow-x-auto flex-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {tabs.map(t => <TabButton key={t.key} tab={t} />)}
         </div>
         {showAdminNav && activeCompany && (
