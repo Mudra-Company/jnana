@@ -1864,6 +1864,20 @@ export const CompanyOrgView: React.FC<{
         }
     };
 
+    // Collect all node IDs for collapse-all action
+    const allNodeIds = useMemo(() => {
+        const ids: string[] = [];
+        const walk = (n: OrgNode) => {
+            ids.push(n.id);
+            n.children?.forEach(walk);
+        };
+        if (company.structure) walk(company.structure);
+        return ids;
+    }, [company.structure]);
+
+    const rootCollapsed = orgUI.isNodeCollapsed(company.structure?.id || '');
+    const rootChildrenCount = company.structure?.children?.length || 0;
+
     return (
         <div className="p-8 max-w-full overflow-x-auto min-h-screen bg-gray-50/50 dark:bg-gray-900/50">
             {/* Legacy invite modal removed - now using unified RoleCreationModal */}
