@@ -1603,7 +1603,6 @@ export const CompanyOrgView: React.FC<{
     const { createCompanyMember, updateCompanyMember, assignUserToSlot, deleteCompanyMember, isLoading: isSaving } = useCompanyMembers();
     
     // === ROLE-CENTRIC STATE ===
-    const [selectedRole, setSelectedRole] = useState<CompanyRole | null>(null);
     const [showRoleCreationModal, setShowRoleCreationModal] = useState(false);
     const [roleCreationNodeId, setRoleCreationNodeId] = useState<string | null>(null);
     
