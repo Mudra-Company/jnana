@@ -335,7 +335,7 @@ const NodeView: React.FC<{
         />
         <KpiTile
           label="Collaboratori"
-          value={subtreeUsers.filter(isRealPerson).length}
+          value={descendantUsers.filter(isRealPerson).length}
           icon={<Users size={12} />}
         />
         <KpiTile label="Ruoli" value={nodeRoles.length} icon={<Briefcase size={12} />} />
