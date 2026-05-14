@@ -297,6 +297,77 @@ export const usePositionShortlist = (positionId: string, companyId: string) => {
     }
   }, [shortlist, candidates, getOrCreateShortlist]);
 
+  // Unified add: works for both internal & external, with optional draft fields (status/rating/notes)
+  const addCandidate = useCallback(async (input: {
+    type: CandidateType;
+    userId: string; // user.id (internal) or profile.id (external)
+    matchScore: number;
+    matchDetails: StoredMatchDetails;
+    initialStatus?: CandidateStatus;
+    initialRating?: number;
+    initialNotes?: string;
+  }): Promise<ShortlistCandidate | null> => {
+    try {
+      let currentShortlist = shortlist;
+      if (!currentShortlist) {
+        currentShortlist = await getOrCreateShortlist();
+        if (!currentShortlist) return null;
+      }
+
+      const dup = candidates.find(c =>
+        input.type === 'internal'
+          ? c.candidateType === 'internal' && c.internalUserId === input.userId
+          : c.candidateType === 'external' && c.externalProfileId === input.userId
+      );
+      if (dup) {
+        setError('Candidato già in shortlist');
+        return dup;
+      }
+
+      const insertRow: Record<string, unknown> = {
+        shortlist_id: currentShortlist.id,
+        candidate_type: input.type,
+        match_score: input.matchScore,
+        match_details: JSON.parse(JSON.stringify(input.matchDetails)),
+        status: input.initialStatus ?? 'shortlisted',
+      };
+      if (input.type === 'internal') insertRow.internal_user_id = input.userId;
+      else insertRow.external_profile_id = input.userId;
+      if (input.initialRating !== undefined) insertRow.rating = input.initialRating;
+      if (input.initialNotes !== undefined && input.initialNotes !== '') insertRow.hr_notes = input.initialNotes;
+
+      const { data, error: insertError } = await supabase
+        .from('shortlist_candidates')
+        .insert(insertRow as any)
+        .select()
+        .single();
+
+      if (insertError) throw insertError;
+
+      const newCandidate: ShortlistCandidate = {
+        id: data.id,
+        shortlistId: data.shortlist_id,
+        candidateType: input.type,
+        internalUserId: data.internal_user_id ?? undefined,
+        externalProfileId: data.external_profile_id ?? undefined,
+        matchScore: data.match_score ?? undefined,
+        matchDetails: input.matchDetails,
+        status: (data.status as CandidateStatus) ?? 'shortlisted',
+        hrNotes: data.hr_notes ?? undefined,
+        rating: data.rating ?? undefined,
+        addedAt: data.added_at ?? undefined,
+        updatedAt: data.updated_at ?? undefined,
+      };
+
+      setCandidates(prev => [newCandidate, ...prev]);
+      return newCandidate;
+    } catch (err) {
+      console.error('Error adding candidate:', err);
+      setError('Failed to add candidate');
+      return null;
+    }
+  }, [shortlist, candidates, getOrCreateShortlist]);
+
   // Remove candidate from shortlist
   const removeCandidate = useCallback(async (candidateId: string): Promise<boolean> => {
     try {
