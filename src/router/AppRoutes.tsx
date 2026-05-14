@@ -365,7 +365,7 @@ function AdminPositionMatchingRoute() {
       company={activeCompanyData}
       companyUsers={companyUsers}
       onBack={() => navigate({ type: 'ADMIN_OPEN_POSITIONS' })}
-      onViewCandidate={(userId) => navigate({ type: 'KARMA_PROFILE_VIEW', userId })}
+      onViewCandidate={(userId) => navigate({ type: 'KARMA_PROFILE_VIEW', userId, fromPositionId: positionId })}
       onAssignInternal={async (slotId, userId) => {
         const { data: roleRow } = await supabase
           .from('company_roles')
