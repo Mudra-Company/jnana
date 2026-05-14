@@ -588,15 +588,15 @@ export const AdminIdentityHub: React.FC<AdminIdentityHubProps> = ({ company, use
                         {generationPieData.length > 0 ? (
                             <div className="flex-1 w-full min-h-[250px]">
                                 <ResponsiveContainer width="100%" height="100%">
-                                    <PieChart>
+                                    <PieChart margin={{ top: 10, right: 60, bottom: 10, left: 60 }}>
                                         <Pie
                                             data={generationPieData}
                                             dataKey="value"
                                             nameKey="name"
                                             cx="50%"
                                             cy="50%"
-                                            outerRadius={80}
-                                            innerRadius={40}
+                                            outerRadius={65}
+                                            innerRadius={32}
                                             paddingAngle={2}
                                             label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
                                             labelLine={{ stroke: '#9CA3AF', strokeWidth: 1 }}
