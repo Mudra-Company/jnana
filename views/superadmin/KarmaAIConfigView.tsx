@@ -36,13 +36,66 @@ const AVAILABLE_MODELS = [
   { id: 'openai/gpt-5-mini', label: 'GPT-5 Mini' },
 ];
 
-const TEMPLATE_VARIABLES = [
-  '{{firstName}}', '{{lastName}}', '{{profileCode}}', '{{headline}}', 
-  '{{bio}}', '{{experiences}}', '{{education}}', '{{skills}}', 
-  '{{jobTitle}}', '{{companyContext}}',
-  // Organizational context variables (Jnana B2B)
-  '{{orgNodeName}}', '{{orgNodeType}}', '{{directReports}}',
-  '{{teamSize}}', '{{orgLevel}}', '{{isManager}}', '{{managerName}}'
+const TEMPLATE_VAR_GROUPS: { group: string; vars: string[] }[] = [
+  { group: 'Persona', vars: ['{{firstName}}','{{lastName}}','{{profileCode}}','{{headline}}','{{bio}}','{{experiences}}','{{education}}','{{skills}}','{{userHardSkillsLeveled}}'] },
+  { group: 'Ruolo target', vars: ['{{roleTitle}}','{{roleDescription}}','{{requiredHardSkills}}','{{requiredSoftSkills}}','{{requiredSeniority}}','{{kpis}}','{{responsibilities}}','{{dailyTasks}}','{{jobTitle}}'] },
+  { group: 'Gap analysis', vars: ['{{skillGap}}','{{seniorityGap}}'] },
+  { group: 'Organizzazione', vars: ['{{orgNodeName}}','{{orgNodeType}}','{{directReports}}','{{teamSize}}','{{orgLevel}}','{{isManager}}','{{managerName}}','{{companyContext}}'] },
+  { group: 'Collaborazione & Clima', vars: ['{{collaborationLinks}}','{{climateScores}}'] },
+  { group: 'Storico', vars: ['{{previousKarmaSummary}}'] },
+];
+const TEMPLATE_VARIABLES = TEMPLATE_VAR_GROUPS.flatMap(g => g.vars);
+
+const SCENARIOS: { id: 'discovery'|'role_fit'|'climate_pulse'; label: string; desc: string }[] = [
+  { id: 'discovery', label: 'Discovery (B2C)', desc: 'Profilazione candidato esterno' },
+  { id: 'role_fit', label: 'Role Fit (B2B)', desc: 'Verifica gap rispetto al ruolo target' },
+  { id: 'climate_pulse', label: 'Climate Pulse (B2B)', desc: 'Review periodico clima + collaborazione' },
+];
+
+const ALLOWED_INPUT_GROUPS: { group: string; items: { key: string; label: string }[] }[] = [
+  { group: 'Persona', items: [
+    { key: 'bio', label: 'Bio' }, { key: 'headline', label: 'Headline' },
+    { key: 'experiences', label: 'Esperienze' }, { key: 'education', label: 'Formazione' },
+    { key: 'hard_skills_leveled', label: 'Hard skills con livello (1-5)' },
+    { key: 'languages', label: 'Lingue' }, { key: 'certifications', label: 'Certificazioni' },
+    { key: 'riasec_score', label: 'RIASEC' },
+  ]},
+  { group: 'Ruolo target', items: [
+    { key: 'role_title', label: 'Titolo ruolo' }, { key: 'role_description', label: 'Descrizione' },
+    { key: 'required_hard_skills', label: 'Hard skills richieste (con livello)' },
+    { key: 'required_soft_skills', label: 'Soft skills richieste' },
+    { key: 'required_seniority', label: 'Seniority richiesta' },
+    { key: 'kpis', label: 'KPI' },
+    { key: 'responsibilities', label: 'Responsabilità' },
+    { key: 'daily_tasks', label: 'Attività quotidiane' },
+  ]},
+  { group: 'Gap & Org', items: [
+    { key: 'skill_gap', label: 'Gap skill pre-calcolato' },
+    { key: 'seniority_gap', label: 'Gap seniority' },
+    { key: 'org_position', label: 'Posizione org' },
+    { key: 'manager_info', label: 'Info manager' },
+  ]},
+  { group: 'Collaborazione & Clima', items: [
+    { key: 'collaboration_links', label: 'Link di collaborazione' },
+    { key: 'climate_dimensions', label: 'Punteggi clima per dimensione' },
+    { key: 'company_context', label: 'Contesto aziendale' },
+  ]},
+  { group: 'Storico', items: [
+    { key: 'karma_history', label: 'Sessioni Karma precedenti' },
+  ]},
+];
+
+const OUTPUT_FIELD_TYPES = [
+  { value: 'string', label: 'Testo' },
+  { value: 'number', label: 'Numero' },
+  { value: 'enum', label: 'Enum (lista valori)' },
+  { value: 'array_string', label: 'Lista di stringhe' },
+  { value: 'array_skill_assessment', label: 'Skill Assessment (livello osservato)' },
+  { value: 'array_soft_assessment', label: 'Soft Skill Assessment' },
+  { value: 'array_culture_fit', label: 'Culture Fit per dimensione' },
+  { value: 'object_manager_fit', label: 'Manager Fit Signals' },
+  { value: 'array_growth', label: 'Aree di crescita' },
+  { value: 'object_aspirations', label: 'Aspirazioni di carriera' },
 ];
 
 export default function KarmaAIConfigView({ onBack }: KarmaAIConfigViewProps) {
