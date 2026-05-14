@@ -279,7 +279,7 @@ const NodeView: React.FC<{
   onSelectNode: (id: string) => void;
   onSelectCompany: () => void;
 }> = ({ node, path, users, roles, onSelectNode, onSelectCompany }) => {
-  const directUsers = users.filter(u => u.departmentId === node.id);
+  const directUsers = dedupById(users.filter(u => u.departmentId === node.id));
   const subtreeUsers = collectNodeUsers(node, users);
   const climate = calcClimateAvg(directUsers);
   const gap = calcSkillGap(directUsers);
