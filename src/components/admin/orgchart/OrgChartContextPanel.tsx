@@ -280,7 +280,10 @@ const NodeView: React.FC<{
   onSelectCompany: () => void;
 }> = ({ node, path, users, roles, onSelectNode, onSelectCompany }) => {
   const directUsers = dedupById(users.filter(u => u.departmentId === node.id));
-  const subtreeUsers = collectNodeUsers(node, users);
+  // Collaboratori = persone nei nodi figli (escluso il nodo corrente)
+  const descendantUsers = dedupById(
+    (node.children || []).flatMap(child => collectNodeUsers(child, users))
+  );
   const climate = calcClimateAvg(directUsers);
   const gap = calcSkillGap(directUsers);
   const nodeRoles = roles.filter(r => r.orgNodeId === node.id);
