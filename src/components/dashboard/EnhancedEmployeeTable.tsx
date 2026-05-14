@@ -26,6 +26,9 @@ interface EnhancedEmployeeTableProps {
   onSendInvite: (user: User) => void;
   sendingInviteId: string | null;
   adminCount: number;
+  /** When true, render without the wrapping Card + header (for use inside a tab container). */
+  embedded?: boolean;
+  externalSearchTerm?: string;
 }
 
 export const EnhancedEmployeeTable: React.FC<EnhancedEmployeeTableProps> = ({
@@ -42,8 +45,12 @@ export const EnhancedEmployeeTable: React.FC<EnhancedEmployeeTableProps> = ({
   onSendInvite,
   sendingInviteId,
   adminCount,
+  embedded = false,
+  externalSearchTerm,
 }) => {
-  const [searchTerm, setSearchTerm] = useState('');
+  const [internalSearchTerm, setInternalSearchTerm] = useState('');
+  const searchTerm = externalSearchTerm !== undefined ? externalSearchTerm : internalSearchTerm;
+  const setSearchTerm = setInternalSearchTerm;
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
 
   // Build user -> assignment map
