@@ -480,7 +480,7 @@ export const AdminDashboardView: React.FC<AdminDashboardProps> = ({
         onInviteUser={() => setShowInvite(true)}
         badges={{
           compliance: expiringCompliance.length,
-          openPositions: vacantRolesCount + hiringRolesCount,
+          openPositions: hiringRolesCount,
           pendingPeople: pendingTestUsers.length,
         }}
       />
