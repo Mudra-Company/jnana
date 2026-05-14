@@ -588,18 +588,29 @@ export const AdminIdentityHub: React.FC<AdminIdentityHubProps> = ({ company, use
                         {generationPieData.length > 0 ? (
                             <div className="flex-1 w-full min-h-[250px]">
                                 <ResponsiveContainer width="100%" height="100%">
-                                    <PieChart margin={{ top: 10, right: 60, bottom: 10, left: 60 }}>
+                                    <PieChart>
                                         <Pie
                                             data={generationPieData}
                                             dataKey="value"
                                             nameKey="name"
                                             cx="50%"
                                             cy="50%"
-                                            outerRadius={65}
-                                            innerRadius={32}
+                                            outerRadius={80}
+                                            innerRadius={40}
                                             paddingAngle={2}
-                                            label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                                            labelLine={{ stroke: '#9CA3AF', strokeWidth: 1 }}
+                                            labelLine={false}
+                                            label={({ cx, cy, midAngle, innerRadius, outerRadius, percent }: any) => {
+                                                if (percent < 0.05) return null;
+                                                const RADIAN = Math.PI / 180;
+                                                const r = innerRadius + (outerRadius - innerRadius) * 0.6;
+                                                const x = cx + r * Math.cos(-midAngle * RADIAN);
+                                                const y = cy + r * Math.sin(-midAngle * RADIAN);
+                                                return (
+                                                    <text x={x} y={y} fill="#fff" textAnchor="middle" dominantBaseline="central" className="text-xs font-semibold">
+                                                        {`${(percent * 100).toFixed(0)}%`}
+                                                    </text>
+                                                );
+                                            }}
                                         >
                                             {generationPieData.map((entry, index) => (
                                                 <Cell key={`cell-${index}`} fill={entry.color} />

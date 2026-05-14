@@ -1,67 +1,49 @@
+# Fix etichette grafico Distribuzione Generazionale
+
 ## Problema
+Nel donut chart "Distribuzione Generazionale" l'etichetta esterna `Millennial 68%` viene tagliata a sinistra ("Millennial" diventa "illennial"). Il fix precedente (margini + raggio ridotto) non basta perché:
+- I nomi delle generazioni sono lunghi (`Millennial`, `Baby Boomer`) e Recharts posiziona il testo all'esterno della Pie senza misurarne la larghezza reale.
+- La card è già stretta (3 colonne affiancate) e qualsiasi margine "sufficiente" sprecherebbe spazio del donut.
+- I nomi sono già presenti nella `Legend` sotto il grafico → ripeterli all'esterno è ridondante.
 
-Sul profilo candidato aperto dal matching, se il candidato non è ancora in shortlist non si può fare nulla: bisogna tornare indietro per aggiungerlo, e non c'è modo di prendere appunti / rating prima di metterlo in shortlist. UX rotta.
+## Soluzione
+Eliminare la duplicazione: lasciare nomi solo nella legenda, mostrare nelle slice solo la percentuale.
 
-## Obiettivo
+1. **Label compatte** in `views/admin/AdminIdentityHub.tsx` (linee 591-607):
+   - Cambiare `label` da `${name} ${percent}%` a solo `${percent}%`.
+   - Rimuovere `labelLine` (non serve più, l'etichetta sta dentro/vicino alla slice).
+   - Posizionare le label internamente (`labelPosition` via funzione custom con `cx,cy,midAngle,innerRadius,outerRadius`) così il testo è sempre dentro il canvas e non può essere tagliato.
+   - Ripristinare `outerRadius={80}` / `innerRadius={40}` e rimuovere i margini extra (60/60) introdotti prima → il donut torna alla dimensione originale.
 
-**Tutti i comandi HR sempre disponibili sul profilo**, indipendentemente dallo stato shortlist:
-- Se non in shortlist → form "draft" (rating, note, status iniziale) + bottone primario **Aggiungi alla shortlist** che persiste tutto in un colpo.
-- Se già in shortlist → modifiche live (auto-save, come già fatto).
-
-Niente costringere l'utente a uscire dalla pagina.
-
-## Implementazione
-
-### 1. Estendere `usePositionShortlist` con un metodo unico di add
-Nuovo metodo `addCandidate(input)` accetta:
-```ts
-{
-  type: 'internal' | 'external',
-  userId: string,                  // user.id (internal) o profile.id (external)
-  matchScore: number,
-  matchDetails: StoredMatchDetails,
-  initialStatus?: CandidateStatus, // default 'shortlisted'
-  initialRating?: number,
-  initialNotes?: string,
-}
-```
-Inserisce direttamente in `shortlist_candidates` con tutti i campi (status/rating/hr_notes inclusi) → un solo round-trip, niente add+update separati. I metodi esistenti restano per retro-compatibilità.
-
-### 2. `KarmaProfileDetailView` calcola al volo i dati di match
-Quando `fromPositionId` è presente:
-- Carica la posizione (`company_roles` + requisiti) via un nuovo hook leggero `usePositionMatchingContext(positionId)` che restituisce `{ position, requiredSkills, targetRiasec, requiredSeniority }`.
-- Determina il tipo candidato: query `company_members` per `(user_id = candidateUserId, company_id = activeCompanyData.id)`. Se trovato → `internal`, altrimenti → `external`.
-- Calcola `MatchResult` con `matchingEngine.calculateMatchScore` usando i dati già in `profileData` (RIASEC, hardSkills, seniority, yearsExperience).
-- Passa tutto a `CandidateHRActionPanel`.
-
-### 3. Riscrivere `CandidateHRActionPanel` (full-feature)
-Stato sempre visibile, due modalità interne:
-
-**Modalità A — non in shortlist (draft)**
-- Badge informativo "Non ancora in shortlist" (discreto, niente warning giallo invasivo).
-- Mostra match score calcolato (es. "Match 65%").
-- Controlli editabili in stato locale: stato iniziale (default `shortlisted`), rating stelle, textarea note HR.
-- Bottone primario **"Aggiungi alla shortlist"** → chiama `addCandidate` con i valori draft. Al successo passa a modalità B senza ricaricare la pagina.
-
-**Modalità B — già in shortlist (live)**
-- Badge stato corrente.
-- Stesso layout di controlli, ma ogni modifica chiama `updateCandidate` (auto-save su blur per le note, immediato per status/rating).
-- Bottoni: **Scarta** (status='rejected'), **Rimuovi dalla shortlist** (con conferma).
-
-Layout unico, niente switch visivo brusco — solo il CTA principale cambia (Aggiungi → stato badge).
-
-### 4. Propagare il context
-- `KarmaProfileDetailView` passa `profileData`, `candidateType`, `matchScore`, `matchDetails` come props al panel.
-- Il panel non fa più data fetching proprio (a parte la lista shortlist via hook).
-
-## File toccati
-
-- `src/hooks/usePositionShortlist.ts` — nuovo `addCandidate` unificato.
-- `src/components/shortlist/CandidateHRActionPanel.tsx` — riscrittura per gestire entrambe le modalità.
-- `src/hooks/usePositionMatchingContext.ts` *(nuovo)* — fetch posizione + requisiti per uso "single candidate".
-- `views/superadmin/KarmaProfileDetailView.tsx` — calcolo tipo candidato + match score, passa al panel.
+2. **Tooltip e Legend invariati**: il nome completo + numero persone resta nel tooltip al hover, e nella legenda sotto. Nessuna perdita di informazione.
 
 ## Fuori scope
-- Nessuna modifica DB / RLS / edge functions.
-- Nessuna modifica al matching della lista (PositionMatchingView resta com'è).
-- Nessun nuovo URL.
+- Nessuna modifica ai dati `generationPieData`, ai colori, al layout della card o agli altri grafici della pagina.
+- Nessun cambio backend / tipi.
+
+## Dettagli tecnici
+File modificato: `views/admin/AdminIdentityHub.tsx`
+
+```tsx
+const renderSliceLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }) => {
+  const RADIAN = Math.PI / 180;
+  const r = innerRadius + (outerRadius - innerRadius) * 0.6;
+  const x = cx + r * Math.cos(-midAngle * RADIAN);
+  const y = cy + r * Math.sin(-midAngle * RADIAN);
+  if (percent < 0.05) return null; // niente label per fette < 5%
+  return (
+    <text x={x} y={y} fill="#fff" textAnchor="middle" dominantBaseline="central"
+          className="text-xs font-semibold">
+      {`${(percent * 100).toFixed(0)}%`}
+    </text>
+  );
+};
+
+<PieChart>
+  <Pie ... outerRadius={80} innerRadius={40} label={renderSliceLabel} labelLine={false}>
+    ...
+  </Pie>
+  <Tooltip ... />
+  <Legend ... />
+</PieChart>
+```
