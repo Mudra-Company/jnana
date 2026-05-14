@@ -428,9 +428,9 @@ export const AdminDashboardView: React.FC<AdminDashboardProps> = ({
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
         <div>
           <h1 className="text-2xl lg:text-3xl font-brand font-bold text-gray-900 dark:text-gray-100">
-            Dashboard {activeCompany.name}
+            {greeting}, ecco la tua {activeCompany.name}
           </h1>
-          <p className="text-sm text-gray-500 mt-1">Panoramica del capitale umano e dell'organizzazione.</p>
+          <p className="text-sm text-gray-500 mt-1 capitalize">{todayLabel}</p>
         </div>
         <div className="flex gap-2">
           <Button onClick={() => setView({ type: 'ADMIN_ORG_CHART' })} variant="outline" size="sm">
@@ -442,54 +442,53 @@ export const AdminDashboardView: React.FC<AdminDashboardProps> = ({
         </div>
       </div>
 
-      {/* KPI Grid */}
-      <DashboardKPIGrid
-        totalEmployees={companyUsers.length}
-        completedTests={completedCount}
-        completionRate={completionRate}
-        totalRoles={totalRolesCount}
-        vacantRoles={vacantRolesCount}
-        hiringRoles={hiringRolesCount}
+      {/* Hero KPI */}
+      <DashboardHeroKPI
+        headcount={companyUsers.length}
+        openPositions={vacantRolesCount + hiringRolesCount}
+        openPositionsDetail={
+          hiringRolesCount > 0
+            ? `${hiringRolesCount} in hiring`
+            : vacantRolesCount > 0
+              ? `${vacantRolesCount} vacanti`
+              : 'tutte coperte'
+        }
         complianceScore={riskScore.score}
-        cultureMatchScore={cultureScore}
-        onNavigateToOrgChart={() => setView({ type: 'ADMIN_ORG_CHART' })}
-        onNavigateToOpenPositions={() => setView({ type: 'ADMIN_OPEN_POSITIONS' })}
-        onNavigateToCompliance={() => setView({ type: 'ADMIN_COMPLIANCE' })}
-        onNavigateToIdentityHub={() => setView({ type: 'ADMIN_IDENTITY_HUB' })}
+        complianceExpiring={expiringCompliance.length}
+        cultureScore={cultureScore}
+        onClickHeadcount={() => setView({ type: 'ADMIN_IDENTITY_HUB' })}
+        onClickOpenPositions={() => setView({ type: 'ADMIN_OPEN_POSITIONS' })}
+        onClickCompliance={() => setView({ type: 'ADMIN_COMPLIANCE' })}
+        onClickCulture={() => setView({ type: 'ADMIN_IDENTITY_HUB' })}
       />
 
-      {/* Alerts + Quick Actions */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <AlertsPanel
-          vacantRoles={vacantRoles}
-          legacyHiringPositions={legacyHiringPositions}
-          expiringCompliance={expiringCompliance}
-          pendingTestUsers={pendingTestUsers}
-          onNavigateToMatching={(roleId) => setView({ type: 'ADMIN_ORG_CHART' })}
-          onNavigateToCompliance={() => setView({ type: 'ADMIN_COMPLIANCE' })}
-        />
-        <QuickActionsPanel
-          setView={setView}
-          onInviteUser={() => setShowInvite(true)}
-        />
-      </div>
-
-      {/* Roles by Department */}
-      <RolesByDepartment
-        roles={roles}
-        assignments={allAssignments}
-        orgNodes={orgNodes}
+      {/* Focus di oggi (full-width, primary attention area) */}
+      <TodaysFocusPanel
+        vacantRoles={vacantRoles}
         legacyHiringPositions={legacyHiringPositions}
-        onRoleClick={handleRoleClick}
+        hiringRoles={hiringRoles}
+        expiringCompliance={expiringCompliance}
+        pendingTestUsers={pendingTestUsers}
+        onNavigateToRole={handleRoleClick}
+        onNavigateToCompliance={() => setView({ type: 'ADMIN_COMPLIANCE' })}
+        onNavigateToOpenPositions={() => setView({ type: 'ADMIN_OPEN_POSITIONS' })}
       />
 
-      {/* Employee Table */}
-      <EnhancedEmployeeTable
+      {/* Quick modules */}
+      <QuickModulesPanel
+        setView={setView}
+        onInviteUser={() => setShowInvite(true)}
+        badges={{
+          compliance: expiringCompliance.length,
+          openPositions: vacantRolesCount + hiringRolesCount,
+          pendingPeople: pendingTestUsers.length,
+        }}
+      />
+
+      {/* Org Explorer (people / roles / departments tabs) */}
+      <OrgExplorerPanel
         users={companyUsers}
         currentUserId={currentUserId}
-        roleAssignments={allAssignments}
-        orgNodes={orgNodes}
-        roleOrgNodeMap={roleOrgNodeMap}
         setView={setView}
         onPromote={(u) => setConfirmModal({ isOpen: true, type: 'promote', user: u })}
         onDemote={(u) => setConfirmModal({ isOpen: true, type: 'demote', user: u })}
@@ -498,6 +497,12 @@ export const AdminDashboardView: React.FC<AdminDashboardProps> = ({
         onSendInvite={handleSendInvite}
         sendingInviteId={sendingInviteId}
         adminCount={adminCount}
+        roles={roles}
+        assignments={allAssignments}
+        orgNodes={orgNodes}
+        roleOrgNodeMap={roleOrgNodeMap}
+        legacyHiringPositions={legacyHiringPositions}
+        onRoleClick={handleRoleClick}
       />
     </div>
   );
