@@ -186,11 +186,15 @@ export function useKarmaBotConfig(botType: BotType) {
         .from('karma_bot_configs')
         .insert({
           bot_type: botType,
+          scenario: (config as any).scenario ?? (botType === 'jnana' ? 'role_fit' : 'discovery'),
           version: newVersion,
           is_active: true,
           system_prompt: config.system_prompt || '',
           objectives: JSON.parse(JSON.stringify(config.objectives || [])),
           profile_inputs: JSON.parse(JSON.stringify(config.profile_inputs || {})),
+          allowed_inputs: JSON.parse(JSON.stringify((config as any).allowed_inputs || {})),
+          output_schema: JSON.parse(JSON.stringify((config as any).output_schema || { fields: [] })),
+          discussion_style: JSON.parse(JSON.stringify((config as any).discussion_style || {})),
           model: config.model || 'google/gemini-2.5-flash',
           max_exchanges: config.max_exchanges || 8,
           temperature: config.temperature || 0.7,
