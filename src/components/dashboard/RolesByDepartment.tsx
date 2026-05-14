@@ -40,6 +40,9 @@ interface RolesByDepartmentProps {
   orgNodes: OrgNodeInfo[];
   legacyHiringPositions?: LegacyHiringPosition[];
   onRoleClick?: (roleId: string) => void;
+  /** When true, render without the wrapping Card + header (for use inside a tab container). */
+  embedded?: boolean;
+  externalSearchTerm?: string;
 }
 
 export const RolesByDepartment: React.FC<RolesByDepartmentProps> = ({
@@ -48,8 +51,12 @@ export const RolesByDepartment: React.FC<RolesByDepartmentProps> = ({
   orgNodes,
   legacyHiringPositions = [],
   onRoleClick,
+  embedded = false,
+  externalSearchTerm,
 }) => {
-  const [searchTerm, setSearchTerm] = useState('');
+  const [internalSearchTerm, setInternalSearchTerm] = useState('');
+  const searchTerm = externalSearchTerm !== undefined ? externalSearchTerm : internalSearchTerm;
+  const setSearchTerm = setInternalSearchTerm;
 
   // Build a map of role -> primary assignment
   const assignmentMap = useMemo(() => {
@@ -171,37 +178,36 @@ export const RolesByDepartment: React.FC<RolesByDepartmentProps> = ({
   const totalCount = roles.length + legacyHiringPositions.length;
 
   if (totalCount === 0) {
-    return (
-      <Card padding="sm">
-        <div className="text-center py-8 text-gray-400">
-          <Briefcase size={32} className="mx-auto mb-2 opacity-50" />
-          <p className="text-sm">Nessun ruolo creato. Inizia dall'organigramma.</p>
-        </div>
-      </Card>
+    const emptyContent = (
+      <div className="text-center py-8 text-gray-400">
+        <Briefcase size={32} className="mx-auto mb-2 opacity-50" />
+        <p className="text-sm">Nessun ruolo creato. Inizia dall'organigramma.</p>
+      </div>
     );
+    return embedded ? emptyContent : <Card padding="sm">{emptyContent}</Card>;
   }
 
-  return (
-    <Card padding="none">
-      {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-gray-100 dark:border-gray-700">
-        <h3 className="text-sm font-bold text-gray-800 dark:text-gray-200 flex items-center gap-2">
-          <Folder size={16} className="text-amber-500" />
-          Ruoli per Dipartimento
-          <span className="text-xs font-normal text-gray-400">({totalCount} totali)</span>
-        </h3>
-        <div className="relative">
-          <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input
-            value={searchTerm}
-            onChange={e => setSearchTerm(e.target.value)}
-            placeholder="Cerca ruolo..."
-            className="pl-8 pr-3 py-1.5 text-xs border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-white placeholder-gray-400 focus:ring-1 focus:ring-amber-500 focus:border-transparent outline-none w-40"
-          />
+  const body = (
+    <>
+      {!embedded && (
+        <div className="flex items-center justify-between p-4 border-b border-gray-100 dark:border-gray-700">
+          <h3 className="text-sm font-bold text-gray-800 dark:text-gray-200 flex items-center gap-2">
+            <Folder size={16} className="text-amber-500" />
+            Ruoli per Dipartimento
+            <span className="text-xs font-normal text-gray-400">({totalCount} totali)</span>
+          </h3>
+          <div className="relative">
+            <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+              placeholder="Cerca ruolo..."
+              className="pl-8 pr-3 py-1.5 text-xs border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-white placeholder-gray-400 focus:ring-1 focus:ring-amber-500 focus:border-transparent outline-none w-40"
+            />
+          </div>
         </div>
-      </div>
+      )}
 
-      {/* Accordion sections */}
       <div className="divide-y divide-gray-100 dark:divide-gray-700">
         {sections.map(section => (
           <Collapsible key={section.nodeId} defaultOpen={section.vacantCount > 0 || section.hiringCount > 0}>
@@ -228,7 +234,7 @@ export const RolesByDepartment: React.FC<RolesByDepartmentProps> = ({
             </CollapsibleTrigger>
             <CollapsibleContent>
               <div className="bg-gray-50/50 dark:bg-gray-800/30">
-                {section.roles.map(({ role, assigneeName, isVacant }) => (
+                {section.roles.map(({ role, assigneeName }) => (
                   <div
                     key={role.id}
                     className="flex items-center justify-between px-6 py-2.5 border-t border-gray-100 dark:border-gray-700/50 cursor-pointer hover:bg-white dark:hover:bg-gray-700/40 transition-colors group"
@@ -258,6 +264,8 @@ export const RolesByDepartment: React.FC<RolesByDepartmentProps> = ({
           </Collapsible>
         ))}
       </div>
-    </Card>
+    </>
   );
+
+  return embedded ? <div>{body}</div> : <Card padding="none">{body}</Card>;
 };

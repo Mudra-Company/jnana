@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Tree, TreeNode } from 'react-organizational-chart';
 import { 
   X, 
@@ -1627,6 +1628,24 @@ export const CompanyOrgView: React.FC<{
             fetchRoles(company.id);
         }
     }, [company.id, fetchRoles]);
+
+    // === DEEP-LINK: focus role from URL (?role=<id>) ===
+    const [searchParams, setSearchParams] = useSearchParams();
+    const focusRoleIdFromUrl = searchParams.get('role');
+    const hasOpenedFocusRoleRef = React.useRef<string | null>(null);
+    React.useEffect(() => {
+        if (!focusRoleIdFromUrl) return;
+        if (hasOpenedFocusRoleRef.current === focusRoleIdFromUrl) return;
+        if (!roles || roles.length === 0) return;
+        const role = roles.find(r => r.id === focusRoleIdFromUrl);
+        if (!role) return;
+        hasOpenedFocusRoleRef.current = focusRoleIdFromUrl;
+        setSelectedRole(role);
+        // Clean the URL so refresh / back doesn't re-trigger after close
+        const next = new URLSearchParams(searchParams);
+        next.delete('role');
+        setSearchParams(next, { replace: true });
+    }, [focusRoleIdFromUrl, roles, searchParams, setSearchParams]);
     
     // Calculate all hiring positions in the company
     const allHiringPositions = useMemo(() => users.filter(u => u.isHiring), [users]);
