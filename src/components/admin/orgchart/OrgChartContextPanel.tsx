@@ -326,13 +326,13 @@ const NodeView: React.FC<{
 
       <div className="grid grid-cols-2 gap-2">
         <KpiTile
-          label="Persone (nodo)"
-          value={directUsers.filter(u => !u.isHiring && (u.firstName || u.lastName)).length}
+          label="In questo nodo"
+          value={directUsers.filter(isRealPerson).length}
           icon={<Users size={12} />}
         />
         <KpiTile
-          label="Persone (sottoalbero)"
-          value={subtreeUsers.filter(u => !u.isHiring && (u.firstName || u.lastName)).length}
+          label="Collaboratori"
+          value={subtreeUsers.filter(isRealPerson).length}
           icon={<Users size={12} />}
         />
         <KpiTile label="Ruoli" value={nodeRoles.length} icon={<Briefcase size={12} />} />
