@@ -551,6 +551,7 @@ export const usePositionShortlist = (positionId: string, companyId: string) => {
     error,
     addInternalCandidate,
     addExternalCandidate,
+    addCandidate,
     removeCandidate,
     updateCandidate,
     finalizeSelection,
