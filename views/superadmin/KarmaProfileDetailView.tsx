@@ -41,6 +41,7 @@ interface KarmaProfileDetailViewProps {
 
 export const KarmaProfileDetailView: React.FC<KarmaProfileDetailViewProps> = ({ userId, onBack, fromPositionId }) => {
   const { fetchProfile } = useKarmaAdminSearch();
+  const { activeCompanyData, navigate } = useAppData();
   const [profileData, setProfileData] = useState<KarmaSearchResult | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [showAllExperiences, setShowAllExperiences] = useState(false);
