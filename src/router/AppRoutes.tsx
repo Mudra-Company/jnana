@@ -716,8 +716,10 @@ function KarmaTestChatRoute() {
 function KarmaProfileViewRoute() {
   const { canAccessAdminViews, goBack } = useAppData();
   const { userId } = useParams();
+  const [searchParams] = useSearchParams();
+  const fromPositionId = searchParams.get('position') || undefined;
   if (!canAccessAdminViews || !userId) return <NotReady />;
-  return <KarmaProfileDetailView userId={userId} onBack={goBack} />;
+  return <KarmaProfileDetailView userId={userId} onBack={goBack} fromPositionId={fromPositionId} />;
 }
 
 // ===== DEMO MODE =====
