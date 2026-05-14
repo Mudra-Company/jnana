@@ -190,7 +190,7 @@ export const CandidateComparisonModal: React.FC<CandidateComparisonModalProps> =
 
       {/* Hard Skills */}
       <div className="border-t border-gray-200 dark:border-gray-700 pt-3">
-        <h4 className="text-sm font-semibold text-jnana-text dark:text-gray-100 mb-2">Hard Skills Richieste</h4>
+        <h4 className="text-sm font-semibold text-jnana-text dark:text-gray-100 mb-2">{requiredSkills.length === 0 ? 'Hard Skills del candidato' : 'Hard Skills Richieste'}</h4>
         {renderSkillComparison(candidate)}
         {requiredSkills.length > 0 && (
           <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
