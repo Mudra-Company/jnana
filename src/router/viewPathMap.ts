@@ -68,6 +68,8 @@ export function viewToPath(view: ViewState): string {
       return `/superadmin/questionnaires/${v.questionnaireId}`;
     case 'ADMIN_USER_DETAIL':
       return `/admin/users/${v.userId}`;
+    case 'ADMIN_ORG_CHART':
+      return v.focusRoleId ? `/admin/org?role=${v.focusRoleId}` : '/admin/org';
     case 'ADMIN_POSITION_MATCHING': {
       const tab = v.initialTab ? `?tab=${v.initialTab}` : '';
       return `/admin/positions/${v.positionId}${tab}`;
@@ -110,6 +112,11 @@ export function pathToView(pathname: string, search = ''): ViewState | null {
         if (mode === 'jnana' || mode === 'karma') {
           return { type: 'LOGIN', authMode: mode } as ViewState;
         }
+      }
+      if (type === 'ADMIN_ORG_CHART') {
+        const params = new URLSearchParams(search);
+        const role = params.get('role');
+        if (role) return { type: 'ADMIN_ORG_CHART', focusRoleId: role } as ViewState;
       }
       return { type } as ViewState;
     }

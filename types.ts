@@ -224,7 +224,7 @@ export type ViewState =
   | { type: 'SUPER_ADMIN_QUESTIONNAIRES' }
   | { type: 'SUPER_ADMIN_QUESTIONNAIRE_EDIT'; questionnaireId: string }
   | { type: 'ADMIN_DASHBOARD' }
-  | { type: 'ADMIN_ORG_CHART' }
+  | { type: 'ADMIN_ORG_CHART'; focusRoleId?: string }
   | { type: 'ADMIN_IDENTITY_HUB' } 
   | { type: 'ADMIN_COMPANY_PROFILE' }
   | { type: 'ADMIN_USER_DETAIL'; userId: string }
