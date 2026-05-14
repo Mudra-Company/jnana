@@ -56,7 +56,6 @@ import type { ShortlistUser } from '../../src/types/shortlist';
 import { useCompanyRoles } from '../../src/hooks/useCompanyRoles';
 import { supabase } from '../../src/integrations/supabase/client';
 import { RoleCreationModal } from '../../src/components/roles/RoleCreationModal';
-import { RoleDetailModal } from '../../src/components/roles/RoleDetailModal';
 import { UnifiedDetailModal } from '../../src/components/roles/UnifiedDetailModal';
 import type { CompanyRole, CreateRoleInput } from '../../src/types/roles';
 import type { UnifiedPosition } from '../../src/types/unified-org';
