@@ -40,6 +40,9 @@ interface RolesByDepartmentProps {
   orgNodes: OrgNodeInfo[];
   legacyHiringPositions?: LegacyHiringPosition[];
   onRoleClick?: (roleId: string) => void;
+  /** When true, render without the wrapping Card + header (for use inside a tab container). */
+  embedded?: boolean;
+  externalSearchTerm?: string;
 }
 
 export const RolesByDepartment: React.FC<RolesByDepartmentProps> = ({
@@ -48,8 +51,12 @@ export const RolesByDepartment: React.FC<RolesByDepartmentProps> = ({
   orgNodes,
   legacyHiringPositions = [],
   onRoleClick,
+  embedded = false,
+  externalSearchTerm,
 }) => {
-  const [searchTerm, setSearchTerm] = useState('');
+  const [internalSearchTerm, setInternalSearchTerm] = useState('');
+  const searchTerm = externalSearchTerm !== undefined ? externalSearchTerm : internalSearchTerm;
+  const setSearchTerm = setInternalSearchTerm;
 
   // Build a map of role -> primary assignment
   const assignmentMap = useMemo(() => {
