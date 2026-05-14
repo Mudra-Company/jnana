@@ -739,8 +739,8 @@ const AppContent: React.FC = () => {
   return (
     <AppDataProvider value={appDataValue}><div className={isDark ? 'dark' : ''}>
       <div className="min-h-screen bg-white dark:bg-gray-900 text-jnana-text dark:text-gray-100 transition-colors duration-300 font-sans">
-        {currentUserData && view.type !== 'LOGIN' && view.type !== 'LANDING' && 
-          !view.type.startsWith('KARMA_') && (
+        {currentUserData && view.type !== 'LOGIN' && view.type !== 'LANDING' &&
+          (!view.type.startsWith('KARMA_') || view.type === 'KARMA_PROFILE_VIEW') && (
           <Header
             onLogout={handleLogout}
             view={view}

@@ -30,14 +30,18 @@ import { Card } from '../../components/Card';
 import { Button } from '../../components/Button';
 import { useKarmaAdminSearch, KarmaSearchResult } from '../../src/hooks/useKarmaAdminSearch';
 import { RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, ResponsiveContainer } from 'recharts';
+import { CandidateHRActionPanel } from '../../src/components/shortlist/CandidateHRActionPanel';
+import { useAppData } from '../../src/app/AppDataContext';
 
 interface KarmaProfileDetailViewProps {
   userId: string;
   onBack: () => void;
+  fromPositionId?: string;
 }
 
-export const KarmaProfileDetailView: React.FC<KarmaProfileDetailViewProps> = ({ userId, onBack }) => {
+export const KarmaProfileDetailView: React.FC<KarmaProfileDetailViewProps> = ({ userId, onBack, fromPositionId }) => {
   const { fetchProfile } = useKarmaAdminSearch();
+  const { activeCompanyData, navigate } = useAppData();
   const [profileData, setProfileData] = useState<KarmaSearchResult | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [showAllExperiences, setShowAllExperiences] = useState(false);
@@ -167,6 +171,18 @@ export const KarmaProfileDetailView: React.FC<KarmaProfileDetailViewProps> = ({ 
         <ArrowLeft className="w-4 h-4 mr-2" />
         Torna alla lista
       </Button>
+
+      {/* HR Action Panel — only when entered from a position matching context */}
+      {fromPositionId && activeCompanyData && (
+        <CandidateHRActionPanel
+          positionId={fromPositionId}
+          companyId={activeCompanyData.id}
+          candidateUserId={userId}
+          onBackToPosition={() =>
+            navigate({ type: 'ADMIN_POSITION_MATCHING', positionId: fromPositionId })
+          }
+        />
+      )}
 
       {/* Profile Header */}
       <Card className="p-6 mb-6">

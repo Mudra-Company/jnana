@@ -365,7 +365,7 @@ function AdminPositionMatchingRoute() {
       company={activeCompanyData}
       companyUsers={companyUsers}
       onBack={() => navigate({ type: 'ADMIN_OPEN_POSITIONS' })}
-      onViewCandidate={(userId) => navigate({ type: 'KARMA_PROFILE_VIEW', userId })}
+      onViewCandidate={(userId) => navigate({ type: 'KARMA_PROFILE_VIEW', userId, fromPositionId: positionId })}
       onAssignInternal={async (slotId, userId) => {
         const { data: roleRow } = await supabase
           .from('company_roles')
@@ -716,8 +716,10 @@ function KarmaTestChatRoute() {
 function KarmaProfileViewRoute() {
   const { canAccessAdminViews, goBack } = useAppData();
   const { userId } = useParams();
+  const [searchParams] = useSearchParams();
+  const fromPositionId = searchParams.get('position') || undefined;
   if (!canAccessAdminViews || !userId) return <NotReady />;
-  return <KarmaProfileDetailView userId={userId} onBack={goBack} />;
+  return <KarmaProfileDetailView userId={userId} onBack={goBack} fromPositionId={fromPositionId} />;
 }
 
 // ===== DEMO MODE =====

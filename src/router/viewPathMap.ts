@@ -85,7 +85,9 @@ export function viewToPath(view: ViewState): string {
     case 'USER_RESULT':
       return `/me/${v.userId}`;
     case 'KARMA_PROFILE_VIEW':
-      return `/karma/profile/${v.userId}`;
+      return v.fromPositionId
+        ? `/karma/profile/${v.userId}?position=${v.fromPositionId}`
+        : `/karma/profile/${v.userId}`;
     case 'KARMA_ONBOARDING_STEP':
       return `/karma/onboarding/${v.step}`;
     case 'COMPANY_CANDIDATE_VIEW':
@@ -157,7 +159,9 @@ export function pathToView(pathname: string, search = ''): ViewState | null {
     return { type: 'USER_RESULT', userId: parts[1] } as ViewState;
   }
   if (parts[0] === 'karma' && parts[1] === 'profile' && parts[2]) {
-    return { type: 'KARMA_PROFILE_VIEW', userId: parts[2] } as ViewState;
+    const params = new URLSearchParams(search);
+    const fromPositionId = params.get('position') || undefined;
+    return { type: 'KARMA_PROFILE_VIEW', userId: parts[2], fromPositionId } as ViewState;
   }
   if (parts[0] === 'karma' && parts[1] === 'onboarding' && parts[2]) {
     return { type: 'KARMA_ONBOARDING_STEP', step: Number(parts[2]) } as ViewState;

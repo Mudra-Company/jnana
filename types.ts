@@ -248,7 +248,7 @@ export type ViewState =
   | { type: 'KARMA_ONBOARDING_STEP'; step: number }
   | { type: 'KARMA_DASHBOARD' }
   | { type: 'KARMA_PROFILE_EDIT' }
-  | { type: 'KARMA_PROFILE_VIEW'; userId: string }
+  | { type: 'KARMA_PROFILE_VIEW'; userId: string; fromPositionId?: string }
   | { type: 'KARMA_TEST_RIASEC' }
   | { type: 'KARMA_TEST_CHAT' }
   | { type: 'KARMA_RESULTS' }
