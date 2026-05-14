@@ -445,13 +445,13 @@ export const AdminDashboardView: React.FC<AdminDashboardProps> = ({
       {/* Hero KPI */}
       <DashboardHeroKPI
         headcount={companyUsers.length}
-        openPositions={vacantRolesCount + hiringRolesCount}
+        openPositions={hiringRolesCount}
         openPositionsDetail={
-          hiringRolesCount > 0
-            ? `${hiringRolesCount} in hiring`
-            : vacantRolesCount > 0
-              ? `${vacantRolesCount} vacanti`
-              : 'tutte coperte'
+          hiringRolesCount === 0
+            ? (vacantRolesCount > 0 ? `${vacantRolesCount} vacanti senza hiring` : 'tutte coperte')
+            : vacantRolesCount > hiringRolesCount
+              ? `+${vacantRolesCount - hiringRolesCount} vacanti non in hiring`
+              : 'in cerca di candidati'
         }
         complianceScore={riskScore.score}
         complianceExpiring={expiringCompliance.length}
@@ -480,7 +480,7 @@ export const AdminDashboardView: React.FC<AdminDashboardProps> = ({
         onInviteUser={() => setShowInvite(true)}
         badges={{
           compliance: expiringCompliance.length,
-          openPositions: vacantRolesCount + hiringRolesCount,
+          openPositions: hiringRolesCount,
           pendingPeople: pendingTestUsers.length,
         }}
       />
