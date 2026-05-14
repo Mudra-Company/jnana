@@ -1,106 +1,56 @@
-# Redesign – Candidati per Posizione (`PositionMatchingView`)
+# Fix `CandidateComparisonModal` legibility (light + dark)
 
-## 1. Prospettiva Head of HR — cosa serve davvero
+## Root cause
 
-Quando apro la pagina di una posizione aperta sto cercando di rispondere a **cinque domande operative**, oggi tutte difficili:
+`src/components/shortlist/CandidateComparisonModal.tsx` is the only component in this project that uses shadcn-style semantic tokens (`bg-background`, `text-foreground`, `bg-muted`, `text-muted-foreground`, `border`, `divide-x`, `bg-primary/20`, etc.). 
 
-1. **"Cosa sto cercando esattamente?"** — Oggi vedo solo `Junior` in un pillino. Mancano: hard skills richieste, soft skills, descrizione del ruolo, hiring manager, dipartimento, urgenza, data apertura, target di chiusura.
-2. **"Quanto sono messo bene?"** — Vorrei un mini-cruscotto: n. candidati totali, miglior match interno, miglior match esterno, candidati in shortlist, copertura skills (% requisiti già coperti almeno da un candidato), tempo medio di apertura.
-3. **"Chi devo guardare per primo?"** — Una sola lista non basta: voglio **3 corsie di raccomandazione**: *Pronti subito* (≥75%), *Da valutare/sviluppare* (50–74%), *Non adatti* (<50%) con motivo del downgrade.
-4. **"Perché questo candidato matcha o non matcha?"** — Oggi vedo solo `35%`, `✓0 ⚠1`. Voglio breakdown immediato sulla card: % skills, ✓/✗ per skill chiave, gap di seniority, sinergia generazionale col manager, generazione, tempo nel ruolo attuale (per gli interni → impatto rotazione).
-5. **"Cosa faccio adesso?"** — Azioni chiare e *contestuali*: Shortlist, Apri profilo completo, Avvia matching avanzato, Confronta selezionati, Invita a colloquio, Chiudi/Pausa posizione.
+This project does **not** define those tokens — Tailwind is loaded via CDN in `index.html` with a custom `jnana.*` palette only. Result: the modal renders with **transparent background, transparent borders, invisible text**. The only visible elements are the native `<textarea>` (browser default white) and the `Button` primary variant — exactly what the screenshot shows.
 
-Aggiunte funzionali mancanti:
-- **Filtri & ordinamento** (per dipartimento di provenienza, generazione, seniority, % match, "solo in cerca", "solo non in shortlist").
-- **Confronto multiplo** fino a 4 candidati (interni + esterni nella stessa griglia).
-- **Empty state intelligente**: se 0 esterni → suggerire pubblicare l'annuncio; se 0 interni → suggerire skill di gap critiche.
-- **Insight panel laterale** "Suggerimenti AI": "3 dipendenti hanno il 70% delle skill ma seniority bassa — valuta affiancamento", "Skill X non coperta da nessun candidato".
-- **Storico**: candidati già visti / scartati con motivo.
+The page behind also gets a `bg-black/50` overlay, so the dashboard bleeds through and looks "broken".
 
-## 2. Prospettiva Senior FE — Gap Analysis sull'as-is
+## Fix scope (UI-only, single file)
 
-| Area | As-is | Gap |
-|---|---|---|
-| Header | Titolo + breadcrumb minimale | Manca contesto ruolo, KPI, azioni globali |
-| Requisiti posizione | 1 pill `Junior`, hard skills spesso assenti | Non scannerizzabile, no descrizione, no hiring manager, no urgenza |
-| Tab counter | OK ma piatti | Nessun KPI, nessun "best match" |
-| Card interna | Riga densa, font 9–10px, 2 azioni | Bassa leggibilità, mix di info, badge piccoli, no hard skills, no breakdown skill |
-| Card esterna | Card grande con 3 numeri (RIASEC/Skills/Seniority) | Stile incoerente con quella interna, doppio layout da mantenere |
-| Filtri | Solo "in cerca" + search testo per esterni; **assenti per interni** | Servono filtri condivisi e ordinamento |
-| Confronto | Inesistente | Funzione hr-critical mancante |
-| Stati vuoti | Generici | Nessuna call-to-action utile |
-| Mobile | Layout regge ma denso | Necessita riordino responsive |
-| Design tokens | Mix di colori hard-coded (`bg-purple-100`, `text-green-600`) | Allineare a palette `jnana-*` come da memoria progetto |
+Rewrite all class names in `CandidateComparisonModal.tsx` to use the project's `jnana-*` tokens + standard Tailwind grays (already used everywhere else in the codebase, e.g. `Card.tsx`, `OrgExplorerPanel.tsx`).
 
-## 3. Piano di implementazione (To-Be)
+### Token mapping
 
-### 3.1 Nuovo layout pagina
+| Current (broken)              | Replacement (light / dark)                                    |
+|-------------------------------|---------------------------------------------------------------|
+| `bg-background`               | `bg-white dark:bg-gray-800`                                   |
+| `bg-muted/30`, `bg-muted/50`  | `bg-jnana-bg dark:bg-gray-900/50`                             |
+| `bg-muted`                    | `bg-gray-100 dark:bg-gray-700`                                |
+| `text-foreground`             | `text-jnana-text dark:text-gray-100`                          |
+| `text-muted-foreground`       | `text-gray-500 dark:text-gray-400`                            |
+| `border`, `border-t`, `divide-x` | add explicit `border-gray-200 dark:border-gray-700`        |
+| `bg-primary/20 → /40` gradient avatar | `from-jnana-sage/20 to-jnana-sage/40 text-jnana-sage` (dark: `text-jnana-powder`) |
+| `text-primary`, `bg-primary/70` (RIASEC bars) | `text-jnana-sage` / `bg-jnana-sage`             |
+| Score colors (`text-green-600` etc.) | keep, but bump to `text-green-500 dark:text-green-400`  |
 
-```text
-┌─────────────────────────────────────────────────────────────┐
-│  ← Back   Stagista · Veterinary & Scientific Advisory       │
-│  [Junior] [Aperta da 12gg] [Hiring Mgr: Mario Rossi]        │
-│  Azioni:  [Confronta (0)]  [Pubblica Annuncio]  [Pausa]     │
-├─────────────────────────────────────────────────────────────┤
-│  KPI STRIP (4 tile)                                         │
-│  Candidati  | Best Internal | Best External | In Shortlist  │
-│     7       |     100%      |      82%      |       2       │
-├─────────────────────────────────────────────────────────────┤
-│  REQUISITI (collapsible)                                    │
-│   Hard skills • Soft skills • Seniority • Descrizione       │
-├─────────────────────────────────────────────────────────────┤
-│  Tabs: Tutti | Interni (4) | Esterni (3) | Shortlist (2)    │
-│  Toolbar: 🔍 search · ⌃ ordina · ⛁ filtri · ◇ vista lista/grid│
-├──────────────────────────────────────────┬──────────────────┤
-│  LISTA CANDIDATI (card uniforme)         │  INSIGHT PANEL   │
-│   ▸ Pronti (≥75)                         │  • Skill gap     │
-│   ▸ Da valutare (50-74)                  │  • Suggerimenti  │
-│   ▸ Non adatti (<50, collapsed)          │  • Storico       │
-└──────────────────────────────────────────┴──────────────────┘
-```
+### Specific structural fixes
 
-### 3.2 Componenti nuovi (sotto `src/components/positionMatching/`)
+1. **Modal shell**: `bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700` — guarantees opaque surface over the `bg-black/50` overlay.
+2. **Header bar**: solid `bg-jnana-bg dark:bg-gray-900/40` with bottom border; title `text-jnana-text dark:text-white`, subtitle `text-gray-500 dark:text-gray-400`.
+3. **Two-column body**: replace `divide-x` with explicit `border-r border-gray-200 dark:border-gray-700` on the left column (only on `md+`, stack on mobile via `flex-col md:flex-row`).
+4. **Match score block**: `bg-jnana-bg dark:bg-gray-900/40 border border-gray-200 dark:border-gray-700`, larger ring, score color uses tier (green ≥80, amber 60–79, red <60) with dark variants.
+5. **RIASEC bars**: track `bg-gray-200 dark:bg-gray-700`, fill `bg-jnana-sage`, labels `text-gray-600 dark:text-gray-300`.
+6. **Skill rows**: matched icon `text-green-600 dark:text-green-400`, missing icon `text-red-500 dark:text-red-400`, label color follows match state.
+7. **Soft skills chips**: `bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300`.
+8. **Notes textarea**: `bg-white dark:bg-gray-900 text-jnana-text dark:text-gray-100 border-gray-300 dark:border-gray-700 placeholder-gray-400 focus:ring-2 focus:ring-jnana-sage focus:border-transparent`.
+9. **Section dividers**: every `border-t pt-3` → `border-t border-gray-200 dark:border-gray-700 pt-3`.
+10. **Action button**: change `variant={index === 0 ? "primary" : "outline"}` (the project's `Button` doesn't have `"primary"` — verify and use `"default"` or the existing primary variant). Make both buttons full-width and visually distinct (filled jnana-sage vs outlined).
+11. **Close (X) and footer "Torna alla Shortlist"**: ensure visible hover states in dark mode (`hover:bg-gray-100 dark:hover:bg-gray-700`).
+12. **Accessibility**: add `role="dialog"` `aria-modal="true"` `aria-labelledby` on shell; click-outside to close on overlay.
 
-- `PositionHeader.tsx` — titolo, meta (dipartimento, hiring manager, giorni aperta, urgenza), action bar.
-- `PositionKPIStrip.tsx` — 4 tile (Candidati totali, Best internal %, Best external %, Shortlist count + delta).
-- `PositionRequirementsCard.tsx` — collapsible con tab Hard/Soft/Seniority/Descrizione + "skill coperte da X candidati".
-- `CandidateToolbar.tsx` — search, sort (match desc/asc, seniority, recente), filter chips (generazione, dipartimento, "solo in cerca", "non in shortlist"), toggle vista.
-- `CandidateCard.tsx` — **card unica** parametrizzata con `variant: 'internal' | 'external'`. Mostra: avatar, nome, generazione, badge tipo, ruolo attuale/headline, location, score circolare, mini-breakdown skill (chip ✓/✗), sinergia col manager, badge "in shortlist", azioni `Shortlist / Confronta / Profilo / Assegna`.
-- `CandidateGroup.tsx` — wrapper con header collassabile per le 3 corsie (Pronti / Da valutare / Non adatti) + count.
-- `InsightSidePanel.tsx` — pannello sticky a destra (lg+): skill non coperte, top suggerimento AI (placeholder per future Lovable AI call), shortcut.
-- `ComparisonBar.tsx` — barra fluttuante in basso quando ≥1 candidato selezionato per confronto, con CTA "Confronta N candidati" → riusa `CandidateComparisonModal`.
+### Out of scope
 
-### 3.3 Refactor di `PositionMatchingView.tsx`
+- No layout/UX restructuring (sections, order, fields stay as-is).
+- No changes to `CandidateRatingStars`, `CandidateStatusBadge`, `Button`, or any data flow.
+- No changes to the comparison logic in `PositionMatchingView.tsx`.
 
-- Estrarre tutta la logica di calcolo (`calculateInternalMatch`, raggruppamenti per fascia di score) in `src/utils/positionMatching.ts`.
-- Stato nuovo: `selectedForComparison: Set<string>`, `sortBy`, `filters`, `viewMode`.
-- Sostituire `renderInternalCandidate`/`renderExternalCandidate` con `<CandidateCard>` unica.
-- Tab "Tutti" che mostra interni+esterni in un'unica lista ordinata per match.
-- Mantenere invariati: `usePositionShortlist`, `useTalentSearch`, `JobRotationReportModal`, `MatchScorePopover`.
+## Files
 
-### 3.4 Design system
+- `src/components/shortlist/CandidateComparisonModal.tsx` — full className refactor + minor a11y attrs.
 
-- Sostituire i colori hard-coded con tokens `jnana-*` (sage, powder, bg, text) per coerenza con la memoria di progetto.
-- Tipografia: titoli `text-xl/2xl font-bold`, testo card `text-sm`, meta `text-xs text-muted-foreground`.
-- Score circolare con SVG ring, colori `jnana-sage` ≥75, `amber-500` 50–74, `rose-500` <50.
-- Spaziature uniformi (`gap-3`, `p-4`), bordi `rounded-xl`, ombre soft.
+## Verification
 
-### 3.5 Responsive
-
-- ≥1280px: 2 colonne (lista + insight panel).
-- 768–1279px: 1 colonna, insight panel collapsato in accordion sopra la lista.
-- <768px: KPI strip in 2x2, card con azioni in dropdown `…`.
-
-### 3.6 Out of scope (questa iterazione)
-
-- Pubblicazione effettiva annuncio esterno (solo CTA placeholder).
-- Chiamata AI reale per suggerimenti (placeholder con dati derivati dal client).
-- Storico candidati scartati (richiede schema DB — da pianificare a parte).
-
-### 3.7 File toccati / creati
-
-- **Nuovi**: 8 componenti in `src/components/positionMatching/` + `src/utils/positionMatching.ts`.
-- **Modificati**: `views/admin/PositionMatchingView.tsx` (orchestrazione + nuovo layout).
-- **Nessuna** modifica a backend, RLS, hook dati, tipi DB.
-
-Confermi il piano? Posso procedere con l'implementazione.
+After edit: open the comparison modal in light mode and dark mode, confirm opaque surface, all text legible, RIASEC bars/skill icons visible, both action buttons distinguishable, textarea contrast OK.
