@@ -2223,16 +2223,6 @@ export const CompanyOrgView: React.FC<{
                     defaultOrgNodeId={roleCreationNodeId || undefined}
                 />
             )}
-            {/* Role Detail Modal */}
-            {selectedRole && (
-                <RoleDetailModal
-                    role={selectedRole}
-                    onClose={() => setSelectedRole(null)}
-                    onEdit={() => {
-                        // Placeholder - edit handled via other modals
-                    }}
-                />
-            )}
             {/* Unified Position Detail Modal */}
             {selectedUnifiedPosition && (
                 <UnifiedDetailModal
