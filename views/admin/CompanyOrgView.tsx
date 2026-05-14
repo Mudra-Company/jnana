@@ -56,7 +56,6 @@ import type { ShortlistUser } from '../../src/types/shortlist';
 import { useCompanyRoles } from '../../src/hooks/useCompanyRoles';
 import { supabase } from '../../src/integrations/supabase/client';
 import { RoleCreationModal } from '../../src/components/roles/RoleCreationModal';
-import { RoleDetailModal } from '../../src/components/roles/RoleDetailModal';
 import { UnifiedDetailModal } from '../../src/components/roles/UnifiedDetailModal';
 import type { CompanyRole, CreateRoleInput } from '../../src/types/roles';
 import type { UnifiedPosition } from '../../src/types/unified-org';
@@ -1604,7 +1603,6 @@ export const CompanyOrgView: React.FC<{
     const { createCompanyMember, updateCompanyMember, assignUserToSlot, deleteCompanyMember, isLoading: isSaving } = useCompanyMembers();
     
     // === ROLE-CENTRIC STATE ===
-    const [selectedRole, setSelectedRole] = useState<CompanyRole | null>(null);
     const [showRoleCreationModal, setShowRoleCreationModal] = useState(false);
     const [roleCreationNodeId, setRoleCreationNodeId] = useState<string | null>(null);
     
@@ -1630,6 +1628,8 @@ export const CompanyOrgView: React.FC<{
     }, [company.id, fetchRoles]);
 
     // === DEEP-LINK: focus role from URL (?role=<id>) ===
+    // Opens the SAME UnifiedDetailModal used by the org chart click,
+    // so Dashboard → Org Chart → role detail stays consistent.
     const [searchParams, setSearchParams] = useSearchParams();
     const focusRoleIdFromUrl = searchParams.get('role');
     const hasOpenedFocusRoleRef = React.useRef<string | null>(null);
@@ -1640,12 +1640,32 @@ export const CompanyOrgView: React.FC<{
         const role = roles.find(r => r.id === focusRoleIdFromUrl);
         if (!role) return;
         hasOpenedFocusRoleRef.current = focusRoleIdFromUrl;
-        setSelectedRole(role);
+
+        (async () => {
+            const fullRole = (await fetchRoleWithAssignments(role.id)) || role;
+            const primaryAssignment = fullRole.assignments?.find(
+                a => a.assignmentType === 'primary' && !a.endDate
+            ) || fullRole.assignments?.[0] || null;
+            const assignee = primaryAssignment
+                ? users.find(u =>
+                    u.id === primaryAssignment.userId ||
+                    (primaryAssignment.companyMemberId && u.memberId === primaryAssignment.companyMemberId)
+                  ) || null
+                : null;
+            const position: UnifiedPosition = {
+                role: fullRole,
+                assignee,
+                assignment: primaryAssignment,
+                metrics: { roleFitScore: 0, managerFitScore: null, cultureFitScore: 0, isLeader: false }
+            };
+            setSelectedUnifiedPosition(position);
+        })();
+
         // Clean the URL so refresh / back doesn't re-trigger after close
         const next = new URLSearchParams(searchParams);
         next.delete('role');
         setSearchParams(next, { replace: true });
-    }, [focusRoleIdFromUrl, roles, searchParams, setSearchParams]);
+    }, [focusRoleIdFromUrl, roles, users, searchParams, setSearchParams, fetchRoleWithAssignments]);
     
     // Calculate all hiring positions in the company
     const allHiringPositions = useMemo(() => users.filter(u => u.isHiring), [users]);
@@ -2201,16 +2221,6 @@ export const CompanyOrgView: React.FC<{
                     }}
                     onSave={handleCreateRole}
                     defaultOrgNodeId={roleCreationNodeId || undefined}
-                />
-            )}
-            {/* Role Detail Modal */}
-            {selectedRole && (
-                <RoleDetailModal
-                    role={selectedRole}
-                    onClose={() => setSelectedRole(null)}
-                    onEdit={() => {
-                        // Placeholder - edit handled via other modals
-                    }}
                 />
             )}
             {/* Unified Position Detail Modal */}
