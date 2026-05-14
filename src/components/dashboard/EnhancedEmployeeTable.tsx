@@ -95,23 +95,28 @@ export const EnhancedEmployeeTable: React.FC<EnhancedEmployeeTableProps> = ({
     return { roleName: roleTitle, departmentName: deptName };
   };
 
+  const Wrapper: React.FC<{ children: React.ReactNode }> = ({ children }) =>
+    embedded ? <div>{children}</div> : <Card padding="none">{children}</Card>;
+
   return (
-    <Card padding="none">
-      <div className="flex items-center justify-between p-4 border-b border-gray-100 dark:border-gray-700">
-        <h3 className="text-sm font-bold text-gray-800 dark:text-gray-200">
-          👥 Elenco Dipendenti
-          <span className="text-xs font-normal text-gray-400 ml-2">({users.length})</span>
-        </h3>
-        <div className="relative">
-          <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input
-            value={searchTerm}
-            onChange={e => setSearchTerm(e.target.value)}
-            placeholder="Cerca..."
-            className="pl-8 pr-3 py-1.5 text-xs border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-white placeholder-gray-400 focus:ring-1 focus:ring-amber-500 focus:border-transparent outline-none w-40"
-          />
+    <Wrapper>
+      {!embedded && (
+        <div className="flex items-center justify-between p-4 border-b border-gray-100 dark:border-gray-700">
+          <h3 className="text-sm font-bold text-gray-800 dark:text-gray-200">
+            👥 Elenco Dipendenti
+            <span className="text-xs font-normal text-gray-400 ml-2">({users.length})</span>
+          </h3>
+          <div className="relative">
+            <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+              placeholder="Cerca..."
+              className="pl-8 pr-3 py-1.5 text-xs border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-800 dark:text-white placeholder-gray-400 focus:ring-1 focus:ring-amber-500 focus:border-transparent outline-none w-40"
+            />
+          </div>
         </div>
-      </div>
+      )}
       <div className="overflow-x-auto">
         <table className="w-full text-sm text-left">
           <thead className="bg-gray-50 dark:bg-gray-700/50 text-gray-500 uppercase text-[10px] font-bold tracking-wider">
