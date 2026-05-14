@@ -473,23 +473,30 @@ export const PositionMatchingView: React.FC<PositionMatchingViewProps> = ({
       return;
     }
     // Build UnifiedCandidate-like objects from rows (re-using shortlist comparison modal which expects pair)
-    const buildUC = (row: UnifiedRow): UnifiedCandidate => ({
-      id: row.id,
-      type: row.kind,
-      name: row.name,
-      jobTitle: row.subtitle,
-      matchScore: row.score,
-      skills: [...row.hardMatched, ...row.hardMissing],
-      matchedSkills: row.hardMatched,
-      missingSkills: row.hardMissing,
-      softSkills: row.softMatched,
-      seniority: row.seniority,
-      seniorityMatch: row.seniorityMatch === 'match',
-      location: row.location,
-      status: 'shortlisted',
-      internalUserId: row.kind === 'internal' ? row.id : undefined,
-      externalProfileId: row.kind === 'external' ? row.id : undefined,
-    });
+    const buildUC = (row: UnifiedRow): UnifiedCandidate => {
+      const src: any = row.internal?.user || row.external?.profile;
+      return {
+        id: row.id,
+        type: row.kind,
+        name: row.name,
+        jobTitle: row.subtitle,
+        avatarUrl: src?.avatarUrl,
+        matchScore: row.score,
+        riasecScore: src?.riasecScore,
+        profileCode: src?.profileCode,
+        skills: [...row.hardMatched, ...row.hardMissing],
+        matchedSkills: row.hardMatched,
+        missingSkills: row.hardMissing,
+        softSkills: src?.karmaData?.softSkills || row.softMatched,
+        seniority: row.seniority,
+        seniorityMatch: row.seniorityMatch === 'match',
+        yearsExperience: src?.yearsExperience ?? src?.karmaData?.yearsExperience,
+        location: row.location,
+        status: 'shortlisted',
+        internalUserId: row.kind === 'internal' ? row.id : undefined,
+        externalProfileId: row.kind === 'external' ? row.id : undefined,
+      };
+    };
     const rows = ids.map(id => filtered.find(r => r.id === id)!).filter(Boolean);
     if (rows.length < 2) return;
     setComparisonModal([buildUC(rows[0]), buildUC(rows[1])]);
