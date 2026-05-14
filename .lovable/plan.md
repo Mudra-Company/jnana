@@ -1,56 +1,74 @@
-# Fix `CandidateComparisonModal` legibility (light + dark)
+# Fix dati mancanti nel modale "Confronta Candidati"
 
-## Root cause
+## Diagnosi
 
-`src/components/shortlist/CandidateComparisonModal.tsx` is the only component in this project that uses shadcn-style semantic tokens (`bg-background`, `text-foreground`, `bg-muted`, `text-muted-foreground`, `border`, `divide-x`, `bg-primary/20`, etc.). 
+Nel modale di confronto Riccardo appare con **Profilo RIASEC: N/A**, **Hard Skills: "Nessuna skill richiesta"** e nessun avatar/esperienza, mentre la stessa persona nel `UnifiedDetailModal` ha tutti i dati. La causa è in `views/admin/PositionMatchingView.tsx`, funzione `buildUC` (riga ~476):
 
-This project does **not** define those tokens — Tailwind is loaded via CDN in `index.html` with a custom `jnana.*` palette only. Result: the modal renders with **transparent background, transparent borders, invisible text**. The only visible elements are the native `<textarea>` (browser default white) and the `Button` primary variant — exactly what the screenshot shows.
+```ts
+const buildUC = (row: UnifiedRow): UnifiedCandidate => ({
+  id, type, name, jobTitle, matchScore,
+  skills, matchedSkills, missingSkills,
+  softSkills: row.softMatched,   // ← solo le matched, e per gli interni è []
+  seniority, seniorityMatch, location, status,
+  internalUserId, externalProfileId,
+});
+```
 
-The page behind also gets a `bg-black/50` overlay, so the dashboard bleeds through and looks "broken".
+Mancano: `riasecScore`, `profileCode`, `avatarUrl`, `yearsExperience` e le **soft skills complete** del candidato. La fonte (`row.internal.user` / `row.external.profile`) li espone già — semplicemente non vengono mappati.
 
-## Fix scope (UI-only, single file)
+In più: per la posizione "Stagista" `requiredSkills.length === 0`, quindi la sezione "Hard Skills Richieste" mostra solo "Nessuna skill richiesta" e perde l'informazione su cosa il candidato sa fare.
 
-Rewrite all class names in `CandidateComparisonModal.tsx` to use the project's `jnana-*` tokens + standard Tailwind grays (already used everywhere else in the codebase, e.g. `Card.tsx`, `OrgExplorerPanel.tsx`).
+## Modifiche
 
-### Token mapping
+### 1. `views/admin/PositionMatchingView.tsx` — arricchire `buildUC`
 
-| Current (broken)              | Replacement (light / dark)                                    |
-|-------------------------------|---------------------------------------------------------------|
-| `bg-background`               | `bg-white dark:bg-gray-800`                                   |
-| `bg-muted/30`, `bg-muted/50`  | `bg-jnana-bg dark:bg-gray-900/50`                             |
-| `bg-muted`                    | `bg-gray-100 dark:bg-gray-700`                                |
-| `text-foreground`             | `text-jnana-text dark:text-gray-100`                          |
-| `text-muted-foreground`       | `text-gray-500 dark:text-gray-400`                            |
-| `border`, `border-t`, `divide-x` | add explicit `border-gray-200 dark:border-gray-700`        |
-| `bg-primary/20 → /40` gradient avatar | `from-jnana-sage/20 to-jnana-sage/40 text-jnana-sage` (dark: `text-jnana-powder`) |
-| `text-primary`, `bg-primary/70` (RIASEC bars) | `text-jnana-sage` / `bg-jnana-sage`             |
-| Score colors (`text-green-600` etc.) | keep, but bump to `text-green-500 dark:text-green-400`  |
+Mappare i campi mancanti leggendo da `row.internal?.user` e `row.external?.profile`:
 
-### Specific structural fixes
+```ts
+const buildUC = (row: UnifiedRow): UnifiedCandidate => {
+  const u = row.internal?.user;
+  const p = row.external?.profile;
+  const src: any = u || p;
+  return {
+    id: row.id,
+    type: row.kind,
+    name: row.name,
+    jobTitle: row.subtitle,
+    avatarUrl: src?.avatarUrl,
+    matchScore: row.score,
+    riasecScore: src?.riasecScore,
+    profileCode: src?.profileCode,
+    skills: [...row.hardMatched, ...row.hardMissing],
+    matchedSkills: row.hardMatched,
+    missingSkills: row.hardMissing,
+    softSkills: src?.karmaData?.softSkills || row.softMatched,
+    seniority: row.seniority,
+    seniorityMatch: row.seniorityMatch === 'match',
+    yearsExperience: src?.yearsExperience ?? src?.karmaData?.yearsExperience,
+    location: row.location,
+    status: 'shortlisted',
+    internalUserId: row.kind === 'internal' ? row.id : undefined,
+    externalProfileId: row.kind === 'external' ? row.id : undefined,
+  };
+};
+```
 
-1. **Modal shell**: `bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700` — guarantees opaque surface over the `bg-black/50` overlay.
-2. **Header bar**: solid `bg-jnana-bg dark:bg-gray-900/40` with bottom border; title `text-jnana-text dark:text-white`, subtitle `text-gray-500 dark:text-gray-400`.
-3. **Two-column body**: replace `divide-x` with explicit `border-r border-gray-200 dark:border-gray-700` on the left column (only on `md+`, stack on mobile via `flex-col md:flex-row`).
-4. **Match score block**: `bg-jnana-bg dark:bg-gray-900/40 border border-gray-200 dark:border-gray-700`, larger ring, score color uses tier (green ≥80, amber 60–79, red <60) with dark variants.
-5. **RIASEC bars**: track `bg-gray-200 dark:bg-gray-700`, fill `bg-jnana-sage`, labels `text-gray-600 dark:text-gray-300`.
-6. **Skill rows**: matched icon `text-green-600 dark:text-green-400`, missing icon `text-red-500 dark:text-red-400`, label color follows match state.
-7. **Soft skills chips**: `bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300`.
-8. **Notes textarea**: `bg-white dark:bg-gray-900 text-jnana-text dark:text-gray-100 border-gray-300 dark:border-gray-700 placeholder-gray-400 focus:ring-2 focus:ring-jnana-sage focus:border-transparent`.
-9. **Section dividers**: every `border-t pt-3` → `border-t border-gray-200 dark:border-gray-700 pt-3`.
-10. **Action button**: change `variant={index === 0 ? "primary" : "outline"}` (the project's `Button` doesn't have `"primary"` — verify and use `"default"` or the existing primary variant). Make both buttons full-width and visually distinct (filled jnana-sage vs outlined).
-11. **Close (X) and footer "Torna alla Shortlist"**: ensure visible hover states in dark mode (`hover:bg-gray-100 dark:hover:bg-gray-700`).
-12. **Accessibility**: add `role="dialog"` `aria-modal="true"` `aria-labelledby` on shell; click-outside to close on overlay.
+### 2. `src/components/shortlist/CandidateComparisonModal.tsx` — fallback hard skills
 
-### Out of scope
+Quando `requiredSkills` è vuota, mostrare le hard skill del candidato (semplice elenco testuale dai `matchedSkills` se presenti, altrimenti il messaggio attuale). Mini-modifica al blocco "Hard Skills Richieste":
 
-- No layout/UX restructuring (sections, order, fields stay as-is).
-- No changes to `CandidateRatingStars`, `CandidateStatusBadge`, `Button`, or any data flow.
-- No changes to the comparison logic in `PositionMatchingView.tsx`.
+- Se la posizione **ha** skill richieste → comportamento attuale (✓/✗ per ogni richiesta).
+- Se **non ha** skill richieste ma il candidato ha `matchedSkills.length > 0` → titolo cambia in "Hard Skills del candidato" e si mostra l'elenco con icona ✓ neutra.
+- Solo se entrambi vuoti → "Nessuna skill richiesta / disponibile".
 
-## Files
+Nessuna modifica strutturale, solo branching del render.
 
-- `src/components/shortlist/CandidateComparisonModal.tsx` — full className refactor + minor a11y attrs.
+## Fuori scope
 
-## Verification
+- Caricare extra dati dal DB: tutti i campi necessari sono già nei row.
+- Riscrivere la logica di matching o il layout del modale.
+- Confronto >2 candidati (già flagged come "in arrivo").
 
-After edit: open the comparison modal in light mode and dark mode, confirm opaque surface, all text legible, RIASEC bars/skill icons visible, both action buttons distinguishable, textarea contrast OK.
+## Verifica
+
+Aprire il matching della posizione "Stagista", selezionare Riccardo + un altro candidato, lanciare "Confronta": il profilo RIASEC, l'avatar, le soft skill complete e le hard skill del candidato devono comparire come nello screenshot del `UnifiedDetailModal`.
