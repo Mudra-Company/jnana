@@ -172,6 +172,18 @@ export const KarmaProfileDetailView: React.FC<KarmaProfileDetailViewProps> = ({ 
         Torna alla lista
       </Button>
 
+      {/* HR Action Panel — only when entered from a position matching context */}
+      {fromPositionId && activeCompanyData && (
+        <CandidateHRActionPanel
+          positionId={fromPositionId}
+          companyId={activeCompanyData.id}
+          candidateUserId={userId}
+          onBackToPosition={() =>
+            navigate({ type: 'ADMIN_POSITION_MATCHING', positionId: fromPositionId })
+          }
+        />
+      )}
+
       {/* Profile Header */}
       <Card className="p-6 mb-6">
         <div className="flex items-start gap-6">
