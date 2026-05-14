@@ -1628,6 +1628,8 @@ export const CompanyOrgView: React.FC<{
     }, [company.id, fetchRoles]);
 
     // === DEEP-LINK: focus role from URL (?role=<id>) ===
+    // Opens the SAME UnifiedDetailModal used by the org chart click,
+    // so Dashboard → Org Chart → role detail stays consistent.
     const [searchParams, setSearchParams] = useSearchParams();
     const focusRoleIdFromUrl = searchParams.get('role');
     const hasOpenedFocusRoleRef = React.useRef<string | null>(null);
@@ -1638,12 +1640,32 @@ export const CompanyOrgView: React.FC<{
         const role = roles.find(r => r.id === focusRoleIdFromUrl);
         if (!role) return;
         hasOpenedFocusRoleRef.current = focusRoleIdFromUrl;
-        setSelectedRole(role);
+
+        (async () => {
+            const fullRole = (await fetchRoleWithAssignments(role.id)) || role;
+            const primaryAssignment = fullRole.assignments?.find(
+                a => a.assignmentType === 'primary' && !a.endDate
+            ) || fullRole.assignments?.[0] || null;
+            const assignee = primaryAssignment
+                ? users.find(u =>
+                    u.id === primaryAssignment.userId ||
+                    (primaryAssignment.companyMemberId && u.memberId === primaryAssignment.companyMemberId)
+                  ) || null
+                : null;
+            const position: UnifiedPosition = {
+                role: fullRole,
+                assignee,
+                assignment: primaryAssignment,
+                metrics: { roleFitScore: 0, managerFitScore: null, cultureFitScore: 0, isLeader: false }
+            };
+            setSelectedUnifiedPosition(position);
+        })();
+
         // Clean the URL so refresh / back doesn't re-trigger after close
         const next = new URLSearchParams(searchParams);
         next.delete('role');
         setSearchParams(next, { replace: true });
-    }, [focusRoleIdFromUrl, roles, searchParams, setSearchParams]);
+    }, [focusRoleIdFromUrl, roles, users, searchParams, setSearchParams, fetchRoleWithAssignments]);
     
     // Calculate all hiring positions in the company
     const allHiringPositions = useMemo(() => users.filter(u => u.isHiring), [users]);
