@@ -30,13 +30,16 @@ import { Card } from '../../components/Card';
 import { Button } from '../../components/Button';
 import { useKarmaAdminSearch, KarmaSearchResult } from '../../src/hooks/useKarmaAdminSearch';
 import { RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, ResponsiveContainer } from 'recharts';
+import { CandidateHRActionPanel } from '../../src/components/shortlist/CandidateHRActionPanel';
+import { useAppData } from '../../src/app/AppDataContext';
 
 interface KarmaProfileDetailViewProps {
   userId: string;
   onBack: () => void;
+  fromPositionId?: string;
 }
 
-export const KarmaProfileDetailView: React.FC<KarmaProfileDetailViewProps> = ({ userId, onBack }) => {
+export const KarmaProfileDetailView: React.FC<KarmaProfileDetailViewProps> = ({ userId, onBack, fromPositionId }) => {
   const { fetchProfile } = useKarmaAdminSearch();
   const [profileData, setProfileData] = useState<KarmaSearchResult | null>(null);
   const [isLoading, setIsLoading] = useState(true);
