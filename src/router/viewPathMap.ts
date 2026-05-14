@@ -85,7 +85,9 @@ export function viewToPath(view: ViewState): string {
     case 'USER_RESULT':
       return `/me/${v.userId}`;
     case 'KARMA_PROFILE_VIEW':
-      return `/karma/profile/${v.userId}`;
+      return v.fromPositionId
+        ? `/karma/profile/${v.userId}?position=${v.fromPositionId}`
+        : `/karma/profile/${v.userId}`;
     case 'KARMA_ONBOARDING_STEP':
       return `/karma/onboarding/${v.step}`;
     case 'COMPANY_CANDIDATE_VIEW':
