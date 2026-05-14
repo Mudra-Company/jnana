@@ -130,13 +130,17 @@ export default function KarmaAIConfigView({ onBack }: KarmaAIConfigViewProps) {
         system_prompt: activeConfig.system_prompt,
         objectives: [...activeConfig.objectives],
         profile_inputs: { ...activeConfig.profile_inputs },
+        allowed_inputs: { ...((activeConfig as any).allowed_inputs || {}) },
+        output_schema: { fields: [...(((activeConfig as any).output_schema?.fields) || [])] } as any,
+        discussion_style: { ...((activeConfig as any).discussion_style || {}) } as any,
+        scenario: (activeConfig as any).scenario || (activeBotType === 'jnana' ? 'role_fit' : 'discovery'),
         model: activeConfig.model,
         max_exchanges: activeConfig.max_exchanges,
         temperature: activeConfig.temperature,
         closing_patterns: [...activeConfig.closing_patterns],
-      });
+      } as any);
     }
-  }, [activeConfig]);
+  }, [activeConfig, activeBotType]);
 
   const handleSave = async () => {
     if (!editedConfig || !versionNotes.trim()) {
