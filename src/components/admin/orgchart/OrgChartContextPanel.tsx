@@ -62,6 +62,12 @@ const findPath = (root: OrgNode, id: string, acc: OrgNode[] = []): OrgNode[] | n
   return null;
 };
 
+const dedupById = <T extends { id?: string }>(arr: T[]): T[] =>
+  Array.from(new Map(arr.filter(x => x.id).map(x => [x.id as string, x])).values());
+
+const isRealPerson = (u: User): boolean =>
+  !!u.id && !u.isHiring && !!((u.firstName?.trim() || '') || (u.lastName?.trim() || ''));
+
 const collectNodeUsers = (node: OrgNode, users: User[]): User[] => {
   const ids = new Set<string>();
   const walk = (n: OrgNode) => {
@@ -69,7 +75,7 @@ const collectNodeUsers = (node: OrgNode, users: User[]): User[] => {
     n.children?.forEach(walk);
   };
   walk(node);
-  return users.filter(u => u.departmentId && ids.has(u.departmentId));
+  return dedupById(users.filter(u => u.departmentId && ids.has(u.departmentId)));
 };
 
 const calcClimateAvg = (us: User[]): number | null => {
