@@ -62,6 +62,12 @@ const findPath = (root: OrgNode, id: string, acc: OrgNode[] = []): OrgNode[] | n
   return null;
 };
 
+const dedupById = <T extends { id?: string }>(arr: T[]): T[] =>
+  Array.from(new Map(arr.filter(x => x.id).map(x => [x.id as string, x])).values());
+
+const isRealPerson = (u: User): boolean =>
+  !!u.id && !u.isHiring && !!((u.firstName?.trim() || '') || (u.lastName?.trim() || ''));
+
 const collectNodeUsers = (node: OrgNode, users: User[]): User[] => {
   const ids = new Set<string>();
   const walk = (n: OrgNode) => {
@@ -69,7 +75,7 @@ const collectNodeUsers = (node: OrgNode, users: User[]): User[] => {
     n.children?.forEach(walk);
   };
   walk(node);
-  return users.filter(u => u.departmentId && ids.has(u.departmentId));
+  return dedupById(users.filter(u => u.departmentId && ids.has(u.departmentId)));
 };
 
 const calcClimateAvg = (us: User[]): number | null => {
@@ -151,7 +157,7 @@ const CompanyView: React.FC<{
   users: User[];
   roles: CompanyRole[];
 }> = ({ company, users, roles }) => {
-  const totalPeople = users.filter(u => !u.isHiring && (u.firstName || u.lastName)).length;
+  const totalPeople = dedupById(users).filter(isRealPerson).length;
   const totalRoles = roles.length;
   const openPositions =
     roles.filter(r => r.isHiring).length + users.filter(u => u.isHiring).length;
@@ -273,7 +279,7 @@ const NodeView: React.FC<{
   onSelectNode: (id: string) => void;
   onSelectCompany: () => void;
 }> = ({ node, path, users, roles, onSelectNode, onSelectCompany }) => {
-  const directUsers = users.filter(u => u.departmentId === node.id);
+  const directUsers = dedupById(users.filter(u => u.departmentId === node.id));
   const subtreeUsers = collectNodeUsers(node, users);
   const climate = calcClimateAvg(directUsers);
   const gap = calcSkillGap(directUsers);
@@ -320,13 +326,13 @@ const NodeView: React.FC<{
 
       <div className="grid grid-cols-2 gap-2">
         <KpiTile
-          label="Persone (nodo)"
-          value={directUsers.filter(u => !u.isHiring && (u.firstName || u.lastName)).length}
+          label="In questo nodo"
+          value={directUsers.filter(isRealPerson).length}
           icon={<Users size={12} />}
         />
         <KpiTile
-          label="Persone (sottoalbero)"
-          value={subtreeUsers.filter(u => !u.isHiring && (u.firstName || u.lastName)).length}
+          label="Collaboratori"
+          value={subtreeUsers.filter(isRealPerson).length}
           icon={<Users size={12} />}
         />
         <KpiTile label="Ruoli" value={nodeRoles.length} icon={<Briefcase size={12} />} />
