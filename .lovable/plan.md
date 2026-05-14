@@ -1,34 +1,37 @@
-# Fix dati mancanti nel modale "Confronta Candidati"
+# Fix: dati interno mancanti nel "Confronta Candidati"
 
 ## Diagnosi
 
-Nel modale di confronto Riccardo appare con **Profilo RIASEC: N/A**, **Hard Skills: "Nessuna skill richiesta"** e nessun avatar/esperienza, mentre la stessa persona nel `UnifiedDetailModal` ha tutti i dati. La causa è in `views/admin/PositionMatchingView.tsx`, funzione `buildUC` (riga ~476):
+Per il candidato esterno (Giuseppe da Karma) ora arriva tutto perché `KarmaProfile` espone già `riasecScore` e `hardSkills` con la stessa nomenclatura usata dal modale.
 
-```ts
-const buildUC = (row: UnifiedRow): UnifiedCandidate => ({
-  id, type, name, jobTitle, matchScore,
-  skills, matchedSkills, missingSkills,
-  softSkills: row.softMatched,   // ← solo le matched, e per gli interni è []
-  seniority, seniorityMatch, location, status,
-  internalUserId, externalProfileId,
-});
-```
+Per il candidato interno (Riccardo) i campi sono diversi nello schema `User`:
 
-Mancano: `riasecScore`, `profileCode`, `avatarUrl`, `yearsExperience` e le **soft skills complete** del candidato. La fonte (`row.internal.user` / `row.external.profile`) li espone già — semplicemente non vengono mappati.
+| Modale si aspetta | `KarmaProfile` (esterno) | `User` (interno)        |
+|-------------------|--------------------------|-------------------------|
+| `riasecScore`     | `riasecScore` ✓          | **`results`** ✗         |
+| `hardSkills` (string[]) | `hardSkills: UserHardSkill[]` | `hardSkills: UserHardSkillBasic[]` (oggetti) |
 
-In più: per la posizione "Stagista" `requiredSkills.length === 0`, quindi la sezione "Hard Skills Richieste" mostra solo "Nessuna skill richiesta" e perde l'informazione su cosa il candidato sa fare.
+In `buildUC` (`views/admin/PositionMatchingView.tsx`) attualmente facciamo `src?.riasecScore` — per gli interni è `undefined`, quindi le 6 barre RIASEC non appaiono (compare solo il `profileCode` "SAE"). Per le hard skills, `candidate.skills = [...row.hardMatched, ...row.hardMissing]` è vuoto quando la posizione non ha skill richieste, e il fallback nel modale legge `candidate.skills` che resta vuoto → "Nessuna skill richiesta o disponibile".
 
-## Modifiche
+## Modifica (1 file)
 
-### 1. `views/admin/PositionMatchingView.tsx` — arricchire `buildUC`
-
-Mappare i campi mancanti leggendo da `row.internal?.user` e `row.external?.profile`:
+`views/admin/PositionMatchingView.tsx` — funzione `buildUC` (~riga 476): normalizzare le due shape.
 
 ```ts
 const buildUC = (row: UnifiedRow): UnifiedCandidate => {
   const u = row.internal?.user;
   const p = row.external?.profile;
   const src: any = u || p;
+
+  // RIASEC: interno usa `results`, esterno usa `riasecScore`
+  const riasec = (u as any)?.results || (p as any)?.riasecScore;
+
+  // Hard skills proprie del candidato (per il fallback quando la posizione non ha richieste)
+  const ownHardRaw: any[] = u?.hardSkills || p?.hardSkills || [];
+  const ownHardNames = ownHardRaw
+    .map(s => (typeof s === 'string' ? s : s?.name || s?.skill || ''))
+    .filter(Boolean);
+
   return {
     id: row.id,
     type: row.kind,
@@ -36,10 +39,11 @@ const buildUC = (row: UnifiedRow): UnifiedCandidate => {
     jobTitle: row.subtitle,
     avatarUrl: src?.avatarUrl,
     matchScore: row.score,
-    riasecScore: src?.riasecScore,
+    riasecScore: riasec,
     profileCode: src?.profileCode,
-    skills: [...row.hardMatched, ...row.hardMissing],
-    matchedSkills: row.hardMatched,
+    // skills = unione richieste + skill possedute → garantisce il fallback nel modale
+    skills: Array.from(new Set([...row.hardMatched, ...row.hardMissing, ...ownHardNames])),
+    matchedSkills: row.hardMatched.length ? row.hardMatched : ownHardNames,
     missingSkills: row.hardMissing,
     softSkills: src?.karmaData?.softSkills || row.softMatched,
     seniority: row.seniority,
@@ -53,22 +57,13 @@ const buildUC = (row: UnifiedRow): UnifiedCandidate => {
 };
 ```
 
-### 2. `src/components/shortlist/CandidateComparisonModal.tsx` — fallback hard skills
-
-Quando `requiredSkills` è vuota, mostrare le hard skill del candidato (semplice elenco testuale dai `matchedSkills` se presenti, altrimenti il messaggio attuale). Mini-modifica al blocco "Hard Skills Richieste":
-
-- Se la posizione **ha** skill richieste → comportamento attuale (✓/✗ per ogni richiesta).
-- Se **non ha** skill richieste ma il candidato ha `matchedSkills.length > 0` → titolo cambia in "Hard Skills del candidato" e si mostra l'elenco con icona ✓ neutra.
-- Solo se entrambi vuoti → "Nessuna skill richiesta / disponibile".
-
-Nessuna modifica strutturale, solo branching del render.
+Nessun'altra modifica: il modale `CandidateComparisonModal` ha già il branch "no required skills → mostra le skill del candidato dal `skills`/`matchedSkills`" introdotto nella patch precedente, quindi appena `matchedSkills` è popolato con le hard skill di Riccardo apparirà l'elenco; le 6 barre RIASEC compariranno appena `riasecScore` è valorizzato.
 
 ## Fuori scope
 
-- Caricare extra dati dal DB: tutti i campi necessari sono già nei row.
-- Riscrivere la logica di matching o il layout del modale.
-- Confronto >2 candidati (già flagged come "in arrivo").
+- Caricamento dati extra dal DB.
+- Riallineamento dei tipi `User` ↔ `KarmaProfile` (refactor strutturale, non necessario per il fix).
 
 ## Verifica
 
-Aprire il matching della posizione "Stagista", selezionare Riccardo + un altro candidato, lanciare "Confronta": il profilo RIASEC, l'avatar, le soft skill complete e le hard skill del candidato devono comparire come nello screenshot del `UnifiedDetailModal`.
+Stessa posizione "Stagista", confronto Riccardo + Giuseppe: per Riccardo devono apparire le 6 barre RIASEC (come per Giuseppe) e l'elenco "Hard Skills del candidato" con Excel Advanced + Social Media Marketing.
