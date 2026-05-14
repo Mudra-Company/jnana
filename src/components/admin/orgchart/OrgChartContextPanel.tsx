@@ -193,7 +193,7 @@ const CompanyView: React.FC<{
   const openPositions =
     roles.filter(r => r.isHiring).length + users.filter(u => u.isHiring).length;
   const climate = calcClimateAvg(users);
-  const gap = calcSkillGap(users);
+  const gap = calcRoleSkillGap(roles, users);
 
   const culturalDrivers = useMemo(() => {
     const acc: OrgNode[] = [];
@@ -316,8 +316,8 @@ const NodeView: React.FC<{
     (node.children || []).flatMap(child => collectNodeUsers(child, users))
   );
   const climate = calcClimateAvg(directUsers);
-  const gap = calcSkillGap(directUsers);
   const nodeRoles = roles.filter(r => r.orgNodeId === node.id);
+  const gap = calcRoleSkillGap(nodeRoles, users);
   const hiringHere =
     nodeRoles.filter(r => r.isHiring).length + directUsers.filter(u => u.isHiring).length;
 
