@@ -85,25 +85,56 @@ const calcClimateAvg = (us: User[]): number | null => {
   return tot / withClimate.length;
 };
 
-const calcSkillGap = (us: User[]): number | null => {
-  let gaps = 0;
+/**
+ * Skill Gap = % of required skills (hard + soft) across the given roles
+ * NOT covered by their current assignee.
+ *
+ * - Roles without an assigned real person → all required skills count as gap
+ *   (open positions naturally penalize the score).
+ * - Soft skills are matched against assignee.karmaData.softSkills.
+ * - Hard skills are matched against assignee.hardSkills (by name).
+ * - Returns null if there are no required skills at all (shows "—").
+ */
+const calcRoleSkillGap = (roles: CompanyRole[], users: User[]): number | null => {
   let req = 0;
-  us.forEach(u => {
-    const p = u.requiredProfile;
-    if (!p) return;
-    const required = [...(p.softSkills || []), ...(p.hardSkills || [])];
-    const userSkills = u.karmaData?.softSkills || [];
-    required.forEach(r => {
+  let gaps = 0;
+
+  const fuzzyMatch = (needle: string, haystack: string[]) =>
+    haystack.some(h =>
+      h.toLowerCase().includes(needle.toLowerCase()) ||
+      needle.toLowerCase().includes(h.toLowerCase())
+    );
+
+  roles.forEach(role => {
+    const reqSoft = (role.requiredSoftSkills || []).map(s => s.name);
+    const reqHard = (role.requiredHardSkills || []).map(s => s.name);
+    if (reqSoft.length === 0 && reqHard.length === 0) return;
+
+    // Resolve assignee (same logic as buildUnifiedPositions)
+    let assignee: User | null = null;
+    if (role.currentAssignee?.id) {
+      assignee = users.find(u => u.id === role.currentAssignee?.id) || null;
+    }
+    if (!assignee && role.assignments && role.assignments.length > 0) {
+      const primary = role.assignments.find(a => a.assignmentType === 'primary');
+      if (primary?.userId) assignee = users.find(u => u.id === primary.userId) || null;
+    }
+    const hasRealAssignee = assignee && isRealPerson(assignee);
+
+    const userSoft = hasRealAssignee ? (assignee!.karmaData?.softSkills || []) : [];
+    const userHard = hasRealAssignee ? (assignee!.hardSkills?.map(s => s.name) || []) : [];
+
+    reqSoft.forEach(s => {
       req++;
-      const hit = userSkills.some(
-        s =>
-          s.toLowerCase().includes(r.toLowerCase()) ||
-          r.toLowerCase().includes(s.toLowerCase())
-      );
-      if (!hit) gaps++;
+      if (!hasRealAssignee || !fuzzyMatch(s, userSoft)) gaps++;
+    });
+    reqHard.forEach(s => {
+      req++;
+      if (!hasRealAssignee || !fuzzyMatch(s, userHard)) gaps++;
     });
   });
-  if (!req) return null;
+
+  if (req === 0) return null;
   return Math.round((gaps / req) * 100);
 };
 
@@ -162,7 +193,7 @@ const CompanyView: React.FC<{
   const openPositions =
     roles.filter(r => r.isHiring).length + users.filter(u => u.isHiring).length;
   const climate = calcClimateAvg(users);
-  const gap = calcSkillGap(users);
+  const gap = calcRoleSkillGap(roles, users);
 
   const culturalDrivers = useMemo(() => {
     const acc: OrgNode[] = [];
@@ -285,8 +316,8 @@ const NodeView: React.FC<{
     (node.children || []).flatMap(child => collectNodeUsers(child, users))
   );
   const climate = calcClimateAvg(directUsers);
-  const gap = calcSkillGap(directUsers);
   const nodeRoles = roles.filter(r => r.orgNodeId === node.id);
+  const gap = calcRoleSkillGap(nodeRoles, users);
   const hiringHere =
     nodeRoles.filter(r => r.isHiring).length + directUsers.filter(u => u.isHiring).length;
 
