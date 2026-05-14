@@ -333,9 +333,21 @@ export const AdminDashboardView: React.FC<AdminDashboardProps> = ({
   };
 
   const handleRoleClick = (roleId: string) => {
-    // Navigate to org chart with focus on this role
-    setView({ type: 'ADMIN_ORG_CHART' });
+    // Navigate to org chart and focus on the selected role
+    setView({ type: 'ADMIN_ORG_CHART', focusRoleId: roleId });
   };
+
+  // Greeting helper
+  const greeting = (() => {
+    const h = new Date().getHours();
+    if (h < 5) return 'Buona notte';
+    if (h < 13) return 'Buongiorno';
+    if (h < 19) return 'Buon pomeriggio';
+    return 'Buonasera';
+  })();
+  const todayLabel = new Date().toLocaleDateString('it-IT', {
+    weekday: 'long', day: 'numeric', month: 'long',
+  });
 
   return (
     <div className="p-6 lg:p-8 max-w-7xl mx-auto space-y-6 relative">
