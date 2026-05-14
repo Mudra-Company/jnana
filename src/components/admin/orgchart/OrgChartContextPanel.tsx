@@ -157,7 +157,7 @@ const CompanyView: React.FC<{
   users: User[];
   roles: CompanyRole[];
 }> = ({ company, users, roles }) => {
-  const totalPeople = users.filter(u => !u.isHiring && (u.firstName || u.lastName)).length;
+  const totalPeople = dedupById(users).filter(isRealPerson).length;
   const totalRoles = roles.length;
   const openPositions =
     roles.filter(r => r.isHiring).length + users.filter(u => u.isHiring).length;
