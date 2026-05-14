@@ -178,6 +178,7 @@ export const KarmaProfileDetailView: React.FC<KarmaProfileDetailViewProps> = ({ 
           positionId={fromPositionId}
           companyId={activeCompanyData.id}
           candidateUserId={userId}
+          profile={profile}
           onBackToPosition={() =>
             navigate({ type: 'ADMIN_POSITION_MATCHING', positionId: fromPositionId })
           }
