@@ -26,14 +26,59 @@ export interface ProfileInputs {
   org_level?: boolean;
 }
 
+export type KarmaScenario = 'discovery' | 'role_fit' | 'climate_pulse';
+
+export interface OutputSchemaField {
+  name: string;
+  type: 'string' | 'number' | 'enum' | 'array_string' | 'array_skill_assessment' | 'array_soft_assessment' | 'array_culture_fit' | 'object_manager_fit' | 'array_growth' | 'object_aspirations';
+  description?: string;
+  required?: boolean;
+  enum?: string[];
+}
+export interface OutputSchema { fields: OutputSchemaField[]; }
+
+export interface DiscussionStyle {
+  tone?: string;
+  max_response_sentences?: number;
+  language?: string;
+  follow_up_depth?: 'shallow' | 'medium' | 'deep';
+}
+
+// Allowed inputs: tree-shaped, default-on if missing
+export interface AllowedInputs {
+  // Persona
+  bio?: boolean; headline?: boolean; experiences?: boolean; education?: boolean;
+  hard_skills?: boolean; hard_skills_leveled?: boolean; languages?: boolean;
+  certifications?: boolean; portfolio?: boolean; riasec_score?: boolean;
+  // Org
+  org_position?: boolean; direct_reports?: boolean; org_level?: boolean;
+  manager_info?: boolean; communicates_with?: boolean;
+  // Role
+  role_title?: boolean; role_description?: boolean; required_hard_skills?: boolean;
+  required_soft_skills?: boolean; required_seniority?: boolean; kpis?: boolean;
+  responsibilities?: boolean; daily_tasks?: boolean;
+  // Gap
+  skill_gap?: boolean; seniority_gap?: boolean;
+  // Collaboration
+  collaboration_links?: boolean; environmental_impact?: boolean;
+  // Climate
+  climate_dimensions?: boolean; company_context?: boolean;
+  // History
+  karma_history?: boolean;
+}
+
 export interface KarmaBotConfig {
   id: string;
   bot_type: BotType;
+  scenario?: KarmaScenario | null;
   version: number;
   is_active: boolean;
   system_prompt: string;
   objectives: BotObjective[];
   profile_inputs: ProfileInputs;
+  allowed_inputs: AllowedInputs;
+  output_schema: OutputSchema;
+  discussion_style: DiscussionStyle;
   model: string;
   max_exchanges: number;
   temperature: number;
@@ -82,8 +127,12 @@ export function useKarmaBotConfig(botType: BotType) {
         ...config,
         objectives: (config.objectives || []) as unknown as BotObjective[],
         profile_inputs: (config.profile_inputs || {}) as unknown as ProfileInputs,
+        allowed_inputs: ((config as any).allowed_inputs || {}) as unknown as AllowedInputs,
+        output_schema: ((config as any).output_schema || { fields: [] }) as unknown as OutputSchema,
+        discussion_style: ((config as any).discussion_style || {}) as unknown as DiscussionStyle,
+        scenario: ((config as any).scenario || null) as KarmaScenario | null,
         closing_patterns: (config.closing_patterns || []) as unknown as string[],
-      })) as KarmaBotConfig[];
+      })) as unknown as KarmaBotConfig[];
 
       setConfigs(typedConfigs);
       setActiveConfig(typedConfigs.find(c => c.is_active) || null);
@@ -137,11 +186,15 @@ export function useKarmaBotConfig(botType: BotType) {
         .from('karma_bot_configs')
         .insert({
           bot_type: botType,
+          scenario: (config as any).scenario ?? (botType === 'jnana' ? 'role_fit' : 'discovery'),
           version: newVersion,
           is_active: true,
           system_prompt: config.system_prompt || '',
           objectives: JSON.parse(JSON.stringify(config.objectives || [])),
           profile_inputs: JSON.parse(JSON.stringify(config.profile_inputs || {})),
+          allowed_inputs: JSON.parse(JSON.stringify((config as any).allowed_inputs || {})),
+          output_schema: JSON.parse(JSON.stringify((config as any).output_schema || { fields: [] })),
+          discussion_style: JSON.parse(JSON.stringify((config as any).discussion_style || {})),
           model: config.model || 'google/gemini-2.5-flash',
           max_exchanges: config.max_exchanges || 8,
           temperature: config.temperature || 0.7,

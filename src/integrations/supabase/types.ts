@@ -797,48 +797,60 @@ export type Database = {
       }
       karma_bot_configs: {
         Row: {
+          allowed_inputs: Json
           bot_type: string
           closing_patterns: Json
           created_at: string | null
           created_by: string | null
+          discussion_style: Json
           id: string
           is_active: boolean
           max_exchanges: number
           model: string
           objectives: Json
+          output_schema: Json
           profile_inputs: Json
+          scenario: string | null
           system_prompt: string
           temperature: number | null
           version: number
           version_notes: string | null
         }
         Insert: {
+          allowed_inputs?: Json
           bot_type: string
           closing_patterns?: Json
           created_at?: string | null
           created_by?: string | null
+          discussion_style?: Json
           id?: string
           is_active?: boolean
           max_exchanges?: number
           model?: string
           objectives?: Json
+          output_schema?: Json
           profile_inputs?: Json
+          scenario?: string | null
           system_prompt: string
           temperature?: number | null
           version?: number
           version_notes?: string | null
         }
         Update: {
+          allowed_inputs?: Json
           bot_type?: string
           closing_patterns?: Json
           created_at?: string | null
           created_by?: string | null
+          discussion_style?: Json
           id?: string
           is_active?: boolean
           max_exchanges?: number
           model?: string
           objectives?: Json
+          output_schema?: Json
           profile_inputs?: Json
+          scenario?: string | null
           system_prompt?: string
           temperature?: number | null
           version?: number
@@ -890,42 +902,72 @@ export type Database = {
       }
       karma_sessions: {
         Row: {
+          alerts: Json | null
+          career_aspirations: Json | null
           company_id: string | null
           completed_at: string | null
+          confidence_overall: number | null
+          culture_fit: Json | null
+          growth_areas: Json | null
           id: string
+          manager_fit_signals: Json | null
           primary_values: string[] | null
           risk_factors: string[] | null
+          role_id: string | null
+          scenario: string | null
           seniority_assessment:
             | Database["public"]["Enums"]["seniority_level"]
             | null
+          skill_assessments: Json | null
+          soft_skill_assessments: Json | null
           soft_skills: string[] | null
           summary: string | null
           transcript: Json | null
           user_id: string
         }
         Insert: {
+          alerts?: Json | null
+          career_aspirations?: Json | null
           company_id?: string | null
           completed_at?: string | null
+          confidence_overall?: number | null
+          culture_fit?: Json | null
+          growth_areas?: Json | null
           id?: string
+          manager_fit_signals?: Json | null
           primary_values?: string[] | null
           risk_factors?: string[] | null
+          role_id?: string | null
+          scenario?: string | null
           seniority_assessment?:
             | Database["public"]["Enums"]["seniority_level"]
             | null
+          skill_assessments?: Json | null
+          soft_skill_assessments?: Json | null
           soft_skills?: string[] | null
           summary?: string | null
           transcript?: Json | null
           user_id: string
         }
         Update: {
+          alerts?: Json | null
+          career_aspirations?: Json | null
           company_id?: string | null
           completed_at?: string | null
+          confidence_overall?: number | null
+          culture_fit?: Json | null
+          growth_areas?: Json | null
           id?: string
+          manager_fit_signals?: Json | null
           primary_values?: string[] | null
           risk_factors?: string[] | null
+          role_id?: string | null
+          scenario?: string | null
           seniority_assessment?:
             | Database["public"]["Enums"]["seniority_level"]
             | null
+          skill_assessments?: Json | null
+          soft_skill_assessments?: Json | null
           soft_skills?: string[] | null
           summary?: string | null
           transcript?: Json | null
