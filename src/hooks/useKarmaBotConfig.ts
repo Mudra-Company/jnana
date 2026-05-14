@@ -127,8 +127,12 @@ export function useKarmaBotConfig(botType: BotType) {
         ...config,
         objectives: (config.objectives || []) as unknown as BotObjective[],
         profile_inputs: (config.profile_inputs || {}) as unknown as ProfileInputs,
+        allowed_inputs: ((config as any).allowed_inputs || {}) as unknown as AllowedInputs,
+        output_schema: ((config as any).output_schema || { fields: [] }) as unknown as OutputSchema,
+        discussion_style: ((config as any).discussion_style || {}) as unknown as DiscussionStyle,
+        scenario: ((config as any).scenario || null) as KarmaScenario | null,
         closing_patterns: (config.closing_patterns || []) as unknown as string[],
-      })) as KarmaBotConfig[];
+      })) as unknown as KarmaBotConfig[];
 
       setConfigs(typedConfigs);
       setActiveConfig(typedConfigs.find(c => c.is_active) || null);
