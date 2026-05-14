@@ -78,7 +78,20 @@ export const CandidateComparisonModal: React.FC<CandidateComparisonModalProps> =
 
   const renderSkillComparison = (candidate: UnifiedCandidate) => {
     if (requiredSkills.length === 0) {
-      return <span className="text-xs text-gray-400 dark:text-gray-500">Nessuna skill richiesta</span>;
+      const own = candidate.skills && candidate.skills.length > 0 ? candidate.skills : candidate.matchedSkills;
+      if (!own || own.length === 0) {
+        return <span className="text-xs text-gray-400 dark:text-gray-500">Nessuna skill richiesta o disponibile</span>;
+      }
+      return (
+        <div className="space-y-1">
+          {own.map(skill => (
+            <div key={skill} className="flex items-center gap-2 text-sm">
+              <CheckCircle2 className="w-4 h-4 text-jnana-sage flex-shrink-0" />
+              <span className="text-jnana-text dark:text-gray-100">{skill}</span>
+            </div>
+          ))}
+        </div>
+      );
     }
     return (
       <div className="space-y-1">
