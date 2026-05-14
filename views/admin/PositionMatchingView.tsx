@@ -474,7 +474,16 @@ export const PositionMatchingView: React.FC<PositionMatchingViewProps> = ({
     }
     // Build UnifiedCandidate-like objects from rows (re-using shortlist comparison modal which expects pair)
     const buildUC = (row: UnifiedRow): UnifiedCandidate => {
-      const src: any = row.internal?.user || row.external?.profile;
+      const u: any = row.internal?.user;
+      const p: any = row.external?.profile;
+      const src: any = u || p;
+      // RIASEC: interno usa `results`, esterno usa `riasecScore`
+      const riasec = u?.results || u?.riasecScore || p?.riasecScore;
+      // Hard skills proprie del candidato (interno: oggetti UserHardSkillBasic; esterno: oggetti UserHardSkill)
+      const ownHardRaw: any[] = u?.hardSkills || p?.hardSkills || [];
+      const ownHardNames: string[] = ownHardRaw
+        .map(s => (typeof s === 'string' ? s : s?.name || s?.skill || ''))
+        .filter(Boolean);
       return {
         id: row.id,
         type: row.kind,
@@ -482,10 +491,10 @@ export const PositionMatchingView: React.FC<PositionMatchingViewProps> = ({
         jobTitle: row.subtitle,
         avatarUrl: src?.avatarUrl,
         matchScore: row.score,
-        riasecScore: src?.riasecScore,
+        riasecScore: riasec,
         profileCode: src?.profileCode,
-        skills: [...row.hardMatched, ...row.hardMissing],
-        matchedSkills: row.hardMatched,
+        skills: Array.from(new Set([...row.hardMatched, ...row.hardMissing, ...ownHardNames])),
+        matchedSkills: row.hardMatched.length ? row.hardMatched : ownHardNames,
         missingSkills: row.hardMissing,
         softSkills: src?.karmaData?.softSkills || row.softMatched,
         seniority: row.seniority,
