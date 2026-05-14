@@ -1,69 +1,49 @@
-# Fix: dati interno mancanti nel "Confronta Candidati"
+## Problema
 
-## Diagnosi
+Aprendo il profilo di un candidato dal matching di posizione (`/karma/profile/:userId`):
+- non compare la **GlobalBar/ContextBar** (header) — l'utente non può navigare;
+- non ci sono **azioni HR** (aggiungi/rimuovi shortlist, scarta, rating, note HR) anche se il candidato è entrato dal contesto di una posizione.
 
-Per il candidato esterno (Giuseppe da Karma) ora arriva tutto perché `KarmaProfile` espone già `riasecScore` e `hardSkills` con la stessa nomenclatura usata dal modale.
+## Cause
 
-Per il candidato interno (Riccardo) i campi sono diversi nello schema `User`:
+1. In `App.tsx` (linea 743) il `<Header />` è nascosto per ogni view che inizia con `KARMA_`, incluso `KARMA_PROFILE_VIEW`. La condizione era pensata per il flusso candidato (welcome/onboarding/test/results) ma colpisce anche la vista profilo aperta da admin.
+2. In `AppRoutes.tsx` la navigazione dal matching usa `navigate({ type: 'KARMA_PROFILE_VIEW', userId })` senza passare il `positionId` di provenienza, e `KarmaProfileDetailView` non ha alcuna sezione di azioni HR contestuali (è nato come vista read-only super-admin).
 
-| Modale si aspetta | `KarmaProfile` (esterno) | `User` (interno)        |
-|-------------------|--------------------------|-------------------------|
-| `riasecScore`     | `riasecScore` ✓          | **`results`** ✗         |
-| `hardSkills` (string[]) | `hardSkills: UserHardSkill[]` | `hardSkills: UserHardSkillBasic[]` (oggetti) |
+## Cosa fare
 
-In `buildUC` (`views/admin/PositionMatchingView.tsx`) attualmente facciamo `src?.riasecScore` — per gli interni è `undefined`, quindi le 6 barre RIASEC non appaiono (compare solo il `profileCode` "SAE"). Per le hard skills, `candidate.skills = [...row.hardMatched, ...row.hardMissing]` è vuoto quando la posizione non ha skill richieste, e il fallback nel modale legge `candidate.skills` che resta vuoto → "Nessuna skill richiesta o disponibile".
+### 1. Mostrare la chrome (GlobalBar + ContextBar) sulla vista profilo
+- In `App.tsx`, escludere esplicitamente `KARMA_PROFILE_VIEW` dalla condizione che nasconde l'header — gli altri `KARMA_*` (welcome, onboarding, dashboard, results, test) restano senza header come oggi.
+- Risultato: la pagina profilo eredita la stessa barra superiore delle altre viste admin, con back, home e menu utente.
 
-## Modifica (1 file)
+### 2. Propagare il contesto "posizione di provenienza"
+- Estendere `ViewState.KARMA_PROFILE_VIEW` (in `types.ts`) con un campo opzionale `fromPositionId?: string`.
+- Aggiornare `viewToPath` / `pathToView` (`src/router/viewPathMap.ts`) per serializzarlo come query param `?position=...`, così l'URL resta condivisibile.
+- In `AppRoutes.tsx` (linee 320 e 368), quando il matching apre un candidato passare `fromPositionId: positionId`. Anche `PositionMatchingView` (callback `onViewProfile`) deve propagarlo.
+- `KarmaProfileViewRoute` legge il param e lo passa al view.
 
-`views/admin/PositionMatchingView.tsx` — funzione `buildUC` (~riga 476): normalizzare le due shape.
+### 3. Aggiungere il pannello azioni HR in `KarmaProfileDetailView`
+Quando la prop `fromPositionId` è presente, mostrare in alto (sopra i Card esistenti, sotto il bottone "Torna") una **action bar** con:
+- pulsante **Aggiungi a shortlist** / badge **Già in shortlist** (con `<CandidateStatusBadge>`);
+- selettore **stato candidato** (`shortlisted | interviewing | offered | rejected | hired`);
+- componente **`<CandidateRatingStars>`** per il rating 0–5;
+- textarea **Note HR** con salvataggio onBlur (debounced);
+- pulsante secondario **Scarta** (imposta `status='rejected'`).
 
-```ts
-const buildUC = (row: UnifiedRow): UnifiedCandidate => {
-  const u = row.internal?.user;
-  const p = row.external?.profile;
-  const src: any = u || p;
+Tutta l'integrazione passa per il già esistente hook `src/hooks/usePositionShortlist.ts` (stesse API usate da `ShortlistTab` e `CandidateComparisonModal`), nessuna nuova logica di business.
 
-  // RIASEC: interno usa `results`, esterno usa `riasecScore`
-  const riasec = (u as any)?.results || (p as any)?.riasecScore;
+Se `fromPositionId` non è presente (apertura da super-admin/karma talents), il pannello non viene reso e la vista resta read-only come oggi.
 
-  // Hard skills proprie del candidato (per il fallback quando la posizione non ha richieste)
-  const ownHardRaw: any[] = u?.hardSkills || p?.hardSkills || [];
-  const ownHardNames = ownHardRaw
-    .map(s => (typeof s === 'string' ? s : s?.name || s?.skill || ''))
-    .filter(Boolean);
+## File toccati (frontend only)
 
-  return {
-    id: row.id,
-    type: row.kind,
-    name: row.name,
-    jobTitle: row.subtitle,
-    avatarUrl: src?.avatarUrl,
-    matchScore: row.score,
-    riasecScore: riasec,
-    profileCode: src?.profileCode,
-    // skills = unione richieste + skill possedute → garantisce il fallback nel modale
-    skills: Array.from(new Set([...row.hardMatched, ...row.hardMissing, ...ownHardNames])),
-    matchedSkills: row.hardMatched.length ? row.hardMatched : ownHardNames,
-    missingSkills: row.hardMissing,
-    softSkills: src?.karmaData?.softSkills || row.softMatched,
-    seniority: row.seniority,
-    seniorityMatch: row.seniorityMatch === 'match',
-    yearsExperience: src?.yearsExperience ?? src?.karmaData?.yearsExperience,
-    location: row.location,
-    status: 'shortlisted',
-    internalUserId: row.kind === 'internal' ? row.id : undefined,
-    externalProfileId: row.kind === 'external' ? row.id : undefined,
-  };
-};
-```
-
-Nessun'altra modifica: il modale `CandidateComparisonModal` ha già il branch "no required skills → mostra le skill del candidato dal `skills`/`matchedSkills`" introdotto nella patch precedente, quindi appena `matchedSkills` è popolato con le hard skill di Riccardo apparirà l'elenco; le 6 barre RIASEC compariranno appena `riasecScore` è valorizzato.
+- `App.tsx` — condizione di rendering Header.
+- `types.ts` — aggiunta campo `fromPositionId` a `KARMA_PROFILE_VIEW`.
+- `src/router/viewPathMap.ts` — encode/decode query `?position=`.
+- `src/router/AppRoutes.tsx` — leggere il query param, propagare `fromPositionId` nelle due `navigate` verso `KARMA_PROFILE_VIEW`.
+- `views/admin/PositionMatchingView.tsx` — callback `onViewCandidate` riceve anche il `positionId` corrente (già disponibile nello scope).
+- `views/superadmin/KarmaProfileDetailView.tsx` — nuova prop opzionale `fromPositionId`, render condizionale dell'action bar HR usando `usePositionShortlist`, `CandidateStatusBadge`, `CandidateRatingStars`.
 
 ## Fuori scope
 
-- Caricamento dati extra dal DB.
-- Riallineamento dei tipi `User` ↔ `KarmaProfile` (refactor strutturale, non necessario per il fix).
-
-## Verifica
-
-Stessa posizione "Stagista", confronto Riccardo + Giuseppe: per Riccardo devono apparire le 6 barre RIASEC (come per Giuseppe) e l'elenco "Hard Skills del candidato" con Excel Advanced + Social Media Marketing.
+- Nessuna modifica DB / RLS / edge functions.
+- Nessuna nuova rotta: si riusa `/karma/profile/:userId` con query param opzionale.
+- Nessun refactor di `KarmaProfileDetailView` oltre all'aggiunta dell'action bar.
