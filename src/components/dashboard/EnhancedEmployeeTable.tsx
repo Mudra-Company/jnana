@@ -264,6 +264,6 @@ export const EnhancedEmployeeTable: React.FC<EnhancedEmployeeTableProps> = ({
       {openMenuId && (
         <div className="fixed inset-0 z-0" onClick={() => setOpenMenuId(null)} />
       )}
-    </Card>
+    </Wrapper>
   );
 };
