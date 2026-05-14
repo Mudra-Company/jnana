@@ -12,11 +12,10 @@ import { useCompliance } from '../../src/hooks/useCompliance';
 import { toast } from '../../src/hooks/use-toast';
 import { supabase } from '../../src/integrations/supabase/client';
 import { EditUserModal } from '../../src/components/admin/EditUserModal';
-import { DashboardKPIGrid } from '../../src/components/dashboard/DashboardKPIGrid';
-import { AlertsPanel } from '../../src/components/dashboard/AlertsPanel';
-import { QuickActionsPanel } from '../../src/components/dashboard/QuickActionsPanel';
-import { RolesByDepartment } from '../../src/components/dashboard/RolesByDepartment';
-import { EnhancedEmployeeTable } from '../../src/components/dashboard/EnhancedEmployeeTable';
+import { DashboardHeroKPI } from '../../src/components/dashboard/DashboardHeroKPI';
+import { TodaysFocusPanel } from '../../src/components/dashboard/TodaysFocusPanel';
+import { QuickModulesPanel } from '../../src/components/dashboard/QuickModulesPanel';
+import { OrgExplorerPanel } from '../../src/components/dashboard/OrgExplorerPanel';
 import type { CompanyRole } from '../../src/types/roles';
 
 interface AdminDashboardProps {
