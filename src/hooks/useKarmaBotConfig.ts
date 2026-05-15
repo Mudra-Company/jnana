@@ -102,7 +102,7 @@ export interface KarmaBotDocument {
   created_at: string;
 }
 
-export function useKarmaBotConfig(botType: BotType) {
+export function useKarmaBotConfig(botType: BotType, scenario?: KarmaScenario) {
   const [configs, setConfigs] = useState<KarmaBotConfig[]>([]);
   const [activeConfig, setActiveConfig] = useState<KarmaBotConfig | null>(null);
   const [documents, setDocuments] = useState<KarmaBotDocument[]>([]);
