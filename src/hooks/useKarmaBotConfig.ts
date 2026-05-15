@@ -174,22 +174,26 @@ export function useKarmaBotConfig(botType: BotType, scenario?: KarmaScenario) {
     setError(null);
 
     try {
-      // Get current max version
+      const effectiveScenario: KarmaScenario =
+        ((config as any).scenario as KarmaScenario) ?? scenario ?? (botType === 'jnana' ? 'role_fit' : 'discovery');
+
+      // Get current max version FOR THIS (bot, scenario) pair
       const maxVersion = configs.length > 0 ? Math.max(...configs.map(c => c.version)) : 0;
       const newVersion = maxVersion + 1;
 
-      // Deactivate all other versions
+      // Deactivate other versions of THIS scenario only
       await supabase
         .from('karma_bot_configs')
         .update({ is_active: false })
-        .eq('bot_type', botType);
+        .eq('bot_type', botType)
+        .eq('scenario' as any, effectiveScenario);
 
       // Insert new version as active
       const { error: insertError } = await supabase
         .from('karma_bot_configs')
         .insert({
           bot_type: botType,
-          scenario: (config as any).scenario ?? (botType === 'jnana' ? 'role_fit' : 'discovery'),
+          scenario: effectiveScenario,
           version: newVersion,
           is_active: true,
           system_prompt: config.system_prompt || '',
@@ -215,7 +219,7 @@ export function useKarmaBotConfig(botType: BotType, scenario?: KarmaScenario) {
     } finally {
       setSaving(false);
     }
-  }, [botType, configs, fetchConfigs]);
+  }, [botType, scenario, configs, fetchConfigs]);
 
   const activateVersion = useCallback(async (versionId: string): Promise<boolean> => {
     setSaving(true);
