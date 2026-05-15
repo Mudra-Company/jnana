@@ -54,13 +54,60 @@ export interface ChatMessage {
   timestamp: number;
 }
 
+export interface KarmaSkillAssessment {
+  name: string;
+  requiredLevel?: number | null;
+  observedLevel?: number | null; // 1-5
+  evidence?: string;
+  confidence?: number; // 0-1
+}
+export interface KarmaSoftAssessment {
+  name: string;
+  observed: boolean;
+  evidence?: string;
+}
+export interface KarmaCultureFitItem {
+  dimension: string; // belonging, org_change, ...
+  score?: number; // 1-5
+  evidence?: string;
+}
+export interface KarmaManagerFit {
+  vision?: string;
+  feedbackStyle?: string;
+  delegation?: string;
+  empathySignals?: string;
+  notes?: string;
+}
+export interface KarmaGrowthArea {
+  area: string;
+  why?: string;
+  suggestedAction?: string;
+}
+export interface KarmaCareerAspirations {
+  shortTerm?: string;
+  midTerm?: string;
+  motivators?: string[];
+  rolePreferences?: string[];
+}
+
 export interface KarmaData {
   transcript: ChatMessage[];
-  summary?: string; // AI generated summary of the interview
-  softSkills?: string[]; // Extracted soft skills
-  primaryValues?: string[]; // Values extracted from chat (Personal Values)
-  riskFactors?: string[]; // Cultural Entropy factors (e.g. "Micromanagement", "Burnout Risk")
-  seniorityAssessment?: SeniorityLevel; // AI assessment of seniority
+  summary?: string;
+  softSkills?: string[];
+  primaryValues?: string[];
+  riskFactors?: string[];
+  seniorityAssessment?: SeniorityLevel;
+  // v2 fields
+  scenario?: 'discovery' | 'role_fit' | 'climate_pulse';
+  roleId?: string;
+  skillAssessments?: KarmaSkillAssessment[];
+  softSkillAssessments?: KarmaSoftAssessment[];
+  cultureFit?: KarmaCultureFitItem[];
+  managerFitSignals?: KarmaManagerFit;
+  growthAreas?: KarmaGrowthArea[];
+  careerAspirations?: KarmaCareerAspirations;
+  alerts?: string[];
+  confidenceOverall?: number;
 }
 
 // --- CLIMATE SURVEY TYPES ---

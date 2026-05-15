@@ -683,11 +683,12 @@ function KarmaTestChatRoute() {
       riasecScore={currentUserData.results}
       profileCode={currentUserData.profileCode}
       firstName={currentUserData.firstName || ''}
+      userId={user?.id}
       onComplete={async (transcript: ChatMessage[]) => {
         let karmaDataPartial: any = {};
         try {
           const { data, error } = await supabase.functions.invoke('karma-analyze', {
-            body: { transcript: transcript.map(m => ({ role: m.role, text: m.text })) }
+            body: { transcript: transcript.map(m => ({ role: m.role, text: m.text })), botType: 'karma_talents', scenario: 'discovery', userId: user?.id }
           });
           if (!error && data) karmaDataPartial = data;
         } catch (e) {
@@ -700,6 +701,15 @@ function KarmaTestChatRoute() {
             primaryValues: karmaDataPartial.primaryValues,
             riskFactors: karmaDataPartial.riskFactors,
             seniorityAssessment: karmaDataPartial.seniorityAssessment,
+            scenario: 'discovery',
+            skillAssessments: karmaDataPartial.skillAssessments,
+            softSkillAssessments: karmaDataPartial.softSkillAssessments,
+            cultureFit: karmaDataPartial.cultureFit,
+            managerFitSignals: karmaDataPartial.managerFitSignals,
+            growthAreas: karmaDataPartial.growthAreas,
+            careerAspirations: karmaDataPartial.careerAspirations,
+            alerts: karmaDataPartial.alerts,
+            confidenceOverall: karmaDataPartial.confidenceOverall,
           });
         }
         setCurrentUserData(prev => prev ? {

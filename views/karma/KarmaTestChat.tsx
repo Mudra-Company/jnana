@@ -11,6 +11,7 @@ interface KarmaTestChatProps {
   firstName: string;
   onComplete: (transcript: ChatMessage[]) => Promise<void>;
   onBack: () => void;
+  userId?: string;
   // Profile context for personalized interview
   experiences?: UserExperience[];
   education?: UserEducation[];
@@ -48,7 +49,8 @@ const streamKarmaChat = async (
   },
   onDelta: (delta: string) => void,
   onDone: (finalText: string) => void,
-  onError: (error: string) => void
+  onError: (error: string) => void,
+  extras: { userId?: string; scenario?: string },
 ) => {
   const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/karma-chat`;
   
@@ -59,7 +61,7 @@ const streamKarmaChat = async (
         'Content-Type': 'application/json',
         Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
       },
-      body: JSON.stringify({ messages, botType, profileData }),
+      body: JSON.stringify({ messages, botType, profileData: { ...profileData, userId: extras.userId }, scenario: extras.scenario }),
     });
 
     if (!resp.ok) {
@@ -185,6 +187,7 @@ export const KarmaTestChat: React.FC<KarmaTestChatProps> = ({
   firstName, 
   onComplete,
   onBack,
+  userId,
   experiences = [],
   education = [],
   skills = [],
@@ -312,7 +315,8 @@ Ora vorrei conoscerti meglio attraverso una breve conversazione. Non ci sono ris
           timestamp: Date.now()
         }]);
         setIsTyping(false);
-      }
+      },
+      { userId, scenario: 'discovery' },
     );
   };
 
