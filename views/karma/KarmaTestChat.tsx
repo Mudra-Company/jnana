@@ -315,7 +315,8 @@ Ora vorrei conoscerti meglio attraverso una breve conversazione. Non ci sono ris
           timestamp: Date.now()
         }]);
         setIsTyping(false);
-      }
+      },
+      { userId, scenario: 'discovery' },
     );
   };
 
