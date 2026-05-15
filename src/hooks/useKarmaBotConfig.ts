@@ -226,11 +226,13 @@ export function useKarmaBotConfig(botType: BotType, scenario?: KarmaScenario) {
     setError(null);
 
     try {
-      // Deactivate all versions
+      const effectiveScenario: KarmaScenario = scenario ?? (botType === 'jnana' ? 'role_fit' : 'discovery');
+      // Deactivate other versions of this scenario only
       await supabase
         .from('karma_bot_configs')
         .update({ is_active: false })
-        .eq('bot_type', botType);
+        .eq('bot_type', botType)
+        .eq('scenario' as any, effectiveScenario);
 
       // Activate selected version
       const { error: updateError } = await supabase
