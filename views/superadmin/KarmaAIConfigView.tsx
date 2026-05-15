@@ -100,6 +100,7 @@ const OUTPUT_FIELD_TYPES = [
 
 export default function KarmaAIConfigView({ onBack }: KarmaAIConfigViewProps) {
   const [activeBotType, setActiveBotType] = useState<BotType>('karma_talents');
+  const [activeScenario, setActiveScenario] = useState<KarmaScenario>('discovery');
   const [editedConfig, setEditedConfig] = useState<Partial<KarmaBotConfig> | null>(null);
   const [versionNotes, setVersionNotes] = useState('');
   const [showVersionHistory, setShowVersionHistory] = useState(false);
@@ -108,6 +109,25 @@ export default function KarmaAIConfigView({ onBack }: KarmaAIConfigViewProps) {
   const [editingObjectiveId, setEditingObjectiveId] = useState<string | null>(null);
   const [editingObjectiveLabel, setEditingObjectiveLabel] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const SCENARIOS_BY_BOT: Record<BotType, { id: KarmaScenario; label: string; desc: string }[]> = {
+    karma_talents: [
+      { id: 'discovery', label: 'Discovery', desc: 'Profilazione candidato esterno' },
+    ],
+    jnana: [
+      { id: 'role_fit', label: 'Role Fit', desc: 'Verifica gap rispetto al ruolo' },
+      { id: 'climate_pulse', label: 'Climate Pulse', desc: 'Review periodico clima + collaborazione' },
+    ],
+  };
+
+  // Reset scenario when bot type changes
+  useEffect(() => {
+    const allowed = SCENARIOS_BY_BOT[activeBotType];
+    if (!allowed.find(s => s.id === activeScenario)) {
+      setActiveScenario(allowed[0].id);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeBotType]);
 
   const {
     configs,
@@ -121,7 +141,7 @@ export default function KarmaAIConfigView({ onBack }: KarmaAIConfigViewProps) {
     uploadDocument,
     deleteDocument,
     toggleDocumentActive,
-  } = useKarmaBotConfig(activeBotType);
+  } = useKarmaBotConfig(activeBotType, activeScenario);
 
   // Initialize edited config when active config loads
   useEffect(() => {
