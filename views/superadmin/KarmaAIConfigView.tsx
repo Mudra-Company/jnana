@@ -46,11 +46,6 @@ const TEMPLATE_VAR_GROUPS: { group: string; vars: string[] }[] = [
 ];
 const TEMPLATE_VARIABLES = TEMPLATE_VAR_GROUPS.flatMap(g => g.vars);
 
-const SCENARIOS: { id: 'discovery'|'role_fit'|'climate_pulse'; label: string; desc: string }[] = [
-  { id: 'discovery', label: 'Discovery (B2C)', desc: 'Profilazione candidato esterno' },
-  { id: 'role_fit', label: 'Role Fit (B2B)', desc: 'Verifica gap rispetto al ruolo target' },
-  { id: 'climate_pulse', label: 'Climate Pulse (B2B)', desc: 'Review periodico clima + collaborazione' },
-];
 
 const ALLOWED_INPUT_GROUPS: { group: string; items: { key: string; label: string }[] }[] = [
   { group: 'Persona', items: [
