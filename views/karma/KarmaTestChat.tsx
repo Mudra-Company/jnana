@@ -11,6 +11,7 @@ interface KarmaTestChatProps {
   firstName: string;
   onComplete: (transcript: ChatMessage[]) => Promise<void>;
   onBack: () => void;
+  userId?: string;
   // Profile context for personalized interview
   experiences?: UserExperience[];
   education?: UserEducation[];
