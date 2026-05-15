@@ -153,14 +153,29 @@ export default function KarmaAIConfigView({ onBack }: KarmaAIConfigViewProps) {
         allowed_inputs: { ...((activeConfig as any).allowed_inputs || {}) },
         output_schema: { fields: [...(((activeConfig as any).output_schema?.fields) || [])] } as any,
         discussion_style: { ...((activeConfig as any).discussion_style || {}) } as any,
-        scenario: (activeConfig as any).scenario || (activeBotType === 'jnana' ? 'role_fit' : 'discovery'),
+        scenario: activeScenario,
         model: activeConfig.model,
         max_exchanges: activeConfig.max_exchanges,
         temperature: activeConfig.temperature,
         closing_patterns: [...activeConfig.closing_patterns],
       } as any);
+    } else {
+      // No config for this (bot, scenario) — start blank so user can create v1
+      setEditedConfig({
+        system_prompt: '',
+        objectives: [],
+        profile_inputs: {} as any,
+        allowed_inputs: {} as any,
+        output_schema: { fields: [] } as any,
+        discussion_style: {} as any,
+        scenario: activeScenario,
+        model: 'google/gemini-2.5-flash',
+        max_exchanges: 8,
+        temperature: 0.7,
+        closing_patterns: [],
+      } as any);
     }
-  }, [activeConfig, activeBotType]);
+  }, [activeConfig, activeBotType, activeScenario]);
 
   const handleSave = async () => {
     if (!editedConfig || !versionNotes.trim()) {
