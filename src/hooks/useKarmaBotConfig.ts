@@ -145,6 +145,8 @@ export function useKarmaBotConfig(botType: BotType, scenario?: KarmaScenario) {
       setLoading(false);
     }
   }, [botType, scenario]);
+
+  const fetchDocuments = useCallback(async () => {
     try {
       const { data, error: fetchError } = await supabase
         .from('karma_bot_documents')
