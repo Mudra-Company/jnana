@@ -427,6 +427,39 @@ export default function KarmaAIConfigView({ onBack }: KarmaAIConfigViewProps) {
         ))}
       </div>
 
+      {/* Scenario Sub-tabs */}
+      <div className="flex flex-wrap items-center gap-2 mb-6">
+        <span className="flex items-center gap-1 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mr-1">
+          <Layers className="h-3.5 w-3.5" /> Scenario
+        </span>
+        {SCENARIOS_BY_BOT[activeBotType].map(s => {
+          const isActive = activeScenario === s.id;
+          return (
+            <button
+              key={s.id}
+              onClick={() => setActiveScenario(s.id)}
+              title={s.desc}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all border-2 ${
+                isActive
+                  ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300'
+                  : 'border-transparent bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:border-indigo-300'
+              }`}
+            >
+              {s.label}
+              {isActive && activeConfig?.version && (
+                <span className="ml-2 text-xs opacity-70">v{activeConfig.version}</span>
+              )}
+              {isActive && !activeConfig && (
+                <span className="ml-2 text-xs text-amber-600">nuova</span>
+              )}
+            </button>
+          );
+        })}
+        <span className="ml-2 text-xs text-gray-500 dark:text-gray-400 italic">
+          {SCENARIOS_BY_BOT[activeBotType].find(s => s.id === activeScenario)?.desc}
+        </span>
+      </div>
+
       {error && (
         <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl text-red-600 dark:text-red-400 text-sm">
           {error}
