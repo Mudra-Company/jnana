@@ -51,6 +51,17 @@ export const useTestResults = () => {
       primaryValues?: string[];
       riskFactors?: string[];
       seniorityAssessment?: 'Junior' | 'Mid' | 'Senior' | 'Lead' | 'C-Level';
+      // v2 fields
+      scenario?: string;
+      roleId?: string | null;
+      skillAssessments?: any;
+      softSkillAssessments?: any;
+      cultureFit?: any;
+      managerFitSignals?: any;
+      growthAreas?: any;
+      careerAspirations?: any;
+      alerts?: any;
+      confidenceOverall?: number;
     }
   ): Promise<KarmaSession | null> => {
     try {
@@ -65,8 +76,18 @@ export const useTestResults = () => {
           primary_values: analysis.primaryValues || [],
           risk_factors: analysis.riskFactors || [],
           seniority_assessment: analysis.seniorityAssessment,
+          scenario: analysis.scenario ?? null,
+          role_id: analysis.roleId ?? null,
+          skill_assessments: analysis.skillAssessments ?? null,
+          soft_skill_assessments: analysis.softSkillAssessments ?? null,
+          culture_fit: analysis.cultureFit ?? null,
+          manager_fit_signals: analysis.managerFitSignals ?? null,
+          growth_areas: analysis.growthAreas ?? null,
+          career_aspirations: analysis.careerAspirations ?? null,
+          alerts: analysis.alerts ?? null,
+          confidence_overall: analysis.confidenceOverall ?? null,
           completed_at: new Date().toISOString(),
-        })
+        } as any)
         .select()
         .single();
 
