@@ -701,6 +701,15 @@ function KarmaTestChatRoute() {
             primaryValues: karmaDataPartial.primaryValues,
             riskFactors: karmaDataPartial.riskFactors,
             seniorityAssessment: karmaDataPartial.seniorityAssessment,
+            scenario: 'discovery',
+            skillAssessments: karmaDataPartial.skillAssessments,
+            softSkillAssessments: karmaDataPartial.softSkillAssessments,
+            cultureFit: karmaDataPartial.cultureFit,
+            managerFitSignals: karmaDataPartial.managerFitSignals,
+            growthAreas: karmaDataPartial.growthAreas,
+            careerAspirations: karmaDataPartial.careerAspirations,
+            alerts: karmaDataPartial.alerts,
+            confidenceOverall: karmaDataPartial.confidenceOverall,
           });
         }
         setCurrentUserData(prev => prev ? {
