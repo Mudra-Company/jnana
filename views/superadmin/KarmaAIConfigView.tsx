@@ -425,6 +425,191 @@ export default function KarmaAIConfigView({ onBack }: KarmaAIConfigViewProps) {
             />
           </Card>
 
+          {/* Scenario Selector */}
+          <Card className="border-t-4 border-t-indigo-500">
+            <div className="flex items-center gap-2 mb-4">
+              <Layers className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+              <h2 className="text-lg font-semibold text-gray-800 dark:text-white">Scenario di Conversazione</h2>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {SCENARIOS.map(s => {
+                const active = ((editedConfig as any)?.scenario || (activeBotType === 'jnana' ? 'role_fit' : 'discovery')) === s.id;
+                return (
+                  <button
+                    key={s.id}
+                    onClick={() => setEditedConfig({ ...editedConfig, scenario: s.id } as any)}
+                    className={`p-3 rounded-lg border-2 text-left transition-all ${active ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20' : 'border-gray-200 dark:border-gray-700 hover:border-indigo-300'}`}
+                  >
+                    <p className="font-bold text-sm text-gray-800 dark:text-white">{s.label}</p>
+                    <p className="text-xs text-gray-500 mt-1">{s.desc}</p>
+                  </button>
+                );
+              })}
+            </div>
+          </Card>
+
+          {/* Allowed Inputs Tree */}
+          <Card className="border-t-4 border-t-cyan-500">
+            <div className="flex items-center gap-2 mb-4">
+              <Eye className="h-5 w-5 text-cyan-600 dark:text-cyan-400" />
+              <h2 className="text-lg font-semibold text-gray-800 dark:text-white">Input Disponibili al Bot</h2>
+              <span className="text-xs text-gray-500">(cosa il bot può vedere)</span>
+            </div>
+            <div className="space-y-4">
+              {ALLOWED_INPUT_GROUPS.map(group => (
+                <div key={group.group}>
+                  <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">{group.group}</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {group.items.map(item => {
+                      const allowed = (editedConfig as any)?.allowed_inputs || {};
+                      const enabled = allowed[item.key] !== false;
+                      return (
+                        <label key={item.key} className={`flex items-center gap-2 p-2 rounded-lg border cursor-pointer text-sm transition-all ${enabled ? 'bg-cyan-50 dark:bg-cyan-900/20 border-cyan-300 dark:border-cyan-700' : 'bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600'}`}>
+                          <input
+                            type="checkbox"
+                            checked={enabled}
+                            onChange={() => setEditedConfig({
+                              ...editedConfig,
+                              allowed_inputs: { ...allowed, [item.key]: !enabled },
+                            } as any)}
+                            className="sr-only"
+                          />
+                          {enabled ? <ToggleRight className="h-4 w-4 text-cyan-600" /> : <ToggleLeft className="h-4 w-4 text-gray-400" />}
+                          <span className={enabled ? 'text-gray-800 dark:text-white' : 'text-gray-500 dark:text-gray-400'}>{item.label}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Card>
+
+          {/* Output Schema Editor */}
+          <Card className="border-t-4 border-t-rose-500">
+            <div className="flex items-center gap-2 mb-4">
+              <FileCheck className="h-5 w-5 text-rose-600 dark:text-rose-400" />
+              <h2 className="text-lg font-semibold text-gray-800 dark:text-white">Output Schema</h2>
+              <span className="text-xs text-gray-500">(campi estratti a fine colloquio)</span>
+            </div>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+              Lasciato vuoto, viene usato lo schema di default per lo scenario selezionato.
+            </p>
+            <div className="space-y-2 mb-3">
+              {((editedConfig as any)?.output_schema?.fields || []).map((f: any, idx: number) => (
+                <div key={idx} className="flex items-center gap-2 p-2 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
+                  <input
+                    type="text"
+                    value={f.name}
+                    onChange={e => {
+                      const fields = [...(((editedConfig as any).output_schema?.fields) || [])];
+                      fields[idx] = { ...fields[idx], name: e.target.value };
+                      setEditedConfig({ ...editedConfig, output_schema: { fields } } as any);
+                    }}
+                    placeholder="nome_campo"
+                    className="flex-1 px-2 py-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded text-sm font-mono"
+                  />
+                  <select
+                    value={f.type}
+                    onChange={e => {
+                      const fields = [...(((editedConfig as any).output_schema?.fields) || [])];
+                      fields[idx] = { ...fields[idx], type: e.target.value };
+                      setEditedConfig({ ...editedConfig, output_schema: { fields } } as any);
+                    }}
+                    className="px-2 py-1 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded text-xs"
+                  >
+                    {OUTPUT_FIELD_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                  </select>
+                  <label className="flex items-center gap-1 text-xs">
+                    <input
+                      type="checkbox"
+                      checked={!!f.required}
+                      onChange={e => {
+                        const fields = [...(((editedConfig as any).output_schema?.fields) || [])];
+                        fields[idx] = { ...fields[idx], required: e.target.checked };
+                        setEditedConfig({ ...editedConfig, output_schema: { fields } } as any);
+                      }}
+                    />
+                    req
+                  </label>
+                  <button
+                    onClick={() => {
+                      const fields = [...(((editedConfig as any).output_schema?.fields) || [])];
+                      fields.splice(idx, 1);
+                      setEditedConfig({ ...editedConfig, output_schema: { fields } } as any);
+                    }}
+                    className="p-1 text-red-500 hover:bg-red-100 dark:hover:bg-red-900/30 rounded"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+            <Button
+              onClick={() => {
+                const fields = [...(((editedConfig as any)?.output_schema?.fields) || []), { name: 'nuovo_campo', type: 'string', required: false }];
+                setEditedConfig({ ...editedConfig, output_schema: { fields } } as any);
+              }}
+              variant="outline"
+              className="text-sm"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Aggiungi campo
+            </Button>
+          </Card>
+
+          {/* Discussion Style */}
+          <Card className="border-t-4 border-t-teal-500">
+            <div className="flex items-center gap-2 mb-4">
+              <Bot className="h-5 w-5 text-teal-600 dark:text-teal-400" />
+              <h2 className="text-lg font-semibold text-gray-800 dark:text-white">Stile di Conversazione</h2>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Tono</label>
+                <input
+                  type="text"
+                  value={(editedConfig as any)?.discussion_style?.tone || ''}
+                  onChange={e => setEditedConfig({ ...editedConfig, discussion_style: { ...((editedConfig as any).discussion_style || {}), tone: e.target.value } } as any)}
+                  placeholder="empatico, professionale..."
+                  className="w-full p-2 bg-gray-50 dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-600 text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Max frasi/risposta</label>
+                <input
+                  type="number"
+                  min={1} max={10}
+                  value={(editedConfig as any)?.discussion_style?.max_response_sentences || ''}
+                  onChange={e => setEditedConfig({ ...editedConfig, discussion_style: { ...((editedConfig as any).discussion_style || {}), max_response_sentences: parseInt(e.target.value) || undefined } } as any)}
+                  className="w-full p-2 bg-gray-50 dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-600 text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Lingua</label>
+                <input
+                  type="text"
+                  value={(editedConfig as any)?.discussion_style?.language || ''}
+                  onChange={e => setEditedConfig({ ...editedConfig, discussion_style: { ...((editedConfig as any).discussion_style || {}), language: e.target.value } } as any)}
+                  placeholder="italiano"
+                  className="w-full p-2 bg-gray-50 dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-600 text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Profondità follow-up</label>
+                <select
+                  value={(editedConfig as any)?.discussion_style?.follow_up_depth || 'medium'}
+                  onChange={e => setEditedConfig({ ...editedConfig, discussion_style: { ...((editedConfig as any).discussion_style || {}), follow_up_depth: e.target.value as any } } as any)}
+                  className="w-full p-2 bg-gray-50 dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-600 text-sm"
+                >
+                  <option value="shallow">Superficiale</option>
+                  <option value="medium">Medio</option>
+                  <option value="deep">Profondo</option>
+                </select>
+              </div>
+            </div>
+          </Card>
+
           {/* Objectives */}
           <Card className="border-t-4 border-t-blue-500">
             <div className="flex items-center gap-2 mb-4">
