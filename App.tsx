@@ -396,7 +396,7 @@ const AppContent: React.FC = () => {
     let karmaDataPartial: any = {};
     try {
       const { data, error } = await supabase.functions.invoke('karma-analyze', {
-        body: { transcript: transcript.map(m => ({ role: m.role, text: m.text })) }
+        body: { transcript: transcript.map(m => ({ role: m.role, text: m.text })), botType: 'jnana', scenario: 'role_fit', userId: user.id }
       });
       
       if (error) {
