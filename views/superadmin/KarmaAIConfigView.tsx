@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Bot, FileText, History, Settings, Upload, Trash2, CheckCircle, XCircle, Save, RefreshCw, Eye, ToggleLeft, ToggleRight, Layers, Clock, FileCheck, Plus, Pencil, Loader2 } from 'lucide-react';
 import { Card } from '../../components/Card';
 import { Button } from '../../components/Button';
-import { useKarmaBotConfig, BotType, KarmaBotConfig, BotObjective, ProfileInputs } from '../../src/hooks/useKarmaBotConfig';
+import { useKarmaBotConfig, BotType, KarmaBotConfig, BotObjective, ProfileInputs, KarmaScenario } from '../../src/hooks/useKarmaBotConfig';
 
 interface KarmaAIConfigViewProps {
   onBack: () => void;
