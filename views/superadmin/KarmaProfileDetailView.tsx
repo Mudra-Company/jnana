@@ -406,6 +406,170 @@ export const KarmaProfileDetailView: React.FC<KarmaProfileDetailViewProps> = ({ 
         )}
       </div>
 
+      {/* === KARMA AI v2 INSIGHTS === */}
+      {hasKarma && profile.karmaData && (
+        (profile.karmaData.skillAssessments?.length ||
+         profile.karmaData.softSkillAssessments?.length ||
+         profile.karmaData.cultureFit?.length ||
+         profile.karmaData.growthAreas?.length ||
+         profile.karmaData.careerAspirations ||
+         profile.karmaData.managerFitSignals ||
+         profile.karmaData.alerts?.length) ? (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+          {/* Skill Assessment vs Required */}
+          {profile.karmaData.skillAssessments && profile.karmaData.skillAssessments.length > 0 && (
+            <Card className="p-6 lg:col-span-2">
+              <h2 className="text-lg font-semibold text-gray-800 dark:text-white mb-4 flex items-center gap-2">
+                <Target className="w-5 h-5 text-emerald-500" />
+                Skill Assessment vs Ruolo Target
+              </h2>
+              <div className="space-y-2">
+                {profile.karmaData.skillAssessments.map((s: any, i: number) => {
+                  const obs = s.observedLevel ?? null;
+                  const req = s.requiredLevel ?? null;
+                  const gap = obs !== null && req !== null ? obs - req : null;
+                  const color = gap === null ? 'bg-gray-100 text-gray-700' :
+                                gap >= 0 ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' :
+                                'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300';
+                  return (
+                    <div key={i} className="flex items-start justify-between gap-4 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-gray-800 dark:text-white">{s.skillName || s.name}</p>
+                        {s.evidence && <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 italic">"{s.evidence}"</p>}
+                      </div>
+                      <div className="flex items-center gap-2 text-xs flex-shrink-0">
+                        <span className="text-gray-500">Lv osservato:</span>
+                        <span className={`px-2 py-1 rounded font-bold ${color}`}>
+                          {obs !== null ? `${obs}/5` : 'n/d'}
+                          {req !== null && <span className="opacity-70 ml-1">(req {req})</span>}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </Card>
+          )}
+
+          {/* Culture Fit */}
+          {profile.karmaData.cultureFit && profile.karmaData.cultureFit.length > 0 && (
+            <Card className="p-6">
+              <h2 className="text-lg font-semibold text-gray-800 dark:text-white mb-4 flex items-center gap-2">
+                <Heart className="w-5 h-5 text-pink-500" />
+                Culture Fit
+              </h2>
+              <div className="space-y-2">
+                {profile.karmaData.cultureFit.map((c: any, i: number) => (
+                  <div key={i} className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-800 rounded">
+                    <span className="text-sm text-gray-700 dark:text-gray-200 capitalize">{c.dimension}</span>
+                    <div className="flex items-center gap-1">
+                      {[1,2,3,4,5].map(n => (
+                        <div key={n} className={`w-2 h-4 rounded-sm ${n <= (c.score || 0) ? 'bg-pink-500' : 'bg-gray-200 dark:bg-gray-700'}`} />
+                      ))}
+                      <span className="ml-2 text-xs font-bold text-gray-600 dark:text-gray-300">{c.score ?? '—'}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          )}
+
+          {/* Manager Fit */}
+          {profile.karmaData.managerFitSignals && (
+            <Card className="p-6">
+              <h2 className="text-lg font-semibold text-gray-800 dark:text-white mb-4 flex items-center gap-2">
+                <Star className="w-5 h-5 text-amber-500" />
+                Manager Fit Signals
+              </h2>
+              {(profile.karmaData.managerFitSignals as any).score !== undefined && (
+                <p className="text-3xl font-bold text-amber-600 mb-3">{(profile.karmaData.managerFitSignals as any).score}/5</p>
+              )}
+              {(profile.karmaData.managerFitSignals as any).themes?.length > 0 && (
+                <div className="mb-3">
+                  <p className="text-xs text-gray-500 mb-1">Temi positivi</p>
+                  <div className="flex flex-wrap gap-1">
+                    {(profile.karmaData.managerFitSignals as any).themes.map((t: string, i: number) => (
+                      <span key={i} className="px-2 py-1 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 text-xs rounded">{t}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {(profile.karmaData.managerFitSignals as any).red_flags?.length > 0 && (
+                <div>
+                  <p className="text-xs text-gray-500 mb-1">Red flags</p>
+                  <div className="flex flex-wrap gap-1">
+                    {(profile.karmaData.managerFitSignals as any).red_flags.map((t: string, i: number) => (
+                      <span key={i} className="px-2 py-1 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 text-xs rounded">{t}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </Card>
+          )}
+
+          {/* Growth Areas */}
+          {profile.karmaData.growthAreas && profile.karmaData.growthAreas.length > 0 && (
+            <Card className="p-6">
+              <h2 className="text-lg font-semibold text-gray-800 dark:text-white mb-4 flex items-center gap-2">
+                <Brain className="w-5 h-5 text-blue-500" />
+                Aree di Crescita
+              </h2>
+              <div className="space-y-3">
+                {profile.karmaData.growthAreas.map((g: any, i: number) => (
+                  <div key={i} className="border-l-2 border-blue-300 pl-3">
+                    <p className="font-medium text-gray-800 dark:text-white text-sm">{g.area}</p>
+                    {g.suggestedActions?.length > 0 && (
+                      <ul className="mt-1 text-xs text-gray-600 dark:text-gray-300 list-disc list-inside">
+                        {g.suggestedActions.map((a: string, j: number) => <li key={j}>{a}</li>)}
+                      </ul>
+                    )}
+                    {g.suggestedAction && <p className="text-xs text-gray-600 dark:text-gray-300 mt-1">→ {g.suggestedAction}</p>}
+                  </div>
+                ))}
+              </div>
+            </Card>
+          )}
+
+          {/* Career Aspirations */}
+          {profile.karmaData.careerAspirations && (
+            <Card className="p-6">
+              <h2 className="text-lg font-semibold text-gray-800 dark:text-white mb-4 flex items-center gap-2">
+                <Briefcase className="w-5 h-5 text-violet-500" />
+                Aspirazioni di Carriera
+              </h2>
+              {(profile.karmaData.careerAspirations as any).shortTerm && (
+                <p className="text-sm text-gray-700 dark:text-gray-200 mb-2"><strong>Breve termine:</strong> {(profile.karmaData.careerAspirations as any).shortTerm}</p>
+              )}
+              {((profile.karmaData.careerAspirations as any).longTerm || (profile.karmaData.careerAspirations as any).midTerm) && (
+                <p className="text-sm text-gray-700 dark:text-gray-200 mb-2"><strong>Medio/Lungo termine:</strong> {(profile.karmaData.careerAspirations as any).longTerm || (profile.karmaData.careerAspirations as any).midTerm}</p>
+              )}
+              {(profile.karmaData.careerAspirations as any).mobilityWillingness && (
+                <p className="text-xs text-gray-500 mt-2">Mobilità: <span className="font-medium">{(profile.karmaData.careerAspirations as any).mobilityWillingness}</span></p>
+              )}
+              {(profile.karmaData.careerAspirations as any).mentorshipInterest !== undefined && (
+                <p className="text-xs text-gray-500">Mentorship: <span className="font-medium">{(profile.karmaData.careerAspirations as any).mentorshipInterest ? 'Sì' : 'No'}</span></p>
+              )}
+            </Card>
+          )}
+
+          {/* Alerts */}
+          {profile.karmaData.alerts && profile.karmaData.alerts.length > 0 && (
+            <Card className="p-6 lg:col-span-2 border-l-4 border-l-red-500">
+              <h2 className="text-lg font-semibold text-gray-800 dark:text-white mb-4 flex items-center gap-2">
+                <AlertTriangle className="w-5 h-5 text-red-500" />
+                Alert e Segnali
+              </h2>
+              <div className="flex flex-wrap gap-2">
+                {profile.karmaData.alerts.map((a: string, i: number) => (
+                  <span key={i} className="px-3 py-1 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 text-sm rounded-full font-medium">{a}</span>
+                ))}
+              </div>
+            </Card>
+          )}
+        </div>
+        ) : null
+      )}
+
       {/* Work Experiences - Collapsible */}
       {profile.experiences && profile.experiences.length > 0 && (
         <Card className="p-6 mb-6">
