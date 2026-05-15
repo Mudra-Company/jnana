@@ -493,29 +493,6 @@ export default function KarmaAIConfigView({ onBack }: KarmaAIConfigViewProps) {
             />
           </Card>
 
-          {/* Scenario Selector */}
-          <Card className="border-t-4 border-t-indigo-500">
-            <div className="flex items-center gap-2 mb-4">
-              <Layers className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
-              <h2 className="text-lg font-semibold text-gray-800 dark:text-white">Scenario di Conversazione</h2>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              {SCENARIOS.map(s => {
-                const active = ((editedConfig as any)?.scenario || (activeBotType === 'jnana' ? 'role_fit' : 'discovery')) === s.id;
-                return (
-                  <button
-                    key={s.id}
-                    onClick={() => setEditedConfig({ ...editedConfig, scenario: s.id } as any)}
-                    className={`p-3 rounded-lg border-2 text-left transition-all ${active ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20' : 'border-gray-200 dark:border-gray-700 hover:border-indigo-300'}`}
-                  >
-                    <p className="font-bold text-sm text-gray-800 dark:text-white">{s.label}</p>
-                    <p className="text-xs text-gray-500 mt-1">{s.desc}</p>
-                  </button>
-                );
-              })}
-            </div>
-          </Card>
-
           {/* Allowed Inputs Tree */}
           <Card className="border-t-4 border-t-cyan-500">
             <div className="flex items-center gap-2 mb-4">
