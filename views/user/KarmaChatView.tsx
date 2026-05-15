@@ -259,7 +259,8 @@ Per iniziare: qual è stata la sfida professionale più complessa che hai affron
           timestamp: Date.now()
         }]);
         setIsTyping(false);
-      }
+      },
+      { userId: user.id, scenario: 'role_fit' },
     );
   };
 
