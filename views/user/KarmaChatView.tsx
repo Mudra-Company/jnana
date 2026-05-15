@@ -33,7 +33,7 @@ const streamKarmaChat = async (
   profileData: Record<string, any>,
   onDelta: (delta: string) => void,
   onDone: () => void,
-  onError: (error: string) => void
+  onError: (error: string) => void,
   extras: { userId?: string; roleId?: string; scenario?: string },
 ) => {
   const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/karma-chat`;
