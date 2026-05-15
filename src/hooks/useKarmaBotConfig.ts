@@ -250,7 +250,7 @@ export function useKarmaBotConfig(botType: BotType, scenario?: KarmaScenario) {
     } finally {
       setSaving(false);
     }
-  }, [botType, fetchConfigs]);
+  }, [botType, scenario, fetchConfigs]);
 
   const uploadDocument = useCallback(async (file: File): Promise<boolean> => {
     setSaving(true);
