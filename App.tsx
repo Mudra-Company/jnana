@@ -419,6 +419,15 @@ const AppContent: React.FC = () => {
         primaryValues: karmaDataPartial.primaryValues,
         riskFactors: karmaDataPartial.riskFactors,
         seniorityAssessment: karmaDataPartial.seniorityAssessment as any,
+        scenario: 'role_fit',
+        skillAssessments: karmaDataPartial.skillAssessments,
+        softSkillAssessments: karmaDataPartial.softSkillAssessments,
+        cultureFit: karmaDataPartial.cultureFit,
+        managerFitSignals: karmaDataPartial.managerFitSignals,
+        growthAreas: karmaDataPartial.growthAreas,
+        careerAspirations: karmaDataPartial.careerAspirations,
+        alerts: karmaDataPartial.alerts,
+        confidenceOverall: karmaDataPartial.confidenceOverall,
       }
     );
 
