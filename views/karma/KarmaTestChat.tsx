@@ -187,6 +187,7 @@ export const KarmaTestChat: React.FC<KarmaTestChatProps> = ({
   firstName, 
   onComplete,
   onBack,
+  userId,
   experiences = [],
   education = [],
   skills = [],
