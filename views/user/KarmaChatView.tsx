@@ -34,6 +34,7 @@ const streamKarmaChat = async (
   onDelta: (delta: string) => void,
   onDone: () => void,
   onError: (error: string) => void
+  extras: { userId?: string; roleId?: string; scenario?: string },
 ) => {
   const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/karma-chat`;
   
@@ -44,7 +45,7 @@ const streamKarmaChat = async (
         'Content-Type': 'application/json',
         Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
       },
-      body: JSON.stringify({ messages, botType, profileData }),
+      body: JSON.stringify({ messages, botType, profileData: { ...profileData, userId: extras.userId }, roleId: extras.roleId, scenario: extras.scenario }),
     });
 
     if (!resp.ok) {
