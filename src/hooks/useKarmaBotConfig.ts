@@ -115,11 +115,14 @@ export function useKarmaBotConfig(botType: BotType, scenario?: KarmaScenario) {
     setError(null);
     
     try {
-      const { data, error: fetchError } = await supabase
+      const effectiveScenario: KarmaScenario = scenario ?? (botType === 'jnana' ? 'role_fit' : 'discovery');
+      let query = supabase
         .from('karma_bot_configs')
         .select('*')
         .eq('bot_type', botType)
         .order('version', { ascending: false });
+      query = query.eq('scenario' as any, effectiveScenario);
+      const { data, error: fetchError } = await query;
 
       if (fetchError) throw fetchError;
 
@@ -130,7 +133,7 @@ export function useKarmaBotConfig(botType: BotType, scenario?: KarmaScenario) {
         allowed_inputs: ((config as any).allowed_inputs || {}) as unknown as AllowedInputs,
         output_schema: ((config as any).output_schema || { fields: [] }) as unknown as OutputSchema,
         discussion_style: ((config as any).discussion_style || {}) as unknown as DiscussionStyle,
-        scenario: ((config as any).scenario || null) as KarmaScenario | null,
+        scenario: ((config as any).scenario || effectiveScenario) as KarmaScenario | null,
         closing_patterns: (config.closing_patterns || []) as unknown as string[],
       })) as unknown as KarmaBotConfig[];
 
@@ -141,9 +144,7 @@ export function useKarmaBotConfig(botType: BotType, scenario?: KarmaScenario) {
     } finally {
       setLoading(false);
     }
-  }, [botType]);
-
-  const fetchDocuments = useCallback(async () => {
+  }, [botType, scenario]);
     try {
       const { data, error: fetchError } = await supabase
         .from('karma_bot_documents')
