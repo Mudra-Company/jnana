@@ -102,7 +102,7 @@ export interface KarmaBotDocument {
   created_at: string;
 }
 
-export function useKarmaBotConfig(botType: BotType) {
+export function useKarmaBotConfig(botType: BotType, scenario?: KarmaScenario) {
   const [configs, setConfigs] = useState<KarmaBotConfig[]>([]);
   const [activeConfig, setActiveConfig] = useState<KarmaBotConfig | null>(null);
   const [documents, setDocuments] = useState<KarmaBotDocument[]>([]);
@@ -115,11 +115,14 @@ export function useKarmaBotConfig(botType: BotType) {
     setError(null);
     
     try {
-      const { data, error: fetchError } = await supabase
+      const effectiveScenario: KarmaScenario = scenario ?? (botType === 'jnana' ? 'role_fit' : 'discovery');
+      let query = supabase
         .from('karma_bot_configs')
         .select('*')
         .eq('bot_type', botType)
         .order('version', { ascending: false });
+      query = query.eq('scenario' as any, effectiveScenario);
+      const { data, error: fetchError } = await query;
 
       if (fetchError) throw fetchError;
 
@@ -130,7 +133,7 @@ export function useKarmaBotConfig(botType: BotType) {
         allowed_inputs: ((config as any).allowed_inputs || {}) as unknown as AllowedInputs,
         output_schema: ((config as any).output_schema || { fields: [] }) as unknown as OutputSchema,
         discussion_style: ((config as any).discussion_style || {}) as unknown as DiscussionStyle,
-        scenario: ((config as any).scenario || null) as KarmaScenario | null,
+        scenario: ((config as any).scenario || effectiveScenario) as KarmaScenario | null,
         closing_patterns: (config.closing_patterns || []) as unknown as string[],
       })) as unknown as KarmaBotConfig[];
 
@@ -141,7 +144,7 @@ export function useKarmaBotConfig(botType: BotType) {
     } finally {
       setLoading(false);
     }
-  }, [botType]);
+  }, [botType, scenario]);
 
   const fetchDocuments = useCallback(async () => {
     try {
@@ -171,22 +174,26 @@ export function useKarmaBotConfig(botType: BotType) {
     setError(null);
 
     try {
-      // Get current max version
+      const effectiveScenario: KarmaScenario =
+        ((config as any).scenario as KarmaScenario) ?? scenario ?? (botType === 'jnana' ? 'role_fit' : 'discovery');
+
+      // Get current max version FOR THIS (bot, scenario) pair
       const maxVersion = configs.length > 0 ? Math.max(...configs.map(c => c.version)) : 0;
       const newVersion = maxVersion + 1;
 
-      // Deactivate all other versions
+      // Deactivate other versions of THIS scenario only
       await supabase
         .from('karma_bot_configs')
         .update({ is_active: false })
-        .eq('bot_type', botType);
+        .eq('bot_type', botType)
+        .eq('scenario' as any, effectiveScenario);
 
       // Insert new version as active
       const { error: insertError } = await supabase
         .from('karma_bot_configs')
         .insert({
           bot_type: botType,
-          scenario: (config as any).scenario ?? (botType === 'jnana' ? 'role_fit' : 'discovery'),
+          scenario: effectiveScenario,
           version: newVersion,
           is_active: true,
           system_prompt: config.system_prompt || '',
@@ -212,18 +219,20 @@ export function useKarmaBotConfig(botType: BotType) {
     } finally {
       setSaving(false);
     }
-  }, [botType, configs, fetchConfigs]);
+  }, [botType, scenario, configs, fetchConfigs]);
 
   const activateVersion = useCallback(async (versionId: string): Promise<boolean> => {
     setSaving(true);
     setError(null);
 
     try {
-      // Deactivate all versions
+      const effectiveScenario: KarmaScenario = scenario ?? (botType === 'jnana' ? 'role_fit' : 'discovery');
+      // Deactivate other versions of this scenario only
       await supabase
         .from('karma_bot_configs')
         .update({ is_active: false })
-        .eq('bot_type', botType);
+        .eq('bot_type', botType)
+        .eq('scenario' as any, effectiveScenario);
 
       // Activate selected version
       const { error: updateError } = await supabase
@@ -241,7 +250,7 @@ export function useKarmaBotConfig(botType: BotType) {
     } finally {
       setSaving(false);
     }
-  }, [botType, fetchConfigs]);
+  }, [botType, scenario, fetchConfigs]);
 
   const uploadDocument = useCallback(async (file: File): Promise<boolean> => {
     setSaving(true);

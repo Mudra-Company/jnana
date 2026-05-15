@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Bot, FileText, History, Settings, Upload, Trash2, CheckCircle, XCircle, Save, RefreshCw, Eye, ToggleLeft, ToggleRight, Layers, Clock, FileCheck, Plus, Pencil, Loader2 } from 'lucide-react';
 import { Card } from '../../components/Card';
 import { Button } from '../../components/Button';
-import { useKarmaBotConfig, BotType, KarmaBotConfig, BotObjective, ProfileInputs } from '../../src/hooks/useKarmaBotConfig';
+import { useKarmaBotConfig, BotType, KarmaBotConfig, BotObjective, ProfileInputs, KarmaScenario } from '../../src/hooks/useKarmaBotConfig';
 
 interface KarmaAIConfigViewProps {
   onBack: () => void;
@@ -46,11 +46,6 @@ const TEMPLATE_VAR_GROUPS: { group: string; vars: string[] }[] = [
 ];
 const TEMPLATE_VARIABLES = TEMPLATE_VAR_GROUPS.flatMap(g => g.vars);
 
-const SCENARIOS: { id: 'discovery'|'role_fit'|'climate_pulse'; label: string; desc: string }[] = [
-  { id: 'discovery', label: 'Discovery (B2C)', desc: 'Profilazione candidato esterno' },
-  { id: 'role_fit', label: 'Role Fit (B2B)', desc: 'Verifica gap rispetto al ruolo target' },
-  { id: 'climate_pulse', label: 'Climate Pulse (B2B)', desc: 'Review periodico clima + collaborazione' },
-];
 
 const ALLOWED_INPUT_GROUPS: { group: string; items: { key: string; label: string }[] }[] = [
   { group: 'Persona', items: [
@@ -100,6 +95,7 @@ const OUTPUT_FIELD_TYPES = [
 
 export default function KarmaAIConfigView({ onBack }: KarmaAIConfigViewProps) {
   const [activeBotType, setActiveBotType] = useState<BotType>('karma_talents');
+  const [activeScenario, setActiveScenario] = useState<KarmaScenario>('discovery');
   const [editedConfig, setEditedConfig] = useState<Partial<KarmaBotConfig> | null>(null);
   const [versionNotes, setVersionNotes] = useState('');
   const [showVersionHistory, setShowVersionHistory] = useState(false);
@@ -108,6 +104,25 @@ export default function KarmaAIConfigView({ onBack }: KarmaAIConfigViewProps) {
   const [editingObjectiveId, setEditingObjectiveId] = useState<string | null>(null);
   const [editingObjectiveLabel, setEditingObjectiveLabel] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const SCENARIOS_BY_BOT: Record<BotType, { id: KarmaScenario; label: string; desc: string }[]> = {
+    karma_talents: [
+      { id: 'discovery', label: 'Discovery', desc: 'Profilazione candidato esterno' },
+    ],
+    jnana: [
+      { id: 'role_fit', label: 'Role Fit', desc: 'Verifica gap rispetto al ruolo' },
+      { id: 'climate_pulse', label: 'Climate Pulse', desc: 'Review periodico clima + collaborazione' },
+    ],
+  };
+
+  // Reset scenario when bot type changes
+  useEffect(() => {
+    const allowed = SCENARIOS_BY_BOT[activeBotType];
+    if (!allowed.find(s => s.id === activeScenario)) {
+      setActiveScenario(allowed[0].id);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeBotType]);
 
   const {
     configs,
@@ -121,7 +136,7 @@ export default function KarmaAIConfigView({ onBack }: KarmaAIConfigViewProps) {
     uploadDocument,
     deleteDocument,
     toggleDocumentActive,
-  } = useKarmaBotConfig(activeBotType);
+  } = useKarmaBotConfig(activeBotType, activeScenario);
 
   // Initialize edited config when active config loads
   useEffect(() => {
@@ -133,14 +148,29 @@ export default function KarmaAIConfigView({ onBack }: KarmaAIConfigViewProps) {
         allowed_inputs: { ...((activeConfig as any).allowed_inputs || {}) },
         output_schema: { fields: [...(((activeConfig as any).output_schema?.fields) || [])] } as any,
         discussion_style: { ...((activeConfig as any).discussion_style || {}) } as any,
-        scenario: (activeConfig as any).scenario || (activeBotType === 'jnana' ? 'role_fit' : 'discovery'),
+        scenario: activeScenario,
         model: activeConfig.model,
         max_exchanges: activeConfig.max_exchanges,
         temperature: activeConfig.temperature,
         closing_patterns: [...activeConfig.closing_patterns],
       } as any);
+    } else {
+      // No config for this (bot, scenario) — start blank so user can create v1
+      setEditedConfig({
+        system_prompt: '',
+        objectives: [],
+        profile_inputs: {} as any,
+        allowed_inputs: {} as any,
+        output_schema: { fields: [] } as any,
+        discussion_style: {} as any,
+        scenario: activeScenario,
+        model: 'google/gemini-2.5-flash',
+        max_exchanges: 8,
+        temperature: 0.7,
+        closing_patterns: [],
+      } as any);
     }
-  }, [activeConfig, activeBotType]);
+  }, [activeConfig, activeBotType, activeScenario]);
 
   const handleSave = async () => {
     if (!editedConfig || !versionNotes.trim()) {
@@ -392,6 +422,39 @@ export default function KarmaAIConfigView({ onBack }: KarmaAIConfigViewProps) {
         ))}
       </div>
 
+      {/* Scenario Sub-tabs */}
+      <div className="flex flex-wrap items-center gap-2 mb-6">
+        <span className="flex items-center gap-1 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider mr-1">
+          <Layers className="h-3.5 w-3.5" /> Scenario
+        </span>
+        {SCENARIOS_BY_BOT[activeBotType].map(s => {
+          const isActive = activeScenario === s.id;
+          return (
+            <button
+              key={s.id}
+              onClick={() => setActiveScenario(s.id)}
+              title={s.desc}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all border-2 ${
+                isActive
+                  ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300'
+                  : 'border-transparent bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:border-indigo-300'
+              }`}
+            >
+              {s.label}
+              {isActive && activeConfig?.version && (
+                <span className="ml-2 text-xs opacity-70">v{activeConfig.version}</span>
+              )}
+              {isActive && !activeConfig && (
+                <span className="ml-2 text-xs text-amber-600">nuova</span>
+              )}
+            </button>
+          );
+        })}
+        <span className="ml-2 text-xs text-gray-500 dark:text-gray-400 italic">
+          {SCENARIOS_BY_BOT[activeBotType].find(s => s.id === activeScenario)?.desc}
+        </span>
+      </div>
+
       {error && (
         <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl text-red-600 dark:text-red-400 text-sm">
           {error}
@@ -423,29 +486,6 @@ export default function KarmaAIConfigView({ onBack }: KarmaAIConfigViewProps) {
               className="w-full h-80 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600 font-mono text-sm text-gray-800 dark:text-gray-100 resize-none focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
               placeholder="Inserisci il system prompt..."
             />
-          </Card>
-
-          {/* Scenario Selector */}
-          <Card className="border-t-4 border-t-indigo-500">
-            <div className="flex items-center gap-2 mb-4">
-              <Layers className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
-              <h2 className="text-lg font-semibold text-gray-800 dark:text-white">Scenario di Conversazione</h2>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              {SCENARIOS.map(s => {
-                const active = ((editedConfig as any)?.scenario || (activeBotType === 'jnana' ? 'role_fit' : 'discovery')) === s.id;
-                return (
-                  <button
-                    key={s.id}
-                    onClick={() => setEditedConfig({ ...editedConfig, scenario: s.id } as any)}
-                    className={`p-3 rounded-lg border-2 text-left transition-all ${active ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/20' : 'border-gray-200 dark:border-gray-700 hover:border-indigo-300'}`}
-                  >
-                    <p className="font-bold text-sm text-gray-800 dark:text-white">{s.label}</p>
-                    <p className="text-xs text-gray-500 mt-1">{s.desc}</p>
-                  </button>
-                );
-              })}
-            </div>
           </Card>
 
           {/* Allowed Inputs Tree */}
