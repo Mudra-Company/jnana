@@ -28,6 +28,7 @@ export const KarmaDashboard: React.FC<KarmaDashboardProps> = ({
   onLogout,
   onGoHome,
 }) => {
+  const { user } = useAuth();
   const { 
     profile, 
     hardSkills, 
