@@ -183,9 +183,10 @@ export const UnifiedRolePersonCard: React.FC<UnifiedRolePersonCardProps> = ({
               {metrics.isInfluencer && (
                 <span
                   title={`Influencer${metrics.influenceType && metrics.influenceType.length ? ' · ' + metrics.influenceType.join(', ') : ''}`}
-                  className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-violet-100 dark:bg-violet-900/40 text-violet-600 dark:text-violet-300"
+                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-violet-100 dark:bg-violet-900/40 border border-violet-200 dark:border-violet-700 text-violet-700 dark:text-violet-300 text-[10px] font-semibold uppercase tracking-wide"
                 >
-                  <Sparkles size={10} />
+                  <Sparkles size={11} />
+                  Influencer
                 </span>
               )}
               {assignee.profileCode && (

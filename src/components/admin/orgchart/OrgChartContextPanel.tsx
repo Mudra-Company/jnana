@@ -24,7 +24,8 @@ import {
   Sparkles,
 } from 'lucide-react';
 import type { OrgNode, CompanyProfile, User } from '../../../../types';
-import type { CompanyRole } from '../../../types/roles';
+import type { CompanyRole, InfluenceScope, InfluenceType } from '../../../types/roles';
+import { INFLUENCE_SCOPE_LABELS, INFLUENCE_TYPE_LABELS } from '../../../types/roles';
 import type { UnifiedPosition } from '../../../types/unified-org';
 import type { OrgSelection } from '../../../hooks/useOrgChartUIState';
 
@@ -37,6 +38,7 @@ interface Props {
   selection: OrgSelection;
   onSelectCompany: () => void;
   onSelectNode: (nodeId: string) => void;
+  onSelectPosition?: (position: UnifiedPosition, nodeId: string | null) => void;
   onOpenFullDetail?: (position: UnifiedPosition) => void;
   
 }
@@ -310,7 +312,8 @@ const NodeView: React.FC<{
   roles: CompanyRole[];
   onSelectNode: (id: string) => void;
   onSelectCompany: () => void;
-}> = ({ node, path, users, roles, onSelectNode, onSelectCompany }) => {
+  onSelectPosition?: (position: UnifiedPosition, nodeId: string | null) => void;
+}> = ({ node, path, users, roles, onSelectNode, onSelectCompany, onSelectPosition }) => {
   const directUsers = dedupById(users.filter(u => u.departmentId === node.id));
   // Riporti = persone assegnate direttamente ai nodi figli di primo livello (no nipoti)
   const directReports = dedupById(
@@ -341,7 +344,7 @@ const NodeView: React.FC<{
     if (!primary) return [];
     const person = users.find(u => u.id === primary.userId);
     if (!person) return [];
-    return [{ person, types: primary.influenceType || [] }];
+    return [{ role: r, assignment: primary, person, types: primary.influenceType || [] }];
   });
 
   return (
@@ -436,27 +439,58 @@ const NodeView: React.FC<{
       <Section title="Influencer del team">
         {influencerEntries.length > 0 ? (
           <ul className="space-y-1.5">
-            {influencerEntries.map(({ person, types }) => (
-              <li
-                key={person.id}
-                className="text-sm text-gray-700 dark:text-gray-300 flex items-center gap-2 flex-wrap"
-              >
-                <Sparkles size={12} className="text-violet-500" />
-                <span className="font-medium">{person.firstName} {person.lastName}</span>
-                {types.length > 0 && (
-                  <span className="flex items-center gap-1 flex-wrap">
-                    {types.map(t => (
-                      <span
-                        key={t}
-                        className="text-[10px] px-1.5 py-0.5 rounded bg-violet-50 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300 capitalize"
-                      >
-                        {t}
-                      </span>
-                    ))}
-                  </span>
-                )}
-              </li>
-            ))}
+            {influencerEntries.map(({ role, assignment, person, types }) => {
+              const content = (
+                <>
+                  <Sparkles size={12} className="text-violet-500 shrink-0" />
+                  <span className="font-medium">{person.firstName} {person.lastName}</span>
+                  {types.length > 0 && (
+                    <span className="flex items-center gap-1 flex-wrap">
+                      {types.map(t => (
+                        <span
+                          key={t}
+                          className="text-[10px] px-1.5 py-0.5 rounded bg-violet-50 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300"
+                        >
+                          {INFLUENCE_TYPE_LABELS[t as InfluenceType] || t}
+                        </span>
+                      ))}
+                    </span>
+                  )}
+                </>
+              );
+              return (
+                <li key={person.id}>
+                  {onSelectPosition ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const position: UnifiedPosition = {
+                          role,
+                          assignee: person,
+                          assignment,
+                          metrics: {
+                            roleFitScore: 0,
+                            managerFitScore: null,
+                            cultureFitScore: 0,
+                            isLeader: false,
+                            isInfluencer: true,
+                            influenceType: types,
+                          },
+                        };
+                        onSelectPosition(position, node.id);
+                      }}
+                      className="w-full text-left text-sm text-gray-700 dark:text-gray-300 flex items-center gap-2 flex-wrap px-2 py-1 -mx-2 rounded-lg hover:bg-violet-50 dark:hover:bg-violet-900/20 transition-colors"
+                    >
+                      {content}
+                    </button>
+                  ) : (
+                    <div className="text-sm text-gray-700 dark:text-gray-300 flex items-center gap-2 flex-wrap">
+                      {content}
+                    </div>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         ) : (
           <p className="text-xs text-gray-400 dark:text-gray-500 italic">
@@ -586,6 +620,44 @@ const PositionView: React.FC<{
         </div>
       )}
 
+      {position.assignment?.isInfluencer && (
+        <Section title="Influencer">
+          <div className="rounded-xl border border-violet-200 dark:border-violet-800 bg-violet-50/60 dark:bg-violet-900/20 p-3 space-y-2">
+            <div className="flex items-center gap-2 text-violet-700 dark:text-violet-300 font-semibold text-sm">
+              <Sparkles size={14} />
+              Influencer {INFLUENCE_SCOPE_LABELS[(position.assignment.influenceScope as InfluenceScope) || 'team']?.toLowerCase()}
+            </div>
+            {position.assignment.influenceType && position.assignment.influenceType.length > 0 && (
+              <div>
+                <div className="text-[10px] uppercase tracking-wide text-violet-600/70 dark:text-violet-400/70 font-semibold mb-1">
+                  Tipologia
+                </div>
+                <div className="flex flex-wrap gap-1">
+                  {(position.assignment.influenceType as InfluenceType[]).map(t => (
+                    <span
+                      key={t}
+                      className="text-[11px] px-2 py-0.5 rounded-full bg-white dark:bg-violet-900/40 border border-violet-200 dark:border-violet-700 text-violet-700 dark:text-violet-300"
+                    >
+                      {INFLUENCE_TYPE_LABELS[t] || t}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+            {position.assignment.influenceNotes && (
+              <div>
+                <div className="text-[10px] uppercase tracking-wide text-violet-600/70 dark:text-violet-400/70 font-semibold mb-1">
+                  Note
+                </div>
+                <p className="text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap leading-relaxed">
+                  {position.assignment.influenceNotes}
+                </p>
+              </div>
+            )}
+          </div>
+        </Section>
+      )}
+
       {role.requiredHardSkills && role.requiredHardSkills.length > 0 && (
         <Section title="Hard skills richieste">
           <div className="flex flex-wrap gap-1">
@@ -638,6 +710,7 @@ export const OrgChartContextPanel: React.FC<Props> = ({
   selection,
   onSelectCompany,
   onSelectNode,
+  onSelectPosition,
   onOpenFullDetail,
   
 }) => {
@@ -672,6 +745,7 @@ export const OrgChartContextPanel: React.FC<Props> = ({
           roles={roles}
           onSelectNode={onSelectNode}
           onSelectCompany={onSelectCompany}
+          onSelectPosition={onSelectPosition}
         />
       );
     }

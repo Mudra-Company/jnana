@@ -1886,6 +1886,7 @@ export const CompanyOrgView: React.FC<{
                     selection={orgUI.selection}
                     onSelectCompany={orgUI.selectCompany}
                     onSelectNode={orgUI.selectNode}
+                    onSelectPosition={orgUI.selectPosition}
                     onOpenFullDetail={handleOpenFullDetail}
                 />
 
