@@ -129,6 +129,12 @@ const InviteAcceptView = lazy(() =>
 const B2BOnboardingFlow = lazy(() =>
   import('../../views/onboarding/B2BOnboardingFlow').then(m => ({ default: m.B2BOnboardingFlow }))
 );
+const SimulatorB2CView = lazy(() =>
+  import('../../views/simulator/SimulatorB2CView').then(m => ({ default: m.SimulatorB2CView }))
+);
+const SimulatorB2BView = lazy(() =>
+  import('../../views/simulator/SimulatorB2BView').then(m => ({ default: m.SimulatorB2BView }))
+);
 
 /**
  * Declarative route tree replacing the mega switch in App.tsx.
@@ -845,6 +851,29 @@ function B2BOnboardingRoute() {
   );
 }
 
+// ===== SIMULATOR (super admin only) =====
+
+function SimulatorB2CRoute() {
+  const { canAccessSuperAdminViews } = useAppData();
+  if (!canAccessSuperAdminViews) return <NotReady />;
+  return <SimulatorB2CView />;
+}
+
+function SimulatorB2BRoute() {
+  const { canAccessSuperAdminViews } = useAppData();
+  if (!canAccessSuperAdminViews) return <NotReady />;
+  return <SimulatorB2BView />;
+}
+
+// ===== ROOT TREE =====
+
+/** Suspense fallback shown while a lazy chunk loads. Same look as the global LOADING screen. */
+      onStartRiasec={() => navigate({ type: 'USER_TEST', userId: user.id })}
+      onSkip={() => setView({ type: 'USER_RESULT', userId: user.id })}
+    />
+  );
+}
+
 // ===== ROOT TREE =====
 
 /** Suspense fallback shown while a lazy chunk loads. Same look as the global LOADING screen. */
@@ -916,6 +945,10 @@ export const AppRoutes: React.FC = () => {
       <Route path="/demo/chat" element={<DemoUserChatRoute />} />
       <Route path="/demo/climate" element={<DemoUserClimateRoute />} />
       <Route path="/demo/result" element={<DemoUserResultRoute />} />
+
+      {/* Onboarding Simulator (super admin only) */}
+      <Route path="/simulate/b2c" element={<SimulatorB2CRoute />} />
+      <Route path="/simulate/b2b" element={<SimulatorB2BRoute />} />
     </Routes>
     </Suspense>
   );
