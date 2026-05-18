@@ -419,7 +419,7 @@ const NodeView: React.FC<{
       </div>
 
       {managers.length > 0 && (
-        <Section title={node.isCulturalDriver ? 'Leader culturali' : 'Responsabile'}>
+        <Section title="Responsabile">
           <ul className="space-y-1">
             {managers.slice(0, 6).map(m => (
               <li
@@ -427,6 +427,9 @@ const NodeView: React.FC<{
                 className="text-sm text-gray-700 dark:text-gray-300 flex items-center gap-2"
               >
                 <Award size={12} className="text-amber-500" />
+                {parentNode?.isCulturalDriver && (
+                  <Crown size={12} className="text-purple-500" aria-label="Driver culturale" />
+                )}
                 {m.firstName} {m.lastName}
                 {m.jobTitle && (
                   <span className="text-xs text-gray-400">— {m.jobTitle}</span>
