@@ -24,7 +24,8 @@ import {
   Sparkles,
 } from 'lucide-react';
 import type { OrgNode, CompanyProfile, User } from '../../../../types';
-import type { CompanyRole } from '../../../types/roles';
+import type { CompanyRole, InfluenceScope, InfluenceType } from '../../../types/roles';
+import { INFLUENCE_SCOPE_LABELS, INFLUENCE_TYPE_LABELS } from '../../../types/roles';
 import type { UnifiedPosition } from '../../../types/unified-org';
 import type { OrgSelection } from '../../../hooks/useOrgChartUIState';
 
