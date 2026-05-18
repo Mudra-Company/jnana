@@ -868,6 +868,8 @@ export const AppRoutes: React.FC = () => {
       <Route path="/login" element={<LoginRoute />} />
       <Route path="/auth/reset-password" element={<ResetPasswordRoute />} />
       <Route path="/seed" element={<SeedDataRoute />} />
+      <Route path="/invite/accept" element={<InviteAcceptRoute />} />
+      <Route path="/onboarding/b2b" element={<B2BOnboardingRoute />} />
 
       {/* Super admin */}
       <Route path="/superadmin" element={<SuperAdminDashboardRoute />} />
