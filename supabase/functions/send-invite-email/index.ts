@@ -87,10 +87,29 @@ const handler = async (req: Request): Promise<Response> => {
     console.log("  → Company:", companyName);
     console.log("  → Signup URL:", signupUrl);
     
+    const escape = (s: string) =>
+      s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+    const roleBlock = roleTitle
+      ? `<div style="text-align:center;margin:0 0 24px;"><span style="display:inline-block;background-color:#eef5f1;color:#3A524B;font-family:'Montserrat',sans-serif;font-size:13px;font-weight:600;letter-spacing:0.5px;padding:8px 18px;border-radius:50px;">Ruolo proposto: ${escape(roleTitle)}</span></div>`
+      : "";
+
+    const messageBlock = personalMessage
+      ? `<div style="background-color:#fffaf0;border-left:4px solid #d4a017;border-radius:8px;padding:16px 20px;margin:0 0 28px;"><p style="margin:0 0 6px;color:#92400e;font-family:'Montserrat',sans-serif;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:1px;">💬 Messaggio da ${escape(inviterName || companyName)}</p><p style="margin:0;color:#3a3a3a;font-size:15px;line-height:1.6;white-space:pre-wrap;">${escape(personalMessage)}</p></div>`
+      : "";
+
+    const reminderBanner = isReminder
+      ? `<div style="background-color:#fef3c7;border:1px solid #f59e0b;border-radius:12px;padding:14px 18px;margin:0 0 24px;text-align:center;"><span style="color:#92400e;font-family:'Montserrat',sans-serif;font-size:14px;font-weight:600;">⏰ Promemoria — il tuo invito ti sta aspettando${expiresAt ? ` (scade il ${new Date(expiresAt).toLocaleDateString("it-IT")})` : ""}.</span></div>`
+      : "";
+
+    const subject = isReminder
+      ? `Promemoria: ${inviterName || companyName} ti aspetta su Jnana`
+      : `${inviterName || companyName} ti ha invitato su Jnana`;
+
     const emailResponse = await resend.emails.send({
       from: fromEmail,
       to: [employeeEmail],
-      subject: `${inviterName || companyName} ti ha invitato su Jnana`,
+      subject,
       html: `
         <!DOCTYPE html>
         <html lang="it">
