@@ -314,20 +314,19 @@ export const AdminDashboardView: React.FC<AdminDashboardProps> = ({
     }
     setSendingInviteId(user.memberId);
     try {
-      const { error } = await supabase.functions.invoke('send-invite-email', {
+      const { data, error } = await supabase.functions.invoke('create-invite', {
         body: {
-          employeeEmail: user.email,
-          employeeName: `${user.firstName} ${user.lastName}`.trim(),
-          companyName: activeCompany.name,
+          email: user.email,
+          firstName: user.firstName,
+          lastName: user.lastName,
           companyId: activeCompany.id,
-          memberId: user.memberId,
-        }
+        },
       });
-      if (error) throw error;
-      toast({ title: 'Invito inviato! ✉️', description: `Email di invito inviata a ${user.email}` });
+      if (error || data?.error) throw new Error(data?.error ?? error?.message);
+      toast({ title: 'Invito reinviato ✉️', description: `Email aggiornata inviata a ${user.email}` });
       if (onRefreshUsers) await onRefreshUsers();
-    } catch (err) {
-      toast({ title: 'Errore', description: 'Impossibile inviare l\'invito.', variant: 'destructive' });
+    } catch (err: any) {
+      toast({ title: 'Errore', description: err?.message ?? 'Impossibile reinviare l\'invito.', variant: 'destructive' });
     } finally {
       setSendingInviteId(null);
     }
