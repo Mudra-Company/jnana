@@ -174,29 +174,8 @@ const handler = async (req: Request): Promise<Response> => {
                       </p>
                       ${roleBlock}
                       ${messageBlock}
-                      </p>
                       <p style="margin: 0 0 28px; color: #4a5568; font-size: 17px; line-height: 1.7;">
                         Bastano pochi minuti per iniziare.
-                      </p>
-                      </p>
-                      </p>
-                      </p>
-                      </p>
-                      </p>
-                      </p>
-                      </p>
-                      </p>
-                      </p>
-                      </p>
-                      </p>
-                      </p>
-                      </p>
-                      </p>
-                      </p>
-                      </p>
-                      </p>
-                      </p>
-                      </p>
                       </p>
                       <!-- Features Box -->
                       <div style="background: linear-gradient(145deg, #f0fdf4 0%, #e8f5f0 100%); border-radius: 16px; padding: 28px; margin: 28px 0; border: 1px solid rgba(79, 112, 102, 0.15);">
