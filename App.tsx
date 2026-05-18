@@ -216,6 +216,52 @@ const AppContent: React.FC = () => {
       return;
     }
 
+    // === Signed invite reconciliation ===
+    // If a pendingInvite with a token is present, call accept-invite to link
+    // this auth user to the placeholder company_members row, then send them
+    // through the B2B onboarding flow.
+    try {
+      const pendingStr = localStorage.getItem('pendingInvite');
+      if (pendingStr) {
+        const pending = JSON.parse(pendingStr);
+        if (pending?.token) {
+          const { data: acceptRes, error: acceptErr } = await supabase.functions.invoke('accept-invite', {
+            body: { token: pending.token },
+          });
+          if (!acceptErr && acceptRes?.success) {
+            localStorage.removeItem('pendingInvite');
+            toast({ title: 'Benvenuto!', description: 'Invito accettato con successo.' });
+            // Refresh user data so membership is loaded by useAuth on next tick.
+            const userData = await fetchUserWithDetails(user.id);
+            if (userData) {
+              setCurrentUserData(
+                profileToLegacyUser(
+                  userData,
+                  userData.membership,
+                  userData.riasecResult,
+                  userData.karmaSession,
+                  userData.climateResponse,
+                ),
+              );
+            }
+            setView({ type: 'B2B_ONBOARDING' });
+            return;
+          } else {
+            console.warn('[App] accept-invite failed', acceptErr || acceptRes);
+            if (acceptRes?.error === 'email_mismatch') {
+              toast({
+                title: 'Email diversa',
+                description: `Per accettare questo invito devi registrarti con ${acceptRes.expectedEmail}.`,
+                variant: 'destructive',
+              });
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.error('[App] invite reconciliation error', e);
+    }
+
     const userData = await fetchUserWithDetails(user.id);
     if (userData) {
       const legacyUser = profileToLegacyUser(
