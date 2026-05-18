@@ -38,6 +38,7 @@ interface Props {
   selection: OrgSelection;
   onSelectCompany: () => void;
   onSelectNode: (nodeId: string) => void;
+  onSelectPosition?: (position: UnifiedPosition, nodeId: string | null) => void;
   onOpenFullDetail?: (position: UnifiedPosition) => void;
   
 }
