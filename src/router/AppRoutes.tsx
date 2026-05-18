@@ -123,6 +123,12 @@ const CVReviewScreen = lazy(() =>
 const PostOnboardingPromo = lazy(() =>
   import('../../views/karma/PostOnboardingPromo').then(m => ({ default: m.PostOnboardingPromo }))
 );
+const InviteAcceptView = lazy(() =>
+  import('../views/auth/InviteAcceptView').then(m => ({ default: m.InviteAcceptView }))
+);
+const B2BOnboardingFlow = lazy(() =>
+  import('../../views/onboarding/B2BOnboardingFlow').then(m => ({ default: m.B2BOnboardingFlow }))
+);
 
 /**
  * Declarative route tree replacing the mega switch in App.tsx.
