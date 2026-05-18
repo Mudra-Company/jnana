@@ -55,26 +55,27 @@ const AppContent: React.FC = () => {
     if (window.location.pathname === '/auth/reset-password') {
       return { type: 'RESET_PASSWORD' };
     }
+    // Public invite acceptance route (signed token)
+    if (window.location.pathname === '/invite/accept') {
+      return { type: 'INVITE_ACCEPT' };
+    }
     // Check for seed URL parameter
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('seed') === 'true') {
       return { type: 'SEED_DATA' };
     }
-    // Check for invite URL parameters
+    // Legacy invite URL (?invite=...&company=...) — backward compatible
     const inviteId = urlParams.get('invite');
     const companyId = urlParams.get('company');
     if (inviteId && companyId) {
-      // Store invite info for after signup
       localStorage.setItem('pendingInvite', JSON.stringify({ inviteId, companyId }));
-      // Clean the URL
       window.history.replaceState({}, document.title, window.location.pathname);
       return { type: 'LOGIN' };
     }
     // Try to recover the view from the current URL (deep link / refresh).
-    // If no match → LOADING (auth bootstrap will pick the right destination).
     const fromUrl = pathToView(window.location.pathname, window.location.search);
     if (fromUrl) return fromUrl;
-    return { type: 'LOADING' }; // Start with LOADING, not LOGIN
+    return { type: 'LOADING' };
   });
 
   // Mirror view ↔ URL (real router URLs, back/forward, deep links, refresh).
