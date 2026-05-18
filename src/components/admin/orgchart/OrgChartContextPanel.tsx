@@ -28,6 +28,7 @@ import type { CompanyRole, InfluenceScope, InfluenceType } from '../../../types/
 import { INFLUENCE_SCOPE_LABELS, INFLUENCE_TYPE_LABELS } from '../../../types/roles';
 import type { UnifiedPosition } from '../../../types/unified-org';
 import type { OrgSelection } from '../../../hooks/useOrgChartUIState';
+import { findNodeManagers } from '../../../../views/admin/OrgNodeCard';
 
 interface Props {
   collapsed: boolean;
@@ -331,12 +332,12 @@ const NodeView: React.FC<{
   const hiringHere =
     nodeRoles.filter(r => r.isHiring).length + directUsers.filter(u => u.isHiring).length;
 
-  const managers = directUsers.filter(
-    u =>
-      !u.isHiring &&
-      (node.isCulturalDriver ||
-        u.jobTitle?.toLowerCase().match(/(head|manager|lead|director|ceo|ad)/))
-  );
+  // Responsabili = persone presenti nel nodo PADRE dell'organigramma (livello superiore).
+  // Niente euristiche sul jobTitle del nodo corrente.
+  const parentNode = path.length >= 2 ? path[path.length - 2] : null;
+  const managers = parentNode
+    ? findNodeManagers(users.filter(u => u.departmentId === parentNode.id), parentNode)
+    : [];
 
   // Influencer del nodo: assignments primarie con is_influencer=true sui ruoli del nodo
   const influencerEntries = nodeRoles.flatMap(r => {
@@ -418,7 +419,7 @@ const NodeView: React.FC<{
       </div>
 
       {managers.length > 0 && (
-        <Section title={node.isCulturalDriver ? 'Leader culturali' : 'Manager / Lead'}>
+        <Section title={node.isCulturalDriver ? 'Leader culturali' : 'Responsabile'}>
           <ul className="space-y-1">
             {managers.slice(0, 6).map(m => (
               <li

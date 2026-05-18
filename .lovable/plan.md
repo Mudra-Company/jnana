@@ -1,54 +1,50 @@
-## Obiettivo
+# Fix: "Responsabile" nella spalla laterale dell'organigramma
 
-Rendere l'influencer riconoscibile a colpo d'occhio dall'organigramma e mostrare tutte le sue informazioni (tipo, ambito, note) nella spalla sinistra quando si seleziona quella posizione.
+## Problema
 
-## Cosa è già in piedi (e perché non basta)
+Quando si seleziona un team/dipartimento, la spalla sinistra mostra una sezione **"Manager / Lead"** che oggi viene popolata cercando, **all'interno dello stesso nodo selezionato**, le persone il cui `jobTitle` contiene parole tipo `manager`, `lead`, `head`, `director`, `ceo`. 
 
-- `UnifiedRolePersonCard.tsx` ha già una piccola icona "Sparkles" 10px viola accanto al nome — troppo piccola per essere notata (cfr. screenshot 1, dove Marco Galli non sembra avere alcun segno).
-- `OrgChartContextPanel.tsx` mostra già nel pannello del nodo la sezione "Influencer del team" con i nomi, ma quando si clicca sulla *posizione* del singolo influencer (vista `PositionView`, screenshot 2) non c'è traccia del fatto che sia un influencer.
+Risultato sbagliato (vedi screenshot image-304): nel team "Marketing" vengono elencati come "Manager / Lead" **Marco Galli** (Content & Brand Manager) e **Luca Ferrari** (Social Media & Community Manager), che sono semplicemente membri del team con la parola "Manager" nel titolo. Il vero responsabile è **Giulia Ruggi** (Head of Marketing), che vive nel **nodo padre** dell'organigramma (image-303).
 
-## Modifiche
+Regola da rispettare ovunque: **il responsabile di un nodo è chi sta nel livello immediatamente superiore dell'organigramma**, non chi ha una keyword nel job title dentro lo stesso nodo.
 
-### 1. Badge influencer più evidente sulla card (file: `src/components/roles/UnifiedRolePersonCard.tsx`)
+## Audit della logica fallace
 
-Sostituire il puntino 4×4 con un badge "pill" affianco al nome assignee:
-- Icona `Sparkles` 12px viola + label `Influencer`
-- Sfondo `bg-violet-100`, bordo `border-violet-200`, testo `text-violet-700`
-- `title` con scope + lista tipi per il tooltip rapido
+Ho cercato l'uso del pattern `jobTitle includes manager|head|lead|director|ceo`:
 
-Manteniamo posizione (subito a destra del nome, prima del `profileCode`).
+| File | Uso | Stato |
+|---|---|---|
+| `src/components/admin/orgchart/OrgChartContextPanel.tsx` linea 334-338 | Identifica i "manager" **dentro** il nodo corrente per mostrarli come Manager / Lead | **BUG da correggere** |
+| `views/admin/OrgNodeCard.tsx` `findNodeManagers` (riga 83-103) | Identifica i manager di un nodo per **passarli ai figli** come `parentManagers` (Manager Fit Score) | Uso corretto: serve a determinare chi è il responsabile da passare verso il basso |
+| `views/admin/CompanyOrgView.tsx` righe 1525, 1529, 1679 | Calcola `currentManagers` di un nodo per passarli come `parentManagers` ai figli | Uso corretto (stessa logica del punto sopra) |
+| `src/components/admin/OrgChartPrintView.tsx` riga 188-193 | Stessa cosa per la stampa | Uso corretto |
 
-### 2. Sezione "Influencer" nella spalla sinistra — vista posizione (file: `src/components/admin/orgchart/OrgChartContextPanel.tsx`)
+Quindi la **logica euristica resta legittima** quando serve a identificare chi-sta-sopra rispetto a un livello inferiore (parentManagers). L'errore è **solo** nel pannello laterale, che la applica al nodo stesso invece che al padre.
 
-Dentro `PositionView`, dopo gli `ScoreBar` e prima delle hard/soft skill, aggiungere render condizionale se `position.assignment?.isInfluencer === true`:
+## Modifica
 
-```text
-INFLUENCER
-✨ Influencer del team
-  · Ambito: Team / Dipartimento / Azienda    (badge colorato)
-  · Tipologia: Technical, Cultural, …        (chip multipli)
-  · Note: testo libero (se presente)
-```
+### File: `src/components/admin/orgchart/OrgChartContextPanel.tsx`
 
-Tutti i dati vengono letti da `position.assignment` (`isInfluencer`, `influenceScope`, `influenceType`, `influenceNotes`) che è già popolato dal hook `useUnifiedOrgData` → `buildUnifiedPositions`. Nessuna nuova query / nessun cambio dati.
+Nel componente `NodeView` (riga 308+):
 
-Labels italiane per scope: `team → "del Team"`, `department → "di Dipartimento"`, `company → "Aziendale"`.
-Labels per tipo: `technical → "Tecnico"`, `cultural → "Culturale"`, `network → "Network"`, `decisional → "Decisionale"` (riusare le stesse mappe già definite in `UnifiedDetailModal`).
+1. Eliminare il calcolo attuale di `managers` basato sugli utenti del nodo corrente (righe 334-339).
+2. Calcolare i responsabili a partire dal **nodo padre** ricavato da `path`:
+   - `parentNode = path[path.length - 2]` (se esiste).
+   - `parentUsers = users.filter(u => u.departmentId === parentNode.id)`.
+   - `responsabili = findNodeManagers(parentUsers, parentNode)` — riusando la funzione già esportata da `views/admin/OrgNodeCard.tsx`.
+   - Per il **nodo root** (nessun padre) la sezione non viene renderizzata (oppure mostra "—"); confermo la scelta di non renderizzarla, coerente con il comportamento attuale quando l'array è vuoto.
+3. Rinominare il titolo della sezione:
+   - Se `node.isCulturalDriver` → resta `"Leader culturali"` (invariato).
+   - Altrimenti → `"Responsabile"` (al posto di `"Manager / Lead"`).
+4. Nessun'altra modifica di layout o stile: stessa lista con icona `Award`, nome, e job title.
 
-### 3. Lista influencer del nodo → click per aprire la posizione (file: `src/components/admin/orgchart/OrgChartContextPanel.tsx`)
+### Nessun cambio di dati né di backend
 
-Nella sezione "Influencer del team" del `NodeView`, rendere ogni voce un `<button>` che, su click, seleziona la `UnifiedPosition` dell'influencer. Già passiamo `roles` al pannello: per ogni `nodeRoles` con `primary.isInfluencer` costruiamo un mini-`UnifiedPosition` (role + assignee + assignment + metrics di default) e chiamiamo lo stesso flusso usato dal click sulla card. 
+La modifica è puramente di presentazione nel pannello laterale. Nessun'altra parte del codice viene toccata, perché — come emerso dall'audit — gli altri usi della stessa euristica sono semanticamente corretti (servono a popolare `parentManagers` per i figli, che è proprio il concetto che vogliamo).
 
-Per evitare di duplicare la logica di `buildUnifiedPositions`, aggiungiamo una prop opzionale `onSelectInfluencer?: (roleId: string) => void` al pannello; `CompanyOrgView` la implementa cercando la `UnifiedPosition` già calcolata e chiamando il suo handler esistente (`handleUnifiedPositionClick` / equivalente). Tocca quindi anche `views/admin/CompanyOrgView.tsx` (solo il punto in cui istanzia `<OrgChartContextPanel>`).
+## Verifica attesa dopo l'implementazione
 
-## File toccati
-
-- `src/components/roles/UnifiedRolePersonCard.tsx` — badge più visibile
-- `src/components/admin/orgchart/OrgChartContextPanel.tsx` — nuova sezione in `PositionView` + influencer list cliccabile in `NodeView`
-- `views/admin/CompanyOrgView.tsx` — wiring di `onSelectInfluencer`
-
-## Cosa NON cambia
-
-- Schema DB, hook di fetch, modale di modifica influencer.
-- Logica di matching / SpaceSync / job rotation (già usa i campi).
-
+- Selezionando un sotto-team di Marketing, la sezione laterale mostra **"Responsabile: Giulia Ruggi — Head of Marketing"** (presa dal nodo padre).
+- Selezionando il dipartimento Marketing stesso, la sezione mostra il/i responsabile/i dell'azienda (nodo radice della catena), se esistono.
+- Selezionando il nodo root azienda, la sezione "Responsabile" non appare.
+- Nei nodi Cultural Driver il titolo resta "Leader culturali" con il comportamento attuale.
