@@ -28,6 +28,7 @@ import type { CompanyRole, InfluenceScope, InfluenceType } from '../../../types/
 import { INFLUENCE_SCOPE_LABELS, INFLUENCE_TYPE_LABELS } from '../../../types/roles';
 import type { UnifiedPosition } from '../../../types/unified-org';
 import type { OrgSelection } from '../../../hooks/useOrgChartUIState';
+import { findNodeManagers } from '../../../../views/admin/OrgNodeCard';
 
 interface Props {
   collapsed: boolean;
