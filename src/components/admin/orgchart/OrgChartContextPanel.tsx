@@ -433,6 +433,38 @@ const NodeView: React.FC<{
         </Section>
       )}
 
+      <Section title="Influencer del team">
+        {influencerEntries.length > 0 ? (
+          <ul className="space-y-1.5">
+            {influencerEntries.map(({ person, types }) => (
+              <li
+                key={person.id}
+                className="text-sm text-gray-700 dark:text-gray-300 flex items-center gap-2 flex-wrap"
+              >
+                <Sparkles size={12} className="text-violet-500" />
+                <span className="font-medium">{person.firstName} {person.lastName}</span>
+                {types.length > 0 && (
+                  <span className="flex items-center gap-1 flex-wrap">
+                    {types.map(t => (
+                      <span
+                        key={t}
+                        className="text-[10px] px-1.5 py-0.5 rounded bg-violet-50 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300 capitalize"
+                      >
+                        {t}
+                      </span>
+                    ))}
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-xs text-gray-400 dark:text-gray-500 italic">
+            Nessun influencer identificato in questo team.
+          </p>
+        )}
+      </Section>
+
       {node.children && node.children.length > 0 && (
         <Section title="Sotto-nodi">
           <ul className="space-y-1">
