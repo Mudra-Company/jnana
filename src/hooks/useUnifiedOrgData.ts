@@ -65,14 +65,17 @@ export const useUnifiedOrgData = (): UseUnifiedOrgDataResult => {
     assignee: User | null,
     companyValues?: string[],
     parentManagers?: User[],
-    isCulturalDriverNode: boolean = false
+    isCulturalDriverNode: boolean = false,
+    influencerInfo?: { isInfluencer: boolean; influenceType: string[] }
   ): UnifiedPositionMetrics => {
     if (!assignee) {
       return {
         roleFitScore: 0,
         managerFitScore: null,
         cultureFitScore: 0,
-        isLeader: false
+        isLeader: false,
+        isInfluencer: false,
+        influenceType: [],
       };
     }
 
@@ -143,7 +146,9 @@ export const useUnifiedOrgData = (): UseUnifiedOrgDataResult => {
       roleFitScore,
       managerFitScore,
       cultureFitScore,
-      isLeader
+      isLeader,
+      isInfluencer: influencerInfo?.isInfluencer ?? false,
+      influenceType: influencerInfo?.influenceType ?? [],
     };
   }, []);
 
@@ -293,7 +298,10 @@ export const useUnifiedOrgData = (): UseUnifiedOrgDataResult => {
       }
 
       const isCulturalDriverNode = !!(role.orgNodeId && culturalDriverNodeIds?.has(role.orgNodeId));
-      const metrics = calculateQuickMetrics(role, assignee, companyValues, parentManagers, isCulturalDriverNode);
+      const influencerInfo = assignment
+        ? { isInfluencer: !!assignment.isInfluencer, influenceType: assignment.influenceType ?? [] }
+        : undefined;
+      const metrics = calculateQuickMetrics(role, assignee, companyValues, parentManagers, isCulturalDriverNode, influencerInfo);
 
       return {
         role,
