@@ -184,8 +184,12 @@ const InfluencerEditor: React.FC<{
           <textarea
             disabled={!canEdit || saving}
             value={state.influenceNotes}
-            onChange={e => setState({ ...state, influenceNotes: e.target.value })}
-            onBlur={() => persist(state)}
+            onChange={e => {
+              const next = { ...state, influenceNotes: e.target.value };
+              setState(next);
+              scheduleSave(next);
+            }}
+            onBlur={() => saveNow(stateRef.current)}
             placeholder="Note opzionali sull'influenza (es. mentor del team UX, riferimento culturale…)"
             rows={2}
             className="w-full text-sm px-3 py-2 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200"
