@@ -318,6 +318,7 @@ export const UnifiedDetailModal: React.FC<UnifiedDetailModalProps> = ({
   // Edit mode state
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [editedRole, setEditedRole] = useState<Partial<UpdateRoleInput>>({});
   
@@ -372,6 +373,7 @@ export const UnifiedDetailModal: React.FC<UnifiedDetailModalProps> = ({
     setEditedRole({});
     setShowDeleteConfirm(false);
     setMemberSearchQuery('');
+    setSaveError(null);
     setSavedInfluencer(influencerBaseState);
     setEditedInfluencer(influencerBaseState);
   }, [isOpen, position.role.id, influencerBaseState]);
@@ -460,6 +462,7 @@ export const UnifiedDetailModal: React.FC<UnifiedDetailModalProps> = ({
     }
 
     setIsSaving(true);
+    setSaveError(null);
     try {
       let saveSucceeded = true;
 
@@ -469,6 +472,7 @@ export const UnifiedDetailModal: React.FC<UnifiedDetailModalProps> = ({
           setEditedRole({});
         } else {
           saveSucceeded = false;
+          setSaveError(result.error || 'Errore nel salvataggio delle modifiche al ruolo.');
         }
       } else if (hasRoleChanges && onEditRole) {
         await onEditRole(editedRole);
@@ -487,6 +491,7 @@ export const UnifiedDetailModal: React.FC<UnifiedDetailModalProps> = ({
           setSavedInfluencer(editedInfluencer);
         } else {
           saveSucceeded = false;
+          setSaveError(result.error || 'Errore nel salvataggio dei dati influencer.');
         }
       }
 
@@ -519,6 +524,7 @@ export const UnifiedDetailModal: React.FC<UnifiedDetailModalProps> = ({
     setIsEditing(false);
     setEditedRole({});
     setEditedInfluencer(savedInfluencer);
+    setSaveError(null);
   };
 
   // Get current value (edited or original)
@@ -2241,6 +2247,11 @@ export const UnifiedDetailModal: React.FC<UnifiedDetailModalProps> = ({
 
         {/* Actions */}
         <div className="px-4 py-3 border-t border-gray-200 dark:border-gray-700 flex items-center gap-2 shrink-0 bg-gray-50 dark:bg-gray-900/30">
+          {saveError && (
+            <div className="mr-auto text-xs text-red-600 dark:text-red-400 font-medium">
+              {saveError}
+            </div>
+          )}
           {isEditing ? (
             <>
               <Button variant="ghost" onClick={handleCancelEdit} disabled={isSaving} className="flex-1">
