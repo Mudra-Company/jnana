@@ -24,6 +24,10 @@ const mapDbRowToAssignment = (row: Record<string, unknown>): RoleAssignment => (
   endDate: row.end_date as string | null,
   ftePercentage: (row.fte_percentage as number) || 100,
   notes: row.notes as string | null,
+  isInfluencer: (row.is_influencer as boolean) ?? false,
+  influenceScope: (row.influence_scope as RoleAssignment['influenceScope']) || 'team',
+  influenceType: (row.influence_type as RoleAssignment['influenceType']) || [],
+  influenceNotes: (row.influence_notes as string | null) ?? null,
   createdAt: row.created_at as string,
   updatedAt: row.updated_at as string,
 });
@@ -183,7 +187,11 @@ export const useRoleAssignments = (): UseRoleAssignmentsResult => {
         start_date: input.startDate || new Date().toISOString().split('T')[0],
         end_date: input.endDate || null,
         fte_percentage: input.ftePercentage ?? 100,
-        notes: input.notes || null
+        notes: input.notes || null,
+        is_influencer: input.isInfluencer ?? false,
+        influence_scope: input.influenceScope || 'team',
+        influence_type: input.influenceType || [],
+        influence_notes: input.influenceNotes || null,
       };
 
       const { data, error: insertError } = await supabase
@@ -226,6 +234,10 @@ export const useRoleAssignments = (): UseRoleAssignmentsResult => {
       if (input.endDate !== undefined) updateData.end_date = input.endDate;
       if (input.ftePercentage !== undefined) updateData.fte_percentage = input.ftePercentage;
       if (input.notes !== undefined) updateData.notes = input.notes;
+      if (input.isInfluencer !== undefined) updateData.is_influencer = input.isInfluencer;
+      if (input.influenceScope !== undefined) updateData.influence_scope = input.influenceScope;
+      if (input.influenceType !== undefined) updateData.influence_type = input.influenceType;
+      if (input.influenceNotes !== undefined) updateData.influence_notes = input.influenceNotes;
 
       const { error: updateError } = await supabase
         .from('company_role_assignments')
