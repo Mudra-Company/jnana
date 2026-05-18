@@ -293,6 +293,10 @@ export const useCompanyRoles = (): UseCompanyRolesResult => {
           endDate: a.end_date,
           ftePercentage: a.fte_percentage,
           notes: a.notes,
+          isInfluencer: !!(a as any).is_influencer,
+          influenceScope: ((a as any).influence_scope as any) || 'team',
+          influenceType: ((a as any).influence_type as any) || [],
+          influenceNotes: (a as any).influence_notes ?? null,
           createdAt: a.created_at,
           updatedAt: a.updated_at,
           user: profileData ? {
