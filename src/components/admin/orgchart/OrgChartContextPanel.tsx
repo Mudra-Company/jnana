@@ -419,7 +419,7 @@ const NodeView: React.FC<{
       </div>
 
       {managers.length > 0 && (
-        <Section title={node.isCulturalDriver ? 'Leader culturali' : 'Manager / Lead'}>
+        <Section title={node.isCulturalDriver ? 'Leader culturali' : 'Responsabile'}>
           <ul className="space-y-1">
             {managers.slice(0, 6).map(m => (
               <li
