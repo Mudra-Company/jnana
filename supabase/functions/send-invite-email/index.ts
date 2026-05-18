@@ -17,9 +17,11 @@ interface InviteEmailRequest {
   inviterName?: string;
   companyId: string;
   memberId: string;
-  acceptUrl?: string;        // NEW: signed accept URL (preferred)
-  roleTitle?: string | null; // NEW
-  personalMessage?: string | null; // NEW
+  acceptUrl?: string;
+  roleTitle?: string | null;
+  personalMessage?: string | null;
+  isReminder?: boolean;
+  expiresAt?: string | null; // ISO date — used in the reminder copy
 }
 
 const handler = async (req: Request): Promise<Response> => {
@@ -43,6 +45,8 @@ const handler = async (req: Request): Promise<Response> => {
       acceptUrl,
       roleTitle,
       personalMessage,
+      isReminder,
+      expiresAt,
     }: InviteEmailRequest = await req.json();
 
     // Validate required fields
