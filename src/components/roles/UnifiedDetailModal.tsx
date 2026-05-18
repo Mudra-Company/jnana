@@ -11,7 +11,7 @@
  * - Person assignment management
  */
 
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import {
   X, User, Briefcase, FileText, Scale, History, Target, Handshake, Building,
   CheckCircle, XCircle, TrendingUp, TrendingDown, Star, Award, Crown, Clock,
