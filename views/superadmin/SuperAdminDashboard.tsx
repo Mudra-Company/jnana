@@ -306,21 +306,18 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                 <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg w-fit mb-3">
                   <UserIcon className="w-5 h-5 text-purple-600 dark:text-purple-400" />
                 </div>
-                <h3 className="font-bold text-lg mb-1">Utente B2C</h3>
+                <h3 className="font-bold text-lg mb-1">Utente B2C (Karma)</h3>
                 <p className="text-sm text-gray-500 mb-4 flex-1">
-                  Arriva in autonomia su Karma. Flusso: Landing → Signup → Karma Welcome → Onboarding (CV/profilo) → RIASEC → Karma Chat → Risultati.
+                  Simula l'intero flusso autonomo: Welcome → Onboarding (CV/manuale) → RIASEC → Chat con Karma AI → Risultati. Nessun dato viene salvato.
                 </p>
                 <a
-                  href="/karma/welcome"
+                  href="/simulate/b2c"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg text-sm font-medium"
                 >
-                  Apri flusso B2C <ExternalLink size={14} />
+                  Avvia simulazione B2C <ExternalLink size={14} />
                 </a>
-                <p className="text-xs text-gray-400 mt-2">
-                  Richiede un account Karma autenticato.
-                </p>
               </div>
 
               {/* B2B */}
@@ -330,19 +327,16 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                 </div>
                 <h3 className="font-bold text-lg mb-1">Utente B2B (invitato)</h3>
                 <p className="text-sm text-gray-500 mb-4 flex-1">
-                  Aggiunto in azienda da un admin, con eventuale ruolo assegnato. Flusso: Email invito → /invite/accept → Signup → B2B Onboarding role-aware → RIASEC → Climate → Karma → Risultati.
+                  Simula il percorso del dipendente: Invito → Onboarding role-aware → RIASEC → Karma AI (role_fit) → Clima → Risultati con match score. Nessun dato viene salvato.
                 </p>
                 <a
-                  href="/onboarding/b2b"
+                  href="/simulate/b2b"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-lg text-sm font-medium"
                 >
-                  Apri onboarding B2B <ExternalLink size={14} />
+                  Avvia simulazione B2B <ExternalLink size={14} />
                 </a>
-                <p className="text-xs text-gray-400 mt-2">
-                  Per simulare l'invito completo, usa "Invita Persona" da Admin → Organigramma.
-                </p>
               </div>
             </div>
 
