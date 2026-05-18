@@ -18,19 +18,152 @@ import {
   MapPin, Laptop, Banknote, GraduationCap, Languages, Calendar, ChevronRight,
   Edit, Eye, Shuffle, Users, FileSearch, Save, Loader2, Trash2, AlertTriangle,
   Plus, Search, UserMinus, Volume2, Activity, Link2, MoreVertical, ChevronLeft, AlertCircle,
+  Sparkles,
 } from 'lucide-react';
 import { Button } from '../../../components/Button';
 import { GenerationBadge } from '../GenerationBadge';
 import { useUnifiedOrgData } from '../../hooks/useUnifiedOrgData';
+import { useRoleAssignments } from '../../hooks/useRoleAssignments';
 import type { UnifiedPosition, DetailedMetrics, AssignmentHistoryEntry, UserHardSkillDisplay } from '../../types/unified-org';
-import type { CompanyRole, UpdateRoleInput, RequiredSkill, EducationRequirement, LanguageRequirement, ContractType, WorkHoursType, RemotePolicy, CollaborationProfile, CollaborationLink, CollaborationMemberBreakdown } from '../../types/roles';
+import type { CompanyRole, UpdateRoleInput, RequiredSkill, EducationRequirement, LanguageRequirement, ContractType, WorkHoursType, RemotePolicy, CollaborationProfile, CollaborationLink, CollaborationMemberBreakdown, InfluenceScope, InfluenceType } from '../../types/roles';
 import type { User as UserType, SeniorityLevel, OrgNode } from '../../../types';
 import {
   CONTRACT_TYPE_LABELS,
   WORK_HOURS_LABELS,
   REMOTE_POLICY_LABELS,
-  ASSIGNMENT_TYPE_LABELS
+  ASSIGNMENT_TYPE_LABELS,
+  INFLUENCE_TYPE_LABELS,
+  INFLUENCE_SCOPE_LABELS,
 } from '../../types/roles';
+
+const INFLUENCE_TYPES_LIST: InfluenceType[] = ['cultural', 'technical', 'social', 'mentor', 'innovator'];
+const INFLUENCE_SCOPE_LIST: InfluenceScope[] = ['team', 'department', 'company'];
+
+// Self-contained influencer editor — persists directly via useRoleAssignments
+const InfluencerEditor: React.FC<{
+  assignmentId: string;
+  initial: {
+    isInfluencer: boolean;
+    influenceScope: InfluenceScope;
+    influenceType: InfluenceType[];
+    influenceNotes: string;
+  };
+  canEdit: boolean;
+}> = ({ assignmentId, initial, canEdit }) => {
+  const { updateAssignment } = useRoleAssignments();
+  const [state, setState] = useState(initial);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => { setState(initial); }, [assignmentId]);
+
+  const persist = async (next: typeof state) => {
+    const prev = state;
+    setState(next);
+    setSaving(true);
+    setError(null);
+    const res = await updateAssignment(assignmentId, {
+      isInfluencer: next.isInfluencer,
+      influenceScope: next.influenceScope,
+      influenceType: next.influenceType,
+      influenceNotes: next.influenceNotes || null,
+    });
+    setSaving(false);
+    if (!res.success) {
+      setState(prev);
+      setError(res.error || 'Errore nel salvataggio');
+    }
+  };
+
+  const toggleType = (t: InfluenceType) => {
+    const next = { ...state, influenceType: state.influenceType.includes(t)
+      ? state.influenceType.filter(x => x !== t)
+      : [...state.influenceType, t] };
+    persist(next);
+  };
+
+  return (
+    <div className="space-y-3 p-4 rounded-lg border border-violet-200 dark:border-violet-800/50 bg-violet-50/40 dark:bg-violet-900/10">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Sparkles size={16} className="text-violet-600" />
+          <h4 className="font-bold text-sm uppercase tracking-wide text-gray-800 dark:text-gray-200">
+            Influenza nel team
+          </h4>
+        </div>
+        <label className="inline-flex items-center gap-2 cursor-pointer select-none">
+          <span className="text-xs text-gray-600 dark:text-gray-400">
+            {state.isInfluencer ? 'Influencer' : 'Non influencer'}
+          </span>
+          <input
+            type="checkbox"
+            disabled={!canEdit || saving}
+            checked={state.isInfluencer}
+            onChange={e => persist({ ...state, isInfluencer: e.target.checked })}
+            className="w-4 h-4 accent-violet-600"
+          />
+        </label>
+      </div>
+
+      {state.isInfluencer && (
+        <>
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs text-gray-500 dark:text-gray-400 mr-1">Ambito:</span>
+            {INFLUENCE_SCOPE_LIST.map(s => (
+              <button
+                key={s}
+                disabled={!canEdit || saving}
+                onClick={() => persist({ ...state, influenceScope: s })}
+                className={`text-xs px-2 py-1 rounded border transition-colors ${
+                  state.influenceScope === s
+                    ? 'bg-violet-600 text-white border-violet-600'
+                    : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-gray-600 hover:border-violet-400'
+                }`}
+              >
+                {INFLUENCE_SCOPE_LABELS[s]}
+              </button>
+            ))}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs text-gray-500 dark:text-gray-400 mr-1">Tipo:</span>
+            {INFLUENCE_TYPES_LIST.map(t => {
+              const active = state.influenceType.includes(t);
+              return (
+                <button
+                  key={t}
+                  disabled={!canEdit || saving}
+                  onClick={() => toggleType(t)}
+                  className={`text-xs px-2 py-1 rounded-full border transition-colors ${
+                    active
+                      ? 'bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300 border-violet-300 dark:border-violet-700'
+                      : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 border-gray-300 dark:border-gray-600 hover:border-violet-400'
+                  }`}
+                >
+                  {INFLUENCE_TYPE_LABELS[t]}
+                </button>
+              );
+            })}
+          </div>
+
+          <textarea
+            disabled={!canEdit || saving}
+            value={state.influenceNotes}
+            onChange={e => setState({ ...state, influenceNotes: e.target.value })}
+            onBlur={() => persist(state)}
+            placeholder="Note opzionali sull'influenza (es. mentor del team UX, riferimento culturale…)"
+            rows={2}
+            className="w-full text-sm px-3 py-2 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200"
+          />
+        </>
+      )}
+
+      {error && <p className="text-xs text-red-600">{error}</p>}
+      {saving && <p className="text-xs text-gray-500">Salvataggio…</p>}
+    </div>
+  );
+};
+
 
 type TabId = 'persona' | 'ruolo' | 'requisiti' | 'contratto' | 'collaborazione' | 'storia';
 
