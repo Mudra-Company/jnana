@@ -9,6 +9,8 @@ import {
 import { Button } from '../../components/Button';
 import { Card } from '../../components/Card';
 import { useKarmaProfile } from '../../src/hooks/useKarmaProfile';
+import { useAuth } from '../../src/hooks/useAuth';
+import { ProfileStrengthBadge } from '../../src/components/onboarding/ProfileStrengthBadge';
 import type { SocialPlatform } from '../../src/types/karma';
 
 interface KarmaDashboardProps {
