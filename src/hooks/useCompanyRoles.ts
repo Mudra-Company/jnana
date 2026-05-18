@@ -163,6 +163,7 @@ export const useCompanyRoles = (): UseCompanyRolesResult => {
           *,
           company_role_assignments!role_id (
             id, user_id, company_member_id, assignment_type, end_date,
+            is_influencer, influence_scope, influence_type, influence_notes,
             company_members!company_member_id ( user_id )
           )
         `)
@@ -197,6 +198,7 @@ export const useCompanyRoles = (): UseCompanyRolesResult => {
           *,
           company_role_assignments!role_id (
             id, user_id, company_member_id, assignment_type, end_date,
+            is_influencer, influence_scope, influence_type, influence_notes,
             company_members!company_member_id ( user_id )
           )
         `)

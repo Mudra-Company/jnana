@@ -2284,8 +2284,24 @@ export const CompanyOrgView: React.FC<{
                             });
                             const refreshed = await fetchRoleWithAssignments(actualRoleId);
                             if (refreshed) {
-                                setSelectedUnifiedPosition(prev => prev ? { ...prev, role: refreshed } : null);
+                                const primary = refreshed.assignments?.find(a => a.assignmentType === 'primary' && !a.endDate)
+                                    || refreshed.assignments?.[0]
+                                    || null;
+                                const newAssignee = primary
+                                    ? users.find(u =>
+                                        u.id === primary.userId ||
+                                        (primary.companyMemberId && u.memberId === primary.companyMemberId)
+                                      ) || selectedUnifiedPosition?.assignee || null
+                                    : null;
+                                setSelectedUnifiedPosition(prev => prev ? {
+                                    ...prev,
+                                    role: refreshed,
+                                    assignment: primary,
+                                    assignee: newAssignee,
+                                } : null);
                             }
+                            // Refresh full roles list so the org chart + side panel pick up new influencer data
+                            fetchRoles(company.id);
                         } else {
                             toast({
                                 title: "Errore",
