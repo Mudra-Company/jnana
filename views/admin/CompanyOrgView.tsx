@@ -39,7 +39,7 @@ import { Button } from '../../components/Button';
 import { OrgNode, CompanyProfile, User, RequiredProfile, SeniorityLevel } from '../../types';
 import { SOFT_SKILLS_OPTIONS } from '../../constants';
 import { calculateUserCompatibility } from '../../services/riasecService';
-import { InviteToSlotModal } from '../../src/components/InviteToSlotModal';
+import { InvitePersonModal } from '../../src/components/admin/InvitePersonModal';
 import { useCompanyMembers } from '../../src/hooks/useCompanyMembers';
 import { useTalentSearch } from '../../src/hooks/useTalentSearch';
 import { usePositionShortlist, type InternalMatchData } from '../../src/hooks/usePositionShortlist';
@@ -2155,12 +2155,20 @@ export const CompanyOrgView: React.FC<{
                 />
             )}
             {inviteToSlotUser && (
-                <InviteToSlotModal
-                    jobTitle={inviteToSlotUser.jobTitle || 'Posizione'}
-                    requiredProfile={inviteToSlotUser.requiredProfile}
-                    onInvite={handleInviteToSlot}
+                <InvitePersonModal
+                    isOpen={true}
+                    companyId={company.id}
+                    companyName={company.name}
+                    defaultOrgNodeId={inviteToSlotUser.departmentId || null}
                     onClose={() => setInviteToSlotUser(null)}
-                    isLoading={isSaving}
+                    onInvited={async () => {
+                        await fetchRoles(company.id);
+                        toast({
+                            title: 'Invito inviato',
+                            description: `Email inviata per la posizione ${inviteToSlotUser.jobTitle || ''}`.trim(),
+                        });
+                        setInviteToSlotUser(null);
+                    }}
                 />
             )}
             {editingNode && (
