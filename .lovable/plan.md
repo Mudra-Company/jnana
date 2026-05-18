@@ -1,50 +1,52 @@
-# Fix: "Responsabile" nella spalla laterale dell'organigramma
+# Fix bug "Leader culturali" + coroncina sui responsabili Cultural Driver
 
-## Problema
+## Bug
 
-Quando si seleziona un team/dipartimento, la spalla sinistra mostra una sezione **"Manager / Lead"** che oggi viene popolata cercando, **all'interno dello stesso nodo selezionato**, le persone il cui `jobTitle` contiene parole tipo `manager`, `lead`, `head`, `director`, `ceo`. 
+Nel nodo **CEO Office** (che è marcato `isCulturalDriver = true`) il titolo della sezione laterale mostra ancora `"Leader culturali"` invece di `"Responsabile"`. La condizione attuale in `OrgChartContextPanel.tsx` (riga 421) è:
 
-Risultato sbagliato (vedi screenshot image-304): nel team "Marketing" vengono elencati come "Manager / Lead" **Marco Galli** (Content & Brand Manager) e **Luca Ferrari** (Social Media & Community Manager), che sono semplicemente membri del team con la parola "Manager" nel titolo. Il vero responsabile è **Giulia Ruggi** (Head of Marketing), che vive nel **nodo padre** dell'organigramma (image-303).
+```ts
+node.isCulturalDriver ? 'Leader culturali' : 'Responsabile'
+```
 
-Regola da rispettare ovunque: **il responsabile di un nodo è chi sta nel livello immediatamente superiore dell'organigramma**, non chi ha una keyword nel job title dentro lo stesso nodo.
+Ma ora la sezione mostra i responsabili presi dal nodo **padre**, quindi la natura "cultural driver" del nodo corrente non c'entra più con l'etichetta.
 
-## Audit della logica fallace
+## Modifiche in `src/components/admin/orgchart/OrgChartContextPanel.tsx`
 
-Ho cercato l'uso del pattern `jobTitle includes manager|head|lead|director|ceo`:
+### 1. Titolo sempre "Responsabile"
 
-| File | Uso | Stato |
-|---|---|---|
-| `src/components/admin/orgchart/OrgChartContextPanel.tsx` linea 334-338 | Identifica i "manager" **dentro** il nodo corrente per mostrarli come Manager / Lead | **BUG da correggere** |
-| `views/admin/OrgNodeCard.tsx` `findNodeManagers` (riga 83-103) | Identifica i manager di un nodo per **passarli ai figli** come `parentManagers` (Manager Fit Score) | Uso corretto: serve a determinare chi è il responsabile da passare verso il basso |
-| `views/admin/CompanyOrgView.tsx` righe 1525, 1529, 1679 | Calcola `currentManagers` di un nodo per passarli come `parentManagers` ai figli | Uso corretto (stessa logica del punto sopra) |
-| `src/components/admin/OrgChartPrintView.tsx` riga 188-193 | Stessa cosa per la stampa | Uso corretto |
+Sostituire:
+```tsx
+<Section title={node.isCulturalDriver ? 'Leader culturali' : 'Responsabile'}>
+```
+con:
+```tsx
+<Section title="Responsabile">
+```
 
-Quindi la **logica euristica resta legittima** quando serve a identificare chi-sta-sopra rispetto a un livello inferiore (parentManagers). L'errore è **solo** nel pannello laterale, che la applica al nodo stesso invece che al padre.
+### 2. Coroncina accanto al responsabile se è Cultural Driver
 
-## Modifica
+Il responsabile vive nel `parentNode` (calcolato già nel fix precedente). Se `parentNode.isCulturalDriver === true`, accanto al nome di ciascun responsabile mostriamo una piccola icona `Crown` viola (`text-purple-500`), coerente con l'iconografia già usata altrove nel pannello (vedi `Crown` accanto al titolo del nodo Cultural Driver, riga 375).
 
-### File: `src/components/admin/orgchart/OrgChartContextPanel.tsx`
+Pseudocodice nel render della lista `managers`:
+```tsx
+<li>
+  <Award size={12} className="text-amber-500" />
+  {parentNode?.isCulturalDriver && (
+    <Crown size={12} className="text-purple-500" titleAttr="Driver culturale" />
+  )}
+  {m.firstName} {m.lastName}
+  {m.jobTitle && <span>— {m.jobTitle}</span>}
+</li>
+```
 
-Nel componente `NodeView` (riga 308+):
+La coroncina compare **solo** se il nodo padre è effettivamente un Cultural Driver.
 
-1. Eliminare il calcolo attuale di `managers` basato sugli utenti del nodo corrente (righe 334-339).
-2. Calcolare i responsabili a partire dal **nodo padre** ricavato da `path`:
-   - `parentNode = path[path.length - 2]` (se esiste).
-   - `parentUsers = users.filter(u => u.departmentId === parentNode.id)`.
-   - `responsabili = findNodeManagers(parentUsers, parentNode)` — riusando la funzione già esportata da `views/admin/OrgNodeCard.tsx`.
-   - Per il **nodo root** (nessun padre) la sezione non viene renderizzata (oppure mostra "—"); confermo la scelta di non renderizzarla, coerente con il comportamento attuale quando l'array è vuoto.
-3. Rinominare il titolo della sezione:
-   - Se `node.isCulturalDriver` → resta `"Leader culturali"` (invariato).
-   - Altrimenti → `"Responsabile"` (al posto di `"Manager / Lead"`).
-4. Nessun'altra modifica di layout o stile: stessa lista con icona `Award`, nome, e job title.
+## Nessun'altra modifica
 
-### Nessun cambio di dati né di backend
+Niente cambi di dati, niente cambi al calcolo di `managers`, niente cambi agli altri rami del pannello (la sezione "Influencer del team" resta invariata).
 
-La modifica è puramente di presentazione nel pannello laterale. Nessun'altra parte del codice viene toccata, perché — come emerso dall'audit — gli altri usi della stessa euristica sono semanticamente corretti (servono a popolare `parentManagers` per i figli, che è proprio il concetto che vogliamo).
+## Verifica attesa
 
-## Verifica attesa dopo l'implementazione
-
-- Selezionando un sotto-team di Marketing, la sezione laterale mostra **"Responsabile: Giulia Ruggi — Head of Marketing"** (presa dal nodo padre).
-- Selezionando il dipartimento Marketing stesso, la sezione mostra il/i responsabile/i dell'azienda (nodo radice della catena), se esistono.
-- Selezionando il nodo root azienda, la sezione "Responsabile" non appare.
-- Nei nodi Cultural Driver il titolo resta "Leader culturali" con il comportamento attuale.
+- Selezionando **CEO Office** (padre = CDA, che è Cultural Driver): la sezione si chiama "Responsabile" e ogni nome (es. Diego Barbisan, Chiara Tacco) ha la coroncina viola.
+- Selezionando un qualunque sotto-team di Marketing (padre = Marketing, non Cultural Driver): "Responsabile: Giulia Ruggi" senza coroncina.
+- Selezionando il nodo root: la sezione non appare (come oggi).
