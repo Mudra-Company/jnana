@@ -827,6 +827,24 @@ function SeedDataRoute() {
   return <SeedDataView />;
 }
 
+// ===== INVITE / B2B ONBOARDING =====
+
+function InviteAcceptRoute() {
+  const { setView } = useAppData();
+  return <InviteAcceptView onProceedToSignup={() => setView({ type: 'LOGIN', authMode: 'jnana' } as ViewState)} />;
+}
+
+function B2BOnboardingRoute() {
+  const { user, navigate, setView } = useAppData();
+  if (!user) return <NotReady />;
+  return (
+    <B2BOnboardingFlow
+      onStartRiasec={() => navigate({ type: 'USER_TEST', userId: user.id })}
+      onSkip={() => setView({ type: 'USER_RESULT', userId: user.id })}
+    />
+  );
+}
+
 // ===== ROOT TREE =====
 
 /** Suspense fallback shown while a lazy chunk loads. Same look as the global LOADING screen. */
