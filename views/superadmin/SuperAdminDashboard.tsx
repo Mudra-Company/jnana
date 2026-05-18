@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Building, Plus, X, Loader2, FlaskConical, Globe } from 'lucide-react';
+import { Building, Plus, X, Loader2, FlaskConical, Globe, ExternalLink, User as UserIcon, Briefcase } from 'lucide-react';
 import { Card } from '../../components/Card';
 import { Button } from '../../components/Button';
 import { CompanyProfile, User } from '../../types';
