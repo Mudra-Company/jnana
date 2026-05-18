@@ -390,40 +390,14 @@ export const AdminDashboardView: React.FC<AdminDashboardProps> = ({
         onSaved={async () => { if (onRefreshUsers) await onRefreshUsers(); }}
       />
 
-      {/* Invite Modal */}
-      {showInvite && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
-          <Card className="w-full max-w-md animate-scale-in">
-            <h3 className="text-lg font-bold mb-4">Invita Nuovo Utente</h3>
-            <div className="space-y-3">
-              <input
-                className="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                placeholder="Nome e Cognome"
-                value={inviteName}
-                onChange={e => setInviteName(e.target.value)}
-              />
-              <input
-                className="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                placeholder="Email Aziendale"
-                value={inviteEmail}
-                onChange={e => setInviteEmail(e.target.value)}
-              />
-              <input
-                className="w-full p-3 border rounded-xl dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                placeholder="Ruolo (Opzionale)"
-                value={inviteRole}
-                onChange={e => setInviteRole(e.target.value)}
-              />
-              <div className="flex gap-2 pt-2">
-                <Button fullWidth onClick={handleInviteUser} disabled={isInviting || !inviteName || !inviteEmail}>
-                  {isInviting ? <><Loader2 size={16} className="mr-2 animate-spin" />Invio in corso...</> : 'Invia Invito'}
-                </Button>
-                <Button variant="ghost" onClick={() => setShowInvite(false)} disabled={isInviting}>Annulla</Button>
-              </div>
-            </div>
-          </Card>
-        </div>
-      )}
+      {/* Invite Modal (unified, signed-token flow) */}
+      <InvitePersonModal
+        isOpen={showInvite}
+        companyId={activeCompany.id}
+        companyName={activeCompany.name}
+        onClose={() => setShowInvite(false)}
+        onInvited={async () => { if (onRefreshUsers) await onRefreshUsers(); }}
+      />
 
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end gap-4">
