@@ -1,75 +1,89 @@
+# Piano: concetto di "Influencer"
 
 ## Obiettivo
+Introdurre una persona/ruolo come **Influencer**: figura informale di riferimento del team (non gerarchica). Si attiva con un flag, è visibile nell'organigramma e nella spalla sinistra, e pesa sugli algoritmi di matching, job rotation e SpaceSync.
 
-Sostituire l'attuale modal "Simula Onboarding" (che apre la landing in nuova tab) con un **vero simulatore in-app** che fa percorrere al super admin tutto il flusso aggiornato (Karma AI nuovo, RIASEC, Climate, Karma chat, Risultati) sia in versione **B2C** che **B2B**, usando le viste reali ma senza salvare nulla nel database. Serve come:
-- QA per vedere esattamente cosa vede l'utente finale.
-- Demo commerciale per presentare la piattaforma a nuovi clienti senza inquinare i dati.
+## Modello dati
 
-## Approccio
+Un Influencer è una **persona** (non un ruolo), ma il flag si gestisce sull'assegnazione/profilo perché:
+- una stessa persona può essere influencer in un team e non in un altro,
+- se la persona lascia il ruolo, il flag non deve "ereditarsi" automaticamente al successore.
 
-Il super admin è già autenticato → tutte le edge functions (karma-stream, karma-analyze, cv-parse) restano richiamabili col suo JWT. L'unica cosa da evitare sono le scritture a `profiles`, `user_hard_skills`, `karma_sessions`, `riasec_results`, `onboarding_progress`, `company_members`. Le viste presentazionali (RIASEC test, KarmaWelcome, CV Review, KarmaTestChat) si riusano così come sono; quelle che leggono/scrivono Supabase (KarmaOnboarding, KarmaResults, B2BOnboardingFlow) vengono duplicate in versione "Demo" che opera su uno **stato in-memory React**.
+Scelta: flag sull'**assignment** (per-team) + ambito (`org_node_id` del team in cui esercita influenza, derivato dal ruolo) + tipo di influenza.
 
-Tutto il simulatore vive sotto un nuovo provider `SimulatorContext` che mantiene il `DemoProfile` (nome, avatar base64, headline/bio, skills, riasec score, transcript karma, climate, eventuale ruolo B2B). Un `SimulatorBanner` sticky in alto ricorda "Modalità Anteprima — i dati non vengono salvati. Esci".
+Nuovi campi su `role_assignments`:
+- `is_influencer boolean default false`
+- `influence_scope text` — enum `team | department | company` (default `team`)
+- `influence_type text[]` — multi-tag: `cultural`, `technical`, `social`, `mentor`, `innovator` (opzionale, default `[]`)
+- `influence_notes text` (opzionale)
 
-## Flussi simulati
+Indice parziale per query veloci: `where is_influencer = true`.
 
-### B2C — `/simulate/b2c`
-```text
-Landing/Signup mock → KarmaWelcome → (CV upload → CVReview) o (manuale → KarmaOnboarding 5 step)
-   → PostOnboardingPromo → KarmaTestRiasec → KarmaTestChat (Karma AI nuovo, streaming reale)
-   → KarmaResults (radar + insight AI)
-```
+Vincolo soft (a livello UI, non DB): max 1 influencer "principale" per nodo team — più di uno è permesso ma segnalato.
 
-### B2B — `/simulate/b2b?companyId=<opzionale>`
-```text
-Email invito mock → InviteAcceptView (token finto, anteprima) → Signup mock
-   → B2BOnboardingFlow (role-aware: company name/logo + ruolo demo con required_hard_skills)
-   → KarmaTestRiasec → ClimateTestView → KarmaTestChat (scenario role_fit)
-   → KarmaResults con match score vs ruolo
-```
+## Backend
 
-Il super admin può passare un `companyId` reale dall'elenco aziende per usare nome/logo/valori veri come "vetrina commerciale" — restano comunque scritture zero.
+Migrazione Supabase: aggiunta colonne + indice + audit log (riusa `company_role_audit_logs` se applicabile all'assignment, altrimenti log applicativo). RLS: ereditata da `role_assignments` (nessuna nuova policy).
 
-## Cosa creare
+## Tipi TS
+- `RoleAssignment`: aggiungere `isInfluencer`, `influenceScope`, `influenceType[]`, `influenceNotes`.
+- `UnifiedPositionMetrics`: aggiungere `isInfluencer: boolean` e `influenceType: string[]`.
+- `useUnifiedOrgData`: popolare i metrics dall'assignment primario.
 
-**Nuovi file**
-- `src/simulator/SimulatorContext.tsx` — provider + tipi `DemoProfile`, `DemoCompany`, `DemoRole`, azioni (`setProfile`, `addSkill`, `setRiasec`, `setKarma`, `reset`).
-- `src/simulator/SimulatorBanner.tsx` — banner sticky "Anteprima · Esci".
-- `views/simulator/SimulatorB2CView.tsx` — orchestrator del flusso B2C (state machine `welcome | cv-review | onboarding | promo | riasec | chat | results`).
-- `views/simulator/SimulatorB2BView.tsx` — orchestrator B2B (`invite | onboarding | riasec | climate | chat | results`).
-- `views/simulator/KarmaOnboardingDemo.tsx` — clone di `KarmaOnboarding` con `updateProfile/uploadAvatar/addHardSkill` reindirizzati al context. Skills catalog (`useHardSkillsCatalog`) resta — è read-only.
-- `views/simulator/KarmaResultsDemo.tsx` — clone di `KarmaResults` che legge dal context invece che da `useKarmaProfile`.
-- `views/simulator/B2BOnboardingFlowDemo.tsx` — clone di `B2BOnboardingFlow` con company/role passati per prop e nessuna scrittura.
-- `views/simulator/SimulatorInviteAcceptDemo.tsx` — replica visiva di `InviteAcceptView` con dati statici dell'azienda demo.
-- `views/simulator/SimulatorChoiceModal.tsx` — modal aggiornato con scelta B2C/B2B + (per B2B) selezione azienda showcase opzionale.
+## UI
 
-**Modifiche**
-- `views/superadmin/SuperAdminDashboard.tsx` → usa `SimulatorChoiceModal`; "Avvia anteprima" naviga a `/simulate/b2c` o `/simulate/b2b?companyId=…`.
-- `src/router/AppRoutes.tsx` → registra 2 nuove route avvolte in `SimulatorProvider`.
-- `src/router/accessPolicy.ts` + `viewPathMap.ts` → aggiungere `SIMULATOR_B2C`, `SIMULATOR_B2B` (kind: pubblico se loggato come super_admin; in pratica gating via component guard).
-- `App.tsx` → rimuovere/mantenere `handleStartDemoMode` come "legacy" (lo lasciamo solo come comando segreto, non più nel modal principale).
-- Le viste reali `KarmaTestChat`, `KarmaTestRiasec`, `KarmaWelcome`, `CVReviewScreen`, `ClimateTestView`, `PostOnboardingPromo` **non vengono toccate** — accettano già callback presentazionali.
+### 1. Card persona/ruolo nell'organigramma (`UnifiedRolePersonCard.tsx`)
+Icona piccola accanto al nome della persona (es. `Sparkles` o `Megaphone` lucide-react) con tooltip "Influencer · {types}". Stile coerente con il badge `isLeader` esistente, colore distinto (viola/ambra) per non confondersi con il manager/leader gerarchico.
 
-## Dettagli tecnici
+### 2. Context panel sinistro (`OrgChartContextPanel.tsx`)
+Nuova sezione **"Influencer del team"** sotto "Manager / Lead":
+- se presente uno o più influencer nel nodo (assignments con `is_influencer=true` il cui ruolo è in quel nodo), mostrare nome + chip con `influenceType`.
+- se assente, mostrare stato vuoto `— Nessun influencer identificato`.
+Per nodi non-team mostra l'aggregato dei sotto-nodi (conteggio).
 
-- **Avatar in demo**: salvato come dataURL in memoria, niente upload Storage.
-- **CV parsing**: la edge function di parsing CV viene chiamata col JWT super admin (lettura ok). Il risultato resta in memoria.
-- **Karma chat streaming**: usa l'edge function `karma-stream` esistente. Il `onComplete` riceve il transcript e chiama `karma-analyze` con `botType='discovery'` (B2C) o `'role_fit'` (B2B). Risultato salvato nel `SimulatorContext`, non in DB.
-- **Match score B2B**: calcolato lato client confrontando `selectedSkills` + risultati Karma con `requiredHardSkills` del ruolo demo (riuso `services/matchService`).
-- **Reset**: uscendo dal simulatore (`Esci` nel banner o navigazione manuale) il context viene azzerato; rientrando in `/superadmin` si torna alla console.
-- **Guard**: i route `/simulate/*` sono accessibili solo se `canAccessSuperAdminViews` — altrimenti redirect a `/`.
+### 3. Modale dettaglio posizione (`UnifiedDetailModal.tsx`)
+Nel tab **Persona** aggiungere blocco "Influenza nel team" con:
+- toggle `is_influencer` (editabile da admin/hr),
+- selettore `influence_scope`,
+- multi-chip `influence_type`,
+- textarea note.
+Salvataggio via `useRoleAssignments` con pattern di persistenza esistente (update locale → Supabase → revert on failure).
 
-## Out of scope (non in questa fase)
+### 4. Edit user/profilo
+Nessuna modifica al profilo persona globale — il flag è contestuale al ruolo/team. Sul profilo persona si mostra solo la lista dei team in cui è influencer (read-only, derivata).
 
-- Persistenza di "sessioni demo salvate" per riapertura successiva.
-- Esportazione PDF del risultato demo per il cliente (può seguire come fase 2).
-- Localizzazione: resta italiano coerente col resto.
+## Algoritmi (impatto)
 
-## Ordine di implementazione
+### Matching (`src/utils/matchingEngine.ts`)
+Aggiungere un piccolo bonus quando si valuta il fit di un candidato verso un team che ha già un influencer compatibile (es. mentor → junior). Peso suggerito: +3–5% sul match score totale, dietro un nuovo fattore `influencerSynergyScore`. Documentare nel memory `match-score-calculation-v2`.
 
-1. `SimulatorContext` + `SimulatorBanner` + provider.
-2. Cloni demo: `KarmaOnboardingDemo`, `KarmaResultsDemo`, `B2BOnboardingFlowDemo`, `SimulatorInviteAcceptDemo`.
-3. Orchestratori `SimulatorB2CView` e `SimulatorB2BView`.
-4. Route + access policy + viewPathMap.
-5. `SimulatorChoiceModal` aggiornato in `SuperAdminDashboard`.
-6. Smoke test in preview (RIASEC → Chat → Risultati, sia B2C sia B2B).
+### Job rotation (`src/utils/jobRotationAnalyzer.ts`)
+- Penalizzare rotazioni che **rimuoverebbero l'unico influencer** da un team (rischio "vuoto culturale").
+- Bonus se la rotazione **porta un influencer** in un team che ne è privo e ne avrebbe beneficio (basso engagement / culture score basso).
+- Aggiungere campo `influencerImpact` nel report con motivazione human-readable.
+
+### SpaceSync (`src/utils/proximityEngine.ts`)
+- Aumentare il peso della prossimità tra influencer e nuovi assunti / junior dello stesso team.
+- Nel `Proximity Score` introdurre dimensione opzionale `influencerProximity` (peso piccolo, ~5%) — aggiornare memory `spatial-optimization`.
+
+### Climate / cultura
+- Quando si calcola il culture fit del team, dare un piccolo extra al team che ha un influencer attivo e culturalmente allineato (segnale di health).
+
+## Permessi
+Modifica del flag: `super_admin`, `company_admin`, `hr`. Gli `user` lo vedono read-only.
+
+## Audit
+Ogni cambio di `is_influencer` o `influence_type` deve produrre una riga in audit log (motivo: importante per analytics e responsabilità organizzativa).
+
+## Roadmap (ordine di implementazione)
+1. Migrazione DB + tipi.
+2. Lettura/scrittura in `useRoleAssignments` e `useUnifiedOrgData`.
+3. UI: icona su card, sezione su context panel, blocco editor nel modale.
+4. Integrazione algoritmi (matching → job rotation → spacesync), uno alla volta con test visivo.
+5. Aggiornamento memory files (`features/match-score-calculation-v2`, `spatial-optimization`, nuovo `features/influencer-concept`).
+
+## Aperti — da confermare prima di implementare
+1. **Flag a livello assignment o persona globale?** Proposta: per-assignment (un team = un contesto). OK?
+2. **Tipi di influenza** suggeriti: `cultural`, `technical`, `social`, `mentor`, `innovator`. Vuoi aggiungerne/toglierne?
+3. **Più di un influencer per team**: permesso senza limite, oppure max 1 "principale" + altri "secondari"?
+4. **Pesi negli algoritmi**: ok con i default proposti (matching +5%, spacesync +5%, job rotation penalità "ultimo influencer") o vuoi calibrare diversamente?
