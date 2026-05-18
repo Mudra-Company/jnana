@@ -76,8 +76,8 @@ const SimulatorB2CInner: React.FC = () => {
       {step === 'cv-review' && sim.profile.cv && (
         <CVReviewScreen
           parsedData={sim.profile.cv}
-          onConfirm={() => setStep('onboarding')}
-          onSkip={() => setStep('onboarding')}
+          onConfirm={async () => { setStep('onboarding'); }}
+          onBack={() => setStep('welcome')}
         />
       )}
 
