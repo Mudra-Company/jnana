@@ -19,6 +19,8 @@ const STATIC_PATHS: Partial<Record<ViewType, string>> = {
   LOGIN: '/login',
   RESET_PASSWORD: '/auth/reset-password',
   SEED_DATA: '/seed',
+  INVITE_ACCEPT: '/invite/accept',
+  B2B_ONBOARDING: '/onboarding/b2b',
 
   SUPER_ADMIN_DASHBOARD: '/superadmin',
   SUPER_ADMIN_JOBS: '/superadmin/jobs',

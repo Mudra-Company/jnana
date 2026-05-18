@@ -279,6 +279,8 @@ export type ViewState =
   | { type: 'ADMIN_POSITION_MATCHING'; positionId: string; initialTab?: 'internal' | 'external' | 'shortlist' }
   | { type: 'ADMIN_COMPLIANCE' }
   | { type: 'ADMIN_SPACESYNC' }
+  | { type: 'INVITE_ACCEPT' }
+  | { type: 'B2B_ONBOARDING' }
   | { type: 'USER_WELCOME'; userId: string }
   | { type: 'USER_TEST'; userId: string }
   | { type: 'USER_CHAT'; userId: string } 

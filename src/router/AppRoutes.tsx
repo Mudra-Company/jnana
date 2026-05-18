@@ -123,6 +123,12 @@ const CVReviewScreen = lazy(() =>
 const PostOnboardingPromo = lazy(() =>
   import('../../views/karma/PostOnboardingPromo').then(m => ({ default: m.PostOnboardingPromo }))
 );
+const InviteAcceptView = lazy(() =>
+  import('../views/auth/InviteAcceptView').then(m => ({ default: m.InviteAcceptView }))
+);
+const B2BOnboardingFlow = lazy(() =>
+  import('../../views/onboarding/B2BOnboardingFlow').then(m => ({ default: m.B2BOnboardingFlow }))
+);
 
 /**
  * Declarative route tree replacing the mega switch in App.tsx.
@@ -821,6 +827,24 @@ function SeedDataRoute() {
   return <SeedDataView />;
 }
 
+// ===== INVITE / B2B ONBOARDING =====
+
+function InviteAcceptRoute() {
+  const { setView } = useAppData();
+  return <InviteAcceptView onProceedToSignup={() => setView({ type: 'LOGIN', authMode: 'jnana' } as ViewState)} />;
+}
+
+function B2BOnboardingRoute() {
+  const { user, navigate, setView } = useAppData();
+  if (!user) return <NotReady />;
+  return (
+    <B2BOnboardingFlow
+      onStartRiasec={() => navigate({ type: 'USER_TEST', userId: user.id })}
+      onSkip={() => setView({ type: 'USER_RESULT', userId: user.id })}
+    />
+  );
+}
+
 // ===== ROOT TREE =====
 
 /** Suspense fallback shown while a lazy chunk loads. Same look as the global LOADING screen. */
@@ -844,6 +868,8 @@ export const AppRoutes: React.FC = () => {
       <Route path="/login" element={<LoginRoute />} />
       <Route path="/auth/reset-password" element={<ResetPasswordRoute />} />
       <Route path="/seed" element={<SeedDataRoute />} />
+      <Route path="/invite/accept" element={<InviteAcceptRoute />} />
+      <Route path="/onboarding/b2b" element={<B2BOnboardingRoute />} />
 
       {/* Super admin */}
       <Route path="/superadmin" element={<SuperAdminDashboardRoute />} />

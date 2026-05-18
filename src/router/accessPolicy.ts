@@ -27,6 +27,8 @@ export const ACCESS_POLICY: Record<ViewType, Access> = {
   LOGIN: { kind: 'guest' },
   RESET_PASSWORD: { kind: 'public' },
   SEED_DATA: { kind: 'public' },
+  INVITE_ACCEPT: { kind: 'public' },
+  B2B_ONBOARDING: { kind: 'auth' },
 
   // Super admin only
   SUPER_ADMIN_DASHBOARD: { kind: 'auth', roles: ['super_admin'] },

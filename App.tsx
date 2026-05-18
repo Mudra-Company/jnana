@@ -55,26 +55,27 @@ const AppContent: React.FC = () => {
     if (window.location.pathname === '/auth/reset-password') {
       return { type: 'RESET_PASSWORD' };
     }
+    // Public invite acceptance route (signed token)
+    if (window.location.pathname === '/invite/accept') {
+      return { type: 'INVITE_ACCEPT' };
+    }
     // Check for seed URL parameter
     const urlParams = new URLSearchParams(window.location.search);
     if (urlParams.get('seed') === 'true') {
       return { type: 'SEED_DATA' };
     }
-    // Check for invite URL parameters
+    // Legacy invite URL (?invite=...&company=...) — backward compatible
     const inviteId = urlParams.get('invite');
     const companyId = urlParams.get('company');
     if (inviteId && companyId) {
-      // Store invite info for after signup
       localStorage.setItem('pendingInvite', JSON.stringify({ inviteId, companyId }));
-      // Clean the URL
       window.history.replaceState({}, document.title, window.location.pathname);
       return { type: 'LOGIN' };
     }
     // Try to recover the view from the current URL (deep link / refresh).
-    // If no match → LOADING (auth bootstrap will pick the right destination).
     const fromUrl = pathToView(window.location.pathname, window.location.search);
     if (fromUrl) return fromUrl;
-    return { type: 'LOADING' }; // Start with LOADING, not LOGIN
+    return { type: 'LOADING' };
   });
 
   // Mirror view ↔ URL (real router URLs, back/forward, deep links, refresh).
@@ -213,6 +214,52 @@ const AppContent: React.FC = () => {
     if (!user || !profile) {
       console.log('[App] No user or profile, aborting');
       return;
+    }
+
+    // === Signed invite reconciliation ===
+    // If a pendingInvite with a token is present, call accept-invite to link
+    // this auth user to the placeholder company_members row, then send them
+    // through the B2B onboarding flow.
+    try {
+      const pendingStr = localStorage.getItem('pendingInvite');
+      if (pendingStr) {
+        const pending = JSON.parse(pendingStr);
+        if (pending?.token) {
+          const { data: acceptRes, error: acceptErr } = await supabase.functions.invoke('accept-invite', {
+            body: { token: pending.token },
+          });
+          if (!acceptErr && acceptRes?.success) {
+            localStorage.removeItem('pendingInvite');
+            toast({ title: 'Benvenuto!', description: 'Invito accettato con successo.' });
+            // Refresh user data so membership is loaded by useAuth on next tick.
+            const userData = await fetchUserWithDetails(user.id);
+            if (userData) {
+              setCurrentUserData(
+                profileToLegacyUser(
+                  userData,
+                  userData.membership,
+                  userData.riasecResult,
+                  userData.karmaSession,
+                  userData.climateResponse,
+                ),
+              );
+            }
+            setView({ type: 'B2B_ONBOARDING' });
+            return;
+          } else {
+            console.warn('[App] accept-invite failed', acceptErr || acceptRes);
+            if (acceptRes?.error === 'email_mismatch') {
+              toast({
+                title: 'Email diversa',
+                description: `Per accettare questo invito devi registrarti con ${acceptRes.expectedEmail}.`,
+                variant: 'destructive',
+              });
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.error('[App] invite reconciliation error', e);
     }
 
     const userData = await fetchUserWithDetails(user.id);

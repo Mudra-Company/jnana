@@ -9,6 +9,8 @@ import {
 import { Button } from '../../components/Button';
 import { Card } from '../../components/Card';
 import { useKarmaProfile } from '../../src/hooks/useKarmaProfile';
+import { useAuth } from '../../src/hooks/useAuth';
+import { ProfileStrengthBadge } from '../../src/components/onboarding/ProfileStrengthBadge';
 import type { SocialPlatform } from '../../src/types/karma';
 
 interface KarmaDashboardProps {
@@ -26,6 +28,7 @@ export const KarmaDashboard: React.FC<KarmaDashboardProps> = ({
   onLogout,
   onGoHome,
 }) => {
+  const { user } = useAuth();
   const { 
     profile, 
     hardSkills, 
@@ -654,6 +657,7 @@ export const KarmaDashboard: React.FC<KarmaDashboardProps> = ({
           </div>
         </div>
       </main>
+      <ProfileStrengthBadge userId={user?.id} variant="sticky" onClick={onEditProfile} />
     </div>
   );
 };
