@@ -18,7 +18,8 @@ import {
   Target,
   Handshake,
   Building,
-  ChevronRight
+  ChevronRight,
+  Sparkles,
 } from 'lucide-react';
 import { GenerationBadge } from '../GenerationBadge';
 import type { UnifiedPosition } from '../../types/unified-org';
