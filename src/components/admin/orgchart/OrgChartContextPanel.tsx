@@ -21,6 +21,7 @@ import {
   Handshake,
   ExternalLink,
   Download,
+  Sparkles,
 } from 'lucide-react';
 import type { OrgNode, CompanyProfile, User } from '../../../../types';
 import type { CompanyRole } from '../../../types/roles';
@@ -333,6 +334,15 @@ const NodeView: React.FC<{
       (node.isCulturalDriver ||
         u.jobTitle?.toLowerCase().match(/(head|manager|lead|director|ceo|ad)/))
   );
+
+  // Influencer del nodo: assignments primarie con is_influencer=true sui ruoli del nodo
+  const influencerEntries = nodeRoles.flatMap(r => {
+    const primary = (r.assignments || []).find(a => a.assignmentType === 'primary' && a.isInfluencer);
+    if (!primary) return [];
+    const person = users.find(u => u.id === primary.userId);
+    if (!person) return [];
+    return [{ person, types: primary.influenceType || [] }];
+  });
 
   return (
     <div className="space-y-5">
