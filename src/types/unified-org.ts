@@ -16,6 +16,8 @@ export interface UnifiedPositionMetrics {
   managerFitScore: number | null;
   cultureFitScore: number;
   isLeader: boolean;
+  isInfluencer?: boolean;
+  influenceType?: string[];
 }
 
 /**

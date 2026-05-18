@@ -399,6 +399,10 @@ export type Database = {
           end_date: string | null
           fte_percentage: number
           id: string
+          influence_notes: string | null
+          influence_scope: string
+          influence_type: string[]
+          is_influencer: boolean
           notes: string | null
           role_id: string
           start_date: string
@@ -412,6 +416,10 @@ export type Database = {
           end_date?: string | null
           fte_percentage?: number
           id?: string
+          influence_notes?: string | null
+          influence_scope?: string
+          influence_type?: string[]
+          is_influencer?: boolean
           notes?: string | null
           role_id: string
           start_date?: string
@@ -425,6 +433,10 @@ export type Database = {
           end_date?: string | null
           fte_percentage?: number
           id?: string
+          influence_notes?: string | null
+          influence_scope?: string
+          influence_type?: string[]
+          is_influencer?: boolean
           notes?: string | null
           role_id?: string
           start_date?: string

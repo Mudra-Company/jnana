@@ -81,6 +81,15 @@ export interface RotationRecommendation {
   cons: string[];
 }
 
+export interface InfluencerImpact {
+  /** True if rotating the candidate would leave the source team without any influencer */
+  removesLastInfluencer: boolean;
+  /** True if the target team currently lacks an influencer and the candidate is one */
+  fillsInfluencerGap: boolean;
+  /** Human-readable note */
+  note: string;
+}
+
 export interface RotationAnalysis {
   candidateName: string;
   candidateSeniority: SeniorityLevel | null;
@@ -91,6 +100,7 @@ export interface RotationAnalysis {
   roleImpact: RoleImpact;
   growth: GrowthAnalysis;
   recommendation: RotationRecommendation;
+  influencerImpact?: InfluencerImpact;
 }
 
 // ============================================================
@@ -491,10 +501,16 @@ export interface AnalyzeRotationInput {
   companyUsers: LegacyUser[];
   /** Map of node id → node name */
   nodeNames: Record<string, string>;
+  /** Optional influencer context */
+  influencerContext?: {
+    candidateIsInfluencer?: boolean;
+    sourceNodeInfluencerCount?: number; // including candidate
+    targetNodeHasInfluencer?: boolean;
+  };
 }
 
 export const analyzeRotation = (input: AnalyzeRotationInput): RotationAnalysis => {
-  const { candidate, candidateMatch, position, companyUsers, nodeNames } = input;
+  const { candidate, candidateMatch, position, companyUsers, nodeNames, influencerContext } = input;
 
   const roleFit: RoleFitSummary = {
     score: candidateMatch.score,
@@ -510,6 +526,32 @@ export const analyzeRotation = (input: AnalyzeRotationInput): RotationAnalysis =
   const growth = analyzeGrowth(candidate, position.requiredProfile);
   const recommendation = buildRecommendation(roleFit, managerFit, roleImpact, growth);
 
+  // Influencer impact
+  let influencerImpact: InfluencerImpact | undefined;
+  if (influencerContext) {
+    const removesLastInfluencer =
+      !!influencerContext.candidateIsInfluencer &&
+      (influencerContext.sourceNodeInfluencerCount ?? 0) <= 1;
+    const fillsInfluencerGap =
+      !!influencerContext.candidateIsInfluencer &&
+      influencerContext.targetNodeHasInfluencer === false;
+    let note = '';
+    if (removesLastInfluencer) {
+      note = 'Attenzione: la rotazione lascerebbe il team di origine senza alcun influencer.';
+      recommendation.cons.push(note);
+      recommendation.score = Math.max(0, recommendation.score - 10);
+    } else if (fillsInfluencerGap) {
+      note = 'La rotazione porterebbe un influencer in un team che ne è privo.';
+      recommendation.pros.push(note);
+      recommendation.score = Math.min(100, recommendation.score + 5);
+    } else if (influencerContext.candidateIsInfluencer) {
+      note = 'Il candidato è un influencer; il team di origine mantiene altre figure di riferimento.';
+    } else {
+      note = 'Nessun impatto significativo sulla rete di influencer.';
+    }
+    influencerImpact = { removesLastInfluencer, fillsInfluencerGap, note };
+  }
+
   const fromDepartment = candidate.departmentId ? nodeNames[candidate.departmentId] || 'Non assegnato' : 'Non assegnato';
   const toDepartment = position.nodeId ? nodeNames[position.nodeId] || position.jobTitle : position.jobTitle;
 
@@ -523,5 +565,6 @@ export const analyzeRotation = (input: AnalyzeRotationInput): RotationAnalysis =
     roleImpact,
     growth,
     recommendation,
+    influencerImpact,
   };
 };

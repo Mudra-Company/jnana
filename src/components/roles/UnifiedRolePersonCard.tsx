@@ -18,7 +18,8 @@ import {
   Target,
   Handshake,
   Building,
-  ChevronRight
+  ChevronRight,
+  Sparkles,
 } from 'lucide-react';
 import { GenerationBadge } from '../GenerationBadge';
 import type { UnifiedPosition } from '../../types/unified-org';
@@ -179,6 +180,14 @@ export const UnifiedRolePersonCard: React.FC<UnifiedRolePersonCardProps> = ({
               <span className="text-sm font-medium text-gray-700 dark:text-gray-200 truncate">
                 {assignee.firstName} {assignee.lastName}
               </span>
+              {metrics.isInfluencer && (
+                <span
+                  title={`Influencer${metrics.influenceType && metrics.influenceType.length ? ' · ' + metrics.influenceType.join(', ') : ''}`}
+                  className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-violet-100 dark:bg-violet-900/40 text-violet-600 dark:text-violet-300"
+                >
+                  <Sparkles size={10} />
+                </span>
+              )}
               {assignee.profileCode && (
                 <span className="text-[10px] font-mono text-indigo-500 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 px-1.5 py-0.5 rounded">
                   {assignee.profileCode}

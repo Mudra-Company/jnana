@@ -15,6 +15,8 @@ export interface MatchingTarget {
   maxExperience?: number;
   // Target user for synergy calculation (e.g., hiring manager)
   targetUser?: UserWithGeneration;
+  // Influencer context of the team where the candidate would land
+  teamInfluencerTypes?: string[]; // e.g. ['mentor','cultural']; empty/undefined = no influencer
 }
 
 export interface MatchingCandidate {
@@ -45,6 +47,7 @@ export interface MatchResult {
     skillsWeight: number;
     bonuses: number;
     synergyWeight: number;
+    influencerBonus?: number;
   };
 }
 
@@ -295,13 +298,24 @@ export function calculateMatchScore(
   }
   
   // Final weighted score
-  const totalScore = Math.round(
+  const baseScore =
     (riasecScore * RIASEC_WEIGHT) +
     (skillsResult.score * SKILLS_WEIGHT) +
     (bonusScore * BONUS_WEIGHT) +
-    (synergyScore * SYNERGY_WEIGHT)
-  );
-  
+    (synergyScore * SYNERGY_WEIGHT);
+
+  // Influencer synergy bonus: small additive bonus when the candidate lands
+  // in a team that already has an influencer (especially mentor/cultural).
+  // Capped at +5%, applied on top of the weighted base.
+  let influencerBonus = 0;
+  if (target.teamInfluencerTypes && target.teamInfluencerTypes.length > 0) {
+    const hasMentor = target.teamInfluencerTypes.includes('mentor');
+    const hasCultural = target.teamInfluencerTypes.includes('cultural');
+    influencerBonus = hasMentor ? 5 : hasCultural ? 3 : 2;
+  }
+
+  const totalScore = Math.round(baseScore + influencerBonus);
+
   return {
     totalScore: Math.min(100, totalScore),
     riasecScore,
@@ -317,6 +331,7 @@ export function calculateMatchScore(
       skillsWeight: Math.round(skillsResult.score * SKILLS_WEIGHT),
       bonuses: Math.round(bonusScore * BONUS_WEIGHT),
       synergyWeight: Math.round(synergyScore * SYNERGY_WEIGHT),
+      influencerBonus,
     },
   };
 }

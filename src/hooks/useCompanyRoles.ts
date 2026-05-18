@@ -50,13 +50,18 @@ const mapDbRowToRole = (row: Record<string, unknown>): CompanyRole => {
     collaborationProfile: row.collaboration_profile as CompanyRole['collaborationProfile'] || { links: [], environmentalImpact: 3, operationalFluidity: 3 },
   };
 
-  // Populate currentAssignee from joined company_role_assignments
+  // Populate currentAssignee + assignments from joined company_role_assignments
   const assignments = row.company_role_assignments as Array<{
     id: string;
+    role_id?: string;
     user_id: string | null;
     company_member_id: string | null;
     assignment_type: string;
     end_date: string | null;
+    is_influencer?: boolean | null;
+    influence_scope?: string | null;
+    influence_type?: string[] | null;
+    influence_notes?: string | null;
     company_members: { user_id: string | null } | null;
   }> | null;
 
@@ -69,6 +74,23 @@ const mapDbRowToRole = (row: Record<string, unknown>): CompanyRole => {
         role.currentAssignee = { id: userId } as any;
       }
     }
+    // Expose lightweight assignments so downstream code (org chart, metrics) sees influencer info
+    role.assignments = activeAssignments.map(a => ({
+      id: a.id,
+      roleId: role.id,
+      userId: a.user_id ?? a.company_members?.user_id ?? null,
+      companyMemberId: a.company_member_id ?? null,
+      assignmentType: (a.assignment_type as any) || 'primary',
+      startDate: '',
+      endDate: a.end_date,
+      ftePercentage: 100,
+      isInfluencer: !!a.is_influencer,
+      influenceScope: (a.influence_scope as any) || 'team',
+      influenceType: (a.influence_type as any) || [],
+      influenceNotes: a.influence_notes ?? null,
+      createdAt: '',
+      updatedAt: '',
+    }));
   }
 
   return role;
@@ -271,6 +293,10 @@ export const useCompanyRoles = (): UseCompanyRolesResult => {
           endDate: a.end_date,
           ftePercentage: a.fte_percentage,
           notes: a.notes,
+          isInfluencer: !!(a as any).is_influencer,
+          influenceScope: ((a as any).influence_scope as any) || 'team',
+          influenceType: ((a as any).influence_type as any) || [],
+          influenceNotes: (a as any).influence_notes ?? null,
           createdAt: a.created_at,
           updatedAt: a.updated_at,
           user: profileData ? {

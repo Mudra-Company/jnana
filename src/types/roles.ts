@@ -160,6 +160,23 @@ export interface CompanyRole {
  * - Partial FTE allocation (e.g., 50% on two roles)
  * - Historical tracking (start/end dates)
  */
+export type InfluenceScope = 'team' | 'department' | 'company';
+export type InfluenceType = 'cultural' | 'technical' | 'social' | 'mentor' | 'innovator';
+
+export const INFLUENCE_TYPE_LABELS: Record<InfluenceType, string> = {
+  cultural: 'Culturale',
+  technical: 'Tecnico',
+  social: 'Sociale',
+  mentor: 'Mentor',
+  innovator: 'Innovatore',
+};
+
+export const INFLUENCE_SCOPE_LABELS: Record<InfluenceScope, string> = {
+  team: 'Team',
+  department: 'Dipartimento',
+  company: 'Azienda',
+};
+
 export interface RoleAssignment {
   id: string;
   roleId: string;
@@ -172,6 +189,12 @@ export interface RoleAssignment {
   endDate?: string | null;
   ftePercentage: number;
   notes?: string | null;
+
+  // Influencer
+  isInfluencer?: boolean;
+  influenceScope?: InfluenceScope;
+  influenceType?: InfluenceType[];
+  influenceNotes?: string | null;
   
   // Timestamps
   createdAt: string;
@@ -252,6 +275,10 @@ export interface CreateAssignmentInput {
   endDate?: string;
   ftePercentage?: number;
   notes?: string;
+  isInfluencer?: boolean;
+  influenceScope?: InfluenceScope;
+  influenceType?: InfluenceType[];
+  influenceNotes?: string;
 }
 
 export interface UpdateAssignmentInput {
@@ -260,6 +287,10 @@ export interface UpdateAssignmentInput {
   endDate?: string;
   ftePercentage?: number;
   notes?: string;
+  isInfluencer?: boolean;
+  influenceScope?: InfluenceScope;
+  influenceType?: InfluenceType[];
+  influenceNotes?: string | null;
 }
 
 // ============= Display Labels =============

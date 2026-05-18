@@ -35,6 +35,9 @@ export interface ProximityUserData {
   };
   // Collaboration profile from role
   collaborationProfile?: CollaborationProfile;
+  // Influencer flag (from primary assignment)
+  isInfluencer?: boolean;
+  influenceType?: string[];
 }
 
 export interface ProximityResult {
@@ -47,6 +50,7 @@ export interface ProximityResult {
     generationSynergy: number;
     conflictRisk: number;
     environmentalFriction: number;
+    influencerProximity?: number;
   };
   synergyResult?: SynergyResult;
   insights: string[];
@@ -319,7 +323,22 @@ export function calculateProximityScore(
     conflict * WEIGHTS.CONFLICT_RISK -
     envFriction * WEIGHTS.ENVIRONMENTAL_FRICTION;
 
-  const finalScore = Math.round(Math.max(0, Math.min(100, weightedScore)));
+  // Influencer proximity: small additive bonus when an influencer is paired
+  // with a junior/non-influencer (mentoring opportunity) or with same-team peers.
+  let influencerProximity = 0;
+  if (userA.isInfluencer || userB.isInfluencer) {
+    const oneIs = userA.isInfluencer !== userB.isInfluencer;
+    const types = (userA.isInfluencer ? userA.influenceType : userB.influenceType) || [];
+    if (oneIs && (types.includes('mentor') || types.includes('cultural'))) {
+      influencerProximity = 6;
+    } else if (oneIs) {
+      influencerProximity = 3;
+    } else {
+      influencerProximity = 1; // two influencers next to each other: mild positive
+    }
+  }
+
+  const finalScore = Math.round(Math.max(0, Math.min(100, weightedScore + influencerProximity)));
 
   // Generate insights
   const insights: string[] = [];
@@ -347,6 +366,9 @@ export function calculateProximityScore(
   if (values >= 80) {
     insights.push('Forte allineamento valoriale.');
   }
+  if (influencerProximity >= 6) {
+    insights.push('✨ Influencer vicino a una figura junior/peer: forte potenziale di mentoring e diffusione culturale.');
+  }
 
   const level: ProximityResult['level'] =
     finalScore >= 75 ? 'excellent' :
@@ -363,6 +385,7 @@ export function calculateProximityScore(
       generationSynergy: Math.round(genScore),
       conflictRisk: Math.round(conflict),
       environmentalFriction: Math.round(envFriction),
+      influencerProximity,
     },
     synergyResult,
     insights,
