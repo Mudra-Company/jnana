@@ -152,8 +152,8 @@ const handler = async (req: Request) => {
     const appUrl = Deno.env.get("APP_URL") || "https://mudra.holdings";
     const acceptUrl = `${appUrl}/invite/accept?token=${encodeURIComponent(token)}`;
 
-    // Trigger legacy email transport (Resend) — branded template handled in send-invite-email.
-    // TODO Fase 1.3: switch to enqueue_email once Lovable Emails infra is wired.
+    const isReminder = !!existing && !existing.invite_accepted_at;
+
     try {
       await fetch(`${supabaseUrl}/functions/v1/send-invite-email`, {
         method: "POST",
@@ -171,6 +171,8 @@ const handler = async (req: Request) => {
           acceptUrl,
           roleTitle,
           personalMessage: body.personalMessage ?? null,
+          isReminder,
+          expiresAt: expiresAt.toISOString(),
         }),
       });
     } catch (e) {
