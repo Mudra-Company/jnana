@@ -246,13 +246,14 @@ const SimulatorB2BInner: React.FC = () => {
   // ClimateTestView expects a User — we adapt the demo profile
   const climateUser: User = useMemo(() => ({
     id: 'demo-user',
+    companyId: sim.company?.id || 'demo-company',
     firstName: sim.profile.firstName || 'Demo',
     lastName: sim.profile.lastName || 'User',
     email: sim.profile.email,
     role: sim.role?.title || 'Demo Role',
     department: 'Demo',
     status: 'in_progress',
-  } as User), [sim.profile, sim.role]);
+  } as unknown as User), [sim.profile, sim.role, sim.company]);
 
   return (
     <div className="min-h-screen bg-background">
