@@ -657,6 +657,7 @@ export const KarmaDashboard: React.FC<KarmaDashboardProps> = ({
           </div>
         </div>
       </main>
+      <ProfileStrengthBadge userId={user?.id} variant="sticky" onClick={onEditProfile} />
     </div>
   );
 };
