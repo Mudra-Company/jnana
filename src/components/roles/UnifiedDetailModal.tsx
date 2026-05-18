@@ -39,82 +39,36 @@ import {
 const INFLUENCE_TYPES_LIST: InfluenceType[] = ['cultural', 'technical', 'social', 'mentor', 'innovator'];
 const INFLUENCE_SCOPE_LIST: InfluenceScope[] = ['team', 'department', 'company'];
 
-// Self-contained influencer editor — persists directly via useRoleAssignments
+type InfluencerFormState = {
+  isInfluencer: boolean;
+  influenceScope: InfluenceScope;
+  influenceType: InfluenceType[];
+  influenceNotes: string;
+};
+
+const areInfluencerStatesEqual = (a: InfluencerFormState, b: InfluencerFormState) => (
+  a.isInfluencer === b.isInfluencer &&
+  a.influenceScope === b.influenceScope &&
+  a.influenceNotes === b.influenceNotes &&
+  a.influenceType.length === b.influenceType.length &&
+  a.influenceType.every(type => b.influenceType.includes(type))
+);
+
+// Self-contained influencer editor — changes are committed only by the modal save action
 const InfluencerEditor: React.FC<{
-  assignmentId: string;
-  initial: {
-    isInfluencer: boolean;
-    influenceScope: InfluenceScope;
-    influenceType: InfluenceType[];
-    influenceNotes: string;
-  };
+  value: InfluencerFormState;
+  initial: InfluencerFormState;
   canEdit: boolean;
-}> = ({ assignmentId, initial, canEdit }) => {
-  const { updateAssignment } = useRoleAssignments();
-  const [state, setState] = useState(initial);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const stateRef = useRef(state);
-  const lastSavedRef = useRef(initial);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => { stateRef.current = state; }, [state]);
-  useEffect(() => {
-    setState(initial);
-    lastSavedRef.current = initial;
-  }, [assignmentId]);
-
-  const saveNow = useCallback(async (next: typeof stateRef.current) => {
-    const prev = lastSavedRef.current;
-    // Skip if nothing actually changed
-    if (
-      prev.isInfluencer === next.isInfluencer &&
-      prev.influenceScope === next.influenceScope &&
-      prev.influenceNotes === next.influenceNotes &&
-      prev.influenceType.length === next.influenceType.length &&
-      prev.influenceType.every(t => next.influenceType.includes(t))
-    ) return;
-    setSaving(true);
-    setError(null);
-    const res = await updateAssignment(assignmentId, {
-      isInfluencer: next.isInfluencer,
-      influenceScope: next.influenceScope,
-      influenceType: next.influenceType,
-      influenceNotes: next.influenceNotes || null,
-    });
-    setSaving(false);
-    if (res.success) {
-      lastSavedRef.current = next;
-    } else {
-      setError(res.error || 'Errore nel salvataggio');
-    }
-  }, [assignmentId, updateAssignment]);
-
-  const scheduleSave = useCallback((next: typeof stateRef.current) => {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => saveNow(next), 600);
-  }, [saveNow]);
-
-  // Flush pending save on unmount (e.g. modal closes while typing notes)
-  useEffect(() => {
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-      void saveNow(stateRef.current);
-    };
-  }, [saveNow]);
-
-  const persist = (next: typeof state) => {
-    setState(next);
-    // Immediate save for discrete controls (toggle / scope / types)
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    void saveNow(next);
-  };
+  onChange: (next: InfluencerFormState) => void;
+}> = ({ value, initial, canEdit, onChange }) => {
+  const state = value;
+  const isDirty = !areInfluencerStatesEqual(state, initial);
 
   const toggleType = (t: InfluenceType) => {
     const next = { ...state, influenceType: state.influenceType.includes(t)
       ? state.influenceType.filter(x => x !== t)
       : [...state.influenceType, t] };
-    persist(next);
+    onChange(next);
   };
 
   return (
@@ -132,9 +86,9 @@ const InfluencerEditor: React.FC<{
           </span>
           <input
             type="checkbox"
-            disabled={!canEdit || saving}
+            disabled={!canEdit}
             checked={state.isInfluencer}
-            onChange={e => persist({ ...state, isInfluencer: e.target.checked })}
+            onChange={e => onChange({ ...state, isInfluencer: e.target.checked })}
             className="w-4 h-4 accent-violet-600"
           />
         </label>
@@ -146,9 +100,10 @@ const InfluencerEditor: React.FC<{
             <span className="text-xs text-gray-500 dark:text-gray-400 mr-1">Ambito:</span>
             {INFLUENCE_SCOPE_LIST.map(s => (
               <button
+                type="button"
                 key={s}
-                disabled={!canEdit || saving}
-                onClick={() => persist({ ...state, influenceScope: s })}
+                disabled={!canEdit}
+                onClick={() => onChange({ ...state, influenceScope: s })}
                 className={`text-xs px-2 py-1 rounded border transition-colors ${
                   state.influenceScope === s
                     ? 'bg-violet-600 text-white border-violet-600'
@@ -166,8 +121,9 @@ const InfluencerEditor: React.FC<{
               const active = state.influenceType.includes(t);
               return (
                 <button
+                  type="button"
                   key={t}
-                  disabled={!canEdit || saving}
+                  disabled={!canEdit}
                   onClick={() => toggleType(t)}
                   className={`text-xs px-2 py-1 rounded-full border transition-colors ${
                     active
@@ -182,14 +138,9 @@ const InfluencerEditor: React.FC<{
           </div>
 
           <textarea
-            disabled={!canEdit || saving}
+            disabled={!canEdit}
             value={state.influenceNotes}
-            onChange={e => {
-              const next = { ...state, influenceNotes: e.target.value };
-              setState(next);
-              scheduleSave(next);
-            }}
-            onBlur={() => saveNow(stateRef.current)}
+            onChange={e => onChange({ ...state, influenceNotes: e.target.value })}
             placeholder="Note opzionali sull'influenza (es. mentor del team UX, riferimento culturale…)"
             rows={2}
             className="w-full text-sm px-3 py-2 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200"
@@ -197,8 +148,8 @@ const InfluencerEditor: React.FC<{
         </>
       )}
 
-      {error && <p className="text-xs text-red-600">{error}</p>}
-      {saving && <p className="text-xs text-gray-500">Salvataggio…</p>}
+      {!canEdit && <p className="text-xs text-gray-500 dark:text-gray-400">Vai in modifica per aggiornare questi campi.</p>}
+      {canEdit && isDirty && <p className="text-xs text-violet-700 dark:text-violet-300">Le modifiche verranno salvate quando premi “Salva Modifiche”.</p>}
     </div>
   );
 };
@@ -367,6 +318,7 @@ export const UnifiedDetailModal: React.FC<UnifiedDetailModalProps> = ({
   // Edit mode state
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [editedRole, setEditedRole] = useState<Partial<UpdateRoleInput>>({});
   
@@ -374,8 +326,20 @@ export const UnifiedDetailModal: React.FC<UnifiedDetailModalProps> = ({
   const [memberSearchQuery, setMemberSearchQuery] = useState('');
   
   const { calculateDetailedMetrics, fetchAssignmentHistory, fetchUserHardSkills } = useUnifiedOrgData();
+  const { updateAssignment } = useRoleAssignments();
 
   const { role, assignee, assignment, metrics } = position;
+  const influencerBaseState = useMemo<InfluencerFormState | null>(() => {
+    if (!assignment) return null;
+    return {
+      isInfluencer: !!assignment.isInfluencer,
+      influenceScope: (assignment.influenceScope as InfluenceScope) || 'team',
+      influenceType: (assignment.influenceType as InfluenceType[]) || [],
+      influenceNotes: assignment.influenceNotes || '',
+    };
+  }, [assignment]);
+  const [savedInfluencer, setSavedInfluencer] = useState<InfluencerFormState | null>(influencerBaseState);
+  const [editedInfluencer, setEditedInfluencer] = useState<InfluencerFormState | null>(influencerBaseState);
 
   // canEdit is true whenever onSaveRole is available (no implicit role check)
   const canEdit = !!onSaveRole || !!onEditRole;
@@ -409,7 +373,10 @@ export const UnifiedDetailModal: React.FC<UnifiedDetailModalProps> = ({
     setEditedRole({});
     setShowDeleteConfirm(false);
     setMemberSearchQuery('');
-  }, [isOpen, position.role.id]);
+    setSaveError(null);
+    setSavedInfluencer(influencerBaseState);
+    setEditedInfluencer(influencerBaseState);
+  }, [isOpen, position.role.id, influencerBaseState]);
 
   // Load history when Storia tab is selected
   useEffect(() => {
@@ -486,23 +453,50 @@ export const UnifiedDetailModal: React.FC<UnifiedDetailModalProps> = ({
 
   // Handle save
   const handleSave = async () => {
-    if (Object.keys(editedRole).length === 0) {
+    const hasRoleChanges = Object.keys(editedRole).length > 0;
+    const hasInfluencerChanges = !!assignment && !!savedInfluencer && !!editedInfluencer && !areInfluencerStatesEqual(savedInfluencer, editedInfluencer);
+
+    if (!hasRoleChanges && !hasInfluencerChanges) {
       setIsEditing(false);
       return;
     }
 
     setIsSaving(true);
+    setSaveError(null);
     try {
-      if (onSaveRole) {
+      let saveSucceeded = true;
+
+      if (hasRoleChanges && onSaveRole) {
         const result = await onSaveRole(role.id, editedRole);
         if (result.success) {
-          setIsEditing(false);
           setEditedRole({});
+        } else {
+          saveSucceeded = false;
+          setSaveError(result.error || 'Errore nel salvataggio delle modifiche al ruolo.');
         }
-      } else if (onEditRole) {
+      } else if (hasRoleChanges && onEditRole) {
         await onEditRole(editedRole);
-        setIsEditing(false);
         setEditedRole({});
+      }
+
+      if (saveSucceeded && hasInfluencerChanges && assignment && editedInfluencer) {
+        const result = await updateAssignment(assignment.id, {
+          isInfluencer: editedInfluencer.isInfluencer,
+          influenceScope: editedInfluencer.influenceScope,
+          influenceType: editedInfluencer.influenceType,
+          influenceNotes: editedInfluencer.influenceNotes || null,
+        });
+
+        if (result.success) {
+          setSavedInfluencer(editedInfluencer);
+        } else {
+          saveSucceeded = false;
+          setSaveError(result.error || 'Errore nel salvataggio dei dati influencer.');
+        }
+      }
+
+      if (saveSucceeded) {
+        setIsEditing(false);
       }
     } finally {
       setIsSaving(false);
@@ -529,6 +523,8 @@ export const UnifiedDetailModal: React.FC<UnifiedDetailModalProps> = ({
   const handleCancelEdit = () => {
     setIsEditing(false);
     setEditedRole({});
+    setEditedInfluencer(savedInfluencer);
+    setSaveError(null);
   };
 
   // Get current value (edited or original)
@@ -589,14 +585,20 @@ export const UnifiedDetailModal: React.FC<UnifiedDetailModalProps> = ({
         {/* INFLUENCER */}
         {position.assignment && (
           <InfluencerEditor
-            assignmentId={position.assignment.id}
-            initial={{
-              isInfluencer: !!position.assignment.isInfluencer,
-              influenceScope: (position.assignment.influenceScope as InfluenceScope) || 'team',
-              influenceType: (position.assignment.influenceType as InfluenceType[]) || [],
-              influenceNotes: position.assignment.influenceNotes || '',
+            value={editedInfluencer || influencerBaseState || {
+              isInfluencer: false,
+              influenceScope: 'team',
+              influenceType: [],
+              influenceNotes: '',
             }}
-            canEdit={!!onSaveRole}
+            initial={savedInfluencer || influencerBaseState || {
+              isInfluencer: false,
+              influenceScope: 'team',
+              influenceType: [],
+              influenceNotes: '',
+            }}
+            canEdit={isEditing && canEdit}
+            onChange={next => setEditedInfluencer(next)}
           />
         )}
         {/* PERSON ASSIGNMENT (edit mode) */}
@@ -2245,6 +2247,11 @@ export const UnifiedDetailModal: React.FC<UnifiedDetailModalProps> = ({
 
         {/* Actions */}
         <div className="px-4 py-3 border-t border-gray-200 dark:border-gray-700 flex items-center gap-2 shrink-0 bg-gray-50 dark:bg-gray-900/30">
+          {saveError && (
+            <div className="mr-auto text-xs text-red-600 dark:text-red-400 font-medium">
+              {saveError}
+            </div>
+          )}
           {isEditing ? (
             <>
               <Button variant="ghost" onClick={handleCancelEdit} disabled={isSaving} className="flex-1">
