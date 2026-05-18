@@ -438,27 +438,58 @@ const NodeView: React.FC<{
       <Section title="Influencer del team">
         {influencerEntries.length > 0 ? (
           <ul className="space-y-1.5">
-            {influencerEntries.map(({ person, types }) => (
-              <li
-                key={person.id}
-                className="text-sm text-gray-700 dark:text-gray-300 flex items-center gap-2 flex-wrap"
-              >
-                <Sparkles size={12} className="text-violet-500" />
-                <span className="font-medium">{person.firstName} {person.lastName}</span>
-                {types.length > 0 && (
-                  <span className="flex items-center gap-1 flex-wrap">
-                    {types.map(t => (
-                      <span
-                        key={t}
-                        className="text-[10px] px-1.5 py-0.5 rounded bg-violet-50 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300 capitalize"
-                      >
-                        {t}
-                      </span>
-                    ))}
-                  </span>
-                )}
-              </li>
-            ))}
+            {influencerEntries.map(({ role, assignment, person, types }) => {
+              const content = (
+                <>
+                  <Sparkles size={12} className="text-violet-500 shrink-0" />
+                  <span className="font-medium">{person.firstName} {person.lastName}</span>
+                  {types.length > 0 && (
+                    <span className="flex items-center gap-1 flex-wrap">
+                      {types.map(t => (
+                        <span
+                          key={t}
+                          className="text-[10px] px-1.5 py-0.5 rounded bg-violet-50 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300"
+                        >
+                          {INFLUENCE_TYPE_LABELS[t as InfluenceType] || t}
+                        </span>
+                      ))}
+                    </span>
+                  )}
+                </>
+              );
+              return (
+                <li key={person.id}>
+                  {onSelectPosition ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const position: UnifiedPosition = {
+                          role,
+                          assignee: person,
+                          assignment,
+                          metrics: {
+                            roleFitScore: 0,
+                            managerFitScore: null,
+                            cultureFitScore: 0,
+                            isLeader: false,
+                            isInfluencer: true,
+                            influenceType: types,
+                          },
+                        };
+                        onSelectPosition(position, node.id);
+                      }}
+                      className="w-full text-left text-sm text-gray-700 dark:text-gray-300 flex items-center gap-2 flex-wrap px-2 py-1 -mx-2 rounded-lg hover:bg-violet-50 dark:hover:bg-violet-900/20 transition-colors"
+                    >
+                      {content}
+                    </button>
+                  ) : (
+                    <div className="text-sm text-gray-700 dark:text-gray-300 flex items-center gap-2 flex-wrap">
+                      {content}
+                    </div>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         ) : (
           <p className="text-xs text-gray-400 dark:text-gray-500 italic">
