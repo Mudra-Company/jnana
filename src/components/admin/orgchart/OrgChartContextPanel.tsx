@@ -371,6 +371,11 @@ const NodeView: React.FC<{
           icon={<Users size={12} />}
         />
         <KpiTile
+          label="Riporti"
+          value={directReports.filter(isRealPerson).length}
+          icon={<Users size={12} />}
+        />
+        <KpiTile
           label="Collaboratori"
           value={descendantUsers.filter(isRealPerson).length}
           icon={<Users size={12} />}
