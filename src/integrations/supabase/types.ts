@@ -296,10 +296,16 @@ export type Database = {
           created_at: string
           department_id: string | null
           id: string
+          invite_accepted_at: string | null
+          invite_expires_at: string | null
+          invite_token: string | null
           invited_at: string | null
+          invited_by: string | null
           is_hiring: boolean | null
           job_title: string | null
           joined_at: string | null
+          pending_role_id: string | null
+          personal_message: string | null
           placeholder_email: string | null
           placeholder_first_name: string | null
           placeholder_last_name: string | null
@@ -313,10 +319,16 @@ export type Database = {
           created_at?: string
           department_id?: string | null
           id?: string
+          invite_accepted_at?: string | null
+          invite_expires_at?: string | null
+          invite_token?: string | null
           invited_at?: string | null
+          invited_by?: string | null
           is_hiring?: boolean | null
           job_title?: string | null
           joined_at?: string | null
+          pending_role_id?: string | null
+          personal_message?: string | null
           placeholder_email?: string | null
           placeholder_first_name?: string | null
           placeholder_last_name?: string | null
@@ -330,10 +342,16 @@ export type Database = {
           created_at?: string
           department_id?: string | null
           id?: string
+          invite_accepted_at?: string | null
+          invite_expires_at?: string | null
+          invite_token?: string | null
           invited_at?: string | null
+          invited_by?: string | null
           is_hiring?: boolean | null
           job_title?: string | null
           joined_at?: string | null
+          pending_role_id?: string | null
+          personal_message?: string | null
           placeholder_email?: string | null
           placeholder_first_name?: string | null
           placeholder_last_name?: string | null
@@ -1154,6 +1172,45 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      onboarding_progress: {
+        Row: {
+          company_id: string | null
+          completed_at: string | null
+          completed_steps: Json
+          current_step: string | null
+          flow: string
+          id: string
+          profile_strength_score: number
+          started_at: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          company_id?: string | null
+          completed_at?: string | null
+          completed_steps?: Json
+          current_step?: string | null
+          flow?: string
+          id?: string
+          profile_strength_score?: number
+          started_at?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          company_id?: string | null
+          completed_at?: string | null
+          completed_steps?: Json
+          current_step?: string | null
+          flow?: string
+          id?: string
+          profile_strength_score?: number
+          started_at?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       org_nodes: {
         Row: {
@@ -2294,6 +2351,10 @@ export type Database = {
       }
     }
     Functions: {
+      calculate_profile_strength: {
+        Args: { _user_id: string }
+        Returns: number
+      }
       cleanup_old_profile_views: { Args: never; Returns: undefined }
       get_user_company_id: { Args: { _user_id: string }; Returns: string }
       has_role: {

@@ -17,6 +17,9 @@ interface InviteEmailRequest {
   inviterName?: string;
   companyId: string;
   memberId: string;
+  acceptUrl?: string;        // NEW: signed accept URL (preferred)
+  roleTitle?: string | null; // NEW
+  personalMessage?: string | null; // NEW
 }
 
 const handler = async (req: Request): Promise<Response> => {
@@ -30,13 +33,16 @@ const handler = async (req: Request): Promise<Response> => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { 
-      employeeEmail, 
-      employeeName, 
-      companyName, 
+    const {
+      employeeEmail,
+      employeeName,
+      companyName,
       inviterName,
       companyId,
-      memberId 
+      memberId,
+      acceptUrl,
+      roleTitle,
+      personalMessage,
     }: InviteEmailRequest = await req.json();
 
     // Validate required fields
@@ -50,10 +56,9 @@ const handler = async (req: Request): Promise<Response> => {
       );
     }
 
-    // Generate magic link for signup (employee will create account)
-    // Use APP_URL env variable or fallback to the Lovable project URL
+    // Prefer signed acceptUrl when provided (new flow). Fallback to legacy ?invite=
     const appUrl = Deno.env.get("APP_URL") || "https://mudra.holdings";
-    const signupUrl = `${appUrl}?invite=${memberId}&company=${companyId}`;
+    const signupUrl = acceptUrl || `${appUrl}?invite=${memberId}&company=${companyId}`;
     
     // Update member status to 'invited'
     const { error: updateError } = await supabase
