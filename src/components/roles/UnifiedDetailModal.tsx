@@ -547,6 +547,19 @@ export const UnifiedDetailModal: React.FC<UnifiedDetailModalProps> = ({
 
     return (
       <div className="space-y-6">
+        {/* INFLUENCER */}
+        {position.assignment && (
+          <InfluencerEditor
+            assignmentId={position.assignment.id}
+            initial={{
+              isInfluencer: !!position.assignment.isInfluencer,
+              influenceScope: (position.assignment.influenceScope as InfluenceScope) || 'team',
+              influenceType: (position.assignment.influenceType as InfluenceType[]) || [],
+              influenceNotes: position.assignment.influenceNotes || '',
+            }}
+            canEdit={!!onSaveRole}
+          />
+        )}
         {/* PERSON ASSIGNMENT (edit mode) */}
         {isEditing && onAssignPerson && (
           <Section title="Gestione Assegnazione" icon={<Users size={16} />}>
