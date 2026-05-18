@@ -12,6 +12,7 @@ import { useCompliance } from '../../src/hooks/useCompliance';
 import { toast } from '../../src/hooks/use-toast';
 import { supabase } from '../../src/integrations/supabase/client';
 import { EditUserModal } from '../../src/components/admin/EditUserModal';
+import { InvitePersonModal } from '../../src/components/admin/InvitePersonModal';
 import { DashboardHeroKPI } from '../../src/components/dashboard/DashboardHeroKPI';
 import { TodaysFocusPanel } from '../../src/components/dashboard/TodaysFocusPanel';
 import { QuickModulesPanel } from '../../src/components/dashboard/QuickModulesPanel';
