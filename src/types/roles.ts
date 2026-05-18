@@ -275,6 +275,10 @@ export interface CreateAssignmentInput {
   endDate?: string;
   ftePercentage?: number;
   notes?: string;
+  isInfluencer?: boolean;
+  influenceScope?: InfluenceScope;
+  influenceType?: InfluenceType[];
+  influenceNotes?: string;
 }
 
 export interface UpdateAssignmentInput {
@@ -283,6 +287,10 @@ export interface UpdateAssignmentInput {
   endDate?: string;
   ftePercentage?: number;
   notes?: string;
+  isInfluencer?: boolean;
+  influenceScope?: InfluenceScope;
+  influenceType?: InfluenceType[];
+  influenceNotes?: string | null;
 }
 
 // ============= Display Labels =============
