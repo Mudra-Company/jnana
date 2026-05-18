@@ -345,7 +345,12 @@ export const OrgNodeCard: React.FC<OrgNodeCardProps> = ({
         const assignee = role.currentAssignee 
           ? users.find(u => u.id === role.currentAssignee?.id) || null
           : null;
-        
+
+        const primaryAssignment =
+          role.assignments?.find(a => a.assignmentType === 'primary') ||
+          role.assignments?.[0] ||
+          null;
+
         const metrics = {
           roleFitScore: assignee ? calculateRoleFitScore(role, assignee) : 0,
           managerFitScore: assignee && parentManagers.length > 0 
@@ -355,13 +360,16 @@ export const OrgNodeCard: React.FC<OrgNodeCardProps> = ({
             ? calculateCultureFitScore(assignee, companyValues) 
             : 0,
           // Leader Culturale: chiunque assegnato a un ruolo in un nodo Cultural Driver.
-          isLeader: !!node.isCulturalDriver && !!assignee
+          isLeader: !!node.isCulturalDriver && !!assignee,
+          // Influencer flag (shown as a badge on the card)
+          isInfluencer: !!(assignee && primaryAssignment?.isInfluencer),
+          influenceType: primaryAssignment?.influenceType ?? [],
         };
-        
+
         return {
           role,
           assignee,
-          assignment: role.assignments?.[0] || null,
+          assignment: primaryAssignment,
           metrics
         } as UnifiedPosition;
       });
