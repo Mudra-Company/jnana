@@ -311,7 +311,8 @@ const NodeView: React.FC<{
   roles: CompanyRole[];
   onSelectNode: (id: string) => void;
   onSelectCompany: () => void;
-}> = ({ node, path, users, roles, onSelectNode, onSelectCompany }) => {
+  onSelectPosition?: (position: UnifiedPosition, nodeId: string | null) => void;
+}> = ({ node, path, users, roles, onSelectNode, onSelectCompany, onSelectPosition }) => {
   const directUsers = dedupById(users.filter(u => u.departmentId === node.id));
   // Riporti = persone assegnate direttamente ai nodi figli di primo livello (no nipoti)
   const directReports = dedupById(
@@ -342,7 +343,7 @@ const NodeView: React.FC<{
     if (!primary) return [];
     const person = users.find(u => u.id === primary.userId);
     if (!person) return [];
-    return [{ person, types: primary.influenceType || [] }];
+    return [{ role: r, assignment: primary, person, types: primary.influenceType || [] }];
   });
 
   return (
