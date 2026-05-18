@@ -587,6 +587,44 @@ const PositionView: React.FC<{
         </div>
       )}
 
+      {position.assignment?.isInfluencer && (
+        <Section title="Influencer">
+          <div className="rounded-xl border border-violet-200 dark:border-violet-800 bg-violet-50/60 dark:bg-violet-900/20 p-3 space-y-2">
+            <div className="flex items-center gap-2 text-violet-700 dark:text-violet-300 font-semibold text-sm">
+              <Sparkles size={14} />
+              Influencer {INFLUENCE_SCOPE_LABELS[(position.assignment.influenceScope as InfluenceScope) || 'team']?.toLowerCase()}
+            </div>
+            {position.assignment.influenceType && position.assignment.influenceType.length > 0 && (
+              <div>
+                <div className="text-[10px] uppercase tracking-wide text-violet-600/70 dark:text-violet-400/70 font-semibold mb-1">
+                  Tipologia
+                </div>
+                <div className="flex flex-wrap gap-1">
+                  {(position.assignment.influenceType as InfluenceType[]).map(t => (
+                    <span
+                      key={t}
+                      className="text-[11px] px-2 py-0.5 rounded-full bg-white dark:bg-violet-900/40 border border-violet-200 dark:border-violet-700 text-violet-700 dark:text-violet-300"
+                    >
+                      {INFLUENCE_TYPE_LABELS[t] || t}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+            {position.assignment.influenceNotes && (
+              <div>
+                <div className="text-[10px] uppercase tracking-wide text-violet-600/70 dark:text-violet-400/70 font-semibold mb-1">
+                  Note
+                </div>
+                <p className="text-xs text-gray-700 dark:text-gray-300 whitespace-pre-wrap leading-relaxed">
+                  {position.assignment.influenceNotes}
+                </p>
+              </div>
+            )}
+          </div>
+        </Section>
+      )}
+
       {role.requiredHardSkills && role.requiredHardSkills.length > 0 && (
         <Section title="Hard skills richieste">
           <div className="flex flex-wrap gap-1">
