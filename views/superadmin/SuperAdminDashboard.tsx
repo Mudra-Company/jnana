@@ -30,6 +30,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
   onStartDemoMode
 }) => {
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showSimulateModal, setShowSimulateModal] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   
   // Form state
