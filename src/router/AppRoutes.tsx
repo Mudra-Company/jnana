@@ -868,15 +868,6 @@ function SimulatorB2BRoute() {
 // ===== ROOT TREE =====
 
 /** Suspense fallback shown while a lazy chunk loads. Same look as the global LOADING screen. */
-      onStartRiasec={() => navigate({ type: 'USER_TEST', userId: user.id })}
-      onSkip={() => setView({ type: 'USER_RESULT', userId: user.id })}
-    />
-  );
-}
-
-// ===== ROOT TREE =====
-
-/** Suspense fallback shown while a lazy chunk loads. Same look as the global LOADING screen. */
 function RouteLoadingFallback() {
   return (
     <div className="min-h-[60vh] flex items-center justify-center">
