@@ -332,12 +332,12 @@ const NodeView: React.FC<{
   const hiringHere =
     nodeRoles.filter(r => r.isHiring).length + directUsers.filter(u => u.isHiring).length;
 
-  const managers = directUsers.filter(
-    u =>
-      !u.isHiring &&
-      (node.isCulturalDriver ||
-        u.jobTitle?.toLowerCase().match(/(head|manager|lead|director|ceo|ad)/))
-  );
+  // Responsabili = persone presenti nel nodo PADRE dell'organigramma (livello superiore).
+  // Niente euristiche sul jobTitle del nodo corrente.
+  const parentNode = path.length >= 2 ? path[path.length - 2] : null;
+  const managers = parentNode
+    ? findNodeManagers(users.filter(u => u.departmentId === parentNode.id), parentNode)
+    : [];
 
   // Influencer del nodo: assignments primarie con is_influencer=true sui ruoli del nodo
   const influencerEntries = nodeRoles.flatMap(r => {
