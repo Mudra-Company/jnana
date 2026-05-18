@@ -710,6 +710,7 @@ export const OrgChartContextPanel: React.FC<Props> = ({
   selection,
   onSelectCompany,
   onSelectNode,
+  onSelectPosition,
   onOpenFullDetail,
   
 }) => {
@@ -744,6 +745,7 @@ export const OrgChartContextPanel: React.FC<Props> = ({
           roles={roles}
           onSelectNode={onSelectNode}
           onSelectCompany={onSelectCompany}
+          onSelectPosition={onSelectPosition}
         />
       );
     }
