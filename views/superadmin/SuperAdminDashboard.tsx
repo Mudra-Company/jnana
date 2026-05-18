@@ -87,15 +87,13 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
           </div>
           <p className="text-gray-500 dark:text-gray-400">Gestione multi-tenant e configurazione globale.</p>
         </div>
-        {onStartDemoMode && (
-          <Button 
-            onClick={onStartDemoMode}
-            className="bg-purple-600 hover:bg-purple-700 text-white shadow-lg"
-          >
-            <FlaskConical size={18} className="mr-2" />
-            Simula Nuovo User
-          </Button>
-        )}
+        <Button
+          onClick={() => setShowSimulateModal(true)}
+          className="bg-purple-600 hover:bg-purple-700 text-white shadow-lg"
+        >
+          <FlaskConical size={18} className="mr-2" />
+          Simula Onboarding
+        </Button>
       </div>
 
       {/* Companies Grid */}
