@@ -311,7 +311,13 @@ const NodeView: React.FC<{
   onSelectCompany: () => void;
 }> = ({ node, path, users, roles, onSelectNode, onSelectCompany }) => {
   const directUsers = dedupById(users.filter(u => u.departmentId === node.id));
-  // Collaboratori = persone nei nodi figli (escluso il nodo corrente)
+  // Riporti = persone assegnate direttamente ai nodi figli di primo livello (no nipoti)
+  const directReports = dedupById(
+    (node.children || []).flatMap(child =>
+      users.filter(u => u.departmentId === child.id)
+    )
+  );
+  // Collaboratori = persone nei nodi figli (escluso il nodo corrente), incluse tutte le profondità
   const descendantUsers = dedupById(
     (node.children || []).flatMap(child => collectNodeUsers(child, users))
   );
