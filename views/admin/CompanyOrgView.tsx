@@ -39,7 +39,7 @@ import { Button } from '../../components/Button';
 import { OrgNode, CompanyProfile, User, RequiredProfile, SeniorityLevel } from '../../types';
 import { SOFT_SKILLS_OPTIONS } from '../../constants';
 import { calculateUserCompatibility } from '../../services/riasecService';
-import { InviteToSlotModal } from '../../src/components/InviteToSlotModal';
+import { InvitePersonModal } from '../../src/components/admin/InvitePersonModal';
 import { useCompanyMembers } from '../../src/hooks/useCompanyMembers';
 import { useTalentSearch } from '../../src/hooks/useTalentSearch';
 import { usePositionShortlist, type InternalMatchData } from '../../src/hooks/usePositionShortlist';
@@ -1798,53 +1798,8 @@ export const CompanyOrgView: React.FC<{
         }
     };
 
-    // Handle inviting a person to an existing slot (simplified modal)
-    const handleInviteToSlot = async (data: { firstName: string; lastName: string; email: string }) => {
-        if (!inviteToSlotUser) return;
-        
-        // Save to database
-        const result = await createCompanyMember({
-            companyId: company.id,
-            departmentId: inviteToSlotUser.departmentId || '',
-            jobTitle: inviteToSlotUser.jobTitle || '',
-            firstName: data.firstName,
-            lastName: data.lastName,
-            email: data.email,
-            isHiring: false,
-            requiredProfile: inviteToSlotUser.requiredProfile
-        });
-        
-        if (result.success) {
-            // Update local state - replace the slot with the invited person
-            const updatedUsers = users.map(u => {
-                if (u.id === inviteToSlotUser.id) {
-                    return {
-                        ...u,
-                        id: result.memberId || u.id,
-                        firstName: data.firstName,
-                        lastName: data.lastName,
-                        email: data.email,
-                        isHiring: false,
-                        status: 'invited' as const
-                    };
-                }
-                return u;
-            });
-            onUpdateUsers(updatedUsers);
-            setInviteToSlotUser(null);
-            
-            toast({
-                title: "Invito inviato",
-                description: `${data.firstName} ${data.lastName} è stato invitato per la posizione ${inviteToSlotUser.jobTitle}`,
-            });
-        } else {
-            toast({
-                title: "Errore",
-                description: result.error || "Impossibile inviare l'invito",
-                variant: "destructive",
-            });
-        }
-    };
+    // Invite-to-slot is now handled directly by <InvitePersonModal /> via the
+    // create-invite edge function (HMAC-signed link + branded email).
 
     // Legacy handleInviteUser removed - now using unified RoleCreationModal with assignment step
 
@@ -2155,12 +2110,20 @@ export const CompanyOrgView: React.FC<{
                 />
             )}
             {inviteToSlotUser && (
-                <InviteToSlotModal
-                    jobTitle={inviteToSlotUser.jobTitle || 'Posizione'}
-                    requiredProfile={inviteToSlotUser.requiredProfile}
-                    onInvite={handleInviteToSlot}
+                <InvitePersonModal
+                    isOpen={true}
+                    companyId={company.id}
+                    companyName={company.name}
+                    defaultOrgNodeId={inviteToSlotUser.departmentId || null}
                     onClose={() => setInviteToSlotUser(null)}
-                    isLoading={isSaving}
+                    onInvited={async () => {
+                        await fetchRoles(company.id);
+                        toast({
+                            title: 'Invito inviato',
+                            description: `Email inviata per la posizione ${inviteToSlotUser.jobTitle || ''}`.trim(),
+                        });
+                        setInviteToSlotUser(null);
+                    }}
                 />
             )}
             {editingNode && (
