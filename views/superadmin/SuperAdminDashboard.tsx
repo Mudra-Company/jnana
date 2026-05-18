@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Building, Plus, X, Loader2, FlaskConical, Globe } from 'lucide-react';
+import { Building, Plus, X, Loader2, FlaskConical, Globe, ExternalLink, User as UserIcon, Briefcase } from 'lucide-react';
 import { Card } from '../../components/Card';
 import { Button } from '../../components/Button';
 import { CompanyProfile, User } from '../../types';
@@ -30,6 +30,7 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
   onStartDemoMode
 }) => {
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showSimulateModal, setShowSimulateModal] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   
   // Form state
@@ -86,15 +87,13 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
           </div>
           <p className="text-gray-500 dark:text-gray-400">Gestione multi-tenant e configurazione globale.</p>
         </div>
-        {onStartDemoMode && (
-          <Button 
-            onClick={onStartDemoMode}
-            className="bg-purple-600 hover:bg-purple-700 text-white shadow-lg"
-          >
-            <FlaskConical size={18} className="mr-2" />
-            Simula Nuovo User
-          </Button>
-        )}
+        <Button
+          onClick={() => setShowSimulateModal(true)}
+          className="bg-purple-600 hover:bg-purple-700 text-white shadow-lg"
+        >
+          <FlaskConical size={18} className="mr-2" />
+          Simula Onboarding
+        </Button>
       </div>
 
       {/* Companies Grid */}
@@ -278,6 +277,96 @@ export const SuperAdminDashboard: React.FC<SuperAdminDashboardProps> = ({
                 )}
               </Button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Simulate Onboarding Modal */}
+      {showSimulateModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-2xl animate-scale-in">
+            <div className="flex items-center justify-between p-6 border-b border-gray-100 dark:border-gray-700">
+              <div>
+                <h2 className="text-xl font-bold text-gray-800 dark:text-white">Simula Onboarding</h2>
+                <p className="text-sm text-gray-500 mt-1">
+                  Scegli il flusso da anteprima. Verrà aperto in una nuova scheda usando le viste reali.
+                </p>
+              </div>
+              <button
+                onClick={() => setShowSimulateModal(false)}
+                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+              >
+                <X size={20} className="text-gray-500" />
+              </button>
+            </div>
+
+            <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* B2C */}
+              <div className="border border-gray-200 dark:border-gray-700 rounded-xl p-5 flex flex-col">
+                <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg w-fit mb-3">
+                  <UserIcon className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                </div>
+                <h3 className="font-bold text-lg mb-1">Utente B2C</h3>
+                <p className="text-sm text-gray-500 mb-4 flex-1">
+                  Arriva in autonomia su Karma. Flusso: Landing → Signup → Karma Welcome → Onboarding (CV/profilo) → RIASEC → Karma Chat → Risultati.
+                </p>
+                <a
+                  href="/karma/welcome"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg text-sm font-medium"
+                >
+                  Apri flusso B2C <ExternalLink size={14} />
+                </a>
+                <p className="text-xs text-gray-400 mt-2">
+                  Richiede un account Karma autenticato.
+                </p>
+              </div>
+
+              {/* B2B */}
+              <div className="border border-gray-200 dark:border-gray-700 rounded-xl p-5 flex flex-col">
+                <div className="p-2 bg-amber-100 dark:bg-amber-900/30 rounded-lg w-fit mb-3">
+                  <Briefcase className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+                </div>
+                <h3 className="font-bold text-lg mb-1">Utente B2B (invitato)</h3>
+                <p className="text-sm text-gray-500 mb-4 flex-1">
+                  Aggiunto in azienda da un admin, con eventuale ruolo assegnato. Flusso: Email invito → /invite/accept → Signup → B2B Onboarding role-aware → RIASEC → Climate → Karma → Risultati.
+                </p>
+                <a
+                  href="/onboarding/b2b"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-lg text-sm font-medium"
+                >
+                  Apri onboarding B2B <ExternalLink size={14} />
+                </a>
+                <p className="text-xs text-gray-400 mt-2">
+                  Per simulare l'invito completo, usa "Invita Persona" da Admin → Organigramma.
+                </p>
+              </div>
+            </div>
+
+            {/* Legacy demo */}
+            {onStartDemoMode && (
+              <div className="px-6 pb-6">
+                <div className="border-t border-gray-100 dark:border-gray-700 pt-4 flex items-center justify-between gap-4">
+                  <div>
+                    <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Demo legacy (utente fittizio in-memory)</p>
+                    <p className="text-xs text-gray-500">Non persiste dati. Usa le viste legacy del vecchio flusso.</p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setShowSimulateModal(false);
+                      onStartDemoMode();
+                    }}
+                  >
+                    <FlaskConical size={14} className="mr-2" />
+                    Avvia demo legacy
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
