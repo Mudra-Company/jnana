@@ -11,7 +11,7 @@
  * - Person assignment management
  */
 
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import {
   X, User, Briefcase, FileText, Scale, History, Target, Handshake, Building,
   CheckCircle, XCircle, TrendingUp, TrendingDown, Star, Award, Crown, Clock,
@@ -54,12 +54,26 @@ const InfluencerEditor: React.FC<{
   const [state, setState] = useState(initial);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const stateRef = useRef(state);
+  const lastSavedRef = useRef(initial);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  useEffect(() => { setState(initial); }, [assignmentId]);
+  useEffect(() => { stateRef.current = state; }, [state]);
+  useEffect(() => {
+    setState(initial);
+    lastSavedRef.current = initial;
+  }, [assignmentId]);
 
-  const persist = async (next: typeof state) => {
-    const prev = state;
-    setState(next);
+  const saveNow = useCallback(async (next: typeof stateRef.current) => {
+    const prev = lastSavedRef.current;
+    // Skip if nothing actually changed
+    if (
+      prev.isInfluencer === next.isInfluencer &&
+      prev.influenceScope === next.influenceScope &&
+      prev.influenceNotes === next.influenceNotes &&
+      prev.influenceType.length === next.influenceType.length &&
+      prev.influenceType.every(t => next.influenceType.includes(t))
+    ) return;
     setSaving(true);
     setError(null);
     const res = await updateAssignment(assignmentId, {
@@ -69,10 +83,31 @@ const InfluencerEditor: React.FC<{
       influenceNotes: next.influenceNotes || null,
     });
     setSaving(false);
-    if (!res.success) {
-      setState(prev);
+    if (res.success) {
+      lastSavedRef.current = next;
+    } else {
       setError(res.error || 'Errore nel salvataggio');
     }
+  }, [assignmentId, updateAssignment]);
+
+  const scheduleSave = useCallback((next: typeof stateRef.current) => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => saveNow(next), 600);
+  }, [saveNow]);
+
+  // Flush pending save on unmount (e.g. modal closes while typing notes)
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      void saveNow(stateRef.current);
+    };
+  }, [saveNow]);
+
+  const persist = (next: typeof state) => {
+    setState(next);
+    // Immediate save for discrete controls (toggle / scope / types)
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    void saveNow(next);
   };
 
   const toggleType = (t: InfluenceType) => {
@@ -149,8 +184,12 @@ const InfluencerEditor: React.FC<{
           <textarea
             disabled={!canEdit || saving}
             value={state.influenceNotes}
-            onChange={e => setState({ ...state, influenceNotes: e.target.value })}
-            onBlur={() => persist(state)}
+            onChange={e => {
+              const next = { ...state, influenceNotes: e.target.value };
+              setState(next);
+              scheduleSave(next);
+            }}
+            onBlur={() => saveNow(stateRef.current)}
             placeholder="Note opzionali sull'influenza (es. mentor del team UX, riferimento culturale…)"
             rows={2}
             className="w-full text-sm px-3 py-2 rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200"
