@@ -26,7 +26,7 @@ const DIM_LABELS: Record<string, string> = {
 };
 
 export const IoTab: React.FC<IoTabProps> = ({ user, climateIndex, onOpenRiasec, onOpenKarma, onOpenClimate }) => {
-  const riasec = user.riasecScore as any;
+  const riasec = (user.results ?? null) as any;
   const dims = riasec
     ? Object.entries(riasec)
         .map(([k, v]) => ({ k, v: Number(v) || 0 }))
