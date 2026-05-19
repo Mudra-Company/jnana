@@ -59,6 +59,8 @@ export const MyProfileView: React.FC<MyProfileViewProps> = ({
     return null;
   }, [user.climateData]);
 
+  const fullName = `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim() || 'questo utente';
+
   return (
     <div className="min-h-screen bg-jnana-bg py-6 px-4">
       <div className="max-w-5xl mx-auto">
@@ -68,6 +70,12 @@ export const MyProfileView: React.FC<MyProfileViewProps> = ({
         >
           <ArrowLeft size={16} /> Indietro
         </button>
+
+        {isReadOnly && (
+          <div className="mb-4 px-4 py-2.5 rounded-lg bg-jnana-powder/40 border border-jnana-sage/15 text-sm text-jnana-text/80">
+            Stai visualizzando il profilo di <strong>{fullName}</strong> in sola lettura. Alcune azioni personali (es. valutazione colleghi, modifica preferenze) sono disabilitate.
+          </div>
+        )}
 
         <ProfileHeader
           firstName={user.firstName}
@@ -107,9 +115,9 @@ export const MyProfileView: React.FC<MyProfileViewProps> = ({
           <IoTab
             user={user}
             climateIndex={climateAvg}
-            onOpenRiasec={onStartRiasec}
-            onOpenKarma={onStartKarma}
-            onOpenClimate={onStartClimate}
+            onOpenRiasec={isReadOnly ? () => {} : onStartRiasec}
+            onOpenKarma={isReadOnly ? () => {} : onStartKarma}
+            onOpenClimate={isReadOnly ? () => {} : onStartClimate}
           />
         )}
 
@@ -123,6 +131,7 @@ export const MyProfileView: React.FC<MyProfileViewProps> = ({
             getRatingFor={getRatingFor}
             onUpsertRating={upsertRating}
             onDeleteRating={deleteRating}
+            isReadOnly={isReadOnly}
           />
         )}
 
