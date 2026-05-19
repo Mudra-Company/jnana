@@ -21,6 +21,10 @@ interface MyProfileViewProps {
   onStartRiasec: () => void;
   onStartKarma: () => void;
   onStartClimate: () => void;
+  /** Se true, è un admin/altro utente che visualizza il profilo (read-only). */
+  isReadOnly?: boolean;
+  /** Id dell'utente che sta visualizzando (per peer rating quando non è il proprio profilo). */
+  viewerUserId?: string;
 }
 
 type TabKey = 'io' | 'role' | 'team' | 'growth' | 'data';
@@ -35,12 +39,14 @@ const TABS: { key: TabKey; label: string; icon: React.ElementType }[] = [
 
 export const MyProfileView: React.FC<MyProfileViewProps> = ({
   user, company, onBack, onStartRiasec, onStartKarma, onStartClimate,
+  isReadOnly = false, viewerUserId,
 }) => {
   const [tab, setTab] = useState<TabKey>('io');
 
   const companyId = user.companyId || null;
   const { data: team } = useMyTeam(user.id, companyId);
-  const { getRatingFor, upsertRating, deleteRating } = usePeerRatings(user.id);
+  // I peer rating restano privati al "viewer"; in read-only li disabilitiamo a livello UI.
+  const { getRatingFor, upsertRating, deleteRating } = usePeerRatings(viewerUserId ?? user.id);
 
   const climateAvg = useMemo(() => {
     const c: any = user.climateData;
