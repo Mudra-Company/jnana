@@ -94,6 +94,9 @@ const KarmaChatView = lazy(() =>
 const UserResultView = lazy(() =>
   import('../../views/user/UserResultView').then(m => ({ default: m.UserResultView }))
 );
+const MyProfileView = lazy(() =>
+  import('../../views/user/MyProfileView').then(m => ({ default: m.MyProfileView }))
+);
 
 // Karma platform chunks
 const KarmaOnboarding = lazy(() =>
