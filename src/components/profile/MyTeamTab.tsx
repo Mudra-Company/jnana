@@ -104,16 +104,18 @@ export const MyTeamTab: React.FC<MyTeamTabProps> = ({
               <div className="text-sm text-jnana-text/70">{team.manager.roleTitle}</div>
               <div className="text-xs text-jnana-text/50">{team.manager.email}</div>
             </div>
-            <button
-              onClick={() => openRating(team.manager!)}
-              className="text-xs px-3 py-1.5 rounded-full bg-jnana-bg hover:bg-jnana-powder/40 inline-flex items-center gap-1"
-            >
-              <Star
-                size={14}
-                className={getRatingFor(team.manager.userId) ? 'fill-amber-400 text-amber-400' : 'text-jnana-sage'}
-              />
-              Valuta compatibilità
-            </button>
+            {!isReadOnly && (
+              <button
+                onClick={() => openRating(team.manager!)}
+                className="text-xs px-3 py-1.5 rounded-full bg-jnana-bg hover:bg-jnana-powder/40 inline-flex items-center gap-1"
+              >
+                <Star
+                  size={14}
+                  className={getRatingFor(team.manager.userId) ? 'fill-amber-400 text-amber-400' : 'text-jnana-sage'}
+                />
+                Valuta compatibilità
+              </button>
+            )}
           </div>
         ) : (
           <p className="text-sm text-jnana-text/50 italic">Non hai un responsabile assegnato nell'organigramma.</p>
