@@ -1278,6 +1278,42 @@ export type Database = {
           },
         ]
       }
+      peer_collaboration_ratings: {
+        Row: {
+          company_id: string
+          created_at: string
+          id: string
+          note: string | null
+          rated_user_id: string
+          rater_user_id: string
+          rating: number
+          tags: string[]
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          id?: string
+          note?: string | null
+          rated_user_id: string
+          rater_user_id: string
+          rating: number
+          tags?: string[]
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          id?: string
+          note?: string | null
+          rated_user_id?: string
+          rater_user_id?: string
+          rating?: number
+          tags?: string[]
+          updated_at?: string
+        }
+        Relationships: []
+      }
       position_shortlists: {
         Row: {
           company_id: string
@@ -2064,6 +2100,51 @@ export type Database = {
         }
         Relationships: []
       }
+      user_growth_preferences: {
+        Row: {
+          company_id: string | null
+          created_at: string
+          id: string
+          interested_role_ids: string[]
+          interested_role_titles_free: string[]
+          notes: string | null
+          relocation_open: boolean
+          rotation_open: boolean
+          skills_to_develop: string[]
+          target_seniority: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          company_id?: string | null
+          created_at?: string
+          id?: string
+          interested_role_ids?: string[]
+          interested_role_titles_free?: string[]
+          notes?: string | null
+          relocation_open?: boolean
+          rotation_open?: boolean
+          skills_to_develop?: string[]
+          target_seniority?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          company_id?: string | null
+          created_at?: string
+          id?: string
+          interested_role_ids?: string[]
+          interested_role_titles_free?: string[]
+          notes?: string | null
+          relocation_open?: boolean
+          rotation_open?: boolean
+          skills_to_develop?: string[]
+          target_seniority?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_hard_skills: {
         Row: {
           created_at: string | null
@@ -2112,6 +2193,45 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      user_kpi_self_checkins: {
+        Row: {
+          company_id: string
+          created_at: string
+          id: string
+          kpi_key: string
+          note: string | null
+          period: string
+          role_id: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          id?: string
+          kpi_key: string
+          note?: string | null
+          period: string
+          role_id: string
+          status: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          id?: string
+          kpi_key?: string
+          note?: string | null
+          period?: string
+          role_id?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       user_languages: {
         Row: {
@@ -2358,6 +2478,15 @@ export type Database = {
           updated_at?: string | null
           wants_karma_visibility?: boolean | null
           years_experience?: number | null
+        }
+        Relationships: []
+      }
+      peer_affinity_aggregates: {
+        Row: {
+          avg_rating: number | null
+          company_id: string | null
+          rated_user_id: string | null
+          rating_count: number | null
         }
         Relationships: []
       }
