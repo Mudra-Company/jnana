@@ -21,6 +21,10 @@ interface MyProfileViewProps {
   onStartRiasec: () => void;
   onStartKarma: () => void;
   onStartClimate: () => void;
+  /** Se true, è un admin/altro utente che visualizza il profilo (read-only). */
+  isReadOnly?: boolean;
+  /** Id dell'utente che sta visualizzando (per peer rating quando non è il proprio profilo). */
+  viewerUserId?: string;
 }
 
 type TabKey = 'io' | 'role' | 'team' | 'growth' | 'data';
@@ -35,12 +39,14 @@ const TABS: { key: TabKey; label: string; icon: React.ElementType }[] = [
 
 export const MyProfileView: React.FC<MyProfileViewProps> = ({
   user, company, onBack, onStartRiasec, onStartKarma, onStartClimate,
+  isReadOnly = false, viewerUserId,
 }) => {
   const [tab, setTab] = useState<TabKey>('io');
 
   const companyId = user.companyId || null;
   const { data: team } = useMyTeam(user.id, companyId);
-  const { getRatingFor, upsertRating, deleteRating } = usePeerRatings(user.id);
+  // I peer rating restano privati al "viewer"; in read-only li disabilitiamo a livello UI.
+  const { getRatingFor, upsertRating, deleteRating } = usePeerRatings(viewerUserId ?? user.id);
 
   const climateAvg = useMemo(() => {
     const c: any = user.climateData;
@@ -53,6 +59,8 @@ export const MyProfileView: React.FC<MyProfileViewProps> = ({
     return null;
   }, [user.climateData]);
 
+  const fullName = `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim() || 'questo utente';
+
   return (
     <div className="min-h-screen bg-jnana-bg py-6 px-4">
       <div className="max-w-5xl mx-auto">
@@ -62,6 +70,12 @@ export const MyProfileView: React.FC<MyProfileViewProps> = ({
         >
           <ArrowLeft size={16} /> Indietro
         </button>
+
+        {isReadOnly && (
+          <div className="mb-4 px-4 py-2.5 rounded-lg bg-jnana-powder/40 border border-jnana-sage/15 text-sm text-jnana-text/80">
+            Stai visualizzando il profilo di <strong>{fullName}</strong> in sola lettura. Alcune azioni personali (es. valutazione colleghi, modifica preferenze) sono disabilitate.
+          </div>
+        )}
 
         <ProfileHeader
           firstName={user.firstName}
@@ -101,9 +115,9 @@ export const MyProfileView: React.FC<MyProfileViewProps> = ({
           <IoTab
             user={user}
             climateIndex={climateAvg}
-            onOpenRiasec={onStartRiasec}
-            onOpenKarma={onStartKarma}
-            onOpenClimate={onStartClimate}
+            onOpenRiasec={isReadOnly ? () => {} : onStartRiasec}
+            onOpenKarma={isReadOnly ? () => {} : onStartKarma}
+            onOpenClimate={isReadOnly ? () => {} : onStartClimate}
           />
         )}
 
@@ -117,6 +131,7 @@ export const MyProfileView: React.FC<MyProfileViewProps> = ({
             getRatingFor={getRatingFor}
             onUpsertRating={upsertRating}
             onDeleteRating={deleteRating}
+            isReadOnly={isReadOnly}
           />
         )}
 

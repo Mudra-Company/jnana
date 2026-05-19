@@ -502,31 +502,22 @@ function UserResultRoute() {
     : companyUsers.find(u => u.id === userId);
   if (!userToShow) return <NotReady />;
 
-  // Nuovo cockpit personale per la vista del proprio profilo
-  if (isViewingOwnProfile) {
-    return (
-      <MyProfileView
-        user={userToShow}
-        company={activeCompanyData || null}
-        onBack={() => navigate({ type: 'USER_WELCOME', userId })}
-        onStartRiasec={() => navigate({ type: 'USER_TEST', userId })}
-        onStartKarma={() => navigate({ type: 'USER_CHAT', userId })}
-        onStartClimate={() => navigate({ type: 'USER_CLIMATE_TEST', userId })}
-      />
-    );
-  }
-
+  // Nuovo cockpit personale — usato sia per il proprio profilo sia per la vista
+  // admin/HR di un altro utente (in modalità sola lettura).
   return (
-    <UserResultView
+    <MyProfileView
       user={userToShow}
-      jobDb={jobDb}
-      onLogout={handleLogout}
-      onStartClimate={() => navigate({ type: 'USER_CLIMATE_TEST', userId })}
+      company={activeCompanyData || null}
+      onBack={() =>
+        isViewingOwnProfile
+          ? navigate({ type: 'USER_WELCOME', userId })
+          : navigate({ type: 'ADMIN_DASHBOARD' })
+      }
+      onStartRiasec={() => navigate({ type: 'USER_TEST', userId })}
       onStartKarma={() => navigate({ type: 'USER_CHAT', userId })}
-      company={activeCompanyData || undefined}
-      companyUsers={companyUsers}
-      isReadOnly={true}
-      onClose={() => navigate({ type: 'ADMIN_DASHBOARD' })}
+      onStartClimate={() => navigate({ type: 'USER_CLIMATE_TEST', userId })}
+      isReadOnly={!isViewingOwnProfile}
+      viewerUserId={currentUserData?.id}
     />
   );
 }
