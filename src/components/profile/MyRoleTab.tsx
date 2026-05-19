@@ -42,6 +42,17 @@ export const MyRoleTab: React.FC<MyRoleTabProps> = ({ user, role, isImplicit = f
 
   return (
     <div className="space-y-6">
+      {isImplicit && (
+        <Card>
+          <div className="flex items-start gap-3">
+            <Info className="text-jnana-sage shrink-0 mt-0.5" size={18} />
+            <div className="text-sm text-jnana-text/80">
+              Il tuo HR non ha ancora collegato il tuo profilo a un ruolo strutturato dell'organigramma.
+              Mostriamo le informazioni di base derivate dal tuo job title e dipartimento.
+            </div>
+          </div>
+        </Card>
+      )}
       {/* Mansionario */}
       <Card>
         <div className="flex items-center gap-2 mb-3">
