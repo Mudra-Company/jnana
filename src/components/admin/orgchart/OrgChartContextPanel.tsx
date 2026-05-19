@@ -593,14 +593,14 @@ const SkillsComparison: React.FC<{ role: CompanyRole; assignee?: User | null }> 
 
   const Counter: React.FC<{ matched: number; total: number }> = ({ matched, total }) => (
     <span className={`text-[10px] font-semibold ${counterTone(matched, total)}`}>
-      {hasAssignee ? `${matched}/${total} possedute` : `${total} richieste`}
+      {hasAssignee ? `${matched}/${total} presenti` : `${total} richieste`}
     </span>
   );
 
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2 text-[10px] text-gray-400 dark:text-gray-500">
-        <span className="inline-flex items-center gap-1">✓ posseduta</span>
+        <span className="inline-flex items-center gap-1">✓ presente</span>
         <span>·</span>
         <span className="inline-flex items-center gap-1">✕ mancante</span>
         {!hasAssignee && (
