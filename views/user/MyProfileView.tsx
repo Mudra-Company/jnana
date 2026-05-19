@@ -121,7 +121,7 @@ export const MyProfileView: React.FC<MyProfileViewProps> = ({
           />
         )}
 
-        {tab === 'role' && <MyRoleTab user={user} roleId={team.myRoleId} />}
+        {tab === 'role' && <MyRoleTab user={user} role={team.myRole} isImplicit={team.myRoleIsImplicit} />}
 
         {tab === 'team' && (
           <MyTeamTab
