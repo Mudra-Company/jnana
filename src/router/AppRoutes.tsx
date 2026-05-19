@@ -94,6 +94,9 @@ const KarmaChatView = lazy(() =>
 const UserResultView = lazy(() =>
   import('../../views/user/UserResultView').then(m => ({ default: m.UserResultView }))
 );
+const MyProfileView = lazy(() =>
+  import('../../views/user/MyProfileView').then(m => ({ default: m.MyProfileView }))
+);
 
 // Karma platform chunks
 const KarmaOnboarding = lazy(() =>
@@ -498,6 +501,21 @@ function UserResultRoute() {
     ? currentUserData
     : companyUsers.find(u => u.id === userId);
   if (!userToShow) return <NotReady />;
+
+  // Nuovo cockpit personale per la vista del proprio profilo
+  if (isViewingOwnProfile) {
+    return (
+      <MyProfileView
+        user={userToShow}
+        company={activeCompanyData || null}
+        onBack={() => navigate({ type: 'USER_WELCOME', userId })}
+        onStartRiasec={() => navigate({ type: 'USER_TEST', userId })}
+        onStartKarma={() => navigate({ type: 'USER_CHAT', userId })}
+        onStartClimate={() => navigate({ type: 'USER_CLIMATE_TEST', userId })}
+      />
+    );
+  }
+
   return (
     <UserResultView
       user={userToShow}
@@ -507,7 +525,7 @@ function UserResultRoute() {
       onStartKarma={() => navigate({ type: 'USER_CHAT', userId })}
       company={activeCompanyData || undefined}
       companyUsers={companyUsers}
-      isReadOnly={!isViewingOwnProfile}
+      isReadOnly={true}
       onClose={() => navigate({ type: 'ADMIN_DASHBOARD' })}
     />
   );
