@@ -49,7 +49,8 @@ const PersonCard: React.FC<{
   p: TeamPerson;
   existingRating?: PeerRating;
   onRate: (p: TeamPerson) => void;
-}> = ({ p, existingRating, onRate }) => (
+  isReadOnly?: boolean;
+}> = ({ p, existingRating, onRate, isReadOnly }) => (
   <div className="bg-white border border-jnana-sage/10 rounded-xl p-3 flex items-center gap-3 hover:shadow-soft transition-shadow">
     <div className="relative">
       <Avatar p={p} />
@@ -63,22 +64,24 @@ const PersonCard: React.FC<{
       <div className="font-semibold text-jnana-text truncate">{fullName(p)}</div>
       <div className="text-xs text-jnana-text/60 truncate">{p.roleTitle}</div>
     </div>
-    <button
-      onClick={() => onRate(p)}
-      className="shrink-0 inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-jnana-bg hover:bg-jnana-powder/40 text-jnana-text/80"
-      title="Valuta compatibilità (privato)"
-    >
-      <Star
-        size={14}
-        className={existingRating ? 'fill-amber-400 text-amber-400' : 'text-jnana-sage'}
-      />
-      {existingRating ? `${existingRating.rating}/5` : 'Valuta'}
-    </button>
+    {!isReadOnly && (
+      <button
+        onClick={() => onRate(p)}
+        className="shrink-0 inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-jnana-bg hover:bg-jnana-powder/40 text-jnana-text/80"
+        title="Valuta compatibilità (privato)"
+      >
+        <Star
+          size={14}
+          className={existingRating ? 'fill-amber-400 text-amber-400' : 'text-jnana-sage'}
+        />
+        {existingRating ? `${existingRating.rating}/5` : 'Valuta'}
+      </button>
+    )}
   </div>
 );
 
 export const MyTeamTab: React.FC<MyTeamTabProps> = ({
-  team, companyId, getRatingFor, onUpsertRating, onDeleteRating,
+  team, companyId, getRatingFor, onUpsertRating, onDeleteRating, isReadOnly = false,
 }) => {
   const [target, setTarget] = useState<TeamPerson | null>(null);
   const [siblingsOpen, setSiblingsOpen] = useState(false);
