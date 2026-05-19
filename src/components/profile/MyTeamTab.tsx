@@ -22,6 +22,8 @@ interface MyTeamTabProps {
     note?: string | null;
   }) => Promise<{ success: boolean; error?: string }>;
   onDeleteRating: (ratedUserId: string) => Promise<{ success: boolean; error?: string }>;
+  /** Quando true (vista admin di un altro profilo), nascondiamo le azioni di rating personali. */
+  isReadOnly?: boolean;
 }
 
 const fullName = (p: TeamPerson) =>
