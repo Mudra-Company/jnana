@@ -2,11 +2,9 @@
  * MyRoleTab — Mostra alla persona il suo ruolo: mansionario, KPI,
  * skill vs richieste, inquadramento e reporting line.
  */
-import React, { useEffect, useState } from 'react';
-import { ClipboardList, Target, FileBadge, AlertCircle, ChevronRight, Briefcase } from 'lucide-react';
+import React from 'react';
+import { ClipboardList, Target, FileBadge, AlertCircle, ChevronRight, Briefcase, Info } from 'lucide-react';
 import { Card } from '../../../components/Card';
-import { Button } from '../../../components/Button';
-import { supabase } from '../../integrations/supabase/client';
 import type { CompanyRole } from '../../types/roles';
 import type { User } from '../../../types';
 import { SkillsComparison } from './SkillsComparison';
@@ -18,62 +16,12 @@ import {
 
 interface MyRoleTabProps {
   user: User;
-  roleId: string | null;
+  role: CompanyRole | null;
+  isImplicit?: boolean;
 }
 
-const mapRoleRow = (row: any): CompanyRole => ({
-  id: row.id,
-  companyId: row.company_id,
-  orgNodeId: row.org_node_id,
-  title: row.title,
-  code: row.code,
-  description: row.description,
-  responsibilities: row.responsibilities ?? [],
-  dailyTasks: row.daily_tasks ?? [],
-  kpis: row.kpis ?? [],
-  requiredHardSkills: row.required_hard_skills ?? [],
-  requiredSoftSkills: row.required_soft_skills ?? [],
-  requiredSeniority: row.required_seniority,
-  requiredEducation: row.required_education ?? [],
-  requiredCertifications: row.required_certifications ?? [],
-  requiredLanguages: row.required_languages ?? [],
-  yearsExperienceMin: row.years_experience_min,
-  yearsExperienceMax: row.years_experience_max,
-  ccnlLevel: row.ccnl_level,
-  ralRangeMin: row.ral_range_min,
-  ralRangeMax: row.ral_range_max,
-  contractType: row.contract_type,
-  workHoursType: row.work_hours_type,
-  remotePolicy: row.remote_policy,
-  reportsToRoleId: row.reports_to_role_id,
-  status: row.status,
-  headcount: row.headcount,
-  isHiring: row.is_hiring,
-  createdAt: row.created_at,
-  updatedAt: row.updated_at,
-});
-
-export const MyRoleTab: React.FC<MyRoleTabProps> = ({ user, roleId }) => {
-  const [role, setRole] = useState<CompanyRole | null>(null);
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    if (!roleId) return;
-    let cancelled = false;
-    setLoading(true);
-    supabase
-      .from('company_roles')
-      .select('*')
-      .eq('id', roleId)
-      .maybeSingle()
-      .then(({ data }) => {
-        if (!cancelled && data) setRole(mapRoleRow(data));
-      })
-      .then(() => !cancelled && setLoading(false));
-    return () => { cancelled = true; };
-  }, [roleId]);
-
-  if (!roleId) {
+export const MyRoleTab: React.FC<MyRoleTabProps> = ({ user, role, isImplicit = false }) => {
+  if (!role) {
     return (
       <Card>
         <div className="flex items-start gap-3">
@@ -88,14 +36,6 @@ export const MyRoleTab: React.FC<MyRoleTabProps> = ({ user, roleId }) => {
             </p>
           </div>
         </div>
-      </Card>
-    );
-  }
-
-  if (loading || !role) {
-    return (
-      <Card>
-        <div className="py-8 text-center text-jnana-text/50 text-sm">Caricamento ruolo…</div>
       </Card>
     );
   }
