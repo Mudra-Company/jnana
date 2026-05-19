@@ -1,52 +1,46 @@
-# Fix bug "Leader culturali" + coroncina sui responsabili Cultural Driver
+# Migliorare sezioni Hard / Soft skills nella spalla sinistra (posizione)
 
-## Bug
+## Problema
+Nel pannello laterale, quando si clicca una persona/posizione, le sezioni "Hard skills richieste" e "Soft skills richieste" mostrano solo dei chip uguali, senza far capire:
+- quali skill richieste la persona **possiede**,
+- quali skill richieste la persona **non possiede** (gap),
+- (opzionale) eventuali skill della persona **in più** rispetto al richiesto.
 
-Nel nodo **CEO Office** (che è marcato `isCulturalDriver = true`) il titolo della sezione laterale mostra ancora `"Leader culturali"` invece di `"Responsabile"`. La condizione attuale in `OrgChartContextPanel.tsx` (riga 421) è:
+## Cosa cambia (solo UI, nessuna logica di business nuova)
 
-```ts
-node.isCulturalDriver ? 'Leader culturali' : 'Responsabile'
-```
+File: `src/components/admin/orgchart/OrgChartContextPanel.tsx` → componente `PositionView`.
 
-Ma ora la sezione mostra i responsabili presi dal nodo **padre**, quindi la natura "cultural driver" del nodo corrente non c'entra più con l'etichetta.
+### 1. Rinominare le sezioni
+- "Hard skills richieste" → **"Hard skills"**
+- "Soft skills richieste" → **"Soft skills"**
 
-## Modifiche in `src/components/admin/orgchart/OrgChartContextPanel.tsx`
+Sotto il titolo aggiungere un mini-contatore tipo `2 / 3 possedute` (verde se 100%, ambra se parziale, rosso se 0).
 
-### 1. Titolo sempre "Responsabile"
+### 2. Chip con stato (matched / missing)
+Per ogni skill richiesta del ruolo confronto con i dati dell'assignee (stessa fuzzyMatch già usata in `calcRoleSkillGap`):
+- **Soft**: contro `assignee.karmaData?.softSkills`
+- **Hard**: contro `assignee.hardSkills?.map(s => s.name)` (con tooltip livello 1–5 se disponibile)
 
-Sostituire:
-```tsx
-<Section title={node.isCulturalDriver ? 'Leader culturali' : 'Responsabile'}>
-```
-con:
-```tsx
-<Section title="Responsabile">
-```
+Stati visivi del chip:
+- **Posseduta** → sfondo pieno (blu/viola), icona ✓
+- **Mancante** → bordato tratteggiato, testo muted, icona ✕ (rosso tenue)
+- **Posizione vacante** → tutti i chip "neutri" + nota "Posizione aperta – nessun assegnatario"
 
-### 2. Coroncina accanto al responsabile se è Cultural Driver
+### 3. Sezione "Skill aggiuntive della persona" (opzionale, compatta)
+Sotto le richieste, se l'assignee ha skill **non presenti** tra le richieste:
+- piccolo blocco "Altre skill di {Nome}" con max 6 chip outline grigi (+N se di più).
+- Separate hard/soft solo se servono, altrimenti riga unica.
 
-Il responsabile vive nel `parentNode` (calcolato già nel fix precedente). Se `parentNode.isCulturalDriver === true`, accanto al nome di ciascun responsabile mostriamo una piccola icona `Crown` viola (`text-purple-500`), coerente con l'iconografia già usata altrove nel pannello (vedi `Crown` accanto al titolo del nodo Cultural Driver, riga 375).
+### 4. Legenda inline minimale
+Sopra la prima sezione skill, una riga `✓ posseduta · ✕ mancante` size `text-[10px]` per non occupare spazio.
 
-Pseudocodice nel render della lista `managers`:
-```tsx
-<li>
-  <Award size={12} className="text-amber-500" />
-  {parentNode?.isCulturalDriver && (
-    <Crown size={12} className="text-purple-500" titleAttr="Driver culturale" />
-  )}
-  {m.firstName} {m.lastName}
-  {m.jobTitle && <span>— {m.jobTitle}</span>}
-</li>
-```
+## Dettagli tecnici
+- Nessuna nuova dipendenza, nessuna chiamata di rete.
+- Estrarre un piccolo helper `matchSkills(required, owned)` locale al file che riusa la stessa logica fuzzyMatch già presente (estrarla in una util locale per evitare duplicazione con `calcRoleSkillGap`).
+- Tipi: `role.requiredHardSkills` / `requiredSoftSkills` già tipizzati come `RequiredSkill[]`; `assignee.hardSkills` e `assignee.karmaData?.softSkills` già usati altrove nello stesso file.
+- Mantenere palette tokens esistenti (`text-blue-700`, `text-purple-700`, ecc.) — già in uso in questo componente.
 
-La coroncina compare **solo** se il nodo padre è effettivamente un Cultural Driver.
-
-## Nessun'altra modifica
-
-Niente cambi di dati, niente cambi al calcolo di `managers`, niente cambi agli altri rami del pannello (la sezione "Influencer del team" resta invariata).
-
-## Verifica attesa
-
-- Selezionando **CEO Office** (padre = CDA, che è Cultural Driver): la sezione si chiama "Responsabile" e ogni nome (es. Diego Barbisan, Chiara Tacco) ha la coroncina viola.
-- Selezionando un qualunque sotto-team di Marketing (padre = Marketing, non Cultural Driver): "Responsabile: Giulia Ruggi" senza coroncina.
-- Selezionando il nodo root: la sezione non appare (come oggi).
+## Out of scope
+- Nessuna modifica al modale "Apri dettaglio completo".
+- Nessuna modifica alla logica di scoring/match.
+- Nessuna modifica al backend o ai tipi.

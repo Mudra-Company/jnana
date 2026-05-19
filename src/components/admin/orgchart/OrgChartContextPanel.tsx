@@ -662,34 +662,9 @@ const PositionView: React.FC<{
         </Section>
       )}
 
-      {role.requiredHardSkills && role.requiredHardSkills.length > 0 && (
-        <Section title="Hard skills richieste">
-          <div className="flex flex-wrap gap-1">
-            {role.requiredHardSkills.map(s => (
-              <span
-                key={s.name}
-                className="text-xs px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
-              >
-                {s.name}
-              </span>
-            ))}
-          </div>
-        </Section>
-      )}
-
-      {role.requiredSoftSkills && role.requiredSoftSkills.length > 0 && (
-        <Section title="Soft skills richieste">
-          <div className="flex flex-wrap gap-1">
-            {role.requiredSoftSkills.map(s => (
-              <span
-                key={s.name}
-                className="text-xs px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300"
-              >
-                {s.name}
-              </span>
-            ))}
-          </div>
-        </Section>
+      {((role.requiredHardSkills && role.requiredHardSkills.length > 0) ||
+        (role.requiredSoftSkills && role.requiredSoftSkills.length > 0)) && (
+        <SkillsComparison role={role} assignee={assignee} />
       )}
 
       {onOpenFullDetail && (
