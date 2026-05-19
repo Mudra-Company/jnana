@@ -1227,7 +1227,7 @@ export const UnifiedDetailModal: React.FC<UnifiedDetailModalProps> = ({
                   const reqLevel = skill.level || 0;
                   const levelOk = matched && (!reqLevel || (userLevel ?? 0) >= reqLevel);
                   const levelGap = matched && reqLevel && (userLevel ?? 0) < reqLevel;
-                  const statusLabel = levelOk ? 'Posseduta' : levelGap ? 'Inferiore' : 'Mancante';
+                  const statusLabel = levelOk ? 'Presente' : levelGap ? 'Inferiore' : 'Mancante';
                   const statusColor = levelOk
                     ? 'bg-green-600 text-white'
                     : levelGap
@@ -1239,8 +1239,8 @@ export const UnifiedDetailModal: React.FC<UnifiedDetailModalProps> = ({
                       title={
                         matched
                           ? levelOk
-                            ? `Posseduta — Liv. persona ${userLevel ?? '?'} ≥ richiesto ${reqLevel || '—'}`
-                            : `Posseduta a livello inferiore — persona Liv. ${userLevel ?? '?'} vs richiesto ${reqLevel}`
+                            ? `Presente — Liv. persona ${userLevel ?? '?'} ≥ richiesto ${reqLevel || '—'}`
+                            : `Presente a livello inferiore — persona Liv. ${userLevel ?? '?'} vs richiesto ${reqLevel}`
                           : `Mancante${skill.mandatory ? ' (obbligatoria)' : ''}`
                       }
                       className={`inline-flex items-center gap-2 pl-3 pr-1.5 py-1 rounded-lg text-sm border ${
@@ -1272,7 +1272,7 @@ export const UnifiedDetailModal: React.FC<UnifiedDetailModalProps> = ({
               </div>
               {hasAssignee && (
                 <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-3 flex items-center gap-3 flex-wrap">
-                  <span className="inline-flex items-center gap-1"><span className="inline-block w-2 h-2 rounded-full bg-green-600" /> Posseduta</span>
+                  <span className="inline-flex items-center gap-1"><span className="inline-block w-2 h-2 rounded-full bg-green-600" /> Presente</span>
                   <span className="inline-flex items-center gap-1"><span className="inline-block w-2 h-2 rounded-full bg-amber-500" /> Livello inferiore al richiesto</span>
                   <span className="inline-flex items-center gap-1"><span className="inline-block w-2 h-2 rounded-full bg-red-500" /> Mancante</span>
                 </p>
@@ -1297,7 +1297,7 @@ export const UnifiedDetailModal: React.FC<UnifiedDetailModalProps> = ({
                   return (
                     <span
                       key={i}
-                      title={matched ? 'Posseduta dalla persona' : `Mancante${skill.mandatory ? ' (obbligatoria)' : ''}`}
+                      title={matched ? 'Presente nella persona' : `Mancante${skill.mandatory ? ' (obbligatoria)' : ''}`}
                       className={`inline-flex items-center gap-2 pl-3 pr-1.5 py-1 rounded-lg text-sm border ${
                         matched
                           ? 'bg-green-50 text-green-800 border-green-300 dark:bg-green-900/20 dark:text-green-200 dark:border-green-800'
@@ -1312,7 +1312,7 @@ export const UnifiedDetailModal: React.FC<UnifiedDetailModalProps> = ({
                         matched ? 'bg-green-600 text-white' : 'bg-red-500 text-white'
                       }`}>
                         {matched ? <CheckCircle size={10} /> : <X size={10} />}
-                        {matched ? 'Posseduta' : 'Mancante'}
+                        {matched ? 'Presente' : 'Mancante'}
                       </span>
                     </span>
                   );
@@ -1345,7 +1345,7 @@ export const UnifiedDetailModal: React.FC<UnifiedDetailModalProps> = ({
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div className="flex flex-col gap-1 px-3 py-2 rounded-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
-                      <span className="text-[10px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Posseduta</span>
+                      <span className="text-[10px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Presente</span>
                       <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">{detailedMetrics.userSeniority || '—'}</span>
                     </div>
                     <div className="flex flex-col gap-1 px-3 py-2 rounded-md bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
