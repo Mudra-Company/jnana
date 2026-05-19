@@ -137,6 +137,7 @@ export const MyTeamTab: React.FC<MyTeamTabProps> = ({
                 p={p}
                 existingRating={getRatingFor(p.userId)}
                 onRate={openRating}
+                isReadOnly={isReadOnly}
               />
             ))}
           </div>
@@ -156,6 +157,7 @@ export const MyTeamTab: React.FC<MyTeamTabProps> = ({
                 p={p}
                 existingRating={getRatingFor(p.userId)}
                 onRate={openRating}
+                isReadOnly={isReadOnly}
               />
             ))}
           </div>
@@ -186,6 +188,7 @@ export const MyTeamTab: React.FC<MyTeamTabProps> = ({
                   p={p}
                   existingRating={getRatingFor(p.userId)}
                   onRate={openRating}
+                isReadOnly={isReadOnly}
                 />
               ))}
             </div>
